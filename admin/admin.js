@@ -746,7 +746,7 @@ async function loadApiData() {
   ]);
   normalizeApiData(payloads);
   state.apiReady = true;
-  backendStatus.textContent = "Connected to Cloudflare D1. Changes will save to the database.";
+  backendStatus.textContent = "Connected to Cloudflare D1. Protect /admin/* and /api/* with Cloudflare Access before real customer data.";
   renderAll();
 }
 
@@ -754,7 +754,7 @@ async function boot() {
   bindEvents();
   if (window.location.protocol === "file:") {
     state.apiReady = false;
-    backendStatus.textContent = "Using local demo data. Deploy with a Cloudflare D1 binding to save real records.";
+    backendStatus.textContent = "Using local demo data. Deploy with D1 and protect /admin/* plus /api/* before real customer data.";
     renderAll();
     return;
   }
@@ -763,7 +763,7 @@ async function boot() {
     await loadApiData();
   } catch {
     state.apiReady = false;
-    backendStatus.textContent = "Using local demo data. Deploy with a Cloudflare D1 binding to save real records.";
+    backendStatus.textContent = "Using local demo data. Deploy with D1 and protect /admin/* plus /api/* before real customer data.";
     renderAll();
   }
 }

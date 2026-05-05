@@ -594,6 +594,16 @@ textarea:focus {
   text-align: right;
 }
 
+.footer-admin-link {
+  color: rgba(255, 255, 255, 0.72);
+  text-decoration-color: rgba(255, 255, 255, 0.28);
+  text-underline-offset: 4px;
+}
+
+.footer-admin-link:hover {
+  color: white;
+}
+
 @media (max-width: 900px) {
   .nav-toggle {
     display: inline-grid;

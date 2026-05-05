@@ -41,6 +41,7 @@ Apply both migrations:
 GET  /api/options
 POST /api/options
 GET  /api/dashboard
+GET  /api/health
 GET  /api/leads
 POST /api/leads
 PATCH /api/leads/:id

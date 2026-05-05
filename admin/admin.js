@@ -161,7 +161,9 @@ const data = {
 
 const state = {
   view: "dashboard",
-  role: "admin"
+  role: "admin",
+  apiReady: false,
+  options: {}
 };
 
 const titles = {
@@ -178,6 +180,35 @@ const leadStatuses = ["New enquiry", "Contacted", "Assessment booked", "Quote se
 
 const viewTitle = document.querySelector("[data-view-title]");
 const drawer = document.querySelector("[data-drawer]");
+const backendStatus = document.querySelector("[data-backend-status]");
+
+async function apiGet(path) {
+  const response = await fetch(path, {
+    headers: { accept: "application/json" }
+  });
+  if (!response.ok) throw new Error(`API ${path} failed`);
+  return response.json();
+}
+
+async function apiPost(path, body) {
+  const response = await fetch(path, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  if (!response.ok) throw new Error(`API ${path} failed`);
+  return response.json();
+}
+
+async function apiPatch(path, body) {
+  const response = await fetch(path, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  if (!response.ok) throw new Error(`API ${path} failed`);
+  return response.json();
+}
 
 function el(tag, className, html) {
   const node = document.createElement(tag);
@@ -204,6 +235,36 @@ function setRole(role) {
     button.classList.toggle("active", button.dataset.role === role);
   });
   if (role === "cleaner") setView("jobs");
+}
+
+function formatDate(value) {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return value || "";
+  const date = new Date(`${value}T00:00:00Z`);
+  return new Intl.DateTimeFormat("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short"
+  }).format(date);
+}
+
+function optionLabel(groupKey, value) {
+  const group = state.options[groupKey];
+  return group?.options?.find((option) => option.value === value)?.label || value || "";
+}
+
+function renderSelect(name, groupKey, currentValue) {
+  const group = state.options[groupKey];
+  if (!group) {
+    return `<input name="${name}" value="${currentValue || ""}">`;
+  }
+  return `
+    <select name="${name}" data-group="${groupKey}">
+      ${group.options
+        .map((option) => `<option value="${option.value}" ${option.value === currentValue ? "selected" : ""}>${option.label}</option>`)
+        .join("")}
+    </select>
+    <input class="other-field" name="${name}Other" value="" placeholder="Describe other" hidden>
+  `;
 }
 
 function openDrawer(type, record = {}) {
@@ -288,24 +349,123 @@ function openDrawer(type, record = {}) {
       </section>
     </div>
   `;
+
+  drawer.querySelectorAll("select[data-group]").forEach((select) => {
+    const other = select.parentElement.querySelector(".other-field");
+    const update = () => {
+      if (other) other.hidden = select.value !== "other";
+    };
+    select.addEventListener("change", update);
+    update();
+  });
+}
+
+function openLeadForm() {
+  drawer.innerHTML = `
+    <form class="drawer-content" data-lead-form>
+      <p class="eyebrow">Lead</p>
+      <h2>New lead</h2>
+      <p>Add the first enquiry details. Dropdowns keep typing low; choose Other when needed.</p>
+      <section class="drawer-section">
+        <h3>Contact</h3>
+        <div class="field-grid">
+          <label>Name<input name="name" required></label>
+          <label>Phone<input name="phone"></label>
+          <label>Email<input name="email" type="email"></label>
+          <label>Area<input name="area"></label>
+        </div>
+      </section>
+      <section class="drawer-section">
+        <h3>Enquiry</h3>
+        <div class="field-grid">
+          <label>Source${renderSelect("source", "lead_source", "website")}</label>
+          <label>Service${renderSelect("serviceType", "service_type", "regular_cleaning")}</label>
+          <label>Preferred contact${renderSelect("preferredContact", "preferred_contact", "phone")}</label>
+          <label>Preferred days<input name="preferredDays" placeholder="e.g. Tuesday morning"></label>
+          <label>Status${renderSelect("status", "lead_status", "new")}</label>
+          <label>Notes<textarea name="notes" rows="3"></textarea></label>
+        </div>
+      </section>
+      <section class="drawer-section">
+        <div class="drawer-actions">
+          <button class="primary" type="submit">Save lead</button>
+          <button class="ghost" type="button" data-demo-only>Demo only</button>
+        </div>
+      </section>
+    </form>
+  `;
+
+  const form = drawer.querySelector("[data-lead-form]");
+  form.querySelectorAll("select[data-group]").forEach((select) => {
+    const other = select.parentElement.querySelector(".other-field");
+    const update = () => {
+      if (other) other.hidden = select.value !== "other";
+    };
+    select.addEventListener("change", update);
+    update();
+  });
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const formData = new FormData(form);
+    const lead = Object.fromEntries(formData.entries());
+    if (state.apiReady) {
+      await apiPost("/api/leads", lead);
+      await loadApiData();
+      setView("leads");
+      return;
+    }
+
+    data.leads.unshift({
+      id: `lead-${Date.now()}`,
+      name: lead.name,
+      area: lead.area,
+      status: optionLabel("lead_status", lead.status),
+      statusValue: lead.status,
+      source: optionLabel("lead_source", lead.source),
+      sourceValue: lead.source,
+      service: optionLabel("service_type", lead.serviceType),
+      serviceType: lead.serviceType,
+      serviceLabel: optionLabel("service_type", lead.serviceType),
+      contact: lead.phone || lead.email,
+      note: lead.notes,
+      notes: lead.notes
+    });
+    renderAll();
+    setView("leads");
+  });
 }
 
 function renderDashboard() {
+  const metrics = data.dashboard?.metrics;
+  if (metrics) {
+    const cards = document.querySelectorAll(".metric-grid article");
+    cards[0].querySelector("strong").textContent = metrics.newEnquiries;
+    cards[1].querySelector("strong").textContent = metrics.assessmentsThisWeek;
+    cards[2].querySelector("strong").textContent = metrics.scheduledJobs;
+    cards[3].querySelector("strong").textContent = metrics.unpaidInvoices;
+  }
+
   const list = document.querySelector("[data-dashboard-list]");
   list.innerHTML = "";
-  data.leads.slice(0, 4).forEach((lead) => {
+  const attention = data.dashboard?.attention || data.leads.slice(0, 4);
+  attention.forEach((lead) => {
     const card = el("article", "task-card");
     card.innerHTML = `
       <button type="button">
         <h3>${lead.name}</h3>
-        <p>${lead.status} - ${lead.area} - ${lead.service}</p>
+        <p>${lead.statusLabel || lead.status} - ${lead.area || ""} - ${lead.serviceLabel || lead.service || ""}</p>
       </button>
     `;
     card.querySelector("button").addEventListener("click", () => openDrawer("lead", lead));
     list.append(card);
   });
 
-  const today = data.jobs[0];
+  const today = data.dashboard?.today || data.jobs[0];
+  if (!today) {
+    document.querySelector("[data-today-card]").innerHTML = "<p>No jobs scheduled.</p>";
+    return;
+  }
   document.querySelector("[data-today-card]").innerHTML = `
     <h3>${today.client}</h3>
     <p>${today.type} - ${today.date} at ${today.time}</p>
@@ -325,18 +485,22 @@ function renderDashboard() {
 function renderLeadBoard() {
   const board = document.querySelector("[data-lead-board]");
   board.innerHTML = "";
-  leadStatuses.forEach((status) => {
-    const leads = data.leads.filter((lead) => lead.status === status);
+  const statuses = state.apiReady
+    ? (state.options.lead_status?.options || []).filter((option) => option.value !== "lost")
+    : leadStatuses.map((status) => ({ value: status, label: status }));
+
+  statuses.forEach((statusOption) => {
+    const leads = data.leads.filter((lead) => (lead.statusValue || lead.status) === statusOption.value || lead.status === statusOption.label);
     const column = el("section", "board-column");
-    column.innerHTML = `<h2>${status}<span>${leads.length}</span></h2>`;
+    column.innerHTML = `<h2>${statusOption.label}<span>${leads.length}</span></h2>`;
     leads.forEach((lead) => {
       const card = el("article", "board-card");
       card.innerHTML = `
         <button type="button">
           <h3>${lead.name}</h3>
-          <p>${lead.area} - ${lead.service}</p>
+          <p>${lead.area || ""} - ${lead.serviceLabel || lead.service || ""}</p>
           <div class="tag-row">
-            <span class="pill">${lead.source}</span>
+            <span class="pill">${lead.sourceLabel || lead.source || ""}</span>
             <span class="pill blue">${lead.contact}</span>
           </div>
         </button>
@@ -365,7 +529,7 @@ function renderTables() {
   data.assessments.forEach((assessment) => {
     assessmentTable.append(recordRow("assessment", assessment, [
       `<div class="record-main">${assessment.client}</div><div class="record-sub">${assessment.area}</div>`,
-      `${assessment.date}`,
+      `${formatDate(assessment.date)}`,
       `${assessment.time}`,
       `<span class="pill warn">${assessment.estimate}</span>`
     ]));
@@ -376,7 +540,7 @@ function renderTables() {
   data.clients.forEach((client) => {
     clientTable.append(recordRow("client", client, [
       `<div class="record-main">${client.name}</div><div class="record-sub">${client.area}</div>`,
-      `${client.frequency}`,
+      `${client.frequencyLabel || client.frequency || ""}`,
       `${client.manHours} man-hours`,
       `<span class="pill">${client.mainCleaner}</span>`
     ]));
@@ -387,9 +551,9 @@ function renderTables() {
   data.jobs.forEach((job) => {
     jobTable.append(recordRow("job", job, [
       `<div class="record-main">${job.client}</div><div class="record-sub">${job.type}</div>`,
-      `${job.date}<div class="record-sub">${job.time}</div>`,
+      `${formatDate(job.date)}<div class="record-sub">${job.time || ""}</div>`,
       `${job.manHours} man-hours`,
-      `<span class="pill ${job.status === "Assessment" ? "blue" : ""}">${job.status}</span>`
+      `<span class="pill ${job.status === "assessment" ? "blue" : ""}">${job.statusLabel || job.status}</span>`
     ]));
   });
 
@@ -407,6 +571,10 @@ function renderTables() {
 
 function renderCleanerPhone() {
   const job = data.jobs[0];
+  if (!job) {
+    document.querySelector("[data-cleaner-phone]").innerHTML = "<p>No checklist available.</p>";
+    return;
+  }
   const phone = document.querySelector("[data-cleaner-phone]");
   phone.innerHTML = `
     <div class="phone-top">
@@ -426,18 +594,38 @@ function renderCleanerPhone() {
       ${job.checklist
         .map((item, index) => `
           <label class="check-item">
-            <input type="checkbox" ${index < 2 ? "checked" : ""}>
-            <span>${item}</span>
+            <input type="checkbox" data-checklist-id="${typeof item === "string" ? "" : item.id}" ${typeof item === "string" ? (index < 2 ? "checked" : "") : item.completed ? "checked" : ""}>
+            <span>${typeof item === "string" ? item : item.label}</span>
           </label>
         `)
         .join("")}
     </div>
     <button class="primary" type="button" style="width:100%; margin-top:14px;">Mark job complete</button>
   `;
+
+  phone.querySelectorAll("[data-checklist-id]").forEach((checkbox) => {
+    checkbox.addEventListener("change", async () => {
+      if (!state.apiReady || !checkbox.dataset.checklistId) return;
+      await apiPatch(`/api/checklist/${checkbox.dataset.checklistId}`, {
+        completed: checkbox.checked
+      });
+    });
+  });
 }
 
 function renderExports(type) {
   const preview = document.querySelector("[data-export-preview]");
+  if (state.apiReady) {
+    fetch(`/api/export/${type}`)
+      .then((response) => response.text())
+      .then((text) => {
+        preview.textContent = text;
+      })
+      .catch(() => {
+        preview.textContent = "Export failed. Check the Cloudflare function and D1 binding.";
+      });
+    return;
+  }
   const rows = {
     invoices: [
       ["number", "client", "date", "amount", "status", "paid_date"],
@@ -469,10 +657,29 @@ function bindEvents() {
   });
 
   document.querySelectorAll("[data-open-drawer]").forEach((button) => {
-    button.addEventListener("click", () => openDrawer(button.dataset.openDrawer));
+    button.addEventListener("click", () => {
+      if (button.dataset.openDrawer === "lead") {
+        openLeadForm();
+      } else {
+        openDrawer(button.dataset.openDrawer);
+      }
+    });
   });
 
-  document.querySelector("[data-generate-jobs]").addEventListener("click", () => {
+  document.querySelector("[data-generate-jobs]").addEventListener("click", async () => {
+    if (state.apiReady) {
+      const now = new Date();
+      const startDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+      const endDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 2, 0));
+      await apiPost("/api/generate-jobs", {
+        startDate: startDate.toISOString().slice(0, 10),
+        endDate: endDate.toISOString().slice(0, 10)
+      });
+      await loadApiData();
+      setView("jobs");
+      return;
+    }
+
     data.jobs.push({
       id: `job-${data.jobs.length + 1}`,
       client: "Mrs Knowles",
@@ -496,8 +703,69 @@ function bindEvents() {
   });
 }
 
-renderDashboard();
-renderLeadBoard();
-renderTables();
-renderCleanerPhone();
-bindEvents();
+function renderAll() {
+  renderDashboard();
+  renderLeadBoard();
+  renderTables();
+  renderCleanerPhone();
+}
+
+function normalizeApiData(payloads) {
+  const [options, dashboard, leads, assessments, clients, jobs, invoices] = payloads;
+  state.options = Object.fromEntries(options.groups.map((group) => [group.key, group]));
+  data.leads = leads.leads.map((lead) => ({
+    ...lead,
+    statusValue: lead.status,
+    status: lead.statusLabel,
+    source: lead.sourceLabel,
+    service: lead.serviceLabel,
+    note: lead.notes
+  }));
+  data.assessments = assessments.assessments;
+  data.clients = clients.clients;
+  data.jobs = jobs.jobs.map((job) => ({
+    ...job,
+    type: job.typeLabel,
+    statusValue: job.status,
+    status: job.statusLabel,
+    instructions: job.instructions || ""
+  }));
+  data.invoices = invoices.invoices;
+  data.dashboard = dashboard;
+}
+
+async function loadApiData() {
+  const payloads = await Promise.all([
+    apiGet("/api/options"),
+    apiGet("/api/dashboard"),
+    apiGet("/api/leads"),
+    apiGet("/api/assessments"),
+    apiGet("/api/clients"),
+    apiGet("/api/jobs"),
+    apiGet("/api/invoices")
+  ]);
+  normalizeApiData(payloads);
+  state.apiReady = true;
+  backendStatus.textContent = "Connected to Cloudflare D1. Changes will save to the database.";
+  renderAll();
+}
+
+async function boot() {
+  bindEvents();
+  if (window.location.protocol === "file:") {
+    state.apiReady = false;
+    backendStatus.textContent = "Using local demo data. Deploy with a Cloudflare D1 binding to save real records.";
+    renderAll();
+    return;
+  }
+
+  try {
+    await loadApiData();
+  } catch {
+    state.apiReady = false;
+    backendStatus.textContent = "Using local demo data. Deploy with a Cloudflare D1 binding to save real records.";
+    renderAll();
+  }
+}
+
+boot();

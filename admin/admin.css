@@ -275,6 +275,10 @@ h2 {
   overflow: hidden;
 }
 
+.mini-schedule-panel {
+  overflow: visible;
+}
+
 .panel-head,
 .table-toolbar {
   min-height: 58px;
@@ -343,33 +347,67 @@ h2 {
 
 .mini-calendar {
   display: grid;
-  grid-template-columns: repeat(14, minmax(0, 1fr));
-  gap: 6px;
-  padding: 14px;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 1px;
+  padding: 1px;
+  margin: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--line);
+  overflow: visible;
+}
+
+.mini-weekday,
+.mini-day {
+  background: white;
+}
+
+.mini-weekday {
+  padding: 7px 4px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-align: center;
+  text-transform: uppercase;
 }
 
 .mini-day {
   position: relative;
-  min-height: 58px;
-  padding: 7px;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  background: white;
+  aspect-ratio: 1;
+  min-height: 46px;
+  display: grid;
+  place-items: center;
+  padding: 4px;
 }
 
 .mini-day strong {
   display: block;
-  font-size: 0.8rem;
+  font-size: 0.9rem;
+  line-height: 1;
 }
 
 .mini-day span {
-  color: var(--muted);
-  font-size: 0.76rem;
+  position: absolute;
+  right: 4px;
+  bottom: 3px;
+  min-width: 16px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: white;
+  background: var(--forest);
+  font-size: 0.68rem;
+  font-weight: 800;
 }
 
 .mini-day.has-jobs {
-  border-color: rgba(56, 83, 67, 0.36);
   background: #f4f8f1;
+}
+
+.mini-day.today {
+  outline: 2px solid var(--gold);
+  outline-offset: -2px;
 }
 
 .mini-day .day-popover,
@@ -386,6 +424,14 @@ h2 {
   border-radius: 8px;
   background: white;
   box-shadow: var(--shadow);
+}
+
+.mini-day:nth-child(7n + 6) .day-popover,
+.mini-day:nth-child(7n + 7) .day-popover,
+.calendar-day:nth-child(7n + 6) .day-popover,
+.calendar-day:nth-child(7n + 7) .day-popover {
+  left: auto;
+  right: 8px;
 }
 
 .mini-day:hover .day-popover,
@@ -813,10 +859,6 @@ body.cleaner-mode .notice {
   .metric-grid,
   .export-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .mini-calendar {
-    grid-template-columns: repeat(7, minmax(0, 1fr));
   }
 
   .dashboard-grid,

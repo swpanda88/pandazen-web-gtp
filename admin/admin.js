@@ -261,6 +261,13 @@ function dateKey(date) {
   return date.toISOString().slice(0, 10);
 }
 
+function startOfWeek(date = new Date()) {
+  const start = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const mondayOffset = (start.getUTCDay() + 6) % 7;
+  start.setUTCDate(start.getUTCDate() - mondayOffset);
+  return start;
+}
+
 function monthLabel(date) {
   return new Intl.DateTimeFormat("en-GB", {
     month: "long",
@@ -530,20 +537,22 @@ function renderMiniCalendar() {
   const host = document.querySelector("[data-mini-calendar]");
   if (!host) return;
   const datedJobs = data.jobs.filter((job) => parseDate(job.date));
-  const base = datedJobs[0] ? parseDate(datedJobs[0].date) : new Date();
-  const start = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), 1));
+  const today = new Date();
+  const start = startOfWeek(today);
   const byDay = groupedJobs(datedJobs);
-  host.innerHTML = "";
+  const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const todayKey = dateKey(new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())));
+  host.innerHTML = weekdays.map((day) => `<div class="mini-weekday">${day}</div>`).join("");
 
   for (let i = 0; i < 28; i += 1) {
     const day = new Date(start);
     day.setUTCDate(start.getUTCDate() + i);
     const key = dateKey(day);
     const dayJobs = byDay[key] || [];
-    const node = el("div", `mini-day ${dayJobs.length ? "has-jobs" : ""}`);
+    const node = el("div", `mini-day ${dayJobs.length ? "has-jobs" : ""} ${key === todayKey ? "today" : ""}`);
     node.innerHTML = `
       <strong>${day.getUTCDate()}</strong>
-      <span>${dayJobs.length ? `${dayJobs.length} booked` : "open"}</span>
+      ${dayJobs.length ? `<span>${dayJobs.length}</span>` : ""}
       ${popoverFor(dayJobs)}
     `;
     host.append(node);

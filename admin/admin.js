@@ -171,6 +171,7 @@ const titles = {
   leads: "Leads",
   assessments: "Assessments",
   clients: "Clients",
+  schedule: "Schedule",
   jobs: "Jobs",
   invoices: "Invoices",
   exports: "Exports"
@@ -226,6 +227,9 @@ function setView(view) {
   document.querySelectorAll("[data-view]").forEach((button) => {
     button.classList.toggle("active", button.dataset.view === view);
   });
+  if (view === "schedule") {
+    renderSchedule();
+  }
 }
 
 function setRole(role) {
@@ -244,6 +248,23 @@ function formatDate(value) {
     weekday: "short",
     day: "numeric",
     month: "short"
+  }).format(date);
+}
+
+function parseDate(value) {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}T00:00:00Z`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function dateKey(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function monthLabel(date) {
+  return new Intl.DateTimeFormat("en-GB", {
+    month: "long",
+    year: "numeric"
   }).format(date);
 }
 
@@ -482,6 +503,130 @@ function renderDashboard() {
   });
 }
 
+function groupedJobs(jobs = data.jobs) {
+  return jobs.reduce((groups, job) => {
+    const key = job.date;
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(job);
+    return groups;
+  }, {});
+}
+
+function jobSummary(job) {
+  return `${job.time || ""} ${job.client} - ${job.typeLabel || job.type}`;
+}
+
+function popoverFor(dayJobs) {
+  if (!dayJobs.length) return "";
+  return `
+    <div class="day-popover">
+      <h3>${dayJobs.length} item${dayJobs.length === 1 ? "" : "s"}</h3>
+      ${dayJobs.map((job) => `<p>${jobSummary(job)} (${job.mainCleaner || "Unassigned"})</p>`).join("")}
+    </div>
+  `;
+}
+
+function renderMiniCalendar() {
+  const host = document.querySelector("[data-mini-calendar]");
+  if (!host) return;
+  const datedJobs = data.jobs.filter((job) => parseDate(job.date));
+  const base = datedJobs[0] ? parseDate(datedJobs[0].date) : new Date();
+  const start = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), 1));
+  const byDay = groupedJobs(datedJobs);
+  host.innerHTML = "";
+
+  for (let i = 0; i < 28; i += 1) {
+    const day = new Date(start);
+    day.setUTCDate(start.getUTCDate() + i);
+    const key = dateKey(day);
+    const dayJobs = byDay[key] || [];
+    const node = el("div", `mini-day ${dayJobs.length ? "has-jobs" : ""}`);
+    node.innerHTML = `
+      <strong>${day.getUTCDate()}</strong>
+      <span>${dayJobs.length ? `${dayJobs.length} booked` : "open"}</span>
+      ${popoverFor(dayJobs)}
+    `;
+    host.append(node);
+  }
+}
+
+function uniqueOptions(values) {
+  return ["All", ...Array.from(new Set(values.filter(Boolean))).sort()];
+}
+
+function setFilterOptions(selector, values) {
+  const select = document.querySelector(selector);
+  const current = select.value || "All";
+  select.innerHTML = uniqueOptions(values).map((value) => `<option value="${value}">${value}</option>`).join("");
+  select.value = uniqueOptions(values).includes(current) ? current : "All";
+}
+
+function filteredScheduleJobs() {
+  const client = document.querySelector('[data-filter="client"]')?.value || "All";
+  const cleaner = document.querySelector('[data-filter="cleaner"]')?.value || "All";
+  const status = document.querySelector('[data-filter="status"]')?.value || "All";
+  return data.jobs.filter((job) => {
+    if (client !== "All" && job.client !== client) return false;
+    if (cleaner !== "All" && job.mainCleaner !== cleaner && job.helper !== cleaner) return false;
+    if (status !== "All" && (job.statusLabel || job.status) !== status) return false;
+    return true;
+  });
+}
+
+function renderSchedule() {
+  const host = document.querySelector("[data-schedule-calendar]");
+  if (!host) return;
+
+  setFilterOptions('[data-filter="client"]', data.jobs.map((job) => job.client));
+  setFilterOptions('[data-filter="cleaner"]', data.jobs.flatMap((job) => [job.mainCleaner, job.helper === "None" ? "" : job.helper]));
+  setFilterOptions('[data-filter="status"]', data.jobs.map((job) => job.statusLabel || job.status));
+
+  const jobs = filteredScheduleJobs().filter((job) => parseDate(job.date));
+  const base = jobs[0] ? parseDate(jobs[0].date) : new Date();
+  const monthStart = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), 1));
+  const start = new Date(monthStart);
+  const mondayOffset = (start.getUTCDay() + 6) % 7;
+  start.setUTCDate(start.getUTCDate() - mondayOffset);
+  const byDay = groupedJobs(jobs);
+  const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+  host.innerHTML = weekdays.map((day) => `<div class="calendar-weekday">${day}</div>`).join("");
+  const heading = document.querySelector('[data-view-panel="schedule"] .panel-head h2');
+  if (heading) heading.textContent = `Schedule - ${monthLabel(monthStart)}`;
+
+  for (let i = 0; i < 42; i += 1) {
+    const day = new Date(start);
+    day.setUTCDate(start.getUTCDate() + i);
+    const key = dateKey(day);
+    const dayJobs = byDay[key] || [];
+    const outside = day.getUTCMonth() !== monthStart.getUTCMonth();
+    const cell = el("div", `calendar-day ${outside ? "outside" : ""}`);
+    cell.innerHTML = `
+      <div class="calendar-day-number">
+        <span>${day.getUTCDate()}</span>
+        ${dayJobs.length ? `<span class="calendar-count">${dayJobs.length}</span>` : ""}
+      </div>
+      ${dayJobs
+        .slice(0, 3)
+        .map((job) => `
+          <button class="calendar-job ${job.type === "assessment" ? "assessment" : ""} ${job.status === "cancelled" ? "cancelled" : ""}" type="button" data-job-id="${job.id}">
+            ${job.time || ""} ${job.client}
+          </button>
+        `)
+        .join("")}
+      ${dayJobs.length > 3 ? `<span class="record-sub">+${dayJobs.length - 3} more</span>` : ""}
+      ${popoverFor(dayJobs)}
+    `;
+    cell.querySelectorAll("[data-job-id]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const job = data.jobs.find((item) => String(item.id) === button.dataset.jobId);
+        if (job) openDrawer("job", job);
+      });
+    });
+    host.append(cell);
+  }
+}
+
 function renderLeadBoard() {
   const board = document.querySelector("[data-lead-board]");
   board.innerHTML = "";
@@ -701,6 +846,10 @@ function bindEvents() {
   document.querySelectorAll("[data-export]").forEach((button) => {
     button.addEventListener("click", () => renderExports(button.dataset.export));
   });
+
+  document.querySelectorAll("[data-filter]").forEach((select) => {
+    select.addEventListener("change", renderSchedule);
+  });
 }
 
 function renderAll() {
@@ -708,6 +857,8 @@ function renderAll() {
   renderLeadBoard();
   renderTables();
   renderCleanerPhone();
+  renderMiniCalendar();
+  renderSchedule();
 }
 
 function normalizeApiData(payloads) {

@@ -266,6 +266,10 @@ h2 {
   gap: 14px;
 }
 
+.mini-schedule-panel {
+  margin-top: 14px;
+}
+
 .panel,
 .table-panel {
   overflow: hidden;
@@ -335,6 +339,58 @@ h2 {
 
 .today-card {
   padding: 16px;
+}
+
+.mini-calendar {
+  display: grid;
+  grid-template-columns: repeat(14, minmax(0, 1fr));
+  gap: 6px;
+  padding: 14px;
+}
+
+.mini-day {
+  position: relative;
+  min-height: 58px;
+  padding: 7px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: white;
+}
+
+.mini-day strong {
+  display: block;
+  font-size: 0.8rem;
+}
+
+.mini-day span {
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.mini-day.has-jobs {
+  border-color: rgba(56, 83, 67, 0.36);
+  background: #f4f8f1;
+}
+
+.mini-day .day-popover,
+.calendar-day .day-popover {
+  position: absolute;
+  z-index: 8;
+  left: 8px;
+  right: auto;
+  top: calc(100% + 6px);
+  width: min(280px, 72vw);
+  display: none;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  box-shadow: var(--shadow);
+}
+
+.mini-day:hover .day-popover,
+.calendar-day:hover .day-popover {
+  display: block;
 }
 
 .today-card h3 {
@@ -440,6 +496,127 @@ h2 {
 
 .records-table {
   display: grid;
+}
+
+.schedule-shell {
+  display: grid;
+  gap: 14px;
+}
+
+.schedule-head {
+  align-items: end;
+}
+
+.schedule-head p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.schedule-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.schedule-controls label {
+  display: grid;
+  gap: 4px;
+  min-width: 150px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.schedule-controls select {
+  min-height: 36px;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  background: white;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(120px, 1fr));
+  gap: 1px;
+  padding: 1px;
+  background: var(--line);
+  overflow-x: auto;
+}
+
+.calendar-weekday,
+.calendar-day {
+  background: white;
+}
+
+.calendar-weekday {
+  padding: 10px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.calendar-day {
+  position: relative;
+  min-height: 128px;
+  padding: 9px;
+}
+
+.calendar-day.outside {
+  background: #f6f7f4;
+  color: #a4aca8;
+}
+
+.calendar-day-number {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.calendar-count {
+  color: var(--forest);
+  font-weight: 800;
+}
+
+.calendar-job {
+  width: 100%;
+  display: block;
+  margin-top: 5px;
+  padding: 6px 7px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--ink);
+  background: #edf3ea;
+  text-align: left;
+  font-size: 0.78rem;
+  line-height: 1.25;
+}
+
+.calendar-job.assessment {
+  background: #e8f0f4;
+}
+
+.calendar-job.cancelled {
+  color: #8b4e45;
+  background: #faecea;
+}
+
+.day-popover h3 {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+}
+
+.day-popover p {
+  margin: 4px 0;
+  color: var(--muted);
+  font-size: 0.82rem;
 }
 
 .record-row {
@@ -638,6 +815,10 @@ body.cleaner-mode .notice {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .mini-calendar {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+
   .dashboard-grid,
   .jobs-layout {
     grid-template-columns: 1fr;
@@ -672,6 +853,15 @@ body.cleaner-mode .notice {
   .record-row {
     grid-template-columns: 1fr;
     gap: 5px;
+  }
+
+  .schedule-controls {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .calendar-grid {
+    grid-template-columns: repeat(7, minmax(96px, 1fr));
   }
 
   .drawer {

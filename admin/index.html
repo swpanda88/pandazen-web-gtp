@@ -20,6 +20,7 @@
           <button type="button" data-view="leads">Leads</button>
           <button type="button" data-view="assessments">Assessments</button>
           <button type="button" data-view="clients">Clients</button>
+          <button type="button" data-view="schedule">Schedule</button>
           <button type="button" data-view="jobs">Jobs</button>
           <button type="button" data-view="invoices">Invoices</button>
           <button type="button" data-view="exports">Exports</button>
@@ -92,6 +93,14 @@
               <div class="today-card" data-today-card></div>
             </section>
           </div>
+
+          <section class="panel mini-schedule-panel">
+            <div class="panel-head">
+              <h2>Schedule overview</h2>
+              <button type="button" data-view-link="schedule">Open schedule</button>
+            </div>
+            <div class="mini-calendar" data-mini-calendar></div>
+          </section>
         </section>
 
         <section class="view" data-view-panel="leads">
@@ -115,6 +124,34 @@
               <button class="ghost" type="button" data-open-drawer="client">Add client</button>
             </div>
             <div class="records-table" data-client-table></div>
+          </div>
+        </section>
+
+        <section class="view" data-view-panel="schedule">
+          <div class="schedule-shell">
+            <section class="panel">
+              <div class="panel-head schedule-head">
+                <div>
+                  <h2>Schedule</h2>
+                  <p>Hover a day for a quick view. Click a job to open details.</p>
+                </div>
+                <div class="schedule-controls">
+                  <label>
+                    Client
+                    <select data-filter="client"></select>
+                  </label>
+                  <label>
+                    Cleaner
+                    <select data-filter="cleaner"></select>
+                  </label>
+                  <label>
+                    Status
+                    <select data-filter="status"></select>
+                  </label>
+                </div>
+              </div>
+              <div class="calendar-grid" data-schedule-calendar></div>
+            </section>
           </div>
         </section>
 

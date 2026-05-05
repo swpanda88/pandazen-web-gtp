@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex">
+    <title>Panda Zen Admin Preview</title>
+    <link rel="stylesheet" href="admin.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Panda Zen admin navigation">
+        <a class="brand" href="../index.html" aria-label="Back to Panda Zen website">
+          <img src="../assets/logo.png" alt="">
+          <span>Panda Zen</span>
+        </a>
+
+        <nav class="side-nav" data-nav>
+          <button class="active" type="button" data-view="dashboard">Dashboard</button>
+          <button type="button" data-view="leads">Leads</button>
+          <button type="button" data-view="assessments">Assessments</button>
+          <button type="button" data-view="clients">Clients</button>
+          <button type="button" data-view="jobs">Jobs</button>
+          <button type="button" data-view="invoices">Invoices</button>
+          <button type="button" data-view="exports">Exports</button>
+        </nav>
+
+        <div class="role-card" aria-label="Preview role selector">
+          <span>Preview role</span>
+          <div class="role-toggle" data-role-toggle>
+            <button class="active" type="button" data-role="admin">Admin</button>
+            <button type="button" data-role="cleaner">Cleaner</button>
+          </div>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Admin MVP preview</p>
+            <h1 data-view-title>Dashboard</h1>
+          </div>
+          <div class="top-actions">
+            <button class="ghost" type="button" data-open-drawer="assessment">New assessment</button>
+            <button class="primary" type="button" data-open-drawer="lead">Add lead</button>
+          </div>
+        </header>
+
+        <section class="notice" data-admin-notice>
+          <strong>Demo only:</strong>
+          This PR uses fake data so we can review the operating flow before connecting Cloudflare D1.
+        </section>
+
+        <section class="view active" data-view-panel="dashboard">
+          <div class="metric-grid">
+            <article>
+              <span>New enquiries</span>
+              <strong>4</strong>
+              <p>2 need a reply today</p>
+            </article>
+            <article>
+              <span>Assessments this week</span>
+              <strong>3</strong>
+              <p>Next: Thurs 10:30</p>
+            </article>
+            <article>
+              <span>Scheduled cleans</span>
+              <strong>8</strong>
+              <p>Generated to month end</p>
+            </article>
+            <article>
+              <span>Unpaid invoices</span>
+              <strong>£246</strong>
+              <p>2 awaiting payment</p>
+            </article>
+          </div>
+
+          <div class="dashboard-grid">
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Needs attention</h2>
+                <button type="button" data-view-link="leads">View leads</button>
+              </div>
+              <div class="task-list" data-dashboard-list></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Cleaner today</h2>
+                <button type="button" data-view-link="jobs">View jobs</button>
+              </div>
+              <div class="today-card" data-today-card></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" data-view-panel="leads">
+          <div class="board" data-lead-board></div>
+        </section>
+
+        <section class="view" data-view-panel="assessments">
+          <div class="table-panel">
+            <div class="table-toolbar">
+              <h2>Assessments</h2>
+              <button class="ghost" type="button" data-open-drawer="assessment">Book assessment</button>
+            </div>
+            <div class="records-table" data-assessment-table></div>
+          </div>
+        </section>
+
+        <section class="view" data-view-panel="clients">
+          <div class="table-panel">
+            <div class="table-toolbar">
+              <h2>Clients</h2>
+              <button class="ghost" type="button" data-open-drawer="client">Add client</button>
+            </div>
+            <div class="records-table" data-client-table></div>
+          </div>
+        </section>
+
+        <section class="view" data-view-panel="jobs">
+          <div class="jobs-layout">
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Work orders</h2>
+                <button type="button" data-generate-jobs>Generate June jobs</button>
+              </div>
+              <div class="records-table" data-job-table></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Cleaner checklist</h2>
+                <span class="pill">Mobile preview</span>
+              </div>
+              <div class="cleaner-phone" data-cleaner-phone></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" data-view-panel="invoices">
+          <div class="table-panel">
+            <div class="table-toolbar">
+              <h2>Invoices</h2>
+              <button class="ghost" type="button" data-open-drawer="invoice">New invoice record</button>
+            </div>
+            <div class="records-table" data-invoice-table></div>
+          </div>
+        </section>
+
+        <section class="view" data-view-panel="exports">
+          <div class="export-grid">
+            <article class="export-card">
+              <h2>Invoices CSV</h2>
+              <p>Invoice number, client, date, amount, status and payment date for monthly accounts checks.</p>
+              <button class="primary" type="button" data-export="invoices">Preview export</button>
+            </article>
+            <article class="export-card">
+              <h2>Jobs CSV</h2>
+              <p>Completed and scheduled work orders with man-hours, cleaner assignment and completion notes.</p>
+              <button class="primary" type="button" data-export="jobs">Preview export</button>
+            </article>
+            <article class="export-card">
+              <h2>Clients CSV</h2>
+              <p>Active client list for backup and handoff. Sensitive access notes can be excluded later.</p>
+              <button class="primary" type="button" data-export="clients">Preview export</button>
+            </article>
+          </div>
+          <pre class="export-preview" data-export-preview>Choose an export to preview sample CSV output.</pre>
+        </section>
+      </main>
+
+      <aside class="drawer" aria-live="polite" data-drawer>
+        <div class="drawer-empty">
+          <p class="eyebrow">Detail panel</p>
+          <h2>Select a record</h2>
+          <p>Click a lead, client, job or invoice to review details here.</p>
+        </div>
+      </aside>
+    </div>
+
+    <script src="admin.js"></script>
+  </body>
+</html>

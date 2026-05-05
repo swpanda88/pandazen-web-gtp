@@ -24,10 +24,11 @@ If using Wrangler locally, update `wrangler.toml` with the real `database_id`, t
 wrangler d1 migrations apply pandazen --remote
 ```
 
-Apply both migrations:
+Apply these migrations in order:
 
 - `0001_initial.sql`
 - `0002_seed_demo.sql`
+- `0003_job_followups.sql`
 
 ## Admin App Behaviour
 
@@ -49,6 +50,9 @@ GET  /api/assessments
 POST /api/assessments
 GET  /api/clients
 POST /api/clients
+GET  /api/followups
+POST /api/followups
+PATCH /api/followups/:id
 GET  /api/jobs
 POST /api/jobs
 PATCH /api/jobs/:id

@@ -100,8 +100,9 @@ const data = {
   jobs: [
     {
       id: "job-1",
+      clientId: 1,
       client: "Mrs Knowles",
-      date: "Tue 14 May",
+      date: "2026-05-12",
       time: "09:00",
       status: "Scheduled",
       type: "Regular clean",
@@ -115,12 +116,23 @@ const data = {
         "Dust living room surfaces",
         "Vacuum bedrooms and hallway",
         "Mop kitchen and bathroom floors"
+      ],
+      followups: [
+        {
+          id: "followup-1",
+          clientId: 1,
+          sourceJobId: "job-1",
+          note: "Follow up next visit: check study shelves if extra kitchen time runs over.",
+          status: "open",
+          createdBy: "Anna"
+        }
       ]
     },
     {
       id: "job-2",
+      clientId: 2,
       client: "Mrs Ellison",
-      date: "Thu 16 May",
+      date: "2026-05-14",
       time: "10:30",
       status: "Assessment",
       type: "Home assessment",
@@ -134,7 +146,8 @@ const data = {
         "Estimate weekly man-hours",
         "Agree products preference",
         "Prepare quote notes"
-      ]
+      ],
+      followups: []
     }
   ],
   invoices: [
@@ -163,7 +176,8 @@ const state = {
   view: "dashboard",
   role: "admin",
   apiReady: false,
-  options: {}
+  options: {},
+  scheduleMonth: null
 };
 
 const titles = {
@@ -275,6 +289,14 @@ function monthLabel(date) {
   }).format(date);
 }
 
+function monthInputValue(date) {
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function addMonths(date, count) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + count, 1));
+}
+
 function optionLabel(groupKey, value) {
   const group = state.options[groupKey];
   return group?.options?.find((option) => option.value === value)?.label || value || "";
@@ -332,7 +354,8 @@ function openDrawer(type, record = {}) {
       sections: [
         ["Job", [["Type", record.type], ["Status", record.status], ["Man-hours", record.manHours], ["Main cleaner", record.mainCleaner], ["Helper", record.helper]]],
         ["Instructions", [["Special instructions", record.instructions]]],
-        ["Checklist", (record.checklist || []).map((item, index) => [`Item ${index + 1}`, item])]
+        ["Follow-ups", (record.followups || []).length ? record.followups.map((item, index) => [`Follow-up ${index + 1}`, item.note]) : [["Open follow-ups", "None"]]],
+        ["Checklist", (record.checklist || []).map((item, index) => [`Item ${index + 1}`, typeof item === "string" ? item : item.label])]
       ],
       actions: ["Reschedule", "Cancel job", "Mark complete"]
     },
@@ -375,6 +398,17 @@ function openDrawer(type, record = {}) {
           ${template.actions.map((action) => `<button class="ghost" type="button">${action}</button>`).join("")}
         </div>
       </section>
+      ${
+        type === "job"
+          ? `<section class="drawer-section">
+              <h3>Add follow-up</h3>
+              <form class="followup-form" data-followup-form>
+                <textarea name="note" rows="3" placeholder="e.g. Follow up next visit: clean study shelves."></textarea>
+                <button class="primary" type="submit">Save follow-up</button>
+              </form>
+            </section>`
+          : ""
+      }
     </div>
   `;
 
@@ -386,6 +420,38 @@ function openDrawer(type, record = {}) {
     select.addEventListener("change", update);
     update();
   });
+
+  const followupForm = drawer.querySelector("[data-followup-form]");
+  if (followupForm) {
+    followupForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const note = new FormData(followupForm).get("note")?.trim();
+      if (!note) return;
+
+      const followup = {
+        id: `local-followup-${Date.now()}`,
+        clientId: record.clientId,
+        sourceJobId: record.id,
+        note,
+        status: "open",
+        createdBy: state.role === "cleaner" ? "Cleaner" : "Admin"
+      };
+
+      if (state.apiReady) {
+        await apiPost("/api/followups", followup);
+        await loadApiData();
+      } else {
+        const original = data.jobs.find((job) => job.id === record.id);
+        if (original) original.followups = [followup, ...(original.followups || [])];
+        renderAll();
+      }
+
+      openDrawer("job", {
+        ...record,
+        followups: [followup, ...(record.followups || [])]
+      });
+    });
+  }
 }
 
 function openLeadForm() {
@@ -591,8 +657,11 @@ function renderSchedule() {
   setFilterOptions('[data-filter="status"]', data.jobs.map((job) => job.statusLabel || job.status));
 
   const jobs = filteredScheduleJobs().filter((job) => parseDate(job.date));
-  const base = jobs[0] ? parseDate(jobs[0].date) : new Date();
-  const monthStart = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), 1));
+  if (!state.scheduleMonth) {
+    const base = jobs[0] ? parseDate(jobs[0].date) : new Date();
+    state.scheduleMonth = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), 1));
+  }
+  const monthStart = state.scheduleMonth;
   const start = new Date(monthStart);
   const mondayOffset = (start.getUTCDay() + 6) % 7;
   start.setUTCDate(start.getUTCDate() - mondayOffset);
@@ -602,6 +671,8 @@ function renderSchedule() {
   host.innerHTML = weekdays.map((day) => `<div class="calendar-weekday">${day}</div>`).join("");
   const heading = document.querySelector('[data-view-panel="schedule"] .panel-head h2');
   if (heading) heading.textContent = `Schedule - ${monthLabel(monthStart)}`;
+  const monthInput = document.querySelector("[data-schedule-month]");
+  if (monthInput) monthInput.value = monthInputValue(monthStart);
 
   for (let i = 0; i < 42; i += 1) {
     const day = new Date(start);
@@ -744,6 +815,13 @@ function renderCleanerPhone() {
       <div><span>Helper</span><strong>${job.helper}</strong></div>
     </div>
     <p><strong>Special:</strong> ${job.instructions}</p>
+    ${
+      (job.followups || []).length
+        ? `<div class="followup-list">
+            ${(job.followups || []).map((item) => `<div class="followup-item"><p>${item.note}</p></div>`).join("")}
+          </div>`
+        : ""
+    }
     <div class="checklist">
       ${job.checklist
         .map((item, index) => `
@@ -754,6 +832,10 @@ function renderCleanerPhone() {
         `)
         .join("")}
     </div>
+    <form class="followup-form" data-cleaner-followup>
+      <textarea name="note" rows="2" placeholder="Follow up next visit..."></textarea>
+      <button class="ghost" type="submit">Add follow-up note</button>
+    </form>
     <button class="primary" type="button" style="width:100%; margin-top:14px;">Mark job complete</button>
   `;
 
@@ -764,6 +846,28 @@ function renderCleanerPhone() {
         completed: checkbox.checked
       });
     });
+  });
+
+  const form = phone.querySelector("[data-cleaner-followup]");
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const note = new FormData(form).get("note")?.trim();
+    if (!note) return;
+    const followup = {
+      id: `local-followup-${Date.now()}`,
+      clientId: job.clientId,
+      sourceJobId: job.id,
+      note,
+      status: "open",
+      createdBy: "Cleaner"
+    };
+    if (state.apiReady) {
+      await apiPost("/api/followups", followup);
+      await loadApiData();
+    } else {
+      job.followups = [followup, ...(job.followups || [])];
+      renderAll();
+    }
   });
 }
 
@@ -837,7 +941,7 @@ function bindEvents() {
     data.jobs.push({
       id: `job-${data.jobs.length + 1}`,
       client: "Mrs Knowles",
-      date: "Tue 4 Jun",
+      date: "2026-06-02",
       time: "09:00",
       status: "Scheduled",
       type: "Regular clean",
@@ -858,6 +962,30 @@ function bindEvents() {
 
   document.querySelectorAll("[data-filter]").forEach((select) => {
     select.addEventListener("change", renderSchedule);
+  });
+
+  document.querySelector("[data-schedule-prev]").addEventListener("click", () => {
+    state.scheduleMonth = addMonths(state.scheduleMonth || new Date(), -1);
+    renderSchedule();
+  });
+
+  document.querySelector("[data-schedule-next]").addEventListener("click", () => {
+    state.scheduleMonth = addMonths(state.scheduleMonth || new Date(), 1);
+    renderSchedule();
+  });
+
+  document.querySelector("[data-schedule-today]").addEventListener("click", () => {
+    const now = new Date();
+    state.scheduleMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    renderSchedule();
+  });
+
+  document.querySelector("[data-schedule-month]").addEventListener("change", (event) => {
+    const [year, month] = event.target.value.split("-").map(Number);
+    if (year && month) {
+      state.scheduleMonth = new Date(Date.UTC(year, month - 1, 1));
+      renderSchedule();
+    }
   });
 }
 
@@ -885,11 +1013,12 @@ function normalizeApiData(payloads) {
   data.clients = clients.clients;
   data.jobs = jobs.jobs.map((job) => ({
     ...job,
-    type: job.typeLabel,
-    statusValue: job.status,
-    status: job.statusLabel,
-    instructions: job.instructions || ""
-  }));
+      type: job.typeLabel,
+      statusValue: job.status,
+      status: job.statusLabel,
+      instructions: job.instructions || "",
+      followups: job.followups || []
+    }));
   data.invoices = invoices.invoices;
   data.dashboard = dashboard;
 }

@@ -17,13 +17,27 @@ async function listJobs(db, labels) {
     .all();
 
   return Promise.all(
-    results.map(async (job) => ({
-      ...job,
-      typeLabel: labelFor(labels, "job_type", job.type),
-      statusLabel: labelFor(labels, "job_status", job.status),
-      helper: job.helper || "None",
-      checklist: await getJobChecklist(db, job.id)
-    }))
+    results.map(async (job) => {
+      const followups = await db
+        .prepare(
+          `SELECT id, note, status, created_by AS createdBy, created_at AS createdAt,
+                  source_job_id AS sourceJobId, target_job_id AS targetJobId
+           FROM job_followups
+           WHERE client_id = ? AND status = 'open' AND (target_job_id = ? OR target_job_id IS NULL)
+           ORDER BY created_at DESC, id DESC`
+        )
+        .bind(job.clientId, job.id)
+        .all();
+
+      return {
+        ...job,
+        typeLabel: labelFor(labels, "job_type", job.type),
+        statusLabel: labelFor(labels, "job_status", job.status),
+        helper: job.helper || "None",
+        checklist: await getJobChecklist(db, job.id),
+        followups: followups.results
+      };
+    })
   );
 }
 

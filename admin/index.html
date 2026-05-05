@@ -136,6 +136,15 @@
                   <p>Hover a day for a quick view. Click a job to open details.</p>
                 </div>
                 <div class="schedule-controls">
+                  <div class="month-controls" aria-label="Schedule month controls">
+                    <button type="button" data-schedule-prev>Previous</button>
+                    <button type="button" data-schedule-today>Today</button>
+                    <button type="button" data-schedule-next>Next</button>
+                  </div>
+                  <label>
+                    Jump to
+                    <input type="month" data-schedule-month>
+                  </label>
                   <label>
                     Client
                     <select data-filter="client"></select>

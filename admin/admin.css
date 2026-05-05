@@ -551,6 +551,7 @@ h2 {
 
 .schedule-head {
   align-items: end;
+  flex-wrap: wrap;
 }
 
 .schedule-head p {
@@ -564,6 +565,7 @@ h2 {
   flex-wrap: wrap;
   gap: 10px;
   justify-content: flex-end;
+  max-width: 100%;
 }
 
 .schedule-controls label {
@@ -575,13 +577,54 @@ h2 {
   font-weight: 800;
 }
 
-.schedule-controls select {
+.schedule-controls select,
+.schedule-controls input {
   min-height: 36px;
   padding: 7px 9px;
   border: 1px solid var(--line);
   border-radius: 6px;
   color: var(--ink);
   background: white;
+}
+
+.month-controls {
+  display: inline-flex;
+  align-items: end;
+  gap: 6px;
+}
+
+.month-controls button {
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--forest);
+  background: #edf3ea;
+  font-weight: 800;
+}
+
+.followup-list {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 12px;
+}
+
+.followup-item {
+  padding: 10px;
+  border: 1px solid #ead7aa;
+  border-radius: 8px;
+  background: #fff7e6;
+}
+
+.followup-item p {
+  margin: 0;
+  color: #6b5524;
+}
+
+.followup-form {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 .calendar-grid {

@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex">
+    <title>Panda Zen Intake Form</title>
+    <link rel="stylesheet" href="form.css">
+  </head>
+  <body>
+    <main class="form-shell">
+      <header class="form-topbar">
+        <a class="brand" href="../index.html">
+          <img src="../../assets/logo.png" alt="">
+          <span>Panda Zen</span>
+        </a>
+        <div class="form-actions">
+          <button class="quiet" type="button" data-back>Back</button>
+          <button class="ghost" type="button" data-save-draft>Save draft</button>
+        </div>
+      </header>
+
+      <section class="form-hero">
+        <p class="eyebrow">Client intake</p>
+        <h1>New enquiry</h1>
+        <p>Capture just enough detail to reply, qualify the work and book a home assessment.</p>
+      </section>
+
+      <form class="form-card" data-pz-form data-form-name="intake">
+        <section class="form-step active" data-form-step>
+          <div class="step-head">
+            <div>
+              <h2>Contact</h2>
+              <p>Basic customer and enquiry source details.</p>
+            </div>
+            <span class="step-pill" data-step-count>1 of 2</span>
+          </div>
+
+          <div class="field-grid">
+            <label>Customer name<input name="customerName" autocomplete="name" required></label>
+            <label>Area<input name="area" placeholder="e.g. Esh, Durham City, Shincliffe"></label>
+            <label>Phone<input name="phone" autocomplete="tel"></label>
+            <label>Email<input name="email" type="email" autocomplete="email"></label>
+            <label>
+              Preferred contact
+              <select name="preferredContact">
+                <option value="phone">Phone</option>
+                <option value="email">Email</option>
+                <option value="text">Text message</option>
+                <option value="whatsapp">WhatsApp</option>
+              </select>
+            </label>
+            <label>
+              Enquiry source
+              <select name="source" data-other-select>
+                <option value="website">Website</option>
+                <option value="leaflet">Leaflet</option>
+                <option value="referral">Referral</option>
+                <option value="facebook">Facebook</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <label class="full" data-other-for="source" hidden>Other source<input name="sourceOther"></label>
+          </div>
+
+          <div class="form-footer">
+            <span class="status" data-form-status>Not saved yet.</span>
+            <div class="step-actions">
+              <button class="primary" type="button" data-next-step>Next</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="form-step" data-form-step>
+          <div class="step-head">
+            <div>
+              <h2>Cleaning need</h2>
+              <p>Keep it light. The assessment form will hold the detailed property information.</p>
+            </div>
+            <span class="step-pill" data-step-count>2 of 2</span>
+          </div>
+
+          <div class="field-grid">
+            <label>
+              Service type
+              <select name="serviceType" data-other-select>
+                <option value="regular_cleaning">Regular cleaning</option>
+                <option value="deep_cleaning">Deep cleaning</option>
+                <option value="one_off_cleaning">One-off cleaning</option>
+                <option value="move_cleaning">Move in / move out</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <label class="full" data-other-for="serviceType" hidden>Other service<input name="serviceTypeOther"></label>
+            <label>Preferred days/times<input name="preferredTimes" placeholder="e.g. Tuesday morning or Friday afternoon"></label>
+            <label>
+              Urgency
+              <select name="urgency">
+                <option value="normal">Normal</option>
+                <option value="soon">Soon</option>
+                <option value="urgent">Urgent</option>
+              </select>
+            </label>
+            <label class="full">Initial notes<textarea name="notes" rows="4" placeholder="Anything useful before calling back."></textarea></label>
+          </div>
+
+          <div class="success" data-form-success hidden>Saved locally for preview. Database submit wiring comes next.</div>
+          <div class="form-footer">
+            <span class="status" data-form-status>Not saved yet.</span>
+            <div class="step-actions">
+              <button class="ghost" type="button" data-prev-step>Previous</button>
+              <button class="primary" type="submit">Submit intake</button>
+            </div>
+          </div>
+        </section>
+      </form>
+    </main>
+    <script src="form.js"></script>
+  </body>
+</html>

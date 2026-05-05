@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex">
+    <title>Panda Zen Assessment Form</title>
+    <link rel="stylesheet" href="form.css">
+  </head>
+  <body>
+    <main class="form-shell">
+      <header class="form-topbar">
+        <a class="brand" href="../index.html">
+          <img src="../../assets/logo.png" alt="">
+          <span>Panda Zen</span>
+        </a>
+        <div class="form-actions">
+          <button class="quiet" type="button" data-back>Back</button>
+          <button class="ghost" type="button" data-save-draft>Save draft</button>
+        </div>
+      </header>
+
+      <section class="form-hero">
+        <p class="eyebrow">Home assessment</p>
+        <h1>Assessment visit</h1>
+        <p>Build the client record, risk notes, quote basis and future cleaning checklist from one focused form.</p>
+      </section>
+
+      <form class="form-card" data-pz-form data-form-name="assessment">
+        <section class="form-step active" data-form-step>
+          <div class="step-head">
+            <div>
+              <h2>Visit basics</h2>
+              <p>Who, where and what type of work they are likely to need.</p>
+            </div>
+            <span class="step-pill" data-step-count>1 of 3</span>
+          </div>
+          <div class="field-grid">
+            <label>Customer name<input name="customerName" required></label>
+            <label>Area<input name="area"></label>
+            <label>Assessment date<input name="assessmentDate" type="date"></label>
+            <label>Assessment time<input name="assessmentTime" type="time"></label>
+            <label>
+              Service type
+              <select name="serviceType" data-other-select>
+                <option value="regular_cleaning">Regular cleaning</option>
+                <option value="deep_cleaning">Deep cleaning</option>
+                <option value="one_off_cleaning">One-off cleaning</option>
+                <option value="move_cleaning">Move in / move out</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <label data-other-for="serviceType" hidden>Other service<input name="serviceTypeOther"></label>
+            <label>
+              Suggested frequency
+              <select name="frequency" data-other-select>
+                <option value="weekly">Weekly</option>
+                <option value="fortnightly">Fortnightly</option>
+                <option value="monthly">Monthly</option>
+                <option value="one_off">One-off</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <label data-other-for="frequency" hidden>Other frequency<input name="frequencyOther"></label>
+          </div>
+          <div class="form-footer">
+            <span class="status" data-form-status>Not saved yet.</span>
+            <div class="step-actions">
+              <button class="primary" type="button" data-next-step>Next</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="form-step" data-form-step>
+          <div class="step-head">
+            <div>
+              <h2>Property and safety</h2>
+              <p>Record practical details that affect time, reliability and safe working.</p>
+            </div>
+            <span class="step-pill" data-step-count>2 of 3</span>
+          </div>
+          <div class="field-grid">
+            <label>Bedrooms<input name="bedrooms" type="number" min="0"></label>
+            <label>Bathrooms<input name="bathrooms" type="number" min="0"></label>
+            <label>Parking/access<input name="parking" placeholder="e.g. driveway, permit, street parking"></label>
+            <label>
+              Pets
+              <select name="pets" data-other-select>
+                <option value="none">None</option>
+                <option value="dog">Dog</option>
+                <option value="cat">Cat</option>
+                <option value="multiple">Multiple pets</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <label data-other-for="pets" hidden>Pet details<input name="petsOther"></label>
+            <label class="full">Safety/access notes<textarea name="safetyNotes" rows="4" placeholder="Alarms, keys, steep stairs, fragile surfaces, allergies, products to avoid."></textarea></label>
+          </div>
+          <div class="form-footer">
+            <span class="status" data-form-status>Not saved yet.</span>
+            <div class="step-actions">
+              <button class="ghost" type="button" data-prev-step>Previous</button>
+              <button class="primary" type="button" data-next-step>Next</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="form-step" data-form-step>
+          <div class="step-head">
+            <div>
+              <h2>Cleaning scope</h2>
+              <p>Add rooms and draft checklist items. This will later feed the cleaning plan.</p>
+            </div>
+            <span class="step-pill" data-step-count>3 of 3</span>
+          </div>
+          <div class="field-grid">
+            <label>Estimated man-hours<input name="manHours" type="number" min="0" step="0.5"></label>
+            <label>Main cleaner preference<input name="mainCleaner" placeholder="e.g. Anna"></label>
+            <label class="full">Product preferences<textarea name="productPreferences" rows="3"></textarea></label>
+          </div>
+
+          <section class="repeatable full">
+            <h3>Rooms/areas</h3>
+            <div data-room-list>
+              <div class="repeatable-row" data-row>
+                <label>Room/area<input name="rooms[]" placeholder="e.g. Kitchen"></label>
+                <button type="button" data-remove-row>Remove</button>
+              </div>
+            </div>
+            <button class="ghost" type="button" data-add-row="[data-room-list]" data-template="#room-template">Add room</button>
+          </section>
+
+          <section class="repeatable full">
+            <h3>Draft checklist</h3>
+            <div data-checklist-list>
+              <div class="repeatable-row" data-row>
+                <label>Checklist item<input name="checklist[]" placeholder="e.g. Kitchen worktops, hob and sink"></label>
+                <button type="button" data-remove-row>Remove</button>
+              </div>
+            </div>
+            <button class="ghost" type="button" data-add-row="[data-checklist-list]" data-template="#checklist-template">Add checklist item</button>
+          </section>
+
+          <div class="success" data-form-success hidden>Saved locally for preview. Database submit wiring comes next.</div>
+          <div class="form-footer">
+            <span class="status" data-form-status>Not saved yet.</span>
+            <div class="step-actions">
+              <button class="ghost" type="button" data-prev-step>Previous</button>
+              <button class="primary" type="submit">Submit assessment</button>
+            </div>
+          </div>
+        </section>
+      </form>
+
+      <template id="room-template">
+        <div class="repeatable-row" data-row>
+          <label>Room/area<input name="rooms[]"></label>
+          <button type="button" data-remove-row>Remove</button>
+        </div>
+      </template>
+      <template id="checklist-template">
+        <div class="repeatable-row" data-row>
+          <label>Checklist item<input name="checklist[]"></label>
+          <button type="button" data-remove-row>Remove</button>
+        </div>
+      </template>
+    </main>
+    <script src="form.js"></script>
+  </body>
+</html>

@@ -568,12 +568,8 @@ function renderDashboard() {
       <div><span>Man-hours</span><strong>${today.manHours}</strong></div>
       <div><span>Helper</span><strong>${today.helper}</strong></div>
     </div>
-    <button class="primary" type="button" data-open-first-job>Open checklist</button>
+    <a class="primary" href="forms/job-report.html?job=${today.id}">Open checklist</a>
   `;
-  document.querySelector("[data-open-first-job]").addEventListener("click", () => {
-    setView("jobs");
-    openDrawer("job", today);
-  });
 }
 
 function groupedJobs(jobs = data.jobs) {
@@ -836,7 +832,7 @@ function renderCleanerPhone() {
       <textarea name="note" rows="2" placeholder="Follow up next visit..."></textarea>
       <button class="ghost" type="submit">Add follow-up note</button>
     </form>
-    <button class="primary" type="button" style="width:100%; margin-top:14px;">Mark job complete</button>
+    <a class="primary" href="forms/job-report.html?job=${job.id}" style="width:100%; margin-top:14px;">Open full report</a>
   `;
 
   phone.querySelectorAll("[data-checklist-id]").forEach((checkbox) => {

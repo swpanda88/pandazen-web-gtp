@@ -36,6 +36,14 @@ button {
   cursor: pointer;
 }
 
+a.primary,
+a.ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
 .app-shell {
   min-height: 100svh;
   display: grid;
@@ -79,8 +87,11 @@ button {
 .side-nav button,
 .role-toggle button,
 .panel-head button,
+.panel-head a,
 .table-toolbar button,
+.table-toolbar a,
 .top-actions button,
+.top-actions a,
 .export-card button,
 .drawer button {
   border: 0;

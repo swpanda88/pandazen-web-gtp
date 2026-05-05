@@ -12,6 +12,14 @@ Review path:
 4. Review the mobile-style cleaner checklist on the Jobs screen.
 5. Try `Generate June jobs` to preview manual monthly work order generation.
 6. Check Exports to preview CSV output shapes.
+7. Open focused forms from the main buttons:
+   - `/admin/forms/intake.html`
+   - `/admin/forms/assessment.html`
+   - `/admin/forms/cleaning-plan.html`
+   - `/admin/forms/job-report.html`
+   - `/admin/forms/invoice.html`
+
+Form pages deliberately show only one task at a time. They currently save preview drafts to the browser on that device. Database submit wiring is a later step.
 
 Things to decide after review:
 
@@ -19,3 +27,4 @@ Things to decide after review:
 - Is the cleaner view simple enough?
 - Are the lead/job/invoice statuses right?
 - What fields are missing from the assessment/client/job detail panel?
+- Are the focused forms easier and safer than editing inside the main admin screen?

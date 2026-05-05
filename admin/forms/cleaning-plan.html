@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex">
+    <title>Panda Zen Cleaning Plan</title>
+    <link rel="stylesheet" href="form.css">
+  </head>
+  <body>
+    <main class="form-shell">
+      <header class="form-topbar">
+        <a class="brand" href="../index.html">
+          <img src="../../assets/logo.png" alt="">
+          <span>Panda Zen</span>
+        </a>
+        <div class="form-actions">
+          <button class="quiet" type="button" data-back>Back</button>
+          <button class="ghost" type="button" data-save-draft>Save draft</button>
+        </div>
+      </header>
+
+      <section class="form-hero">
+        <p class="eyebrow">Cleaning plan</p>
+        <h1>Client cleaning plan</h1>
+        <p>Turn an accepted assessment into a regular plan for scheduling, checklists and future work orders.</p>
+      </section>
+
+      <form class="form-card" data-pz-form data-form-name="cleaning-plan">
+        <section class="form-step active" data-form-step>
+          <div class="step-head">
+            <div>
+              <h2>Plan basics</h2>
+              <p>The recurring pattern and people normally assigned to the client.</p>
+            </div>
+            <span class="step-pill" data-step-count>1 of 2</span>
+          </div>
+          <div class="field-grid">
+            <label>Client<input name="clientName" required></label>
+            <label>Area<input name="area"></label>
+            <label>
+              Frequency
+              <select name="frequency" data-other-select>
+                <option value="weekly">Weekly</option>
+                <option value="fortnightly">Fortnightly</option>
+                <option value="monthly">Monthly</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <label data-other-for="frequency" hidden>Other frequency<input name="frequencyOther"></label>
+            <label>Default day/time<input name="defaultSlot" placeholder="e.g. Tuesday 09:00"></label>
+            <label>Man-hours<input name="manHours" type="number" min="0" step="0.5"></label>
+            <label>Main cleaner<input name="mainCleaner" placeholder="e.g. Anna"></label>
+            <label>Helper/cover<input name="helper" placeholder="e.g. Sam optional"></label>
+          </div>
+          <div class="form-footer">
+            <span class="status" data-form-status>Not saved yet.</span>
+            <div class="step-actions">
+              <button class="primary" type="button" data-next-step>Next</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="form-step" data-form-step>
+          <div class="step-head">
+            <div>
+              <h2>Checklist and instructions</h2>
+              <p>Keep regular instructions clear and repeatable, with room for unlimited checklist items.</p>
+            </div>
+            <span class="step-pill" data-step-count>2 of 2</span>
+          </div>
+          <div class="field-grid single">
+            <label>Standing instructions<textarea name="standingInstructions" rows="4"></textarea></label>
+            <label>Products/surface care<textarea name="productNotes" rows="3"></textarea></label>
+          </div>
+
+          <section class="repeatable">
+            <h3>Default checklist</h3>
+            <div data-plan-checklist>
+              <div class="repeatable-row" data-row>
+                <label>Checklist item<input name="checklist[]" placeholder="e.g. Bathroom basins, toilets and shower glass"></label>
+                <button type="button" data-remove-row>Remove</button>
+              </div>
+            </div>
+            <button class="ghost" type="button" data-add-row="[data-plan-checklist]" data-template="#plan-checklist-template">Add checklist item</button>
+          </section>
+
+          <div class="success" data-form-success hidden>Saved locally for preview. Database submit wiring comes next.</div>
+          <div class="form-footer">
+            <span class="status" data-form-status>Not saved yet.</span>
+            <div class="step-actions">
+              <button class="ghost" type="button" data-prev-step>Previous</button>
+              <button class="primary" type="submit">Submit plan</button>
+            </div>
+          </div>
+        </section>
+      </form>
+
+      <template id="plan-checklist-template">
+        <div class="repeatable-row" data-row>
+          <label>Checklist item<input name="checklist[]"></label>
+          <button type="button" data-remove-row>Remove</button>
+        </div>
+      </template>
+    </main>
+    <script src="form.js"></script>
+  </body>
+</html>

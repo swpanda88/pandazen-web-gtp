@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex">
+    <title>Panda Zen Job Report</title>
+    <link rel="stylesheet" href="form.css">
+  </head>
+  <body>
+    <main class="form-shell">
+      <header class="form-topbar">
+        <a class="brand" href="../index.html">
+          <img src="../../assets/logo.png" alt="">
+          <span>Panda Zen</span>
+        </a>
+        <div class="form-actions">
+          <button class="quiet" type="button" data-back>Back</button>
+          <button class="ghost" type="button" data-save-draft>Save draft</button>
+        </div>
+      </header>
+
+      <section class="form-hero">
+        <p class="eyebrow">Cleaner report</p>
+        <h1>Job checklist</h1>
+        <p>Complete the visit checklist, add notes and capture anything that needs attention next time.</p>
+      </section>
+
+      <form class="form-card" data-pz-form data-form-name="job-report">
+        <section class="form-step active" data-form-step>
+          <div class="step-head">
+            <div>
+              <h2>Today</h2>
+              <p>Confirm the job you are reporting on.</p>
+            </div>
+            <span class="step-pill" data-step-count>1 of 2</span>
+          </div>
+          <div class="field-grid">
+            <label>Client<input name="clientName" value="Mrs Knowles"></label>
+            <label>Job date<input name="jobDate" type="date" value="2026-05-12"></label>
+            <label>Start time<input name="startTime" type="time" value="09:00"></label>
+            <label>Finish time<input name="finishTime" type="time"></label>
+            <label>Main cleaner<input name="mainCleaner" value="Anna"></label>
+            <label>Helper<input name="helper" value="None"></label>
+            <label class="full">Special instructions<textarea name="instructions" rows="3">Focus kitchen and guest bedroom this week. Use client product on marble.</textarea></label>
+          </div>
+          <div class="form-footer">
+            <span class="status" data-form-status>Not saved yet.</span>
+            <div class="step-actions">
+              <button class="primary" type="button" data-next-step>Next</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="form-step" data-form-step>
+          <div class="step-head">
+            <div>
+              <h2>Checklist and notes</h2>
+              <p>Tick what is done. Anything skipped can be explained in the report notes.</p>
+            </div>
+            <span class="step-pill" data-step-count>2 of 2</span>
+          </div>
+
+          <div class="check-list">
+            <div class="check-row">
+              <input type="checkbox" name="done[]" value="kitchen">
+              <label>Kitchen worktops, hob and sink<textarea name="noteKitchen" rows="2" placeholder="Optional note"></textarea></label>
+            </div>
+            <div class="check-row">
+              <input type="checkbox" name="done[]" value="bathrooms">
+              <label>Bathroom basins, toilets and shower glass<textarea name="noteBathrooms" rows="2" placeholder="Optional note"></textarea></label>
+            </div>
+            <div class="check-row">
+              <input type="checkbox" name="done[]" value="dusting">
+              <label>Dust living room surfaces<textarea name="noteDusting" rows="2" placeholder="Optional note"></textarea></label>
+            </div>
+            <div class="check-row">
+              <input type="checkbox" name="done[]" value="floors">
+              <label>Vacuum and mop agreed floors<textarea name="noteFloors" rows="2" placeholder="Optional note"></textarea></label>
+            </div>
+          </div>
+
+          <div class="field-grid single">
+            <label>Completion notes<textarea name="completionNotes" rows="4" placeholder="What changed today, what was skipped, client comments, access issues."></textarea></label>
+            <label>Follow up next visit<textarea name="followUp" rows="3" placeholder="e.g. Clean study shelves next visit."></textarea></label>
+            <label>
+              Job status
+              <select name="jobStatus">
+                <option value="completed_by_cleaner">Completed by cleaner</option>
+                <option value="part_complete">Part complete</option>
+                <option value="needs_admin_review">Needs admin review</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="success" data-form-success hidden>Saved locally for preview. Database submit wiring comes next.</div>
+          <div class="form-footer">
+            <span class="status" data-form-status>Not saved yet.</span>
+            <div class="step-actions">
+              <button class="ghost" type="button" data-prev-step>Previous</button>
+              <button class="primary" type="submit">Submit report</button>
+            </div>
+          </div>
+        </section>
+      </form>
+    </main>
+    <script src="form.js"></script>
+  </body>
+</html>

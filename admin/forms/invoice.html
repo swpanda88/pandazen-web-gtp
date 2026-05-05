@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex">
+    <title>Panda Zen Invoice Record</title>
+    <link rel="stylesheet" href="form.css">
+  </head>
+  <body>
+    <main class="form-shell">
+      <header class="form-topbar">
+        <a class="brand" href="../index.html">
+          <img src="../../assets/logo.png" alt="">
+          <span>Panda Zen</span>
+        </a>
+        <div class="form-actions">
+          <button class="quiet" type="button" data-back>Back</button>
+          <button class="ghost" type="button" data-save-draft>Save draft</button>
+        </div>
+      </header>
+
+      <section class="form-hero">
+        <p class="eyebrow">Invoice tracker</p>
+        <h1>Invoice record</h1>
+        <p>Track what was invoiced and export it later for bank and accounting checks.</p>
+      </section>
+
+      <form class="form-card" data-pz-form data-form-name="invoice">
+        <section class="form-step active" data-form-step>
+          <div class="step-head">
+            <div>
+              <h2>Invoice details</h2>
+              <p>This is tracking information, not full accounting software.</p>
+            </div>
+            <span class="step-pill" data-step-count>1 of 1</span>
+          </div>
+
+          <div class="field-grid">
+            <label>Client<input name="clientName" required></label>
+            <label>Invoice number<input name="invoiceNumber" placeholder="PZ-2026-0003"></label>
+            <label>Invoice date<input name="invoiceDate" type="date"></label>
+            <label>Amount<input name="amount" inputmode="decimal" placeholder="e.g. 184.00"></label>
+            <label>
+              Status
+              <select name="status">
+                <option value="draft">Draft</option>
+                <option value="sent">Sent</option>
+                <option value="paid">Paid</option>
+                <option value="overdue">Overdue</option>
+              </select>
+            </label>
+            <label>Paid date<input name="paidDate" type="date"></label>
+            <label class="full">Notes<textarea name="notes" rows="4"></textarea></label>
+          </div>
+
+          <div class="success" data-form-success hidden>Saved locally for preview. Database submit wiring comes next.</div>
+          <div class="form-footer">
+            <span class="status" data-form-status>Not saved yet.</span>
+            <div class="step-actions">
+              <button class="primary" type="submit">Submit invoice record</button>
+            </div>
+          </div>
+        </section>
+      </form>
+    </main>
+    <script src="form.js"></script>
+  </body>
+</html>

@@ -1,1003 +1,1123 @@
-# Panda Zen Admin Operations Blueprint
+# PandaZen Admin Operations Blueprint
 
-This document is the working map for the Panda Zen admin system. Its job is to keep the build modular, avoid constant backbone changes, and make each new block easier to design, test and deploy.
+## 1. Purpose
 
-## Product Intent
+Single source of truth for the PandaZen admin/operations system. Replaces separate FDS docs for now.
 
-Panda Zen needs a simple operations system for a small, trust-led domestic cleaning business.
+Current build priority:
 
-The system should support:
+> **Lead Capture + Admin Review + Quote Assist**
 
-- Manual enquiry handling and booking by admin.
-- Bespoke quoting with no public prices.
-- A client-facing enquiry form that gathers enough information to decide the next step without feeling intrusive.
-- Home assessment records that become the source of truth.
-- Recurring cleaning plans and generated work orders.
-- Cleaner checklists and job reports.
-- Follow-up notes that carry into the next visit.
-- Internal admin tasks and reminders.
-- Simple invoice tracking and CSV export.
-- Temporary photo/file references for enquiries and jobs.
-- Secure access before real customer data is stored.
-
-The first version should be useful with one admin and one cleaner, but structured so more cleaners, staff records and permissions can be added later.
-
-## Build Principles
-
-- Keep the public website, admin shell, API routes and database migrations loosely coupled.
-- Add features as modules rather than reshaping the whole app every time.
-- Prefer focused form pages for serious data entry.
-- Keep the admin dashboard for scanning, filtering and quick review.
-- Use dropdowns wherever possible, with `Other` fields for exceptions.
-- Allow repeatable rows for rooms, checklist items, notes, documents and reminders.
-- Store enough structure to reduce typing later.
-- Do not store real customer data until `/admin/*` and `/api/*` are protected.
-- Keep accounting lightweight: invoice records and CSV export, not full accounts.
-- Keep large files out of D1. Store file references in D1 and put files in dedicated storage later.
-- Treat enquiry/job photos as temporary unless admin deliberately marks them to keep.
-- Use tasks/reminders before automation when deletion or follow-up needs human judgement.
-
-## Stable Backbone
-
-These parts should change slowly.
+Do not build future modules unless specifically selected. The first useful working slice is:
 
 ```text
-/admin/
-  index.html          Main admin shell, dashboard, lists, schedule
-  admin.css           Shared admin UI styling
-  admin.js            Shared admin UI behaviour
-
-/admin/forms/
-  form.css            Shared focused-form styling
-  form.js             Shared focused-form behaviour
-  *.html              One form page per serious workflow
-
-/functions/api/
-  _util.js            Shared API helpers
-  <module>.js         Module API list/create routes
-  <module>/<id>.js    Module API update routes
-
-/migrations/
-  0001_*.sql          Foundation schema
-  0002_*.sql          Seed/demo data
-  000x_*.sql          Small module migrations
-
-/docs/
-  *.md                Setup, security and workflow documents
+Public enquiry form → Lead record → Admin task → Admin review → Quote Assist → Next action
 ```
 
-When adding a new feature, prefer:
-
-- one migration,
-- one or two API routes,
-- one admin list/detail change,
-- one focused form page if data entry is serious,
-- one short docs update.
-
-## Data Architecture
-
-MVP uses one Cloudflare D1 database for structured business data.
-
-This means one database, with separate linked tables such as:
-
-- leads
-- assessments
-- clients
-- cleaning plans
-- jobs
-- checklist items
-- follow-ups
-- invoices
-- staff
-- admin tasks
-- uploaded file references
-- options/settings
-
-D1 should store business records and file metadata only. It should not store large binary files.
-
-Files/photos should later use dedicated storage, likely Cloudflare R2 or another secure file store. D1 stores references such as storage key, linked record, expiry date and keep/delete status.
-
-This keeps the system suitable for the Cloudflare free/low-cost path while leaving room to grow.
-
-## Core Objects
-
-### Lead
+---
 
-Purpose: capture a client-facing enquiry before it becomes an assessment, quote or client.
+## 2. Product Intent
 
-Key data:
+PandaZen is a small, trust-led domestic cleaning business. The system should support:
 
-- customer name
-- phone/email
-- area
-- postcode, optional
-- enquiry source
-- service type
-- preferred contact method
-- best time to contact
-- preferred days/times
-- property type
-- bedrooms/bathrooms
-- approximate property size
-- cleaning priorities
-- preferred frequency
-- urgency
-- pets
-- parking
-- product preferences
-- optional customer notes
-- optional temporary photo references
-- status
-- notes
-
-Main statuses:
-
-- New
-- Contacted
-- Assessment booked
-- Quote sent
-- Accepted
-- Lost
-
-Client-facing wording should avoid implying every enquiry gets a free visit. Prefer CTAs like:
-
-- `Request a cleaning quote`
-- `Tell us about your home`
-- `Start an enquiry`
-- `Request a call back`
-- `Check availability`
-
-Preferred CTA: `Request a cleaning quote`.
-
-The enquiry form should explain that Panda Zen may quote after reviewing the enquiry and a short call, or may suggest a home visit for larger, regular or more complex work.
-
-### Assessment
-
-Purpose: structured follow-on assessment record and basis for quote, client record and cleaning plan.
-
-Assessment should build from the lead/enquiry data, not start from zero.
-
-Key data:
-
-- linked lead/client
-- assessment date/time
-- property basics
-- rooms/areas
-- surfaces/materials
-- pets
-- access/parking
-- safety/risk notes
-- product preferences
-- estimated man-hours
-- suggested frequency
-- draft checklist
-- quote notes
-
-Assessment may be:
+- form-first enquiries with no public prices
+- bespoke quoting and lead filtering
+- admin review before booking
+- quote assist for hours/price/fit judgement
+- future home assessments as source of truth
+- future recurring cleaning plans, jobs, checklists and reports
+- future invoicing, files, staff and cleaner app
+- GDPR-aware privacy, retention and anonymisation
 
-- desk assessment from submitted enquiry plus follow-up call
-- in-person home visit for suitable regular or complex jobs
-- photo-supported review for end-of-tenancy, deep clean or unusual one-off jobs
+The system starts with one admin and one cleaner but must allow growth.
 
-### Client
+---
 
-Purpose: long-term customer record.
+## 3. Build Principles
 
-Key data:
+- Build module by module.
+- Keep public website, admin shell, APIs and migrations loosely coupled.
+- Use focused forms for serious data entry.
+- Use dashboards for scanning/action queues, not heavy data entry.
+- Prefer dropdowns and structured fields, with `Other` for exceptions.
+- Do not store real customer data until admin/API routes are protected.
+- Keep D1 for structured data only; use R2/file storage later for uploads.
+- Treat photos/files as temporary unless marked to keep.
+- Use tasks/reminders before risky automation.
+- Quote Assist supports judgement; it does not replace it.
+- Every recommendation must be explainable and editable.
+- Keep commercial learning from lost quotes, but anonymise personal details.
 
-- customer identity
-- preferred name/reference
-- area
-- contact details
-- private address/access notes
-- active/inactive status
-- linked assessments
-- linked cleaning plans
-- linked invoices/documents
+---
 
-Sensitive data should be treated carefully. Full address, keys, alarm codes and access instructions should be protected and not shown casually.
+## 4. Stable App Structure
 
-### Cleaning Plan
+```text
+/admin/                 Full admin cockpit
+/cleaner/               Future cleaner mobile/PWA view
+/api/public/*           Public website APIs
+/api/admin/*            Admin-only APIs
+/api/cleaner/*          Cleaner-only restricted APIs
 
-Purpose: reusable plan for recurring jobs.
+/functions/api/
+  _util.js              Shared helpers
+  _quoteAssist.js       Lead scoring / quote assist logic
 
-Key data:
+/migrations/            D1 schema changes
+/docs/                  Setup/security/workflow notes
+```
 
-- client
-- service type
-- frequency
-- default day/time
-- estimated/default man-hours
-- main cleaner
-- helper/cover
-- standing instructions
-- product notes
-- default checklist
-- active/inactive status
+Cleaner APIs must not return sensitive admin data. Do not rely on hiding sensitive data in the frontend.
 
-### Job / Work Order
+Important transition rule:
 
-Purpose: one scheduled visit, generated from a cleaning plan or created manually.
+The current prototype still has legacy API routes directly under `/api/*`, for example `/api/leads`, `/api/jobs`, `/api/clients` and `/api/invoices`.
 
-Key data:
+Before storing real customer data, do one of these:
 
-- client
-- cleaning plan
-- date/time
-- job type
-- status
-- main cleaner
-- helper
-- man-hours
-- special instructions
-- copied checklist
-- completion notes
-- submitted/reviewed timestamps
+1. Protect all `/api/*` routes with Cloudflare Access until the API is fully namespaced.
+2. Migrate admin routes to `/api/admin/*`, public routes to `/api/public/*`, cleaner routes to `/api/cleaner/*`, then remove or disable the old legacy routes.
 
-Useful statuses:
+Do not protect only `/api/admin/*` while legacy `/api/*` routes still exist with sensitive data access.
 
-- Scheduled
-- In progress
-- Completed by cleaner
-- Reviewed by admin
-- Invoice ready
-- Cancelled
-- Rescheduled
+---
 
-### Checklist
+## 5. Current Module: Lead Capture + Quote Assist
 
-Purpose: task list for cleaning plan or individual job.
+### Done when
 
-Key data:
+- public enquiry form submits to controlled API
+- lead is saved in D1
+- lead appears in admin list/detail
+- admin can update status and add notes
+- new lead creates follow-up task
+- Quote Assist runs and stores recommendation
+- admin sees fit score, hours, price range, confidence and next action
+- Privacy Policy acknowledgement is stored
+- optional marketing opt-in is stored separately
+- lost leads can be marked with lost reason
+- lost leads get anonymisation review date
+- no T&C acceptance is forced at enquiry stage
 
-- parent type: plan or job
-- label
-- room/area
-- required/optional
-- completed
-- cleaner note
-- sort order
+---
 
-Checklists must allow unlimited items.
+## 6. First Data Tables
 
-### Follow-Up
+### 6.1 `leads`
 
-Purpose: carry “do this next time” notes from one job to the next.
+Purpose: public enquiry before it becomes an assessment, quote or client.
 
-Key data:
+Core fields:
 
-- client
-- source job
-- target job, optional
-- note
-- status
-- created by
-- created/resolved dates
+```text
+id, created_at, updated_at, status,
+closed_at, lost_reason, anonymise_after, anonymised_at,
+name, phone, email, preferred_contact_method, best_contact_time,
+area, postcode, source, source_tag,
+service_type, frequency, urgency, preferred_days_times,
+property_type, bedrooms, bathrooms, reception_rooms,
+kitchen_size, property_size, property_condition,
+priorities, pets, parking, product_preferences,
+photo_available, notes,
+privacy_policy_accepted, privacy_policy_version, privacy_policy_accepted_at,
+marketing_opt_in, marketing_opt_in_at, marketing_source
+```
 
-Example: client asks for extra kitchen time, cleaner skips study, note says `Follow up next visit: clean study shelves`.
+Notes:
 
-### Invoice
+- Full address is not required at first enquiry.
+- Do not collect alarm/key/access details on public form.
+- Multi-select fields may be JSON/text for MVP.
+- T&C acceptance belongs at quote/booking, not enquiry.
 
-Purpose: lightweight invoice tracking and accounting export.
+### 6.2 `lead_notes`
 
-Key data:
+Purpose: admin notes, calls, quote notes and history.
 
-- invoice number
-- client
-- invoice date
-- job/date range
-- amount
-- status
-- paid date
-- notes
-
-Main statuses:
-
-- Draft
-- Sent
-- Paid
-- Overdue
-- Cancelled
-
-### Staff
-
-Purpose: staff/cleaner records, inspired partly by tools like BrightHR but kept small.
-
-Key data:
-
-- name
-- role
-- contact details
-- active/inactive
-- availability
-- documents
-- training/DBS notes
-- absence/holiday records
-
-This can wait until the core cleaning workflow is working.
-
-### Uploaded File / Document
-
-Purpose: file references for enquiry photos, business documents, staff documents and client records.
-
-Examples:
-
-- enquiry photos
-- end-of-tenancy condition photos
-- DBS certificate
-- insurance
-- assessment PDF
-- signed agreement
-- client notes
-- invoice file
-
-Likely storage later: Cloudflare R2 or another secure document store. For MVP, document records can be references only.
-
-Large files should not be stored in D1. D1 stores metadata and links.
-
-Suggested data:
-
-- linked type: lead, assessment, job, staff, business
-- linked id
-- file name
-- storage key/url
-- file type
-- uploaded by
-- uploaded at
-- expires at
-- keep permanently: yes/no
-- deleted at
-
-Photo retention policy:
-
-- enquiry photos are temporary decision-support files
-- keep while lead/job is active
-- prompt admin to review/delete after rejection, decline or completion
-- auto-delete can come later after the process is trusted
-- regular-client photos are only kept if admin marks them as important
-
-### Admin Task / Reminder
-
-Purpose: operational prompts and manual to-dos that stop things being forgotten.
-
-Examples:
-
-- assessment needs quote
-- missing cleaner report
-- invoice not sent
-- invoice overdue
-- DBS renewal
-- follow up a client
-- review expired enquiry photos
-- renew insurance
-- MOT/service car
-- order uniforms
-- staff induction
-- call client before first clean
-
-Key data:
-
-- title
-- notes
-- task type
-- status
-- priority
-- due date
-- due time
-- linked type
-- linked id
-- assigned to
-- repeat rule, optional
-- completed at
-- created at
-
-Useful statuses:
-
-- Open
-- Scheduled
-- Done
-- Cancelled
-
-Useful task types:
-
-- Lead follow-up
-- Quote
-- Invoice
-- File cleanup
-- Business admin
-- Staff
-- Vehicle
-- Client care
-- Other
-
-Tasks can be manual at first. Later, the system can create them automatically, for example:
-
-- new enquiry creates follow-up task
-- quote sent creates chase task
-- expired photos create cleanup review task
-- completed job creates invoice task
-- annual insurance renewal creates reminder
-
-## Main Workflows
-
-### 1. Website Enquiry To Admin Review
-
-1. Customer chooses `Request a cleaning quote`.
-2. Website form gathers contact, location, service, property basics, priorities, timing and optional photos.
-3. Form creates lead.
-4. System creates/admin shows a follow-up task.
-5. Admin reviews enquiry and decides next step:
-   - quote after form review and call
-   - arrange home visit
-   - ask for more detail/photos
-   - politely decline/not a fit
-6. Lead status changes to the correct next state.
-
-Modules involved:
-
-- Leads
-- Client-facing enquiry form
-- Uploaded file references, optional
-- Admin tasks/reminders
-
-### 2. Lead Review To Assessment Or Quote
-
-1. Admin contacts customer manually where needed.
-2. Admin uses submitted form information as the starting point.
-3. Admin either prepares a quote, creates a desk assessment, or books a home visit.
-4. Home visit is only used when suitable and worthwhile.
-5. Lead status changes to `Assessment booked` or `Quote sent`.
-
-Modules involved:
+```text
+id, lead_id, note, note_type, created_at, created_by
+```
 
-- Leads
-- Assessment form
-- Admin tasks/reminders
-- Schedule, if visit is booked
-
-### 3. Assessment To Quote
-
-1. Admin opens focused assessment form.
-2. Assessment is prefilled or informed by website enquiry data.
-3. Admin records property, safety and cleaning scope.
-4. Admin estimates man-hours.
-5. Admin drafts checklist and quote notes.
-6. Admin sends bespoke quote manually.
-7. Lead status changes to `Quote sent`.
+Note types: general, call, quote, follow-up, internal, concern, lost reason detail.
 
-Modules involved:
+### 6.3 `admin_tasks`
 
-- Assessment form
-- Clients
-- Cleaning plans
-- Uploaded file/document references later
+Purpose: operational reminders and to-dos.
 
-### 4. Accepted Quote To Client
+```text
+id, title, notes, task_type, status, priority,
+due_at, linked_type, linked_id, assigned_to,
+repeat_rule, created_at, completed_at
+```
 
-1. Customer accepts quote.
-2. Admin creates/activates client record.
-3. Admin creates cleaning plan.
-4. Admin sets frequency, cleaner and default checklist.
-5. Lead status changes to `Accepted`.
+Initial task types: Lead follow-up, Quote, Assessment, Invoice, File cleanup, Lost lead anonymisation, Business admin, Staff, Vehicle, Client care, Other.
 
-Modules involved:
+New lead should automatically create a follow-up task.
 
-- Clients
-- Cleaning plan form
-- Settings/dropdowns
+### 6.4 `lead_quote_assist`
 
-### 5. Cleaning Plan To Jobs
+Purpose: store system recommendation at the time of lead creation/review.
 
-1. Admin reviews next month/week.
-2. Admin generates jobs from active cleaning plans.
-3. Admin checks schedule and adjusts manually.
-4. Admin assigns helper if needed.
-5. Jobs appear in schedule and cleaner view.
+```text
+id, lead_id,
+fit_score, price_shopper_risk, travel_suitability,
+estimated_first_clean_hours_min, estimated_first_clean_hours_max,
+estimated_recurring_hours_min, estimated_recurring_hours_max,
+suggested_price_min, suggested_price_max, minimum_recommended_price,
+recommended_next_action, confidence, explanation,
+risk_flags, positive_flags, rule_version,
+created_at, updated_at
+```
 
-Modules involved:
+Store historical recommendation; do not only recalculate live.
 
-- Cleaning plans
-- Jobs
-- Schedule
-- Staff later
+### 6.5 Legal/settings later
 
-### 6. Job Checklist To Completion Report
+May become `policy_versions`, `legal_settings` or editable `settings`.
 
-1. Cleaner opens job report page.
-2. Cleaner reviews instructions/checklist.
-3. Cleaner ticks completed items.
-4. Cleaner adds notes and follow-ups.
-5. Cleaner submits report when online.
-6. Admin reviews if needed.
-7. Job becomes `Invoice ready`.
+Purpose: track Privacy Policy and T&C version/date shown at each stage.
 
-Modules involved:
+### 6.6 `public_submission_attempts`
 
-- Job report form
-- Checklists
-- Follow-ups
-- Jobs
+Purpose: support public form anti-spam/rate-limit checks without keeping more personal data than needed.
 
-Offline note: full offline sync is not MVP. Initial workaround is submit when connection is available.
+Suggested fields:
 
-### 7. Follow-Up To Next Visit
+```text
+id, created_at,
+ip_hash, contact_hash,
+route, outcome, reason,
+user_agent_hash
+```
 
-1. Cleaner/admin creates follow-up note.
-2. Follow-up stays open against client.
-3. Next job shows open follow-ups.
-4. Cleaner/admin resolves follow-up after completion.
+Rules:
 
-Modules involved:
+- store hashes, not raw IP addresses, where practical
+- use a server-side salt/secret when hashing
+- contact hash can be based on normalised email or phone
+- outcome examples: accepted, rate_limited, honeypot, validation_failed
+- keep records short-term only, for example 7 to 30 days
+- mention this limited anti-spam processing in the Privacy Policy
 
-- Follow-ups
-- Jobs
-- Cleaner report
+This table should not become a long-term tracking table.
 
-### 8. Completed Jobs To Invoice Export
+---
 
-1. Admin reviews completed jobs.
-2. Admin creates invoice record manually.
-3. Invoice marked sent/paid.
-4. Admin exports invoice CSV.
-5. CSV is checked against bank/accounting records.
+## 7. First API Routes
 
-Modules involved:
+Minimum current routes:
 
-- Jobs
-- Invoices
-- Exports
+```text
+POST  /api/public/leads
+GET   /api/admin/leads
+GET   /api/admin/leads/:id
+PATCH /api/admin/leads/:id
+POST  /api/admin/leads/:id/notes
+GET   /api/admin/tasks
+PATCH /api/admin/tasks/:id
+```
 
-### 9. File Cleanup Prompt
-
-1. Enquiry/job photos are uploaded as temporary files.
-2. File records get an expiry date.
-3. When lead/job becomes rejected, declined, completed or stale, system creates a cleanup review task.
-4. Admin chooses delete, keep or extend.
-5. Later, trusted cleanup rules may auto-delete expired temporary files.
-
-Modules involved:
-
-- Uploaded files/documents
-- Admin tasks/reminders
-- Leads
-- Jobs
-
-### 10. Staff Absence And Cover
-
-Later workflow.
-
-1. Staff absence/holiday is recorded.
-2. Schedule highlights affected jobs.
-3. Admin assigns helper/cover.
-4. Cleaner/client continuity notes are visible.
-
-Modules involved:
-
-- Staff
-- Schedule
-- Jobs
-- Reminders
-
-## Admin Capabilities
-
-### Dashboard
-
-Purpose: quick daily overview.
-
-Should show:
-
-- leads needing reply
-- assessments due
-- today/next jobs
-- missing job reports
-- open follow-ups
-- due/overdue admin tasks
-- invoices needing action
-- small rolling calendar
-
-### Lead Board
-
-Purpose: simple Asana-style pipeline.
-
-Capabilities:
-
-- view by status
-- open lead detail
-- create intake
-- mark contacted
-- book assessment
-- convert to client later
-
-### Client-Facing Enquiry Form
-
-Purpose: gather enough information from the public website to support a sensible admin decision without making the customer feel exposed or interrogated.
-
-Capabilities:
-
-- friendly `Request a cleaning quote` CTA
-- clear expectation that a quote may come after review/call, or a visit may be suggested
-- dropdowns/checkboxes for most fields
-- optional notes
-- optional photo attachments later
-- creates lead record
-- creates admin follow-up task
-
-Suggested customer-facing field groups:
-
-- contact details
-- area/postcode
-- preferred contact and best contact time
-- service type
-- property type
-- bedrooms/bathrooms
-- cleaning priorities
-- frequency/timing
-- urgency
-- pets
-- parking
-- products preference
-- optional notes
-- optional photos
-
-MVP public form security:
-
-- submit to a controlled API endpoint, not directly to email
-- accept `POST` only
-- accept JSON only
-- validate all required fields
-- enforce realistic field length limits
-- only allow known dropdown values
-- include a honeypot field for spam bots
-- apply basic rate limiting
-- do not support file uploads yet
-- return a polite generic response even for suspicious submissions
-- avoid asking for sensitive access details on the public form
-
-Suggested required fields:
+Possible later quote routes:
+
+```text
+POST  /api/admin/leads/:id/run-quote-assist
+PATCH /api/admin/leads/:id/quote-assist
+```
+
+Public lead endpoint rules:
+
+- POST only, JSON only
+- validate required fields and field lengths
+- allow only known dropdown values where possible
+- honeypot spam field
+- basic rate limiting
+- generic polite response for suspicious submissions
+- no public file uploads in MVP
+- no sensitive access details
+- store only short-term hashed anti-spam/rate-limit events
+
+Required public fields:
 
 - name
 - phone or email
 - area/postcode
 - service type
+- Privacy Policy acknowledgement
 
-Suggested field limits:
+Suggested limits:
 
-- name: 80 characters
-- phone: 40 characters
-- email: 120 characters
-- area/postcode: 120 characters
-- preferred days/times: 160 characters
-- notes: 1000 characters
+```text
+name 80, phone 40, email 120, area/postcode 120,
+preferred days/times 160, notes 1000
+```
 
 Suggested rate limits:
 
-- same IP: 3 submissions per hour
-- same IP: 8 submissions per day
-- same email/phone: 2 submissions per day
+```text
+same IP: 3/hour, 8/day
+same email/phone: 2/day
+```
+
+Rate-limit privacy:
+
+- hash IP/contact identifiers before storage where practical
+- retain rate-limit events only briefly
+- use them only for security, abuse prevention and form reliability
+- include a short Privacy Policy note that technical anti-spam data may be processed
+
+---
+
+## 8. Client-Facing Enquiry Form
+
+Preferred CTA:
+
+> **Request a cleaning quote**
+
+Form purpose: gather enough information for a sensible first response without feeling intrusive.
+
+Suggested intro:
+
+> Tell us a little about your home and what you need. This helps us give a realistic first response and decide whether a short call, photo-supported estimate or home visit is the best next step.
+
+Field groups:
+
+- Contact: name, phone, email, preferred contact method, best time, area/postcode
+- Service: service type, frequency, preferred days/times, urgency
+- Property: type, bedrooms, bathrooms, reception rooms, kitchen size, approximate size, pets, parking
+- Condition: well maintained / generally tidy / busy home reset / deep clean first / moving / not sure
+- Priorities: trust/reliability, same cleaner, detail, regular schedule, kitchen/bathroom hygiene, busy home support, guests, cheapest price
+- Products/notes: preferences, optional notes, photos available yes/no
 
 Photos:
 
-- no website file uploads in MVP
-- form may ask whether photos are available if helpful
-- wording should say Panda Zen may ask for photos separately after replying
-- this avoids file-security risk, storage cost and accidental sensitive uploads
+- no public uploads in MVP
+- ask whether photos are available
+- request photos separately after replying if needed
 
-### Schedule
+---
 
-Purpose: plan work and check availability.
+## 9. Privacy, Marketing and Terms Flow
 
-Capabilities:
+### Enquiry stage
 
-- month navigation
-- Monday to Sunday layout
-- filters by client, cleaner, status
-- job click opens detail
-- later: reschedule/cancel/create job
-- later: staff absence overlay
+Required:
 
-### Client Records
+- Privacy Policy acknowledgement
 
-Purpose: source for ongoing relationship.
+Optional:
 
-Capabilities:
+- marketing opt-in
 
-- view client summary
-- view plans/jobs/invoices/follow-ups
-- open cleaning plan form
-- later: document references
+Not required:
 
-### Staff Records
+- T&C acceptance
 
-Purpose: lightweight cleaner/admin management.
+Reason: Privacy Policy applies because personal data is collected. T&C applies when quoting/booking service obligations.
 
-Capabilities later:
+Checkbox wording:
 
-- profile
-- availability
-- absence/holiday
-- assigned jobs
-- document references
+> I understand PandaZen will use my details to respond to this enquiry, in line with the Privacy Policy.
 
-### Admin Tasks / Reminders
+> I’m happy for PandaZen to contact me occasionally about availability, offers or cleaning tips. This is optional and I can opt out at any time.
 
-Purpose: internal to-do list for admin work and business reminders.
+Marketing must not be pre-ticked.
 
-Capabilities:
+Store:
 
-- create manual task
-- due date/time
-- priority
-- assign to admin/staff later
-- link to lead/client/job/invoice/file
-- repeat annual/monthly reminders later
-- show compact list on dashboard
-- full task page for filtering and planning
-- support prompted cleanup rather than risky automatic deletion
+```text
+privacy_policy_accepted, privacy_policy_version, privacy_policy_accepted_at,
+marketing_opt_in, marketing_opt_in_at, marketing_source
+```
+
+### Quote/booking stage
+
+Quote wording:
+
+> This quote is based on the information provided and is subject to PandaZen Terms & Conditions. Please review them before confirming your booking.
+
+Booking wording:
+
+> Thank you — your booking is confirmed. By confirming the booking, you agree to PandaZen Terms & Conditions, including our cancellation, access and payment terms.
+
+Later store:
+
+```text
+terms_version, quote_sent_at, quote_accepted_at,
+booking_confirmed_at, acceptance_method
+```
+
+---
+
+## 10. Quote Assist / Lead Intelligence
+
+Purpose: help admin judge fit, likely hours, price/range and next step.
+
+Outputs:
+
+- fit score 0–100
+- price-shopper risk: Low/Medium/High
+- travel suitability: Good/Borderline/Poor
+- estimated first clean hours
+- estimated recurring hours
+- suggested price range
+- minimum recommended price
+- recommended next action
+- confidence: Low/Medium/High
+- explanation, positive flags and risk flags
+
+Version 1 should be rule-based, not ML.
+
+---
+
+## 11. Rule Logic
+
+### Fit score
+
+Start at 100 and adjust.
+
+Positive factors:
+
+- local/short travel +10
+- weekly/fortnightly regular clean +20
+- values trust/reliability/consistency +15
+- parking available +5
+- clear details +10
+- photos available/provided later +5
+- flexible availability +10
+- trusted referral/source +10
+
+Negative factors:
+
+- too far -20 to -50
+- one-off low-value job -10 to -30
+- urgent same/next day -10 to -25
+- cheapest price priority -30
+- no parking/difficult access -5 to -15
+- vague info -10
+- poor condition but low expected hours -20
+- outside working hours -20
+
+Interpretation:
+
+```text
+80–100 strong fit
+60–79 possible fit
+40–59 borderline
+<40 likely poor fit / decline / premium / waitlist
+```
+
+### Price-shopper risk
+
+High-risk indicators:
+
+- chooses cheapest price
+- asks only “how much per hour?”
+- gives little detail
+- wants short booking for large property
+- compares to low-price competitors
+- refuses photos/call/visit but wants fixed price
+
+Low-risk indicators:
+
+- values trust/reliability/consistency
+- wants regular cleaning
+- gives detail
+- understands quote depends on property/condition
+- flexible on timing
+
+### Recommended actions
+
+- Quote from form
+- Request photos
+- Arrange follow-up call
+- Offer home visit
+- Offer regular-client assessment
+- Quote premium due to travel/capacity
+- Add to waiting list
+- Decline politely / not suitable
 
 Examples:
 
-- follow up new lead
-- send quote
-- review expired photos
-- chase invoice
-- renew insurance
-- MOT/service car
-- order uniforms
-- staff induction
+- high fit + regular + local = call/home visit
+- medium fit + enough info = quote range
+- medium fit + poor info = request photos/details
+- far + one-off = premium or decline
+- high price-shopper risk = minimum boundary/polite filter
+- full capacity = waitlist or premium only
 
-### Focused Forms
+---
 
-Purpose: clean, private, low-distraction data entry.
+## 12. Hours and Pricing Logic
 
-Current form pages:
+### Base recurring hours
 
-- intake
-- assessment
-- cleaning plan
-- job report
-- invoice record
+| Property | Recurring clean |
+|---|---:|
+| 1-bed flat | 1.5–2.0 h |
+| 2-bed flat/house | 2.0–2.5 h |
+| 3-bed house | 2.5–3.5 h |
+| 4-bed house | 3.5–4.5 h |
+| 5-bed+ / large detached | 4.5 h+ |
 
-Rules:
+Bathroom modifier:
 
-- every form has Back, Save draft and Submit
-- no busy admin lists behind the form
-- split into a few clear steps only when it reduces clutter
-- avoid one-question-per-page unless genuinely needed
-- dropdown first, free text only where useful
-- repeatable lists for flexible items
+```text
+1 bath +0
+2 baths +0.3–0.5
+3 baths +0.7–1.0
+4+ baths +1.0+
+```
+
+Condition modifier:
+
+```text
+well maintained x1.0
+generally tidy x1.1
+busy family home x1.25
+reset/deep clean first: recurring x1.1, first clean x1.8–2.5
+end of tenancy x2.0–3.0
+```
+
+Pets:
+
+```text
+none +0
+cat/dog +0.25–0.5
+multiple/heavy hair +0.5–1.0
+```
+
+First clean multiplier:
+
+```text
+well maintained x1.25
+generally tidy x1.5
+busy family home x1.75
+needs reset x2.0–2.5
+```
+
+Minimum booking:
+
+- 2 hours minimum
+- round below-minimum jobs to 2 hours
+- travel-heavy jobs need higher minimum or travel built in
+
+Pricing concept:
+
+```text
+estimated hours × rate + travel adjustment + difficulty adjustment
+```
+
+Pricing settings later:
+
+- standard rate
+- deep clean rate
+- one-off multiplier
+- minimum booking price
+- travel bands
+- busy/capacity multiplier
+- VAT setting if future needed
+
+Use ranges at first:
+
+```text
+suggested estimate £120–£160
+minimum recommended £115
+confidence Medium
+```
+
+---
+
+## 13. Self-Improving Quote Intelligence
+
+Store quote outcomes to improve future suggestions.
+
+For each quote/enquiry store:
+
+- original form data
+- suggested hours/price
+- manual quoted hours/price
+- accepted/rejected/lost/no response
+- lost reason
+- actual hours and travel if completed
+- issues encountered
+- client quality/profitability rating
+- quote accuracy: too low/about right/too high
+
+Learning starts simple:
+
+- compare predicted vs actual hours
+- surface repeated underquoting patterns
+- show similar historical jobs once enough data exists
+
+Example future prompt:
+
+> Similar 3-bed busy family homes with 2 bathrooms averaged 3.9h, while the current rule predicts 3.1h. Consider increasing the modifier.
+
+Similar-job factors:
+
+- bedrooms, bathrooms, property type, condition, pets
+- service type, frequency, travel band, source
+- outcome: accepted/lost/declined/no response
+
+---
+
+## 14. Lost Lead / Lost Quote Anonymisation
+
+Lost quote data is useful, but personal details should not be kept longer than needed.
+
+Trigger statuses:
+
+- Lost
+- Declined
+- Not suitable
+- No response
+- Quote rejected
+- Waiting too long
+
+Default review period:
+
+> 90 days after closed/lost
+
+Prompt:
+
+> This lost quote has been closed for 90 days. Review and anonymise client details?
+
+Actions:
+
+- Anonymise now
+- Keep another 30 days
+- Delete completely
+- Mark converted/booked
+
+Remove:
+
+- name, phone, email
+- full address, house number/name, street
+- free-text direct identifiers
+- prospect photos unless specific lawful reason to keep
+
+Keep:
+
+- postcode district/outward code e.g. DH7
+- general area if not identifying
+- service type, property type, bedrooms, bathrooms
+- condition, pets, parking, frequency
+- source channel
+- quote amount/range
+- suggested/final hours
+- fit score, price-shopper risk, recommended action
+- lost reason
+- month/date of enquiry
+- whether photos were requested/provided, without keeping photos
+- rewritten non-identifying notes
+
+Lost reason categories:
+
+- Too expensive
+- No reply
+- Too far away
+- Fully booked / no availability
+- Wanted cheapest price
+- Wanted unsuitable time/day
+- Job too small
+- Job too large/complex
+- Access or parking issue
+- Not a good fit
+- Went with another cleaner
+- Client cancelled need
+- Other
+
+Keep anonymisation log without deleted personal details:
+
+```text
+original enquiry ID, closed date, anonymised date,
+who anonymised, action taken, photos deleted yes/no
+```
+
+---
+
+## 15. Admin Information Architecture
+
+Admin should be a working cockpit, not a demo dashboard.
+
+Main modules:
+
+1. Dashboard / Today
+2. CRM / Leads
+3. Clients & Homes
+4. Quotes & Assessments
+5. Schedule / Work Orders
+6. Tasks / Reminders
+7. Cleaner Reports / Quality
+8. Accounting / Invoices
+9. Messages / Email Templates
+10. Files / Documents
+11. Staff / Cleaner Management later
+12. Settings
+
+Preferred iPad/PC layout:
+
+```text
+Left sidebar: modules
+Top bar: search + quick add + user
+Main area: list/board/calendar
+Right panel: selected record detail/actions
+```
+
+Dashboard should show action queues:
+
+- new leads needing reply
+- quotes to chase
+- assessments due
+- today’s jobs
+- missing reports
+- invoices to send/overdue
+- anonymisation reviews
+- urgent tasks
+
+### CRM / Leads
+
+Pipeline for people who enquired but are not clients yet.
+
+Statuses may include:
+
+- New
+- Contacted
+- Needs info/photos
+- Call needed
+- Assessment suggested/booked
+- Quote sent
+- Accepted
+- Lost
+- No response
+- Waiting list
+
+Lead detail should show enquiry data, Quote Assist, notes, tasks and actions.
+
+### Clients & Homes
+
+CRM-style records for accepted/current/past clients and the homes/properties serviced.
+
+Separate from Leads because not every enquiry becomes a client.
+
+A client may later have multiple homes/properties.
+
+Client/Home records later include:
+
+- contact details
+- active/paused/past status
+- linked homes/properties
+- access/parking/product/pet notes
+- cleaning plans, jobs, invoices, documents
+- complaints/praise/service history
+- open follow-ups
+
+### Quotes & Assessments
+
+Future module for desk assessments, home visits, quote drafts, quote sent/accepted/lost, quote expiry and T&C sent status.
+
+### Schedule / Work Orders
+
+Future operational calendar for jobs, cleaner assignment, duration, travel/area, status and notes.
+
+### Tasks / Reminders
+
+First-class module. Includes lead follow-up, quote chase, assessment prep, invoices, file cleanup, anonymisation, staff/admin/vehicle/client-care tasks.
+
+### Cleaner Reports / Quality
+
+Future module for completed checklists, cleaner notes, follow-ups, issue/damage reports and admin review.
+
+### Accounting / Invoices
+
+Lightweight only: invoice records, paid/unpaid/overdue, CSV export, jobs ready to invoice.
+
+### Messages / Email Templates
+
+Start with outbound templates and logs, not full email inbox.
+
+Useful templates:
+
+- enquiry received
+- request photos
+- quote sent
+- quote follow-up
+- booking confirmation
+- visit reminder
+- reschedule/running late
+- invoice/payment reminder
+- review request
+- no availability/waiting list
+- lost quote close
+- marketing only if opted in
+
+Stage 1: generate copy/manual send.  
+Stage 2: send via system and log.  
+Stage 3: inbound email integration much later.
+
+### Files / Documents
+
+Future: quote/job photos, insurance, DBS, terms, client docs, staff docs, invoices. Use file references in D1 and dedicated storage later.
 
 ### Settings
 
-Purpose: make dropdowns editable without code.
+Editable dropdowns/settings later:
 
-Likely groups:
-
-- lead source
-- service type
-- contact preference
-- lead status
-- job status
-- frequency
-- room type
-- checklist category
-- staff role
+- lead source/status/lost reason
+- service type/contact preference/frequency
+- job status/room/checklist/staff role
 - invoice status
+- policy versions
+- quote/pricing settings
+- email templates
 
-Settings should become a module after core forms are connected to D1.
+---
 
-### Exports
+## 16. Cleaner App / Cleaner View Strategy
 
-Purpose: backup and accounting/admin checks.
+Plan separate cleaner experience instead of permission-hiding admin data.
 
-MVP exports:
-
-- invoices CSV
-- jobs CSV
-- clients CSV
-
-Later exports:
-
-- leads
-- assessments
-- staff/absence
-- follow-ups
-
-## Module Template
-
-Each module should be designed using this checklist.
+Recommended route:
 
 ```text
-Module name:
-Purpose:
-Primary users:
-Core data:
-Sensitive data:
-Statuses:
-Admin screens:
-Focused forms:
-API routes:
-Database tables:
-Exports:
-Permissions later:
-Test data:
-Done when:
+/admin/        full admin cockpit
+/cleaner/      cleaner app/mobile/PWA view
+/api/admin/*   admin APIs
+/api/cleaner/* restricted cleaner APIs
 ```
 
-## Suggested Build Order
+Cleaner should see only assigned safe job data:
 
-### Phase 0: Security Foundation
+- today’s jobs
+- job time/window
+- client/property reference
+- address/access notes only when needed
+- parking, pets, products, safety notes
+- checklist
+- open follow-ups for that job/property
+- start/complete buttons
+- completion notes
+- issue/unable-access/extra-time report
 
-Goal: protect admin and API before real data.
+Cleaner should not see:
 
-Tasks:
+- leads, quotes, prices, invoices
+- client profitability
+- marketing consent
+- lost lead/admin-only notes
+- all clients/homes
+- business settings
 
-- finish Cloudflare domain onboarding
-- set Cloudflare Access for `/admin/*`
-- set Cloudflare Access for `/api/*`
+Build stages:
+
+1. Mobile web cleaner view
+2. PWA cleaner app
+3. Native app only if justified later
+
+Offline-capable PWA is possible later.
+
+First offline scope:
+
+- cache today’s assigned jobs/checklists/notes
+- allow checklist ticks and notes offline
+- save pending report locally
+- show `Not synced yet`
+- sync when online
+
+Avoid early:
+
+- offline photo uploads
+- complex conflict resolution
+- creating clients/jobs offline
+- storing full schedule/client database offline
+
+Security:
+
+- require login
+- revoke cleaner access
+- store only near-term assigned jobs offline
+- no prices/admin data offline
+- clear local cache after day/logout where practical
+
+---
+
+## 17. Future Core Workflow
+
+Master long-term workflow:
+
+```text
+Lead → Quote Assist → Assessment/Quote → Accepted → Client & Home → Cleaning Plan → Job → Report → Follow-Up → Invoice
+```
+
+Current build only:
+
+```text
+Lead → Quote Assist → Admin Review → Next Action
+```
+
+Future modules:
+
+- Assessment: builds from lead data; desk/call/home/photo-supported assessment
+- Cleaning Plan: recurring plan with frequency, cleaner, default checklist
+- Job/Work Order: one scheduled visit from plan or manual booking
+- Checklist: unlimited plan/job checklist items
+- Follow-Up: carry “do this next time” notes forward
+- Invoice: lightweight tracking and CSV export
+- Staff: cleaner/admin profiles, availability, documents, absence
+- Files: references to secure storage, temporary retention rules
+
+---
+
+## 18. Suggested Build Order
+
+### Phase 0 — Security Foundation
+
+- Cloudflare domain onboarding
+- Cloudflare Access for `/admin/*`
+- Cloudflare Access for all sensitive APIs
+- protect `/api/*` during transition, or remove/migrate legacy `/api/*` routes before protecting only `/api/admin/*`
 - decide admin login users
-- confirm no real data before protection
+- no real data before protection
 
-### Phase 1: Form Data Foundation
+### Phase 1 — Lead Capture Foundation
 
-Goal: make the client-facing enquiry and focused forms store useful structured data.
+- leads table
+- lead_notes table
+- admin_tasks table
+- lead_quote_assist table
+- public enquiry submit API
+- validation/honeypot/rate limits
+- `public_submission_attempts` table or equivalent short-term anti-spam event storage
+- new lead creates follow-up task
+- admin lead list/detail
+- status update and notes
 
-Tasks:
+### Phase 2 — Quote Assist Foundation
 
-- public website CTA changes to `Request a cleaning quote`
-- client-facing enquiry form submits to leads
-- public quote endpoint validates input, uses honeypot and applies rate limits
-- enquiry form creates an admin follow-up task
-- public form asks if photos are available but does not upload files yet
-- assessment form saves structured assessment data
-- cleaning plan form saves plan and checklist
-- job report form updates job checklist and follow-ups
-- invoice form saves invoice record
+- `_quoteAssist.js`
+- rule-based scoring
+- run on lead creation/review
+- store output
+- display Quote Assist panel
+- fit score, risk, hours, price range, confidence, next action
 
-### Phase 2: Admin Tasks And Lead Review
+### Phase 3 — Lost Reasons + Anonymisation Hooks
 
-Goal: make the admin dashboard useful as a daily operating cockpit.
+- lost/no-response/not-suitable status handling
+- `closed_at`
+- `anonymise_after = closed_at + 90 days`
+- future review task/workflow
 
-Tasks:
+### Phase 4 — Assessment Module
 
-- admin task table/API
-- task list page
-- compact dashboard task list
-- manual task creation
-- lead follow-up task generation
-- file cleanup review task shape
+- assessment prefilled from lead
+- structured property/scope data
+- man-hours and quote notes
 
-### Phase 3: Client And Plan Workflow
+### Phase 5 — Clients & Homes + Cleaning Plans
 
-Goal: make accepted work turn into repeatable jobs.
+- convert accepted lead to client/home
+- create cleaning plan
+- default checklist
 
-Tasks:
+### Phase 6 — Schedule + Jobs
 
-- convert accepted lead to client
-- create cleaning plan from assessment or accepted enquiry
-- edit default checklist
-- generate jobs from cleaning plan
-
-### Phase 4: Schedule And Job Control
-
-Goal: make the calendar operational.
-
-Tasks:
-
-- create manual job
-- reschedule job
-- cancel job
+- manual/generate jobs
+- reschedule/cancel
 - assign cleaner/helper
-- status flow from scheduled to reviewed
+- status flow
 
-### Phase 5: Cleaner Experience
-
-Goal: make the cleaner report usable on mobile.
-
-Tasks:
+### Phase 7 — Cleaner Experience
 
 - mobile job list
-- focused job report page
-- checklist completion
-- completion notes
-- follow-up next visit
-- submit when back online if signal was poor
+- job report/checklist
+- completion/follow-up notes
+- later PWA/offline
 
-### Phase 6: Admin Review And Invoicing
-
-Goal: close the loop from work done to money tracked.
-
-Tasks:
+### Phase 8 — Invoicing
 
 - missing report alerts
-- admin review step
+- admin review
 - invoice-ready jobs
-- invoice records
-- invoice CSV export
+- invoice records and CSV export
 
-### Phase 7: Files, Staff And Business Reminders
-
-Goal: add operational support without heavy HR complexity.
-
-Tasks:
+### Phase 9 — Files, Staff, Business Reminders
 
 - uploaded file references
-- temporary photo cleanup prompts
-- staff profiles
-- absence/holiday
-- document references
-- renewal tracking
+- photo cleanup prompts
+- staff profiles/absence/documents
+- renewals and business reminders
 
-## Deployment Approach
+---
 
-Cloudflare Pages deploys the site as a project, but development should still be modular.
+## 19. Module Lifecycle, Deployment and Blueprint Hygiene
 
-For each meaningful update:
+Each module should follow this cycle:
+
+```text
+Plan → Build → Test → Deploy → Accept → Compress blueprint → Move to next module
+```
+
+Module statuses:
+
+```text
+[Planned]
+[In build]
+[Built - needs testing]
+[Accepted]
+[Deferred]
+```
+
+After a module is accepted, compress its blueprint section. Keep only:
+
+- what was built
+- current data/API structure
+- important rules/constraints
+- known limitations
+- unresolved follow-up questions
+- next module instructions
+
+Remove or archive:
+
+- old debate/thinking notes
+- repeated explanations
+- obsolete options
+- temporary Codex prompts
+- details that are now represented clearly in code/migrations
+
+The master blueprint should stay around 5k–8k words where possible. The most detailed section should always be the current/next build module.
+
+If one module becomes too large, split it into a separate module spec later, but keep this blueprint as the control document.
+
+### Deployment rules
+
+For each update:
 
 1. Keep changes small and named.
-2. Add one migration if database changes are needed.
-3. Package the current site into a zip.
-4. Upload/deploy.
-5. Apply migration in D1 if needed.
-6. Test with junk data.
-7. Only then move to the next module.
+2. Add one migration if needed.
+3. Deploy/package current site.
+4. Apply D1 migration if needed.
+5. Test with junk data.
+6. Mark module status.
+7. Move to next module only after current slice works.
+8. Compress accepted sections after deployment/acceptance.
 
-Avoid mixing unrelated work, for example:
+Avoid mixing unrelated work:
 
-- do not change public website design while wiring invoice APIs
-- do not redesign admin navigation while adding assessment fields
-- do not change database schema and CSS polish in the same step unless necessary
+- no public design changes while wiring invoice APIs
+- no admin nav redesign while adding assessment fields
+- no schema/CSS polish mixed unless necessary
+- no future module implementation unless explicitly selected
 
-## Current MVP State
+---
 
-Already present:
+## 20. Current MVP State
 
-- public Panda Zen website
-- public website enquiry form, early version
+Already present/planned:
+
+- public website
+- early enquiry form
 - admin shell
 - lead board
-- schedule view
-- jobs table
-- cleaner checklist preview
-- invoice/export preview
+- schedule/jobs/invoice previews
 - D1 migrations
 - Cloudflare Functions API
-- follow-up table/API
-- focused form page pattern
-- admin operations blueprint
+- focused form pattern
+- Privacy Policy and Terms & Conditions
+- PP checkbox and marketing checkbox
 
-Still to do before real use:
+Still required before real use:
 
 - Cloudflare Access protection
+- protect legacy `/api/*` routes or remove/migrate them before storing real data
 - proper form submit wiring
-- public CTA/enquiry wording update
-- exact client-facing enquiry field review
-- public quote endpoint security and anti-spam rules
-- exact assessment field review, based on enquiry data
-- admin tasks/reminders module
-- uploaded file reference model and retention rules
-- settings/dropdown editor
-- job status transitions
-- admin review step
-- safer handling for sensitive client data
+- final enquiry field review
+- endpoint security/anti-spam
+- short-term hashed rate-limit event storage and Privacy Policy wording
+- quote assist table/helper/output
+- admin lead review panel
+- lead notes
+- admin tasks/reminders
+- lost lead anonymisation hooks
+- settings/dropdown editor later
+- files/photos later
+- sensitive client data handling later
 
-## Open Design Questions
+---
 
-- Which client details must be visible to cleaners?
-- Should full address/access notes be hidden until job day?
-- Which enquiry fields feel helpful rather than intrusive?
-- Which photo uploads should be allowed, and what maximum size/count?
-- What default expiry period should temporary enquiry photos use?
-- Which admin tasks should be auto-created first?
-- What exact assessment fields are essential versus nice to have?
-- What are the minimum invoice fields for accounting checks?
-- How much staff/HR functionality is useful in year one?
-- Should cleaner job reports support photo uploads later?
-- Should Google Calendar integration wait until jobs are stable?
+## 21. Open Design Questions
 
-## Next Recommended Step
+Current module:
 
-Review this blueprint, then choose one module to wire properly.
+1. Standard hourly target rate?
+2. One-off/deep clean premium?
+3. Ideal/borderline/too-far service radius?
+4. Fixed per visit vs internal hourly pricing?
+5. Should client ever see hourly rate?
+6. Exact initial lead statuses?
+7. Quote Assist automatic on lead creation or when admin opens lead?
+8. Exact Privacy Policy version/date method?
+9. Marketing opt-out workflow?
+10. Source-tagged QR/link tracking method?
 
-Recommended next module: `Client-facing enquiry`.
+Future:
 
-Reason: the assessment should build from the website enquiry, not start from zero. The public form and CTA need to collect enough structured information for admin to quote, call, arrange a visit, request photos, or decline without repeatedly asking basic questions.
+11. Cleaner view: mobile web, PWA, or native later?
+12. Exact fields safe for `/api/cleaner/*`?
+13. Which details visible to cleaners and when?
+14. Hide full address/access until job day?
+15. Photo upload limits and retention?
+16. Auto-created task rules?
+17. Essential assessment fields?
+18. Minimum invoice/accounting fields?
+19. Staff/HR scope in year one?
+20. Google Calendar integration timing?
+
+---
+
+## 22. Codex / Agent Guidance
+
+The repo should include a short `AGENTS.md` file for Codex. This file should contain stable build rules, not the full product blueprint.
+
+Recommended use:
+
+- `AGENTS.md` = permanent coding/project rules Codex should always follow
+- `docs/admin-operations-blueprint.md` = full product/control blueprint
+- prompt to Codex = exact current module/task only
+
+`AGENTS.md` should be kept short and stable. Do not copy the whole blueprint into it.
+
+---
+
+## 23. Codex Instruction Block for Next Build
+
+```text
+Work only on the Lead Capture + Quote Assist foundation.
+
+Goal:
+Create the database/API/admin structure for public PandaZen enquiries and first-pass quote intelligence.
+
+Build:
+- leads table or migration updates for current enquiry form fields
+- lead_notes table
+- admin_tasks table
+- lead_quote_assist table
+- public lead creation API
+- admin lead list/detail API
+- admin lead status update
+- admin note creation
+- automatic follow-up task creation for new leads
+- rule-based quote assist helper
+- quote assist output saved against each lead
+- admin display of quote assist summary
+- Privacy Policy acknowledgement storage
+- marketing opt-in storage
+- short-term hashed anti-spam/rate-limit event storage
+- lost reason fields and anonymise_after hook
+
+Do not build clients, jobs, invoices, staff, file uploads or scheduling in this step.
+Do not redesign the website/admin UI except where needed to display this workflow.
+Do not add T&C acceptance to the enquiry form. T&C belongs at quote/booking stage.
+Keep changes modular and document what was changed.
+Use test/junk data only until admin and API routes are protected.
+```

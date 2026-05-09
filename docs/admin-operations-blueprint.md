@@ -40,6 +40,7 @@ The system starts with one admin and one cleaner but must allow growth.
 - Use focused forms for serious data entry.
 - Use dashboards for scanning/action queues, not heavy data entry.
 - Prefer dropdowns and structured fields, with `Other` for exceptions.
+- Admin UI must be type-aware: dropdowns, toggles, checkboxes, date/time pickers, numeric inputs, currency/duration controls and textareas should match the field schema/settings.
 - Do not store real customer data until admin/API routes are protected.
 - Keep D1 for structured data only; use R2/file storage later for uploads.
 - Treat photos/files as temporary unless marked to keep.
@@ -663,6 +664,20 @@ Top bar: search + quick add + user
 Main area: list/board/calendar
 Right panel: selected record detail/actions
 ```
+
+Admin field rendering rules:
+
+- Do not render every editable field as a text input or textarea.
+- Use dropdowns for controlled option groups.
+- Use checkboxes for multi-select fields.
+- Use toggles for yes/no values.
+- Use date/time pickers for dates and times.
+- Use numeric inputs for counts and hours.
+- Use currency controls for prices and invoice amounts.
+- Use duration controls for man-hours.
+- Use textareas for notes and long free-text fields only.
+- Use read-only badges/summaries for calculated fields such as Quote Assist.
+- If a field does not have a safe editor yet, render it read-only rather than as a misleading free-text control.
 
 Dashboard should show action queues:
 

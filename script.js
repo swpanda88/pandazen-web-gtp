@@ -2,9 +2,38 @@ const header = document.querySelector("[data-header]");
 const nav = document.querySelector("[data-nav]");
 const navToggle = document.querySelector("[data-nav-toggle]");
 const contactForm = document.querySelector("[data-contact-form]");
+const submitStatus = document.querySelector("[data-form-submit-status]");
 
 function valueOrNotSelected(value) {
   return value || "Not selected";
+}
+
+function formPayload(form) {
+  return {
+    website: form.get("website") || "",
+    name: form.get("name") || "",
+    phone: form.get("phone") || "",
+    email: form.get("email") || "",
+    contactMethod: form.get("contactMethod") || "",
+    contactTime: form.get("contactTime") || "",
+    area: form.get("area") || "",
+    service: form.get("service") || "",
+    frequency: form.get("frequency") || "",
+    urgency: form.get("urgency") || "",
+    preferredTimes: form.get("preferredTimes") || "",
+    propertyType: form.get("propertyType") || "",
+    propertySize: form.get("propertySize") || "",
+    bedrooms: form.get("bedrooms") || "",
+    bathrooms: form.get("bathrooms") || "",
+    pets: form.get("pets") || "",
+    parking: form.get("parking") || "",
+    products: form.get("products") || "",
+    photosAvailable: form.get("photosAvailable") || "",
+    priorities: form.getAll("priorities"),
+    message: form.get("message") || "",
+    privacyAcknowledgement: Boolean(form.get("privacyAcknowledgement")),
+    marketingConsent: Boolean(form.get("marketingConsent"))
+  };
 }
 
 function updateHeader() {
@@ -25,9 +54,41 @@ nav.addEventListener("click", (event) => {
   }
 });
 
-contactForm.addEventListener("submit", (event) => {
+contactForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const form = new FormData(contactForm);
+  const payload = formPayload(form);
+  submitStatus.classList.remove("error");
+  if (!payload.phone && !payload.email) {
+    submitStatus.classList.add("error");
+    submitStatus.textContent = "Please add a phone number or email address.";
+    return;
+  }
+  submitStatus.textContent = "Sending your request...";
+
+  if (window.location.protocol !== "file:") {
+    try {
+      const response = await fetch("/api/public/leads", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        submitStatus.classList.add("error");
+        submitStatus.textContent = result.error || "Please check the form and try again.";
+        return;
+      }
+      contactForm.reset();
+      submitStatus.textContent = result.message || "Thanks, your request has been received.";
+      return;
+    } catch {
+      submitStatus.classList.add("error");
+      submitStatus.textContent = "Sorry, the form could not send just now. Please call or email Panda Zen.";
+      return;
+    }
+  }
+
   const priorities = form.getAll("priorities").join(", ") || "Not specified";
   const subject = encodeURIComponent("Panda Zen quote request");
   const body = encodeURIComponent(

@@ -530,6 +530,14 @@ h3 {
   box-shadow: var(--shadow);
 }
 
+.hp-field {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
 .form-section {
   display: grid;
   gap: 13px;
@@ -610,6 +618,17 @@ h3 {
   margin: 0;
   color: rgba(32, 50, 41, 0.66);
   font-size: 0.88rem;
+}
+
+.form-submit-status {
+  min-height: 24px;
+  margin: 0;
+  color: var(--forest);
+  font-weight: 800;
+}
+
+.form-submit-status.error {
+  color: #8b4e45;
 }
 
 label {

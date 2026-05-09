@@ -8,7 +8,18 @@ const data = {
       source: "Leaflet",
       service: "Regular cleaning",
       contact: "07700 900111",
-      note: "Large family home. Wants weekly help and prefers Friday morning."
+      note: "Large family home. Wants weekly help and prefers Friday morning.",
+      quoteAssist: {
+        fitScore: 86,
+        priceShopperRisk: "Low",
+        estimatedFirstCleanHoursMin: 5,
+        estimatedFirstCleanHoursMax: 6.5,
+        suggestedPriceLabel: "£150.00-£195.00",
+        recommendedNextAction: "Strong lead - call and consider home visit",
+        confidence: "Medium",
+        positiveFlags: ["Regular recurring work", "Values reliability and continuity"],
+        riskFlags: []
+      }
     },
     {
       id: "lead-2",
@@ -169,6 +180,20 @@ const data = {
       status: "Sent",
       paid: "-"
     }
+  ],
+  tasks: [
+    {
+      id: "task-1",
+      title: "Follow up quote request: Mrs Harwood",
+      notes: "Call back and qualify regular weekly clean.",
+      taskType: "Lead follow-up",
+      status: "Open",
+      priority: "High",
+      dueAt: "2026-05-10T10:00:00Z",
+      linkedType: "lead",
+      linkedId: "lead-1",
+      assignedTo: "admin"
+    }
   ]
 };
 
@@ -183,6 +208,7 @@ const state = {
 const titles = {
   dashboard: "Dashboard",
   leads: "Leads",
+  tasks: "Tasks",
   assessments: "Assessments",
   clients: "Clients",
   schedule: "Schedule",
@@ -265,6 +291,19 @@ function formatDate(value) {
   }).format(date);
 }
 
+function formatDateTime(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(date);
+}
+
 function parseDate(value) {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
   const date = new Date(`${value}T00:00:00Z`);
@@ -324,10 +363,33 @@ function openDrawer(type, record = {}) {
       subtitle: record.service || "Customer enquiry",
       sections: [
         ["Contact", [["Name", record.name], ["Area", record.area], ["Contact", record.contact], ["Source", record.source]]],
-        ["Progress", [["Status", record.status], ["Service", record.service]]],
-        ["Notes", [["Internal note", record.note]]]
+        ["Progress", [["Status", record.statusLabel || record.status], ["Service", record.serviceLabel || record.service]]],
+        [
+          "Quote assist",
+          record.quoteAssist
+            ? [
+                ["Fit score", `${record.quoteAssist.fitScore}/100`],
+                ["Price-shopper risk", record.quoteAssist.priceShopperRisk],
+                ["Estimated first clean", `${record.quoteAssist.estimatedFirstCleanHoursMin}-${record.quoteAssist.estimatedFirstCleanHoursMax} hours`],
+                ["Suggested internal range", record.quoteAssist.suggestedPriceLabel],
+                ["Next action", record.quoteAssist.recommendedNextAction],
+                ["Confidence", record.quoteAssist.confidence],
+                ["Flags", [...(record.quoteAssist.positiveFlags || []), ...(record.quoteAssist.riskFlags || [])].join("; ")]
+              ]
+            : [["Status", "Not generated yet"]]
+        ],
+        ["Notes", [["Internal note", record.note || record.notes]]]
       ],
       actions: ["Book assessment", "Mark contacted", "Convert to client"]
+    },
+    task: {
+      title: record.title || "New task",
+      subtitle: record.taskType || "Admin task",
+      sections: [
+        ["Task", [["Status", record.status], ["Priority", record.priority], ["Due", formatDateTime(record.dueAt)], ["Assigned to", record.assignedTo]]],
+        ["Notes", [["Details", record.notes]]]
+      ],
+      actions: ["Mark done", "Reschedule", "Open linked record"]
     },
     assessment: {
       title: record.client || "New assessment",
@@ -504,7 +566,7 @@ function openLeadForm() {
     const formData = new FormData(form);
     const lead = Object.fromEntries(formData.entries());
     if (state.apiReady) {
-      await apiPost("/api/leads", lead);
+      await apiPost("/api/admin/leads", lead);
       await loadApiData();
       setView("leads");
       return;
@@ -542,8 +604,21 @@ function renderDashboard() {
 
   const list = document.querySelector("[data-dashboard-list]");
   list.innerHTML = "";
+  const taskAttention = (data.tasks || []).filter((task) => task.status === "Open").slice(0, 3);
+  taskAttention.forEach((task) => {
+    const card = el("article", "task-card");
+    card.innerHTML = `
+      <button type="button">
+        <h3>${task.title}</h3>
+        <p>${task.taskType} - ${task.priority || "Normal"} - ${formatDateTime(task.dueAt) || "No due date"}</p>
+      </button>
+    `;
+    card.querySelector("button").addEventListener("click", () => openDrawer("task", task));
+    list.append(card);
+  });
+
   const attention = data.dashboard?.attention || data.leads.slice(0, 4);
-  attention.forEach((lead) => {
+  attention.slice(0, Math.max(1, 4 - taskAttention.length)).forEach((lead) => {
     const card = el("article", "task-card");
     card.innerHTML = `
       <button type="button">
@@ -788,6 +863,19 @@ function renderTables() {
       `<span class="pill ${invoice.status === "Sent" ? "warn" : ""}">${invoice.status}</span>`
     ]));
   });
+
+  const taskTable = document.querySelector("[data-task-table]");
+  if (taskTable) {
+    taskTable.innerHTML = "";
+    (data.tasks || []).forEach((task) => {
+      taskTable.append(recordRow("task", task, [
+        `<div class="record-main">${task.title}</div><div class="record-sub">${task.notes || ""}</div>`,
+        `${task.taskType || "Task"}<div class="record-sub">${formatDateTime(task.dueAt) || "No due date"}</div>`,
+        `${task.priority || "Normal"}`,
+        `<span class="pill ${task.priority === "High" ? "warn" : ""}">${task.status || "Open"}</span>`
+      ]));
+    });
+  }
 }
 
 function renderCleanerPhone() {
@@ -995,7 +1083,7 @@ function renderAll() {
 }
 
 function normalizeApiData(payloads) {
-  const [options, dashboard, leads, assessments, clients, jobs, invoices] = payloads;
+  const [options, dashboard, leads, tasks, assessments, clients, jobs, invoices] = payloads;
   state.options = Object.fromEntries(options.groups.map((group) => [group.key, group]));
   data.leads = leads.leads.map((lead) => ({
     ...lead,
@@ -1003,8 +1091,10 @@ function normalizeApiData(payloads) {
     status: lead.statusLabel,
     source: lead.sourceLabel,
     service: lead.serviceLabel,
-    note: lead.notes
+    note: lead.notes,
+    quoteAssist: lead.quoteAssist
   }));
+  data.tasks = tasks.tasks || [];
   data.assessments = assessments.assessments;
   data.clients = clients.clients;
   data.jobs = jobs.jobs.map((job) => ({
@@ -1023,7 +1113,8 @@ async function loadApiData() {
   const payloads = await Promise.all([
     apiGet("/api/options"),
     apiGet("/api/dashboard"),
-    apiGet("/api/leads"),
+    apiGet("/api/admin/leads"),
+    apiGet("/api/admin/tasks"),
     apiGet("/api/assessments"),
     apiGet("/api/clients"),
     apiGet("/api/jobs"),

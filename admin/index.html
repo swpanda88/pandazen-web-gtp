@@ -18,6 +18,7 @@
         <nav class="side-nav" data-nav>
           <button class="active" type="button" data-view="dashboard">Dashboard</button>
           <button type="button" data-view="leads">Leads</button>
+          <button type="button" data-view="tasks">Tasks</button>
           <button type="button" data-view="assessments">Assessments</button>
           <button type="button" data-view="clients">Clients</button>
           <button type="button" data-view="schedule">Schedule</button>
@@ -105,6 +106,16 @@
 
         <section class="view" data-view-panel="leads">
           <div class="board" data-lead-board></div>
+        </section>
+
+        <section class="view" data-view-panel="tasks">
+          <div class="table-panel">
+            <div class="table-toolbar">
+              <h2>Admin tasks</h2>
+              <button class="ghost" type="button" data-open-drawer="task">Add task</button>
+            </div>
+            <div class="records-table" data-task-table></div>
+          </div>
         </section>
 
         <section class="view" data-view-panel="assessments">

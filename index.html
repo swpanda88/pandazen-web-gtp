@@ -189,6 +189,10 @@
         </div>
 
         <form class="contact-form" data-contact-form>
+          <label class="hp-field" aria-hidden="true">
+            Website
+            <input name="website" tabindex="-1" autocomplete="off">
+          </label>
           <div class="form-section">
             <h3>Your details</h3>
             <div class="form-grid">
@@ -198,7 +202,7 @@
               </label>
               <label>
                 Phone
-                <input name="phone" autocomplete="tel" required>
+                <input name="phone" autocomplete="tel">
               </label>
               <label>
                 Email
@@ -216,7 +220,7 @@
               </label>
               <label>
                 Area or postcode
-                <input name="area" autocomplete="postal-code" placeholder="e.g. Durham, Esh, DH1">
+                <input name="area" autocomplete="postal-code" placeholder="e.g. Durham, Esh, DH1" required>
               </label>
               <label>
                 Best time to contact
@@ -230,7 +234,7 @@
             <div class="form-grid">
               <label>
                 Service
-                <select name="service">
+                <select name="service" required>
                   <option value="">Please select</option>
                   <option>Regular cleaning</option>
                   <option>Deep cleaning</option>
@@ -399,6 +403,7 @@
           </div>
 
           <button class="button primary" type="submit">Send quote request</button>
+          <p class="form-submit-status" data-form-submit-status aria-live="polite"></p>
         </form>
       </section>
     </main>

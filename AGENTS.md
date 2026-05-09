@@ -159,6 +159,22 @@ Design primarily for iPad and PC.
 
 Cleaner view later should be separate from admin, mobile-first, and only show assigned safe job data.
 
+Admin UI must be type-aware. Do not render all editable fields as plain text inputs.
+
+Use:
+
+- dropdowns for controlled option groups
+- checkboxes for multi-selects
+- toggles for yes/no
+- date/time pickers for dates and times
+- numeric inputs for counts and hours
+- currency controls for prices
+- duration controls for man-hours
+- textareas for notes and long free text
+- read-only badges or summaries for calculated fields such as Quote Assist
+
+When field schemas/settings exist, use them to choose the control. If the UI cannot safely edit a field yet, render it as read-only rather than a misleading text input.
+
 ## Testing
 
 Use junk/test data until protection is live.

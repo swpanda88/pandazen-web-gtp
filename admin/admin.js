@@ -356,6 +356,34 @@ function renderSelect(name, groupKey, currentValue) {
   `;
 }
 
+function detailValue(value, type = "text") {
+  if (Array.isArray(value)) return value.length ? value.join(", ") : "";
+  if (type === "boolean") return value ? "Yes" : "No";
+  if (type === "money" && typeof value === "number") {
+    return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(value / 100);
+  }
+  return value ?? "";
+}
+
+function detailRows(fields) {
+  return `
+    <div class="detail-grid">
+      ${fields
+        .map(([label, value, type = "text"]) => {
+          const rendered = detailValue(value, type);
+          const className = `detail-value ${type === "badge" ? "badge" : ""} ${type === "boolean" ? "boolean" : ""} ${rendered ? "" : "empty"}`.trim();
+          return `
+            <div class="detail-row">
+              <div class="detail-label">${label}</div>
+              <div class="${className}">${rendered || "Not selected"}</div>
+            </div>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
 function openDrawer(type, record = {}) {
   const templates = {
     lead: {
@@ -441,16 +469,7 @@ function openDrawer(type, record = {}) {
         .map(([title, fields]) => `
           <section class="drawer-section">
             <h3>${title}</h3>
-            <div class="field-grid">
-              ${fields
-                .map(([label, value]) => `
-                  <label>
-                    ${label}
-                    <textarea rows="${String(value || "").length > 70 ? 3 : 1}">${value || ""}</textarea>
-                  </label>
-                `)
-                .join("")}
-            </div>
+            ${detailRows(fields)}
           </section>
         `)
         .join("")}

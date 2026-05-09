@@ -24,9 +24,36 @@ nav.addEventListener("click", (event) => {
 contactForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const form = new FormData(contactForm);
-  const subject = encodeURIComponent("Panda Zen cleaning enquiry");
+  const priorities = form.getAll("priorities").join(", ") || "Not specified";
+  const subject = encodeURIComponent("Panda Zen quote request");
   const body = encodeURIComponent(
-    `Name: ${form.get("name")}\nContact: ${form.get("contact")}\nService: ${form.get("service")}\n\nMessage:\n${form.get("message") || ""}`
+    [
+      `Name: ${form.get("name")}`,
+      `Phone: ${form.get("phone")}`,
+      `Email: ${form.get("email") || ""}`,
+      `Preferred contact: ${form.get("contactMethod")}`,
+      `Best time to contact: ${form.get("contactTime") || ""}`,
+      `Area/postcode: ${form.get("area") || ""}`,
+      "",
+      `Service: ${form.get("service")}`,
+      `Frequency: ${form.get("frequency")}`,
+      `How soon: ${form.get("urgency")}`,
+      `Preferred days/times: ${form.get("preferredTimes") || ""}`,
+      "",
+      `Property type: ${form.get("propertyType")}`,
+      `Approx size: ${form.get("propertySize")}`,
+      `Bedrooms: ${form.get("bedrooms")}`,
+      `Bathrooms: ${form.get("bathrooms")}`,
+      `Pets: ${form.get("pets")}`,
+      `Parking: ${form.get("parking")}`,
+      `Products: ${form.get("products")}`,
+      "",
+      `Priorities: ${priorities}`,
+      `Photos available: ${form.get("photosAvailable")}`,
+      "",
+      `Notes:`,
+      form.get("message") || ""
+    ].join("\n")
   );
   window.location.href = `mailto:hello.pandazen@gmail.com?subject=${subject}&body=${body}`;
 });

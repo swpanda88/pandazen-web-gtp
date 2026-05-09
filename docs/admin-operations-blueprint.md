@@ -665,6 +665,49 @@ Main area: list/board/calendar
 Right panel: selected record detail/actions
 ```
 
+Admin cockpit principle:
+
+The dashboard should answer:
+
+```text
+What is this?
+Why does it matter?
+What do I do next?
+```
+
+The UI should be action-led, not just data-led. Dashboard cards, lead rows, schedule blocks and task rows should surface the next sensible admin action wherever possible.
+
+Compact layout rules:
+
+- Avoid horizontal scrolling during normal admin use.
+- Prefer compact grouped rows/cards over many narrow columns.
+- Use short chips/tokens for repeatable facts, for example `3h`, `£75-90`, `DH7`, `3b / 2ba`, `Low risk`, `New`, `Quote sent`.
+- Full labels, explanations and long notes belong in the right-side detail panel, not in table columns.
+- Important dashboard metrics should be clickable filters where practical.
+- `+ New` should eventually open a small menu for common create actions such as lead, task, job and client note.
+
+Example compact row groups:
+
+- Lead cell: name, area, preferred contact.
+- Requirement cell: service type, frequency, bedrooms/bathrooms, pets/parking.
+- Fit cell: fit score, price-shopper risk, estimated hours, suggested price/range.
+- Status cell: current status and next action.
+
+Preview rules:
+
+- Desktop/PC may use hover preview cards for extra context.
+- Tablet/touch must have a tap, long-press or info-button alternative because hover is unreliable.
+- Preview cards should help scan without replacing the right-side detail panel.
+- Preview cards must not show sensitive data unless the current user/route has permission.
+- Cleaner-facing previews must only use safe assigned job data from `/api/cleaner/*`.
+
+Useful preview content:
+
+- Schedule/calendar jobs: address or area, cleaner, parking, pets, checklist summary, open follow-ups, special notes, invoice/status flags.
+- Leads list: contact preference, property summary, Quote Assist summary, next action, latest note/task.
+- Tasks: notes, linked lead/client/job, due date, next action.
+- Invoices/accounting later: linked jobs, payment notes, due date, last reminder.
+
 Admin field rendering rules:
 
 - Do not render every editable field as a text input or textarea.
@@ -689,6 +732,67 @@ Dashboard should show action queues:
 - invoices to send/overdue
 - anonymisation reviews
 - urgent tasks
+
+Dashboard view controls:
+
+- Dashboard: Today / This week.
+- Leads: List / Board / Priority.
+- Schedule: Day / Week / Month.
+
+Quick filters and saved views:
+
+- New leads
+- Needs reply
+- Quote sent
+- Chase due
+- High fit leads
+- Waiting list
+- Lost
+- Due for anonymisation
+
+Next-action strip:
+
+Selected records should show a clear next-action strip near the top of the right-side detail panel.
+
+Examples:
+
+- Next action: Request photos.
+- Buttons: Copy WhatsApp, Generate email, Mark contacted, Snooze, Add note.
+
+Snooze/reminder workflow:
+
+- Remind tomorrow
+- Remind in 3 days
+- Custom date
+- Mark done
+
+Contact logging:
+
+Contact actions should allow admin to record what happened:
+
+- Called, no answer
+- Called, spoke
+- WhatsApp sent manually
+- Email sent manually
+- Quote sent
+- Photos requested
+
+Recent activity:
+
+Records should show a lightweight activity feed:
+
+- lead created
+- Quote Assist generated
+- note added
+- message copied/sent
+- status changed
+- task created/completed
+
+Sidebar behaviour:
+
+- Full sidebar on desktop.
+- Collapsed/sidebar-light mode on smaller screens and iPad where needed.
+- Labels or icons must be clear enough to avoid confusion.
 
 ### CRM / Leads
 
@@ -734,6 +838,17 @@ Future module for desk assessments, home visits, quote drafts, quote sent/accept
 ### Schedule / Work Orders
 
 Future operational calendar for jobs, cleaner assignment, duration, travel/area, status and notes.
+
+Schedule items should show status and warnings where relevant:
+
+- confirmed
+- tentative
+- needs confirmation
+- completed
+- cancelled
+- no cleaner assigned
+- travel tight
+- conflict/overbooked
 
 ### Tasks / Reminders
 

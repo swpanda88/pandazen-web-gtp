@@ -3,6 +3,10 @@ const nav = document.querySelector("[data-nav]");
 const navToggle = document.querySelector("[data-nav-toggle]");
 const contactForm = document.querySelector("[data-contact-form]");
 
+function valueOrNotSelected(value) {
+  return value || "Not selected";
+}
+
 function updateHeader() {
   header.classList.toggle("is-scrolled", window.scrollY > 12);
 }
@@ -31,25 +35,25 @@ contactForm.addEventListener("submit", (event) => {
       `Name: ${form.get("name")}`,
       `Phone: ${form.get("phone")}`,
       `Email: ${form.get("email") || ""}`,
-      `Preferred contact: ${form.get("contactMethod")}`,
+      `Preferred contact: ${valueOrNotSelected(form.get("contactMethod"))}`,
       `Best time to contact: ${form.get("contactTime") || ""}`,
       `Area/postcode: ${form.get("area") || ""}`,
       "",
-      `Service: ${form.get("service")}`,
-      `Frequency: ${form.get("frequency")}`,
-      `How soon: ${form.get("urgency")}`,
+      `Service: ${valueOrNotSelected(form.get("service"))}`,
+      `Frequency: ${valueOrNotSelected(form.get("frequency"))}`,
+      `How soon: ${valueOrNotSelected(form.get("urgency"))}`,
       `Preferred days/times: ${form.get("preferredTimes") || ""}`,
       "",
-      `Property type: ${form.get("propertyType")}`,
-      `Approx size: ${form.get("propertySize")}`,
-      `Bedrooms: ${form.get("bedrooms")}`,
-      `Bathrooms: ${form.get("bathrooms")}`,
-      `Pets: ${form.get("pets")}`,
-      `Parking: ${form.get("parking")}`,
-      `Products: ${form.get("products")}`,
+      `Property type: ${valueOrNotSelected(form.get("propertyType"))}`,
+      `Approx size: ${valueOrNotSelected(form.get("propertySize"))}`,
+      `Bedrooms: ${valueOrNotSelected(form.get("bedrooms"))}`,
+      `Bathrooms: ${valueOrNotSelected(form.get("bathrooms"))}`,
+      `Pets: ${valueOrNotSelected(form.get("pets"))}`,
+      `Parking: ${valueOrNotSelected(form.get("parking"))}`,
+      `Products: ${valueOrNotSelected(form.get("products"))}`,
       "",
       `Priorities: ${priorities}`,
-      `Photos available: ${form.get("photosAvailable")}`,
+      `Photos available: ${valueOrNotSelected(form.get("photosAvailable"))}`,
       "",
       `Notes:`,
       form.get("message") || ""

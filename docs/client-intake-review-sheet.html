@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Panda Zen Client Intake Review Sheet</title>
+    <style>
+      @page {
+        size: A4;
+        margin: 8mm;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        color: #203229;
+        background: white;
+        font-family: "Segoe UI", Arial, sans-serif;
+        font-size: 9.4pt;
+        line-height: 1.18;
+      }
+
+      .page {
+        width: 100%;
+      }
+
+      header {
+        display: flex;
+        align-items: start;
+        justify-content: space-between;
+        gap: 14px;
+        padding-bottom: 5px;
+        border-bottom: 2px solid #385343;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin-top: 0;
+      }
+
+      h1 {
+        margin-bottom: 3px;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 17pt;
+        font-weight: 500;
+      }
+
+      header p {
+        margin-bottom: 0;
+        color: #66756e;
+      }
+
+      .meta {
+        min-width: 42mm;
+        display: grid;
+        gap: 5px;
+        font-size: 9pt;
+      }
+
+      .line {
+        display: inline-block;
+        min-width: 28mm;
+        border-bottom: 1px solid #9aaa86;
+      }
+
+      .intro {
+        margin: 5px 0;
+        padding: 5px 7px;
+        border: 1px solid #dfe5dd;
+        background: #fbfaf6;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 5px;
+      }
+
+      section {
+        break-inside: avoid;
+        padding: 5px;
+        border: 1px solid #dfe5dd;
+        border-radius: 5px;
+      }
+
+      h2 {
+        margin-bottom: 4px;
+        color: #385343;
+        font-size: 11pt;
+      }
+
+      ul {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      li {
+        display: grid;
+        grid-template-columns: 12px 1fr;
+        gap: 5px;
+        margin-bottom: 2px;
+      }
+
+      li::before {
+        content: "";
+        width: 9px;
+        height: 9px;
+        margin-top: 3px;
+        border: 1px solid #385343;
+      }
+
+      .notes {
+        min-height: 8mm;
+        margin-top: 4px;
+        background-image: repeating-linear-gradient(
+          to bottom,
+          transparent 0,
+          transparent 17px,
+          rgba(56, 83, 67, 0.28) 18px
+        );
+      }
+
+      .wide {
+        grid-column: 1 / -1;
+      }
+
+      .footer {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 8px;
+        margin-top: 5px;
+      }
+
+      .decision {
+        min-height: 14mm;
+      }
+
+      .small {
+        color: #66756e;
+        font-size: 8.8pt;
+      }
+
+      @media print {
+        body {
+          print-color-adjust: exact;
+          -webkit-print-color-adjust: exact;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <header>
+        <div>
+          <h1>Panda Zen Client Intake Review</h1>
+          <p>Draft website quote request fields for review with Mrs P.</p>
+        </div>
+        <div class="meta">
+          <div>Date: <span class="line"></span></div>
+          <div>Reviewer: <span class="line"></span></div>
+          <div>Version: r02 draft</div>
+        </div>
+      </header>
+
+      <p class="intro">
+        Aim: collect enough information to quote, call back, ask for photos, arrange a suitable visit, or decline politely,
+        without asking for sensitive access details on the public website.
+      </p>
+
+      <div class="grid">
+        <section>
+          <h2>1. Contact Details</h2>
+          <ul>
+            <li>Name</li>
+            <li>Phone</li>
+            <li>Email</li>
+            <li>Best way to contact: Phone / Text / WhatsApp / Email</li>
+            <li>Best time to contact</li>
+            <li>Area or postcode</li>
+          </ul>
+          <div class="notes"></div>
+        </section>
+
+        <section>
+          <h2>2. Cleaning Needed</h2>
+          <ul>
+            <li>Service: Regular / Deep / One-off / End of tenancy / Detailing / Ironing / Not sure</li>
+            <li>Frequency: Weekly / Fortnightly / Monthly / One-off / Not sure</li>
+            <li>How soon: Flexible / This month / ASAP / Specific date</li>
+            <li>Preferred days or times</li>
+          </ul>
+          <div class="notes"></div>
+        </section>
+
+        <section>
+          <h2>3. Home Basics</h2>
+          <ul>
+            <li>Property type: House / Flat / Bungalow / Townhouse / Other</li>
+            <li>Approx size: Small / Medium / Large / Not sure</li>
+            <li>Bedrooms: 0 / 1 / 2 / 3 / 4 / 5+</li>
+            <li>Bathrooms: 1 / 2 / 3 / 4+</li>
+            <li>Pets: None / Dog / Cat / Multiple / Other</li>
+            <li>Parking: Driveway / Street / Permit or paid / Not sure</li>
+          </ul>
+          <div class="notes"></div>
+        </section>
+
+        <section>
+          <h2>4. Main Priorities</h2>
+          <ul>
+            <li>Kitchen</li>
+            <li>Bathrooms</li>
+            <li>Floors</li>
+            <li>Dusting</li>
+            <li>Bedrooms</li>
+            <li>Living areas</li>
+            <li>Inside cupboards</li>
+            <li>Oven or fridge</li>
+            <li>Skirting/detailing</li>
+            <li>Other</li>
+          </ul>
+          <div class="notes"></div>
+        </section>
+
+        <section class="wide">
+          <h2>5. Helpful Notes And Safety Wording</h2>
+          <ul>
+            <li>Products: Panda Zen products / Client products / Eco or fragrance-free / Not sure</li>
+            <li>Photos available: No / Yes if requested / Yes, photos would help</li>
+            <li>Free-text notes: deadlines, delicate surfaces, rooms needing attention, non-sensitive context</li>
+          </ul>
+          <p class="small">
+            Suggested wording: Photos are optional and may help with one-off, deep or end-of-tenancy cleans.
+            We will only ask for them if useful. Please avoid sending anything private or sensitive.
+          </p>
+          <div class="notes"></div>
+        </section>
+      </div>
+
+      <div class="footer">
+        <section class="decision">
+          <h2>Keep</h2>
+          <div class="notes"></div>
+        </section>
+        <section class="decision">
+          <h2>Change / Remove</h2>
+          <div class="notes"></div>
+        </section>
+        <section class="decision">
+          <h2>Add</h2>
+          <div class="notes"></div>
+        </section>
+      </div>
+    </main>
+  </body>
+</html>

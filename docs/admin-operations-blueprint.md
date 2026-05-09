@@ -639,6 +639,49 @@ Suggested customer-facing field groups:
 - optional notes
 - optional photos
 
+MVP public form security:
+
+- submit to a controlled API endpoint, not directly to email
+- accept `POST` only
+- accept JSON only
+- validate all required fields
+- enforce realistic field length limits
+- only allow known dropdown values
+- include a honeypot field for spam bots
+- apply basic rate limiting
+- do not support file uploads yet
+- return a polite generic response even for suspicious submissions
+- avoid asking for sensitive access details on the public form
+
+Suggested required fields:
+
+- name
+- phone or email
+- area/postcode
+- service type
+
+Suggested field limits:
+
+- name: 80 characters
+- phone: 40 characters
+- email: 120 characters
+- area/postcode: 120 characters
+- preferred days/times: 160 characters
+- notes: 1000 characters
+
+Suggested rate limits:
+
+- same IP: 3 submissions per hour
+- same IP: 8 submissions per day
+- same email/phone: 2 submissions per day
+
+Photos:
+
+- no website file uploads in MVP
+- form may ask whether photos are available if helpful
+- wording should say Panda Zen may ask for photos separately after replying
+- this avoids file-security risk, storage cost and accidental sensitive uploads
+
 ### Schedule
 
 Purpose: plan work and check availability.
@@ -802,8 +845,9 @@ Tasks:
 
 - public website CTA changes to `Request a cleaning quote`
 - client-facing enquiry form submits to leads
+- public quote endpoint validates input, uses honeypot and applies rate limits
 - enquiry form creates an admin follow-up task
-- optional photo upload design is prepared, with D1 storing references only
+- public form asks if photos are available but does not upload files yet
 - assessment form saves structured assessment data
 - cleaning plan form saves plan and checklist
 - job report form updates job checklist and follow-ups
@@ -927,6 +971,7 @@ Still to do before real use:
 - proper form submit wiring
 - public CTA/enquiry wording update
 - exact client-facing enquiry field review
+- public quote endpoint security and anti-spam rules
 - exact assessment field review, based on enquiry data
 - admin tasks/reminders module
 - uploaded file reference model and retention rules

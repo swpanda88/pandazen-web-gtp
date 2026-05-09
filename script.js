@@ -54,6 +54,8 @@ contactForm.addEventListener("submit", (event) => {
       "",
       `Priorities: ${priorities}`,
       `Photos available: ${valueOrNotSelected(form.get("photosAvailable"))}`,
+      `Privacy acknowledgement: ${form.get("privacyAcknowledgement") ? "Yes" : "No"}`,
+      `Marketing consent: ${form.get("marketingConsent") ? "Yes" : "No"}`,
       "",
       `Notes:`,
       form.get("message") || ""

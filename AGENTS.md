@@ -159,6 +159,14 @@ Design primarily for iPad and PC.
 
 Cleaner view later should be separate from admin, mobile-first, and only show assigned safe job data.
 
+Admin screens should be compact and action-led. They should help admin answer: what is this, why does it matter, and what do I do next?
+
+Avoid wide tables and normal-use horizontal scrolling. Prefer compact grouped rows/cards, chips/tokens, saved views, and a right-side detail panel for full explanations and long notes.
+
+Hover previews are useful on desktop, but every preview must have a touch/iPad alternative such as tap, long-press, or an info button. Previews must not expose sensitive data to users/routes without permission.
+
+Selected records should show a clear next-action area with practical actions such as call, copy WhatsApp, generate email, mark contacted, snooze, or add note.
+
 Admin UI must be type-aware. Do not render all editable fields as plain text inputs.
 
 Use:

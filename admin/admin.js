@@ -406,6 +406,16 @@ function detailRows(fields) {
   `;
 }
 
+function resetDrawer() {
+  drawer.innerHTML = `
+    <div class="drawer-empty">
+      <p class="eyebrow">Detail panel</p>
+      <h2>Select a record</h2>
+      <p>Click a lead, task, job or invoice to review details here.</p>
+    </div>
+  `;
+}
+
 function openDrawer(type, record = {}) {
   const templates = {
     lead: {
@@ -430,7 +440,7 @@ function openDrawer(type, record = {}) {
         ],
         ["Notes", [["Internal note", record.note || record.notes]]]
       ],
-      actions: ["Book assessment", "Mark contacted", "Convert to client"]
+      actions: ["Generate reply", "Request photos", "Mark contacted", "Add note", "Snooze", "Mark lost"]
     },
     task: {
       title: record.title || "New task",
@@ -489,18 +499,25 @@ function openDrawer(type, record = {}) {
       : "";
   drawer.innerHTML = `
     <div class="drawer-content">
-      <p class="eyebrow">${type}</p>
-      <h2>${template.title}</h2>
-      <p>${template.subtitle}</p>
+      <div class="drawer-titlebar">
+        <div>
+          <p class="eyebrow">${type}</p>
+          <h2>${template.title}</h2>
+          <p>${template.subtitle}</p>
+        </div>
+        <button class="drawer-close" type="button" data-close-drawer aria-label="Close detail panel">Close</button>
+      </div>
       ${
         nextAction
           ? `<section class="next-action-strip">
               <span>Recommended next action</span>
               <strong>${nextAction}</strong>
               <div>
-                <button class="ghost" type="button">Call</button>
-                <button class="primary" type="button">Copy WhatsApp</button>
+                <button class="ghost" type="button">Generate reply</button>
+                <button class="primary" type="button">Request photos</button>
+                <button class="ghost" type="button">Mark contacted</button>
                 <button class="ghost" type="button">Add note</button>
+                <button class="ghost" type="button">Snooze</button>
               </div>
             </section>`
           : ""
@@ -542,6 +559,8 @@ function openDrawer(type, record = {}) {
     update();
   });
 
+  drawer.querySelector("[data-close-drawer]")?.addEventListener("click", resetDrawer);
+
   const followupForm = drawer.querySelector("[data-followup-form]");
   if (followupForm) {
     followupForm.addEventListener("submit", async (event) => {
@@ -578,9 +597,14 @@ function openDrawer(type, record = {}) {
 function openLeadForm() {
   drawer.innerHTML = `
     <form class="drawer-content" data-lead-form>
-      <p class="eyebrow">Lead</p>
-      <h2>New lead</h2>
-      <p>Add the first enquiry details. Dropdowns keep typing low; choose Other when needed.</p>
+      <div class="drawer-titlebar">
+        <div>
+          <p class="eyebrow">Lead</p>
+          <h2>New lead</h2>
+          <p>Add the first enquiry details. Dropdowns keep typing low; choose Other when needed.</p>
+        </div>
+        <button class="drawer-close" type="button" data-close-drawer aria-label="Close new lead form">Close</button>
+      </div>
       <section class="drawer-section">
         <h3>Contact</h3>
         <div class="field-grid">
@@ -604,13 +628,16 @@ function openLeadForm() {
       <section class="drawer-section">
         <div class="drawer-actions">
           <button class="primary" type="submit">Save lead</button>
-          <button class="ghost" type="button" data-demo-only>Demo only</button>
+          <button class="ghost" type="button" data-close-drawer>Cancel</button>
         </div>
       </section>
     </form>
   `;
 
   const form = drawer.querySelector("[data-lead-form]");
+  drawer.querySelectorAll("[data-close-drawer]").forEach((button) => {
+    button.addEventListener("click", resetDrawer);
+  });
   form.querySelectorAll("select[data-group]").forEach((select) => {
     const other = select.parentElement.querySelector(".other-field");
     const update = () => {
@@ -721,8 +748,8 @@ function renderDashboard() {
   });
 }
 
-function renderPriorityList() {
-  const host = document.querySelector("[data-priority-list]");
+function renderPriorityList(selector = "[data-priority-list]") {
+  const host = document.querySelector(selector);
   if (!host) return;
   const leads = [...data.leads]
     .sort((a, b) => (leadFitScore(b) || 0) - (leadFitScore(a) || 0))
@@ -1184,6 +1211,7 @@ function bindEvents() {
 function renderAll() {
   renderDashboard();
   renderPriorityList();
+  renderPriorityList("[data-lead-list]");
   renderLeadBoard();
   renderTables();
   renderCleanerPhone();

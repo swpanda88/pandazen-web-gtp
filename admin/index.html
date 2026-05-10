@@ -20,17 +20,18 @@
           <button class="active" type="button" data-view="dashboard">Today</button>
           <button type="button" data-view="leads">Leads</button>
           <button type="button" data-view="clients">Clients & Homes</button>
-          <button type="button" data-view="assessments">Quotes</button>
+          <button type="button" data-view="assessments">Quotes & Assessments</button>
           <button type="button" data-view="schedule">Schedule</button>
+          <button type="button" data-view="jobs">Jobs / Work Orders</button>
           <button type="button" data-view="tasks">Tasks</button>
           <button type="button" data-future-view>Messages</button>
           <button type="button" data-view="invoices">Accounting</button>
+          <button type="button" data-future-view>Reports / Quality</button>
           <button type="button" data-future-view>Settings</button>
-          <button type="button" data-view="jobs">Jobs</button>
         </nav>
 
-        <div class="role-card" aria-label="Preview role selector">
-          <span>Preview role</span>
+        <div class="role-card" aria-label="Role view selector">
+          <span>Role view</span>
           <div class="role-toggle" data-role-toggle>
             <button class="active" type="button" data-role="admin">Admin</button>
             <button type="button" data-role="cleaner">Cleaner</button>
@@ -41,7 +42,7 @@
       <main class="workspace">
         <header class="topbar">
           <div>
-            <p class="eyebrow">Admin MVP preview</p>
+            <p class="eyebrow">Operations cockpit</p>
             <h1 data-view-title>Today</h1>
           </div>
           <label class="admin-search">
@@ -52,7 +53,7 @@
             <button class="active" type="button">Compact view</button>
           </div>
           <div class="top-actions">
-            <a class="primary" href="forms/intake.html">+ New</a>
+            <a class="primary" href="forms/intake.html">+ New Lead</a>
           </div>
         </header>
 
@@ -79,7 +80,7 @@
               <p><mark class="blue">24h scheduled</mark></p>
             </article>
             <article class="metric-card" data-view-link="tasks">
-              <span>Unpaid invoices</span>
+              <span>Tasks due</span>
               <strong>£246</strong>
               <p><mark class="rose">2 urgent</mark></p>
             </article>
@@ -113,6 +114,13 @@
         </section>
 
         <section class="view" data-view-panel="leads">
+          <section class="panel lead-priority-panel">
+            <div class="panel-head">
+              <h2>Priority lead list <span>Main view</span></h2>
+              <p>Board remains below for pipeline scan</p>
+            </div>
+            <div class="priority-list" data-lead-list></div>
+          </section>
           <div class="board" data-lead-board></div>
         </section>
 
@@ -129,7 +137,7 @@
         <section class="view" data-view-panel="assessments">
           <div class="table-panel">
             <div class="table-toolbar">
-              <h2>Assessments</h2>
+              <h2>Quotes & Assessments</h2>
               <a class="ghost" href="forms/assessment.html">Book assessment</a>
             </div>
             <div class="records-table" data-assessment-table></div>
@@ -239,7 +247,7 @@
         <div class="drawer-empty">
           <p class="eyebrow">Detail panel</p>
           <h2>Select a record</h2>
-          <p>Click a lead, client, job or invoice to review details here.</p>
+          <p>Click a lead, task, job or invoice to review details here.</p>
         </div>
       </aside>
     </div>

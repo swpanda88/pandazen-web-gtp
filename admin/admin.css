@@ -1083,6 +1083,46 @@ mark.rose {
   gap: 8px;
 }
 
+.lead-action-form {
+  display: grid;
+  gap: 10px;
+}
+
+.lead-action-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.lead-action-form select,
+.lead-action-form textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--ink);
+  background: white;
+  font: inherit;
+}
+
+.note-list {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.note-item {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fffdfa;
+}
+
+.note-item p {
+  margin: 5px 0;
+}
+
 .drawer-section {
   padding: 16px 0;
   border-top: 1px solid var(--line);

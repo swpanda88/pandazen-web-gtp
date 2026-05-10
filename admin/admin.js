@@ -446,6 +446,111 @@ function detailRows(fields) {
   `;
 }
 
+function renderLeadStatusForm(record) {
+  const current = record.statusValue || record.status || "new";
+  const options = leadStatusOptions();
+  if (!options.length) return "";
+  return `
+    <section class="drawer-section">
+      <h3>Update status</h3>
+      <form class="lead-action-form" data-lead-status-form>
+        <label>
+          Status
+          <select name="status">
+            ${options
+              .map((option) => `<option value="${escapeHtml(option.value)}" ${option.value === current ? "selected" : ""}>${escapeHtml(option.label)}</option>`)
+              .join("")}
+          </select>
+        </label>
+        <button class="primary" type="submit">Save status</button>
+      </form>
+    </section>
+  `;
+}
+
+function renderLeadNotes(record) {
+  const notes = record.leadNotes || [];
+  return `
+    <section class="drawer-section">
+      <h3>Lead notes</h3>
+      ${
+        notes.length
+          ? `<div class="note-list">
+              ${notes
+                .map((note) => `
+                  <article class="note-item">
+                    <strong>${escapeHtml(formatDateTime(note.createdAt) || "Saved note")}</strong>
+                    <p>${escapeHtml(note.note)}</p>
+                    <small>${escapeHtml(compactMeta([note.noteType, note.createdBy]))}</small>
+                  </article>
+                `)
+                .join("")}
+            </div>`
+          : `<p class="record-sub">No notes yet.</p>`
+      }
+      <form class="lead-action-form" data-lead-note-form>
+        <label>
+          Add note
+          <textarea name="note" rows="3" placeholder="Add call outcome, client preference or next step."></textarea>
+        </label>
+        <button class="primary" type="submit">Save note</button>
+      </form>
+      <p class="record-sub" data-lead-action-status></p>
+    </section>
+  `;
+}
+
+function leadDrawerTools(type, record) {
+  if (type !== "lead" || !state.apiReady || !record.id) return "";
+  return `${renderLeadStatusForm(record)}${renderLeadNotes(record)}`;
+}
+
+async function refreshLeadDrawer(leadId) {
+  await loadApiData();
+  const updated = data.leads.find((lead) => String(lead.id) === String(leadId));
+  if (updated) openDrawer("lead", updated);
+}
+
+function setLeadActionStatus(message) {
+  const status = drawer.querySelector("[data-lead-action-status]");
+  if (status) status.textContent = message;
+}
+
+function setupLeadDrawerActions(record) {
+  if (!state.apiReady || !record.id) return;
+
+  const statusForm = drawer.querySelector("[data-lead-status-form]");
+  statusForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const status = new FormData(statusForm).get("status");
+    try {
+      setLeadActionStatus("Saving status...");
+      await apiPatch(`/api/leads/${record.id}`, { status });
+      await refreshLeadDrawer(record.id);
+    } catch (err) {
+      setLeadActionStatus(`Could not save status. ${err.message}`);
+    }
+  });
+
+  const noteForm = drawer.querySelector("[data-lead-note-form]");
+  noteForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const note = new FormData(noteForm).get("note")?.trim();
+    if (!note) {
+      setLeadActionStatus("Add a note before saving.");
+      return;
+    }
+
+    try {
+      setLeadActionStatus("Saving note...");
+      await apiPost(`/api/leads/${record.id}/notes`, { note, noteType: "general", createdBy: "admin" });
+      await refreshLeadDrawer(record.id);
+    } catch (err) {
+      setLeadActionStatus(`Could not save note. ${err.message}`);
+    }
+  });
+}
+
 function resetDrawer() {
   drawer.innerHTML = `
     <div class="drawer-empty">
@@ -570,6 +675,7 @@ function openDrawer(type, record = {}) {
           </section>
         `)
         .join("")}
+      ${leadDrawerTools(type, record)}
       <section class="drawer-section">
         <h3>Actions</h3>
         <div class="drawer-actions">
@@ -600,6 +706,7 @@ function openDrawer(type, record = {}) {
   });
 
   drawer.querySelector("[data-close-drawer]")?.addEventListener("click", resetDrawer);
+  setupLeadDrawerActions(record);
 
   const followupForm = drawer.querySelector("[data-followup-form]");
   if (followupForm) {

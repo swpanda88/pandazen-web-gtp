@@ -218,6 +218,7 @@ const titles = {
 };
 
 const leadStatuses = ["New enquiry", "Contacted", "Assessment booked", "Quote sent", "Accepted"];
+const convertedLeadStatuses = new Set(["accepted", "booked", "converted"]);
 
 const viewTitle = document.querySelector("[data-view-title]");
 const drawer = document.querySelector("[data-drawer]");
@@ -378,6 +379,32 @@ function compactMeta(items) {
   return items.filter(Boolean).join(" · ");
 }
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function activeLeads() {
+  return data.leads.filter((lead) => !convertedLeadStatuses.has(String(lead.statusValue || lead.status || "").toLowerCase()));
+}
+
+function fullLead(record) {
+  return data.leads.find((lead) => String(lead.id) === String(record.id)) || record;
+}
+
+function emptyState(title, message) {
+  return `
+    <div class="empty-state">
+      <strong>${escapeHtml(title)}</strong>
+      <p>${escapeHtml(message)}</p>
+    </div>
+  `;
+}
+
 function detailValue(value, type = "text") {
   if (Array.isArray(value)) return value.length ? value.join(", ") : "";
   if (type === "boolean") return value ? "Yes" : "No";
@@ -396,8 +423,8 @@ function detailRows(fields) {
           const className = `detail-value ${type === "badge" ? "badge" : ""} ${type === "boolean" ? "boolean" : ""} ${rendered ? "" : "empty"}`.trim();
           return `
             <div class="detail-row">
-              <div class="detail-label">${label}</div>
-              <div class="${className}">${rendered || "Not selected"}</div>
+              <div class="detail-label">${escapeHtml(label)}</div>
+              <div class="${className}">${escapeHtml(rendered || "Not selected")}</div>
             </div>
           `;
         })
@@ -422,8 +449,8 @@ function openDrawer(type, record = {}) {
       title: record.name || "New lead",
       subtitle: record.service || "Customer enquiry",
       sections: [
-        ["Contact", [["Name", record.name], ["Area", record.area], ["Contact", record.contact], ["Source", record.source]]],
-        ["Progress", [["Status", record.statusLabel || record.status], ["Service", record.serviceLabel || record.service]]],
+        ["Contact", [["Name", record.name], ["Area", record.area], ["Phone", record.phone], ["Email", record.email], ["Contact", record.contact], ["Source", record.sourceLabel || record.source]]],
+        ["Progress", [["Status", record.statusLabel || record.status], ["Service", record.serviceLabel || record.service], ["Created", formatDateTime(record.createdAt)], ["Updated", formatDateTime(record.updatedAt)]]],
         [
           "Quote assist",
           record.quoteAssist
@@ -502,8 +529,8 @@ function openDrawer(type, record = {}) {
       <div class="drawer-titlebar">
         <div>
           <p class="eyebrow">${type}</p>
-          <h2>${template.title}</h2>
-          <p>${template.subtitle}</p>
+          <h2>${escapeHtml(template.title)}</h2>
+          <p>${escapeHtml(template.subtitle)}</p>
         </div>
         <button class="drawer-close" type="button" data-close-drawer aria-label="Close detail panel">Close</button>
       </div>
@@ -511,7 +538,7 @@ function openDrawer(type, record = {}) {
         nextAction
           ? `<section class="next-action-strip">
               <span>Recommended next action</span>
-              <strong>${nextAction}</strong>
+              <strong>${escapeHtml(nextAction)}</strong>
               <div>
                 <button class="ghost" type="button">Generate reply</button>
                 <button class="primary" type="button">Request photos</button>
@@ -707,23 +734,28 @@ function renderDashboard() {
     list.append(card);
   });
 
-  const attention = data.dashboard?.attention || data.leads.slice(0, 4);
+  const attention = data.dashboard?.attention || activeLeads().slice(0, 4);
   attention.slice(0, Math.max(1, 4 - taskAttention.length)).forEach((lead) => {
+    lead = fullLead(lead);
     const card = el("article", "attention-row");
     const score = leadFitScore(lead);
     card.innerHTML = `
       <button type="button">
         <span class="row-token">Lead</span>
         <span>
-          <strong>${lead.name} · ${lead.area || ""}</strong>
-          <small>${compactMeta([lead.serviceLabel || lead.service, lead.contact, score ? `Fit ${score}` : "Needs review"])}</small>
+          <strong>${escapeHtml(compactMeta([lead.name, lead.area]))}</strong>
+          <small>${escapeHtml(compactMeta([lead.serviceLabel || lead.service, lead.contact, score ? `Fit ${score}` : "Needs review", formatDateTime(lead.createdAt)]))}</small>
         </span>
-        <mark>${lead.quoteAssist?.recommendedNextAction ? "Request photos" : lead.statusLabel || lead.status}</mark>
+        <mark>${escapeHtml(lead.quoteAssist?.recommendedNextAction ? "Request photos" : lead.statusLabel || lead.status)}</mark>
       </button>
     `;
     card.querySelector("button").addEventListener("click", () => openDrawer("lead", lead));
     list.append(card);
   });
+
+  if (!list.children.length) {
+    list.innerHTML = emptyState("No leads need attention", "New enquiries from D1 will appear here after they are submitted.");
+  }
 
   const today = data.dashboard?.today || data.jobs[0];
   if (!today) {
@@ -751,22 +783,27 @@ function renderDashboard() {
 function renderPriorityList(selector = "[data-priority-list]") {
   const host = document.querySelector(selector);
   if (!host) return;
-  const leads = [...data.leads]
+  const leads = [...activeLeads()]
     .sort((a, b) => (leadFitScore(b) || 0) - (leadFitScore(a) || 0))
     .slice(0, 5);
+
+  if (!leads.length) {
+    host.innerHTML = emptyState("No active leads yet", "Submit a test enquiry and it will appear in this list.");
+    return;
+  }
 
   host.innerHTML = leads.map((lead) => `
     <button class="priority-row" type="button" data-priority-lead="${lead.id}">
       <span>
-        <strong>${lead.name}</strong>
-        <small>${compactMeta([lead.area, lead.contact])}</small>
+        <strong>${escapeHtml(lead.name)}</strong>
+        <small>${escapeHtml(compactMeta([lead.area, lead.contact]))}</small>
       </span>
       <span>
-        <strong>${lead.serviceLabel || lead.service || "Enquiry"}</strong>
-        <small>${compactMeta([lead.frequency, lead.note?.includes("dog") ? "pets" : "", "prefers trust"])}</small>
+        <strong>${escapeHtml(lead.serviceLabel || lead.service || "Enquiry")}</strong>
+        <small>${escapeHtml(compactMeta([lead.frequency, formatDateTime(lead.createdAt)]))}</small>
       </span>
-      <mark>${compactMeta([leadFitScore(lead), leadRisk(lead), leadHours(lead), leadPrice(lead)]) || "Review"}</mark>
-      <mark class="status">${lead.statusLabel || lead.status || "New"}</mark>
+      <mark>${escapeHtml(compactMeta([leadFitScore(lead), leadRisk(lead), leadHours(lead), leadPrice(lead)]) || "Review")}</mark>
+      <mark class="status">${escapeHtml(lead.statusLabel || lead.status || "New")}</mark>
     </button>
   `).join("");
 
@@ -912,23 +949,29 @@ function renderSchedule() {
 function renderLeadBoard() {
   const board = document.querySelector("[data-lead-board]");
   board.innerHTML = "";
+  const leadQueue = activeLeads();
+  if (!leadQueue.length) {
+    board.innerHTML = emptyState("No active lead pipeline", "Real D1 leads will show here once enquiries are submitted.");
+    return;
+  }
   const statuses = state.apiReady
-    ? (state.options.lead_status?.options || []).filter((option) => option.value !== "lost")
+    ? (state.options.lead_status?.options || []).filter((option) => option.value !== "lost" && !convertedLeadStatuses.has(option.value))
     : leadStatuses.map((status) => ({ value: status, label: status }));
 
   statuses.forEach((statusOption) => {
-    const leads = data.leads.filter((lead) => (lead.statusValue || lead.status) === statusOption.value || lead.status === statusOption.label);
+    const leads = leadQueue.filter((lead) => (lead.statusValue || lead.status) === statusOption.value || lead.status === statusOption.label);
     const column = el("section", "board-column");
     column.innerHTML = `<h2>${statusOption.label}<span>${leads.length}</span></h2>`;
     leads.forEach((lead) => {
       const card = el("article", "board-card");
       card.innerHTML = `
         <button type="button">
-          <h3>${lead.name}</h3>
-          <p>${lead.area || ""} - ${lead.serviceLabel || lead.service || ""}</p>
+          <h3>${escapeHtml(lead.name)}</h3>
+          <p>${escapeHtml(compactMeta([lead.area, lead.serviceLabel || lead.service]))}</p>
           <div class="tag-row">
-            <span class="pill">${lead.sourceLabel || lead.source || ""}</span>
-            <span class="pill blue">${lead.contact}</span>
+            <span class="pill">${escapeHtml(lead.sourceLabel || lead.source || "")}</span>
+            <span class="pill blue">${escapeHtml(lead.contact)}</span>
+            <span class="pill">${escapeHtml(formatDateTime(lead.createdAt))}</span>
           </div>
         </button>
       `;
@@ -1250,7 +1293,7 @@ async function loadApiData() {
   const payloads = await Promise.all([
     apiGet("/api/options"),
     apiGet("/api/dashboard"),
-    apiGet("/api/admin/leads"),
+    apiGet("/api/leads"),
     apiGet("/api/admin/tasks"),
     apiGet("/api/assessments"),
     apiGet("/api/clients"),

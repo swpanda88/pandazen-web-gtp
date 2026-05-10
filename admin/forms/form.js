@@ -13,6 +13,14 @@ function setStatus(message) {
   });
 }
 
+function showResult(message, isError = false) {
+  const result = document.querySelector("[data-form-success]");
+  if (!result) return;
+  result.textContent = message;
+  result.hidden = false;
+  result.dataset.state = isError ? "error" : "success";
+}
+
 function showStep(index) {
   activeStep = Math.max(0, Math.min(index, steps.length - 1));
   steps.forEach((step, stepIndex) => {
@@ -35,9 +43,13 @@ function formDataObject() {
   return data;
 }
 
-function saveDraft() {
+function saveDraft(message = "Draft saved on this device.") {
   localStorage.setItem(storageKey(), JSON.stringify(formDataObject()));
-  setStatus("Draft saved on this device.");
+  setStatus(message);
+}
+
+function clearDraft() {
+  localStorage.removeItem(storageKey());
 }
 
 function loadDraft() {
@@ -110,13 +122,66 @@ function setupSteps() {
   showStep(0);
 }
 
+function cleanText(value) {
+  return String(value || "").trim();
+}
+
+function intakePayload(data) {
+  return {
+    name: cleanText(data.customerName),
+    area: cleanText(data.area),
+    phone: cleanText(data.phone),
+    email: cleanText(data.email),
+    preferredContact: cleanText(data.preferredContact) || "phone",
+    source: cleanText(data.source) || "website",
+    sourceOther: data.source === "other" ? cleanText(data.sourceOther) : "",
+    serviceType: cleanText(data.serviceType) || "regular_cleaning",
+    serviceOther: data.serviceType === "other" ? cleanText(data.serviceTypeOther) : "",
+    preferredDays: cleanText(data.preferredTimes),
+    urgency: cleanText(data.urgency),
+    status: "new",
+    notes: cleanText(data.notes)
+  };
+}
+
+async function submitIntake() {
+  const payload = intakePayload(formDataObject());
+  saveDraft("Submitting to database...");
+  showResult("Submitting intake...", false);
+
+  const response = await fetch("/api/leads", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  const body = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(body.error || `Submit failed with status ${response.status}.`);
+  }
+
+  clearDraft();
+  form.reset();
+  setupOtherFields();
+  setStatus("Submitted to database. Draft cleared.");
+  showResult(`Lead saved to the database${body.id ? ` as #${body.id}` : ""}. Local draft cleared.`, false);
+}
+
 function setupSubmit() {
-  form.addEventListener("submit", (event) => {
+  form.addEventListener("submit", async (event) => {
     event.preventDefault();
-    saveDraft();
-    const success = document.querySelector("[data-form-success]");
-    if (success) success.hidden = false;
-    setStatus("Saved as a draft preview. Database submit wiring comes next.");
+    if (form.dataset.formName !== "intake") {
+      saveDraft();
+      showResult("Saved locally as a draft preview.", false);
+      return;
+    }
+
+    try {
+      await submitIntake();
+    } catch (err) {
+      saveDraft("Submit failed. Draft kept on this device.");
+      showResult(`Could not submit to the database. Draft kept locally. ${err.message}`, true);
+    }
   });
 
   document.querySelectorAll("[data-save-draft]").forEach((button) => {

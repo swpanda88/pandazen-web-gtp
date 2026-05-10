@@ -8,7 +8,7 @@ export async function onRequestGet({ env }) {
       .prepare(
         `SELECT id, customer_name AS name, phone, email, area, address, source, source_other AS sourceOther,
                 service_type AS serviceType, service_other AS serviceOther, preferred_contact AS preferredContact,
-                preferred_days AS preferredDays, status, notes, created_at AS createdAt, updated_at AS updatedAt
+                preferred_days AS preferredDays, urgency, status, notes, created_at AS createdAt, updated_at AS updatedAt
          FROM leads
          ORDER BY updated_at DESC, id DESC`
       )
@@ -37,8 +37,8 @@ export async function onRequestPost({ request, env }) {
     const result = await db
       .prepare(
         `INSERT INTO leads (customer_name, phone, email, area, address, source, source_other,
-                            service_type, service_other, preferred_contact, preferred_days, status, notes)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                            service_type, service_other, preferred_contact, preferred_days, urgency, status, notes)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .bind(
         body.name,
@@ -52,6 +52,7 @@ export async function onRequestPost({ request, env }) {
         body.serviceOther || null,
         body.preferredContact || "phone",
         body.preferredDays || null,
+        body.urgency || null,
         body.status || "new",
         body.notes || null
       )

@@ -396,6 +396,19 @@ function fullLead(record) {
   return data.leads.find((lead) => String(lead.id) === String(record.id)) || record;
 }
 
+function leadStatusOptions() {
+  const options = state.options.lead_status?.options;
+  if (options?.length) return options;
+  const seen = new Set();
+  return activeLeads().reduce((items, lead) => {
+    const value = lead.statusValue || lead.status || "new";
+    if (seen.has(value)) return items;
+    seen.add(value);
+    items.push({ value, label: lead.statusLabel || lead.status || "New enquiry" });
+    return items;
+  }, []);
+}
+
 function emptyState(title, message) {
   return `
     <div class="empty-state">
@@ -955,7 +968,7 @@ function renderLeadBoard() {
     return;
   }
   const statuses = state.apiReady
-    ? (state.options.lead_status?.options || []).filter((option) => option.value !== "lost" && !convertedLeadStatuses.has(option.value))
+    ? leadStatusOptions().filter((option) => option.value !== "lost" && !convertedLeadStatuses.has(option.value))
     : leadStatuses.map((status) => ({ value: status, label: status }));
 
   statuses.forEach((statusOption) => {
@@ -1265,15 +1278,7 @@ function renderAll() {
 function normalizeApiData(payloads) {
   const [options, dashboard, leads, tasks, assessments, clients, jobs, invoices] = payloads;
   state.options = Object.fromEntries(options.groups.map((group) => [group.key, group]));
-  data.leads = leads.leads.map((lead) => ({
-    ...lead,
-    statusValue: lead.status,
-    status: lead.statusLabel,
-    source: lead.sourceLabel,
-    service: lead.serviceLabel,
-    note: lead.notes,
-    quoteAssist: lead.quoteAssist
-  }));
+  normalizeLeadData(leads);
   data.tasks = tasks.tasks || [];
   data.assessments = assessments.assessments;
   data.clients = clients.clients;
@@ -1289,8 +1294,20 @@ function normalizeApiData(payloads) {
   data.dashboard = dashboard;
 }
 
+function normalizeLeadData(leads) {
+  data.leads = (leads.leads || []).map((lead) => ({
+    ...lead,
+    statusValue: lead.status,
+    status: lead.statusLabel,
+    source: lead.sourceLabel,
+    service: lead.serviceLabel,
+    note: lead.notes,
+    quoteAssist: lead.quoteAssist
+  }));
+}
+
 async function loadApiData() {
-  const payloads = await Promise.all([
+  const payloads = await Promise.allSettled([
     apiGet("/api/options"),
     apiGet("/api/dashboard"),
     apiGet("/api/leads"),
@@ -1300,9 +1317,38 @@ async function loadApiData() {
     apiGet("/api/jobs"),
     apiGet("/api/invoices")
   ]);
-  normalizeApiData(payloads);
+
+  const [options, dashboard, leads, tasks, assessments, clients, jobs, invoices] = payloads;
+  if (leads.status !== "fulfilled") throw leads.reason || new Error("API /api/leads failed");
+
+  if (options.status === "fulfilled") {
+    state.options = Object.fromEntries(options.value.groups.map((group) => [group.key, group]));
+  } else {
+    state.options = {};
+  }
+
+  normalizeLeadData(leads.value);
+  data.dashboard = dashboard.status === "fulfilled" ? dashboard.value : null;
+  data.tasks = tasks.status === "fulfilled" ? tasks.value.tasks || [] : [];
+  data.assessments = assessments.status === "fulfilled" ? assessments.value.assessments || [] : [];
+  data.clients = clients.status === "fulfilled" ? clients.value.clients || [] : [];
+  data.jobs = jobs.status === "fulfilled"
+    ? jobs.value.jobs.map((job) => ({
+        ...job,
+        type: job.typeLabel,
+        statusValue: job.status,
+        status: job.statusLabel,
+        instructions: job.instructions || "",
+        followups: job.followups || []
+      }))
+    : [];
+  data.invoices = invoices.status === "fulfilled" ? invoices.value.invoices || [] : [];
+
   state.apiReady = true;
-  backendStatus.textContent = "Connected to Cloudflare D1. Protect /admin/* and /api/* with Cloudflare Access before real customer data.";
+  const failedCount = payloads.filter((result) => result.status === "rejected").length;
+  backendStatus.textContent = failedCount
+    ? "Connected to Cloudflare D1 leads. Some admin datasets failed to load, but real leads are shown."
+    : "Connected to Cloudflare D1. Protect /admin/* and /api/* with Cloudflare Access before real customer data.";
   renderAll();
 }
 

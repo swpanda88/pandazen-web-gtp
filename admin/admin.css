@@ -363,7 +363,8 @@ mark.rose {
   gap: 18px;
 }
 
-.priority-panel {
+.priority-panel,
+.lead-priority-panel {
   margin-top: 14px;
 }
 
@@ -1020,6 +1021,22 @@ mark.rose {
 .drawer h2 {
   margin-bottom: 10px;
   font-size: 1.5rem;
+}
+
+.drawer-titlebar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.drawer-close {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 7px 10px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  background: white;
 }
 
 .next-action-strip {

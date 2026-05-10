@@ -47,36 +47,44 @@ a.ghost {
 .app-shell {
   min-height: 100svh;
   display: grid;
-  grid-template-columns: 252px minmax(0, 1fr) 360px;
+  grid-template-columns: 178px minmax(0, 1fr) 390px;
+  gap: 18px;
+  padding: 24px;
 }
 
 .sidebar {
   position: sticky;
   top: 0;
-  height: 100svh;
+  height: calc(100svh - 48px);
   display: flex;
   flex-direction: column;
-  padding: 18px;
-  border-right: 1px solid var(--line);
-  background: var(--paper);
+  padding: 24px 16px;
+  border-radius: 22px;
+  background: #263b31;
+  color: white;
 }
 
 .brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 26px;
-  color: var(--ink);
+  display: grid;
+  gap: 0;
+  margin-bottom: 28px;
+  color: white;
   font-family: Georgia, "Times New Roman", serif;
-  font-size: 1.25rem;
+  font-size: 1.55rem;
+  font-weight: 800;
+  letter-spacing: 0;
   text-decoration: none;
 }
 
 .brand img {
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  object-fit: cover;
+  display: none;
+}
+
+.brand small {
+  color: rgba(255, 255, 255, 0.76);
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 650;
 }
 
 .side-nav {
@@ -99,30 +107,36 @@ a.ghost {
 }
 
 .side-nav button {
-  padding: 11px 12px;
-  color: var(--muted);
+  padding: 12px 14px;
+  color: rgba(255, 255, 255, 0.78);
   background: transparent;
+  border-left: 5px solid transparent;
   text-align: left;
 }
 
 .side-nav button.active,
 .side-nav button:hover {
-  color: var(--ink);
-  background: #e7ede4;
+  color: white;
+  border-left-color: #c79560;
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.side-nav [data-future-view] {
+  opacity: 0.72;
 }
 
 .role-card {
   margin-top: auto;
   padding: 12px;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 8px;
-  background: white;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .role-card > span {
   display: block;
   margin-bottom: 10px;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.72);
   font-size: 0.82rem;
   font-weight: 700;
 }
@@ -135,8 +149,8 @@ a.ghost {
 
 .role-toggle button {
   min-height: 36px;
-  color: var(--muted);
-  background: var(--wash);
+  color: rgba(255, 255, 255, 0.74);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .role-toggle button.active {
@@ -146,7 +160,7 @@ a.ghost {
 
 .workspace {
   min-width: 0;
-  padding: 24px clamp(18px, 3vw, 38px) 36px;
+  padding: 0;
 }
 
 .topbar {
@@ -154,7 +168,12 @@ a.ghost {
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  margin-bottom: 18px;
+  min-height: 68px;
+  margin-bottom: 20px;
+  padding: 14px 22px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: white;
 }
 
 .eyebrow {
@@ -174,7 +193,7 @@ p {
 
 h1 {
   margin-bottom: 0;
-  font-size: clamp(1.9rem, 4vw, 2.8rem);
+  font-size: clamp(1.8rem, 3vw, 2.45rem);
   letter-spacing: 0;
 }
 
@@ -186,6 +205,39 @@ h2 {
 .top-actions {
   display: flex;
   gap: 10px;
+}
+
+.admin-search {
+  position: relative;
+  flex: 1 1 360px;
+  max-width: 420px;
+}
+
+.admin-search span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.admin-search input {
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 22px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  color: var(--ink);
+  background: #f4f0eb;
+}
+
+.view-switch button {
+  min-height: 38px;
+  padding: 8px 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  color: var(--muted);
+  background: #f4f0eb;
 }
 
 .primary,
@@ -226,8 +278,8 @@ h2 {
 .metric-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 18px;
+  gap: 18px;
+  margin-bottom: 22px;
 }
 
 .metric-grid article,
@@ -243,6 +295,14 @@ h2 {
 
 .metric-grid article {
   padding: 18px;
+}
+
+.metric-card {
+  cursor: pointer;
+}
+
+.metric-card:hover {
+  border-color: #cdb78f;
 }
 
 .metric-grid span {
@@ -270,14 +330,40 @@ h2 {
   font-size: 0.9rem;
 }
 
+mark {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  color: #4e745f;
+  background: #edf3ea;
+  font-size: 0.85rem;
+}
+
+mark.warn {
+  color: #a56e13;
+  background: #fbf0df;
+}
+
+mark.blue {
+  color: #4d7189;
+  background: #e8f0f4;
+}
+
+mark.rose {
+  color: #b56b63;
+  background: #faecea;
+}
+
 .dashboard-grid,
 .jobs-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
-  gap: 14px;
+  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 1fr);
+  gap: 18px;
 }
 
-.mini-schedule-panel {
+.priority-panel {
   margin-top: 14px;
 }
 
@@ -301,6 +387,17 @@ h2 {
   border-bottom: 1px solid var(--line);
 }
 
+.panel-head h2 span {
+  color: #b78357;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.panel-head p {
+  margin: 0;
+  color: #4e745f;
+}
+
 .panel-head button,
 .table-toolbar button {
   color: var(--forest);
@@ -312,11 +409,12 @@ h2 {
 
 .task-list {
   display: grid;
-  gap: 10px;
+  gap: 9px;
   padding: 14px;
 }
 
 .task-card,
+.attention-row,
 .board-card,
 .record-row {
   border: 1px solid var(--line);
@@ -325,11 +423,13 @@ h2 {
 }
 
 .task-card,
+.attention-row,
 .board-card {
   padding: 13px;
 }
 
 .task-card button,
+.attention-row button,
 .board-card button,
 .record-row button {
   width: 100%;
@@ -338,6 +438,45 @@ h2 {
   color: inherit;
   background: transparent;
   text-align: left;
+}
+
+.attention-row {
+  padding: 0;
+}
+
+.attention-row button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 14px;
+}
+
+.attention-row strong,
+.priority-row strong,
+.schedule-row strong {
+  display: block;
+  color: var(--ink);
+  font-weight: 750;
+  overflow-wrap: anywhere;
+}
+
+.attention-row small,
+.priority-row small,
+.schedule-row small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.row-token {
+  min-width: 58px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  color: var(--muted);
+  background: #f1eee9;
+  text-align: center;
+  font-size: 0.8rem;
 }
 
 .task-card h3,
@@ -354,6 +493,62 @@ h2 {
 
 .today-card {
   padding: 16px;
+}
+
+.schedule-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 60px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: inherit;
+  background: #fffdfa;
+  text-align: left;
+}
+
+.schedule-row span {
+  grid-row: span 2;
+  color: var(--ink);
+  font-weight: 750;
+}
+
+.priority-list {
+  display: grid;
+  gap: 1px;
+  padding: 0 24px 18px;
+}
+
+.priority-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(190px, 1.4fr) auto auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 18px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  color: inherit;
+  background: white;
+  text-align: left;
+}
+
+.priority-row:first-child {
+  border-top: 1px solid var(--line);
+}
+
+.priority-row:hover,
+.schedule-row:hover,
+.attention-row:hover {
+  background: #f8faf5;
+}
+
+.priority-row .status {
+  color: #b78357;
+  background: #f1e8dd;
 }
 
 .mini-calendar {
@@ -810,10 +1005,10 @@ h2 {
 .drawer {
   position: sticky;
   top: 0;
-  height: 100svh;
+  height: calc(100svh - 48px);
   overflow-y: auto;
-  border-width: 0 0 0 1px;
-  border-radius: 0;
+  border-width: 1px;
+  border-radius: 14px;
   box-shadow: none;
 }
 
@@ -825,6 +1020,32 @@ h2 {
 .drawer h2 {
   margin-bottom: 10px;
   font-size: 1.5rem;
+}
+
+.next-action-strip {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0 8px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fffdfa;
+}
+
+.next-action-strip span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+
+.next-action-strip strong {
+  font-size: 1rem;
+}
+
+.next-action-strip div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .drawer-section {
@@ -955,7 +1176,7 @@ body.cleaner-mode .notice {
 
 @media (max-width: 1120px) {
   .app-shell {
-    grid-template-columns: 220px minmax(0, 1fr);
+    grid-template-columns: 190px minmax(0, 1fr);
   }
 
   .drawer {
@@ -980,16 +1201,26 @@ body.cleaner-mode .notice {
   .jobs-layout {
     grid-template-columns: 1fr;
   }
+
+  .priority-row {
+    grid-template-columns: minmax(140px, 1fr) minmax(160px, 1fr);
+  }
 }
 
 @media (max-width: 760px) {
   .app-shell {
     display: block;
+    padding: 0;
   }
 
   .sidebar {
     position: relative;
     height: auto;
+    border-radius: 0;
+  }
+
+  .workspace {
+    padding: 18px;
   }
 
   .side-nav {
@@ -1004,6 +1235,12 @@ body.cleaner-mode .notice {
 
   .metric-grid,
   .export-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .priority-row,
+  .attention-row button,
+  .schedule-row {
     grid-template-columns: 1fr;
   }
 

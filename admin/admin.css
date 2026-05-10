@@ -1123,6 +1123,28 @@ mark.rose {
   margin: 5px 0;
 }
 
+.linked-task-list {
+  display: grid;
+  gap: 8px;
+}
+
+.linked-task-item {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fffdfa;
+}
+
+.linked-task-item small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+}
+
 .drawer-section {
   padding: 16px 0;
   border-top: 1px solid var(--line);

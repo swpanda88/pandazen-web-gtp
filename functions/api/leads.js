@@ -14,13 +14,35 @@ export async function onRequestGet({ env }) {
       )
       .all();
 
+    const leadIds = results.map((lead) => lead.id);
+    const notesByLead = {};
+    if (leadIds.length) {
+      const placeholders = leadIds.map(() => "?").join(", ");
+      const notes = await db
+        .prepare(
+          `SELECT id, lead_id AS leadId, note, note_type AS noteType, created_by AS createdBy,
+                  created_at AS createdAt
+           FROM lead_notes
+           WHERE lead_id IN (${placeholders})
+           ORDER BY created_at DESC, id DESC`
+        )
+        .bind(...leadIds)
+        .all();
+
+      notes.results.forEach((note) => {
+        if (!notesByLead[note.leadId]) notesByLead[note.leadId] = [];
+        notesByLead[note.leadId].push(note);
+      });
+    }
+
     return json({
       leads: results.map((lead) => ({
         ...lead,
         statusLabel: labelFor(labels, "lead_status", lead.status),
         sourceLabel: labelFor(labels, "lead_source", lead.source),
         serviceLabel: labelFor(labels, "service_type", lead.serviceType),
-        contact: lead.phone || lead.email || ""
+        contact: lead.phone || lead.email || "",
+        leadNotes: notesByLead[lead.id] || []
       }))
     });
   } catch (err) {

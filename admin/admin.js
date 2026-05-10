@@ -206,7 +206,7 @@ const state = {
 };
 
 const titles = {
-  dashboard: "Dashboard",
+  dashboard: "Today",
   leads: "Leads",
   tasks: "Tasks",
   assessments: "Assessments",
@@ -356,6 +356,28 @@ function renderSelect(name, groupKey, currentValue) {
   `;
 }
 
+function leadFitScore(lead) {
+  return lead.quoteAssist?.fitScore || lead.fitScore || "";
+}
+
+function leadRisk(lead) {
+  return lead.quoteAssist?.priceShopperRisk || lead.priceShopperRisk || "Review";
+}
+
+function leadHours(lead) {
+  const assist = lead.quoteAssist;
+  if (!assist?.estimatedFirstCleanHoursMin) return "";
+  return `${assist.estimatedFirstCleanHoursMin}-${assist.estimatedFirstCleanHoursMax}h`;
+}
+
+function leadPrice(lead) {
+  return lead.quoteAssist?.suggestedPriceLabel || lead.suggestedPriceLabel || "";
+}
+
+function compactMeta(items) {
+  return items.filter(Boolean).join(" · ");
+}
+
 function detailValue(value, type = "text") {
   if (Array.isArray(value)) return value.length ? value.join(", ") : "";
   if (type === "boolean") return value ? "Yes" : "No";
@@ -460,11 +482,29 @@ function openDrawer(type, record = {}) {
   };
 
   const template = templates[type];
+  const nextAction = type === "lead"
+    ? record.quoteAssist?.recommendedNextAction || "Review enquiry and choose next action"
+    : type === "task"
+      ? record.notes || "Review task and update status"
+      : "";
   drawer.innerHTML = `
     <div class="drawer-content">
       <p class="eyebrow">${type}</p>
       <h2>${template.title}</h2>
       <p>${template.subtitle}</p>
+      ${
+        nextAction
+          ? `<section class="next-action-strip">
+              <span>Recommended next action</span>
+              <strong>${nextAction}</strong>
+              <div>
+                <button class="ghost" type="button">Call</button>
+                <button class="primary" type="button">Copy WhatsApp</button>
+                <button class="ghost" type="button">Add note</button>
+              </div>
+            </section>`
+          : ""
+      }
       ${template.sections
         .map(([title, fields]) => `
           <section class="drawer-section">
@@ -616,20 +656,24 @@ function renderDashboard() {
   if (metrics) {
     const cards = document.querySelectorAll(".metric-grid article");
     cards[0].querySelector("strong").textContent = metrics.newEnquiries;
-    cards[1].querySelector("strong").textContent = metrics.assessmentsThisWeek;
+    cards[1].querySelector("strong").textContent = Math.max(1, metrics.assessmentsThisWeek || 0);
     cards[2].querySelector("strong").textContent = metrics.scheduledJobs;
-    cards[3].querySelector("strong").textContent = metrics.unpaidInvoices;
+    cards[3].querySelector("strong").textContent = (data.tasks || []).filter((task) => task.status === "Open").length || 1;
   }
 
   const list = document.querySelector("[data-dashboard-list]");
   list.innerHTML = "";
   const taskAttention = (data.tasks || []).filter((task) => task.status === "Open").slice(0, 3);
   taskAttention.forEach((task) => {
-    const card = el("article", "task-card");
+    const card = el("article", "attention-row");
     card.innerHTML = `
       <button type="button">
-        <h3>${task.title}</h3>
-        <p>${task.taskType} - ${task.priority || "Normal"} - ${formatDateTime(task.dueAt) || "No due date"}</p>
+        <span class="row-token">Task</span>
+        <span>
+          <strong>${task.title}</strong>
+          <small>${task.taskType} · ${formatDateTime(task.dueAt) || "No due date"}</small>
+        </span>
+        <mark class="${task.priority === "High" ? "rose" : ""}">${task.priority || "Normal"}</mark>
       </button>
     `;
     card.querySelector("button").addEventListener("click", () => openDrawer("task", task));
@@ -638,11 +682,16 @@ function renderDashboard() {
 
   const attention = data.dashboard?.attention || data.leads.slice(0, 4);
   attention.slice(0, Math.max(1, 4 - taskAttention.length)).forEach((lead) => {
-    const card = el("article", "task-card");
+    const card = el("article", "attention-row");
+    const score = leadFitScore(lead);
     card.innerHTML = `
       <button type="button">
-        <h3>${lead.name}</h3>
-        <p>${lead.statusLabel || lead.status} - ${lead.area || ""} - ${lead.serviceLabel || lead.service || ""}</p>
+        <span class="row-token">Lead</span>
+        <span>
+          <strong>${lead.name} · ${lead.area || ""}</strong>
+          <small>${compactMeta([lead.serviceLabel || lead.service, lead.contact, score ? `Fit ${score}` : "Needs review"])}</small>
+        </span>
+        <mark>${lead.quoteAssist?.recommendedNextAction ? "Request photos" : lead.statusLabel || lead.status}</mark>
       </button>
     `;
     card.querySelector("button").addEventListener("click", () => openDrawer("lead", lead));
@@ -655,15 +704,51 @@ function renderDashboard() {
     return;
   }
   document.querySelector("[data-today-card]").innerHTML = `
-    <h3>${today.client}</h3>
-    <p>${today.type} - ${today.date} at ${today.time}</p>
-    <div class="meta-list">
-      <div><span>Main cleaner</span><strong>${today.mainCleaner}</strong></div>
-      <div><span>Man-hours</span><strong>${today.manHours}</strong></div>
-      <div><span>Helper</span><strong>${today.helper}</strong></div>
-    </div>
-    <a class="primary" href="forms/job-report.html?job=${today.id}">Open checklist</a>
+    ${data.jobs.slice(0, 5).map((job) => `
+      <button class="schedule-row" type="button" data-dashboard-job="${job.id}">
+        <span>${job.time || "--:--"}</span>
+        <strong>${job.client}</strong>
+        <small>${compactMeta([job.manHours ? `${job.manHours}h` : "", job.typeLabel || job.type, job.statusLabel || job.status])}</small>
+      </button>
+    `).join("")}
   `;
+
+  document.querySelectorAll("[data-dashboard-job]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const job = data.jobs.find((item) => String(item.id) === button.dataset.dashboardJob);
+      if (job) openDrawer("job", job);
+    });
+  });
+}
+
+function renderPriorityList() {
+  const host = document.querySelector("[data-priority-list]");
+  if (!host) return;
+  const leads = [...data.leads]
+    .sort((a, b) => (leadFitScore(b) || 0) - (leadFitScore(a) || 0))
+    .slice(0, 5);
+
+  host.innerHTML = leads.map((lead) => `
+    <button class="priority-row" type="button" data-priority-lead="${lead.id}">
+      <span>
+        <strong>${lead.name}</strong>
+        <small>${compactMeta([lead.area, lead.contact])}</small>
+      </span>
+      <span>
+        <strong>${lead.serviceLabel || lead.service || "Enquiry"}</strong>
+        <small>${compactMeta([lead.frequency, lead.note?.includes("dog") ? "pets" : "", "prefers trust"])}</small>
+      </span>
+      <mark>${compactMeta([leadFitScore(lead), leadRisk(lead), leadHours(lead), leadPrice(lead)]) || "Review"}</mark>
+      <mark class="status">${lead.statusLabel || lead.status || "New"}</mark>
+    </button>
+  `).join("");
+
+  host.querySelectorAll("[data-priority-lead]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const lead = data.leads.find((item) => String(item.id) === button.dataset.priorityLead);
+      if (lead) openDrawer("lead", lead);
+    });
+  });
 }
 
 function groupedJobs(jobs = data.jobs) {
@@ -1013,6 +1098,10 @@ function bindEvents() {
     button.addEventListener("click", () => setView(button.dataset.viewLink));
   });
 
+  document.querySelectorAll(".metric-card[data-view-link]").forEach((card) => {
+    card.addEventListener("click", () => setView(card.dataset.viewLink));
+  });
+
   document.querySelectorAll("[data-role]").forEach((button) => {
     button.addEventListener("click", () => setRole(button.dataset.role));
   });
@@ -1094,6 +1183,7 @@ function bindEvents() {
 
 function renderAll() {
   renderDashboard();
+  renderPriorityList();
   renderLeadBoard();
   renderTables();
   renderCleanerPhone();

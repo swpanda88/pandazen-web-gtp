@@ -12,19 +12,21 @@
       <aside class="sidebar" aria-label="Panda Zen admin navigation">
         <a class="brand" href="../index.html" aria-label="Back to Panda Zen website">
           <img src="../assets/logo.png" alt="">
-          <span>Panda Zen</span>
+          <span>PandaZen</span>
+          <small>Admin Cockpit</small>
         </a>
 
         <nav class="side-nav" data-nav>
-          <button class="active" type="button" data-view="dashboard">Dashboard</button>
+          <button class="active" type="button" data-view="dashboard">Today</button>
           <button type="button" data-view="leads">Leads</button>
-          <button type="button" data-view="tasks">Tasks</button>
-          <button type="button" data-view="assessments">Assessments</button>
-          <button type="button" data-view="clients">Clients</button>
+          <button type="button" data-view="clients">Clients & Homes</button>
+          <button type="button" data-view="assessments">Quotes</button>
           <button type="button" data-view="schedule">Schedule</button>
+          <button type="button" data-view="tasks">Tasks</button>
+          <button type="button" data-future-view>Messages</button>
+          <button type="button" data-view="invoices">Accounting</button>
+          <button type="button" data-future-view>Settings</button>
           <button type="button" data-view="jobs">Jobs</button>
-          <button type="button" data-view="invoices">Invoices</button>
-          <button type="button" data-view="exports">Exports</button>
         </nav>
 
         <div class="role-card" aria-label="Preview role selector">
@@ -40,11 +42,17 @@
         <header class="topbar">
           <div>
             <p class="eyebrow">Admin MVP preview</p>
-            <h1 data-view-title>Dashboard</h1>
+            <h1 data-view-title>Today</h1>
+          </div>
+          <label class="admin-search">
+            <span>Search</span>
+            <input type="search" placeholder="Search lead, client, postcode, task...">
+          </label>
+          <div class="view-switch" aria-label="Dashboard view mode">
+            <button class="active" type="button">Compact view</button>
           </div>
           <div class="top-actions">
-            <a class="ghost" href="forms/assessment.html">New assessment</a>
-            <a class="primary" href="forms/intake.html">Add lead</a>
+            <a class="primary" href="forms/intake.html">+ New</a>
           </div>
         </header>
 
@@ -55,25 +63,25 @@
 
         <section class="view active" data-view-panel="dashboard">
           <div class="metric-grid">
-            <article>
+            <article class="metric-card" data-view-link="leads">
               <span>New enquiries</span>
               <strong>4</strong>
-              <p>2 need a reply today</p>
+              <p><mark>2 high fit</mark></p>
             </article>
-            <article>
-              <span>Assessments this week</span>
+            <article class="metric-card" data-view-link="leads">
+              <span>Quotes to chase</span>
               <strong>3</strong>
-              <p>Next: Thurs 10:30</p>
+              <p><mark class="warn">1 overdue</mark></p>
             </article>
-            <article>
-              <span>Scheduled cleans</span>
-              <strong>8</strong>
-              <p>Generated to month end</p>
+            <article class="metric-card" data-view-link="schedule">
+              <span>Today jobs</span>
+              <strong>5</strong>
+              <p><mark class="blue">24h scheduled</mark></p>
             </article>
-            <article>
+            <article class="metric-card" data-view-link="tasks">
               <span>Unpaid invoices</span>
               <strong>£246</strong>
-              <p>2 awaiting payment</p>
+              <p><mark class="rose">2 urgent</mark></p>
             </article>
           </div>
 
@@ -81,26 +89,26 @@
             <section class="panel">
               <div class="panel-head">
                 <h2>Needs attention</h2>
-                <button type="button" data-view-link="leads">View leads</button>
+                <button type="button" data-view-link="leads">View all</button>
               </div>
               <div class="task-list" data-dashboard-list></div>
             </section>
 
             <section class="panel">
               <div class="panel-head">
-                <h2>Cleaner today</h2>
-                <button type="button" data-view-link="jobs">View jobs</button>
+                <h2>Today schedule <span>Week</span></h2>
+                <button type="button" data-view-link="schedule">Open schedule</button>
               </div>
               <div class="today-card" data-today-card></div>
             </section>
           </div>
 
-          <section class="panel mini-schedule-panel">
+          <section class="panel priority-panel">
             <div class="panel-head">
-              <h2>Schedule overview</h2>
-              <button type="button" data-view-link="schedule">Open schedule</button>
+              <h2>High-fit leads <span>Priority</span></h2>
+              <p>No side-scroll</p>
             </div>
-            <div class="mini-calendar" data-mini-calendar></div>
+            <div class="priority-list" data-priority-list></div>
           </section>
         </section>
 

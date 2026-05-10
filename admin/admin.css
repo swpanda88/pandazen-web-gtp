@@ -523,6 +523,24 @@ mark.rose {
   padding: 0 24px 18px;
 }
 
+.empty-state {
+  padding: 18px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  color: var(--muted);
+  background: #fffdfa;
+}
+
+.empty-state strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--ink);
+}
+
+.empty-state p {
+  margin: 0;
+}
+
 .priority-row {
   width: 100%;
   display: grid;

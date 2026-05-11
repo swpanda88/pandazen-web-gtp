@@ -401,8 +401,17 @@ function clientForLead(record) {
   return (data.clients || []).find((client) => String(client.leadId) === String(record.id));
 }
 
+function assessmentQuoteForLead(record) {
+  return (data.assessments || []).find((assessment) => String(assessment.leadId) === String(record.id));
+}
+
 function isConvertibleLead(record) {
   return convertibleLeadStatuses.has(String(record.statusValue || record.status || "").toLowerCase());
+}
+
+function canCreateAssessmentQuote(record) {
+  const status = String(record.statusValue || record.status || "").toLowerCase();
+  return !["converted", "lost", "no_response", "not_suitable", "declined", "rejected"].includes(status);
 }
 
 function clientServiceLabel(record) {
@@ -628,9 +637,31 @@ function renderLeadConversion(record) {
   `;
 }
 
+function renderLeadAssessmentQuote(record) {
+  const assessmentQuote = assessmentQuoteForLead(record);
+  if (!assessmentQuote && !canCreateAssessmentQuote(record)) return "";
+  return `
+    <section class="drawer-section">
+      <h3>Assessment / Quote</h3>
+      <div class="drawer-actions">
+        ${
+          assessmentQuote
+            ? `<button class="primary" type="button" data-open-assessment-quote="${escapeHtml(assessmentQuote.id)}">Open Assessment / Quote</button>`
+            : `<button class="primary" type="button" data-create-assessment-quote="${escapeHtml(record.id)}">Create Assessment / Quote</button>`
+        }
+      </div>
+      <p class="record-sub">${
+        assessmentQuote
+          ? `Linked Q&A #${escapeHtml(assessmentQuote.id)} - ${escapeHtml(assessmentQuote.quoteStageLabel || assessmentQuote.quoteStage || assessmentQuote.statusLabel || assessmentQuote.status || "Draft")}`
+          : "Creates a linked pre-client Q&A record without changing the original enquiry history."
+      }</p>
+    </section>
+  `;
+}
+
 function leadDrawerTools(type, record) {
   if (type !== "lead" || !state.apiReady || !record.id) return "";
-  return `${renderLeadStatusForm(record)}${renderLeadConversion(record)}${renderLeadTasks(record)}${renderLeadNotes(record)}`;
+  return `${renderLeadStatusForm(record)}${renderLeadAssessmentQuote(record)}${renderLeadConversion(record)}${renderLeadTasks(record)}${renderLeadNotes(record)}`;
 }
 
 async function refreshLeadDrawer(leadId) {
@@ -644,8 +675,36 @@ function setLeadActionStatus(message) {
   if (status) status.textContent = message;
 }
 
+function openAssessmentQuoteFromLead(assessmentQuoteId) {
+  const assessmentQuote = data.assessments.find((item) => String(item.id) === String(assessmentQuoteId));
+  if (!assessmentQuote) {
+    setLeadActionStatus("Assessment / Quote is not available in the current D1 data.");
+    return false;
+  }
+  openDrawer("assessment", assessmentQuote);
+  setView("assessments");
+  return true;
+}
+
 function setupLeadDrawerActions(record) {
   if (!state.apiReady || !record.id) return;
+
+  drawer.querySelector("[data-create-assessment-quote]")?.addEventListener("click", async () => {
+    try {
+      setLeadActionStatus("Creating Assessment / Quote...");
+      const result = await apiPost(`/api/leads/${record.id}/assessment-quote`, {});
+      await loadApiData();
+      const assessmentQuoteId = result.assessmentQuote?.id || result.id;
+      if (openAssessmentQuoteFromLead(assessmentQuoteId)) return;
+      setLeadActionStatus("Assessment / Quote was created, but it was not returned by the current data load.");
+    } catch (err) {
+      setLeadActionStatus(`Could not create Assessment / Quote. ${err.message}`);
+    }
+  });
+
+  drawer.querySelector("[data-open-assessment-quote]")?.addEventListener("click", (event) => {
+    openAssessmentQuoteFromLead(event.currentTarget.dataset.openAssessmentQuote);
+  });
 
   drawer.querySelector("[data-convert-lead]")?.addEventListener("click", async () => {
     try {

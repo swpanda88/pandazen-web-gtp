@@ -597,6 +597,52 @@ function setupLeadDrawerActions(record) {
   });
 }
 
+function setDrawerActionStatus(message) {
+  const status = drawer.querySelector("[data-drawer-action-status]");
+  if (status) status.textContent = message;
+}
+
+function renderDrawerAction(type, record, action) {
+  const isDisabled =
+    type === "task" && (action === "Reschedule" || (action === "Mark done" && record.status === "Done"));
+  return `<button class="ghost" type="button" data-drawer-action="${escapeHtml(action)}" ${isDisabled ? "disabled aria-disabled=\"true\"" : ""}>${escapeHtml(action)}</button>`;
+}
+
+async function refreshTaskDrawer(taskId) {
+  await loadApiData();
+  const updated = data.tasks.find((task) => String(task.id) === String(taskId));
+  if (updated) openDrawer("task", updated);
+}
+
+function setupTaskDrawerActions(record) {
+  if (!state.apiReady || !record.id) return;
+
+  drawer.querySelector('[data-drawer-action="Mark done"]')?.addEventListener("click", async () => {
+    try {
+      setDrawerActionStatus("Marking task done...");
+      await apiPatch(`/api/admin/tasks/${record.id}`, { status: "Done" });
+      await refreshTaskDrawer(record.id);
+    } catch (err) {
+      setDrawerActionStatus(`Could not mark task done. ${err.message}`);
+    }
+  });
+
+  drawer.querySelector('[data-drawer-action="Open linked record"]')?.addEventListener("click", () => {
+    if (record.linkedType !== "lead") {
+      setDrawerActionStatus("This task is not linked to a lead.");
+      return;
+    }
+
+    const lead = data.leads.find((item) => String(item.id) === String(record.linkedId));
+    if (!lead) {
+      setDrawerActionStatus("Linked lead is not available in the current D1 data.");
+      return;
+    }
+
+    openDrawer("lead", lead);
+  });
+}
+
 function resetDrawer() {
   drawer.innerHTML = `
     <div class="drawer-empty">
@@ -725,8 +771,9 @@ function openDrawer(type, record = {}) {
       <section class="drawer-section">
         <h3>Actions</h3>
         <div class="drawer-actions">
-          ${template.actions.map((action) => `<button class="ghost" type="button">${action}</button>`).join("")}
+          ${template.actions.map((action) => renderDrawerAction(type, record, action)).join("")}
         </div>
+        <p class="record-sub" data-drawer-action-status></p>
       </section>
       ${
         type === "job"
@@ -753,6 +800,7 @@ function openDrawer(type, record = {}) {
 
   drawer.querySelector("[data-close-drawer]")?.addEventListener("click", resetDrawer);
   setupLeadDrawerActions(record);
+  if (type === "task") setupTaskDrawerActions(record);
 
   const followupForm = drawer.querySelector("[data-followup-form]");
   if (followupForm) {

@@ -58,7 +58,7 @@ a.ghost {
   height: calc(100svh - 48px);
   display: flex;
   flex-direction: column;
-  padding: 24px 16px;
+  padding: 16px 12px;
   border-radius: 22px;
   background: #263b31;
   color: white;
@@ -67,10 +67,10 @@ a.ghost {
 .brand {
   display: grid;
   gap: 0;
-  margin-bottom: 28px;
+  margin-bottom: 12px;
   color: white;
   font-family: Georgia, "Times New Roman", serif;
-  font-size: 1.55rem;
+  font-size: 1.38rem;
   font-weight: 800;
   letter-spacing: 0;
   text-decoration: none;
@@ -83,13 +83,13 @@ a.ghost {
 .brand small {
   color: rgba(255, 255, 255, 0.76);
   font-family: "Segoe UI", Arial, sans-serif;
-  font-size: 0.82rem;
+  font-size: 0.76rem;
   font-weight: 650;
 }
 
 .side-nav {
   display: grid;
-  gap: 4px;
+  gap: 2px;
 }
 
 .side-nav button,
@@ -107,7 +107,8 @@ a.ghost {
 }
 
 .side-nav button {
-  padding: 12px 14px;
+  min-height: 34px;
+  padding: 7px 10px;
   color: rgba(255, 255, 255, 0.78);
   background: transparent;
   border-left: 5px solid transparent;
@@ -125,9 +126,17 @@ a.ghost {
   opacity: 0.72;
 }
 
+.side-nav-divider {
+  width: 100%;
+  height: 1px;
+  margin: 5px 0;
+  border: 0;
+  background: rgba(255, 255, 255, 0.18);
+}
+
 .role-card {
   margin-top: auto;
-  padding: 12px;
+  padding: 8px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.08);
@@ -135,9 +144,9 @@ a.ghost {
 
 .role-card > span {
   display: block;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
   color: rgba(255, 255, 255, 0.72);
-  font-size: 0.82rem;
+  font-size: 0.76rem;
   font-weight: 700;
 }
 

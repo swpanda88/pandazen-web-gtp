@@ -448,6 +448,11 @@ function detailValue(value, type = "text") {
   return value ?? "";
 }
 
+function formatMoneyPence(amountPence) {
+  if (amountPence === null || amountPence === undefined || amountPence === "") return "";
+  return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(Number(amountPence) / 100);
+}
+
 function detailRows(fields) {
   return `
     <div class="detail-grid">
@@ -541,6 +546,31 @@ function renderOriginalLeadNotes(record) {
                 .join("")}
             </div>`
           : `<p class="record-sub">No linked lead history notes yet.</p>`
+      }
+    </section>
+  `;
+}
+
+function renderLinkedLeadNotes(record) {
+  const notes = record.linkedLeadNotes || [];
+  if (!record.leadId) return "";
+  return `
+    <section class="drawer-section">
+      <h3>Linked lead notes</h3>
+      ${
+        notes.length
+          ? `<div class="note-list">
+              ${notes
+                .map((note) => `
+                  <article class="note-item">
+                    <strong>${escapeHtml(formatDateTime(note.createdAt) || "Saved note")}</strong>
+                    <p>${escapeHtml(note.note)}</p>
+                    <small>${escapeHtml(compactMeta([note.noteType, note.createdBy]))}</small>
+                  </article>
+                `)
+                .join("")}
+            </div>`
+          : `<p class="record-sub">No linked lead notes yet.</p>`
       }
     </section>
   `;
@@ -780,13 +810,77 @@ function openDrawer(type, record = {}) {
       actions: ["Mark done", "Reschedule", "Open linked record"]
     },
     assessment: {
-      title: record.client || "New assessment",
-      subtitle: record.date ? `${record.date} at ${record.time}` : "Home visit",
+      title: record.customerName || record.client || "Assessment / quote",
+      subtitle: compactMeta([record.area, record.serviceLabel || record.serviceType, record.quoteStageLabel || record.quoteStage]),
       sections: [
-        ["Visit", [["Area", record.area], ["Rooms", record.rooms], ["Estimate", record.estimate]]],
-        ["Assessment notes", [["Notes", record.notes]]]
+        [
+          "Contact",
+          [
+            ["Name", record.customerName || record.client],
+            ["Phone", record.phone],
+            ["Email", record.email],
+            ["Area", record.area],
+            ["Postcode", record.postcode]
+          ]
+        ],
+        [
+          "Linked lead",
+          [
+            ["Original lead ID", record.leadId],
+            ["Lead name", record.leadName],
+            ["Lead status", record.leadStatusLabel || record.leadStatus],
+            ["Lead source", record.leadSourceLabel || record.leadSource],
+            ["Lead submitted", formatDateTime(record.leadCreatedAt)]
+          ]
+        ],
+        [
+          "Property / scope",
+          [
+            ["Service", record.serviceLabel || record.serviceType],
+            ["Frequency", record.frequencyLabel || record.frequency],
+            ["Property type", record.propertyType],
+            ["Bedrooms", record.bedrooms],
+            ["Bathrooms", record.bathrooms],
+            ["Condition", record.propertyCondition],
+            ["Pets", record.pets],
+            ["Parking", record.parking],
+            ["Priorities", record.priorities],
+            ["Products", record.productPreferences]
+          ]
+        ],
+        [
+          "Assessment",
+          [
+            ["Assessment type", record.assessmentType],
+            ["Estimated hours", record.estimate],
+            ["Assessment notes", record.assessmentNotes]
+          ]
+        ],
+        [
+          "Quote",
+          [
+            ["Suggested range", record.quoteRange],
+            ["Quoted price", record.quotedPriceLabel || formatMoneyPence(record.quotedPrice)],
+            ["Quote sent", formatDateTime(record.quoteSentAt)],
+            ["Accepted", formatDateTime(record.quoteAcceptedAt)],
+            ["Rejected", formatDateTime(record.quoteRejectedAt)],
+            ["Lost reason", record.lostReason],
+            ["Quote notes", record.quoteNotes]
+          ]
+        ],
+        [
+          "Status / next action",
+          [
+            ["Status", record.statusLabel || record.status],
+            ["Quote stage", record.quoteStageLabel || record.quoteStage],
+            ["Converted client ID", record.convertedClientId],
+            ["Created", formatDateTime(record.createdAt)],
+            ["Updated", formatDateTime(record.updatedAt)]
+          ]
+        ],
+        ["Notes", [["Internal notes", record.notes]]]
       ],
-      actions: ["Create quote", "Create client", "Schedule follow-up"]
+      actions: []
     },
     client: {
       title: record.name || "New client",
@@ -926,6 +1020,7 @@ function openDrawer(type, record = {}) {
           </section>
         `)
         .join("")}
+      ${type === "assessment" ? renderLinkedLeadNotes(record) : ""}
       ${type === "client" ? renderOriginalLeadNotes(record) : ""}
       ${leadDrawerTools(type, record)}
       ${
@@ -1374,12 +1469,18 @@ function recordRow(type, record, cells) {
 function renderTables() {
   const assessmentTable = document.querySelector("[data-assessment-table]");
   assessmentTable.innerHTML = "";
+  if (!data.assessments.length) {
+    assessmentTable.innerHTML = emptyState(
+      "No assessments or quotes yet",
+      "Create one from an accepted or qualified lead in the next workflow stage."
+    );
+  }
   data.assessments.forEach((assessment) => {
     assessmentTable.append(recordRow("assessment", assessment, [
-      `<div class="record-main">${assessment.client}</div><div class="record-sub">${assessment.area}</div>`,
-      `${formatDate(assessment.date)}`,
-      `${assessment.time}`,
-      `<span class="pill warn">${assessment.estimate}</span>`
+      `<div class="record-main">${escapeHtml(assessment.customerName || assessment.client || "")}</div><div class="record-sub">${escapeHtml(compactMeta([assessment.area, assessment.postcode]))}</div>`,
+      `${escapeHtml(assessment.serviceLabel || assessment.serviceType || "")}<div class="record-sub">${escapeHtml(assessment.frequencyLabel || assessment.frequency || "")}</div>`,
+      `${escapeHtml(assessment.estimate || "Estimate pending")}<div class="record-sub">${escapeHtml(assessment.quoteRange || "")}</div>`,
+      `<span class="pill warn">${escapeHtml(assessment.quoteStageLabel || assessment.quoteStage || assessment.statusLabel || assessment.status || "Draft")}</span>`
     ]));
   });
 
@@ -1645,7 +1746,7 @@ function normalizeApiData(payloads) {
   state.options = Object.fromEntries(options.groups.map((group) => [group.key, group]));
   normalizeLeadData(leads);
   data.tasks = tasks.tasks || [];
-  data.assessments = assessments.assessments;
+  data.assessments = assessments.assessmentQuotes || assessments.assessments || [];
   data.clients = clients.clients;
   data.jobs = jobs.jobs.map((job) => ({
     ...job,
@@ -1677,7 +1778,7 @@ async function loadApiData() {
     apiGet("/api/dashboard"),
     apiGet("/api/leads"),
     apiGet("/api/admin/tasks"),
-    apiGet("/api/assessments"),
+    apiGet("/api/assessment-quotes"),
     apiGet("/api/clients"),
     apiGet("/api/jobs"),
     apiGet("/api/invoices")
@@ -1695,7 +1796,7 @@ async function loadApiData() {
   normalizeLeadData(leads.value);
   data.dashboard = dashboard.status === "fulfilled" ? dashboard.value : null;
   data.tasks = tasks.status === "fulfilled" ? tasks.value.tasks || [] : [];
-  data.assessments = assessments.status === "fulfilled" ? assessments.value.assessments || [] : [];
+  data.assessments = assessments.status === "fulfilled" ? assessments.value.assessmentQuotes || assessments.value.assessments || [] : [];
   data.clients = clients.status === "fulfilled" ? clients.value.clients || [] : [];
   data.jobs = jobs.status === "fulfilled"
     ? jobs.value.jobs.map((job) => ({

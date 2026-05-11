@@ -41,6 +41,8 @@ Prefer:
 
 Avoid mixing unrelated work.
 
+Use Codex for focused implementation, bug fixes, testable docs updates and specific PR review fixes. Use chat/planning outside Codex for vague brainstorming, business logic debates and issue drafting. Every Codex task should reference one clear issue/PR with purpose, scope, exclusions, required behaviour and acceptance criteria.
+
 ## Data and Security
 
 Do not store real customer data until admin/API protection is in place.
@@ -71,6 +73,8 @@ Use Cloudflare D1 for structured data only.
 Do not store large files in D1. Use file references now and dedicated storage later.
 
 For public form rate limiting, store short-term hashed identifiers where practical, not long-term raw tracking data.
+
+Once real data exists, production and preview/dev must not share the same live D1 data. Test DB/API/data-affecting changes against preview/dev D1 with junk data, and require a production export/backup before merging/deploying schema changes, data-writing APIs, deletion/anonymisation, bulk updates, import/export, or auth/security changes.
 
 ## Enquiry Rules
 
@@ -198,6 +202,8 @@ After changes:
 - test quote assist output
 
 Do not proceed to the next module until the current slice works.
+
+Before merge, check that the PR scope matches the issue, the Cloudflare preview was tested, no unrelated modules changed, and no fake/demo data is mixed into a real workflow.
 
 ## Documentation
 

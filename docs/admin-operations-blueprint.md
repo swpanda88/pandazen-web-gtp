@@ -826,10 +826,24 @@ Client/Home records later include:
 - contact details
 - active/paused/past status
 - linked homes/properties
+- internal Client Score / Client Memory
 - access/parking/product/pet notes
 - cleaning plans, jobs, invoices, documents
 - complaints/praise/service history
 - open follow-ups
+
+Client Score / Client Memory is admin-only and belongs here, not in Leads or Quote Assist. It helps decide whether to prioritise, retain, review price, pause or avoid a client after they become accepted/current/past.
+
+Simple internal rating:
+
+```text
+A = excellent client
+B = good normal client
+C = awkward but manageable
+D = avoid / only premium / no renewal
+```
+
+Factors may include pays on time, easy access/parking, reasonable expectations, flexibility, recurring value, safe/pleasant working relationship, cleaner feedback, complaints/issues and repeated scope creep. Do not expose this to clients and do not over-share it with cleaners.
 
 ### Quotes & Assessments
 
@@ -861,6 +875,38 @@ Future module for completed checklists, cleaner notes, follow-ups, issue/damage 
 ### Accounting / Invoices
 
 Lightweight only: invoice records, paid/unpaid/overdue, CSV export, jobs ready to invoice.
+
+### Settings / Data & Backups
+
+GitHub protects code, not live D1 business data. Backups are an operational requirement once real client data exists.
+
+MVP backup workflow:
+
+- Settings -> Data & Backups
+- Export all data
+- Export selected data
+- Export history/log
+- Backup reminder settings
+
+Manual export comes first. Export key D1 tables as CSV/JSON and save outside Cloudflare, for example OneDrive, local PC or external storage. Automatic scheduled backup can come later.
+
+Every export should write an export log entry:
+
+```text
+date/time
+export type: full backup / leads only / clients / jobs / invoices
+tables included
+record counts
+exported by
+file name
+status: completed / failed
+notes
+linked backup task id if applicable
+```
+
+Backup reminders are normal admin tasks, not a separate reminder system. Settings should control enabled/disabled, frequency, day, priority, instructions, `last_backup_completed_at` and `next_backup_due_at`. Example task: `Urgent: Backup PandaZen data`.
+
+Scheduled backup reminders are normal operation. Backup-before-risky-deploy is a separate deployment safety rule.
 
 ### Messages / Email Templates
 
@@ -1139,6 +1185,31 @@ Avoid mixing unrelated work:
 - no schema/CSS polish mixed unless necessary
 - no future module implementation unless explicitly selected
 
+### Production vs preview D1 safety
+
+Once PandaZen is operational:
+
+```text
+Production site = real clients / real D1 database
+Preview/dev site = fake/test clients / test D1 database
+```
+
+Preferred setup: same GitHub repo, Cloudflare PR previews for testing, and separate D1 databases/bindings for production vs preview/dev. PR previews must not write to the real production D1 database once real client data exists.
+
+Normal CSS/content-only changes usually need preview testing only. Database/API/data-affecting changes require:
+
+```text
+1. test on preview/dev D1 with junk data
+2. export/backup production D1 before merge/deploy
+3. confirm rollback plan
+4. merge/deploy
+5. smoke test production with minimal safe checks
+```
+
+Data-affecting changes include D1 migrations, lead/client/job/task APIs, delete/anonymise logic, bulk updates, import/export logic, auth/security and settings that affect automation/tasks.
+
+Backup/export is mandatory before production deployments that change schema, data-writing APIs, deletion/anonymisation, bulk updates, import/export or auth/security.
+
 ---
 
 ## 20. Current MVP State
@@ -1216,6 +1287,52 @@ Recommended use:
 - prompt to Codex = exact current module/task only
 
 `AGENTS.md` should be kept short and stable. Do not copy the whole blueprint into it.
+
+### Codex usage policy
+
+Use the conversation for planning, business logic, design discussion and issue drafting. Use GitHub issues as focused work orders. Use Codex for one clear issue/PR at a time.
+
+Good Codex work:
+
+- focused implementation
+- bug fixes
+- focused docs updates
+- tests and verification
+- specific PR review fixes
+
+Avoid using Codex for vague brainstorming, large mixed rewrites, small wording debates or unrelated work bundled into one PR.
+
+Every Codex issue should include:
+
+```text
+Purpose
+Scope
+Allowed files/areas if known
+Explicit exclusions
+Required behaviour
+Acceptance criteria
+Manual test steps where possible
+```
+
+PR safety rules:
+
+- keep PRs small enough to test in 5-15 minutes where possible
+- bigger PRs are allowed only when they are one logical module with clear acceptance criteria
+- check changed scope matches the issue
+- test the Cloudflare preview before merge
+- do not mix hidden demo/fake data with real workflows
+- if DB/API/data-affecting, use preview/dev D1 and backup production before live merge once operational
+
+Efficient flow:
+
+```text
+1. Discuss here
+2. Create focused GitHub issue
+3. Send Codex one compact prompt referencing the issue
+4. Test preview
+5. Send Codex back only for specific fix comments
+6. Merge only when accepted
+```
 
 ---
 

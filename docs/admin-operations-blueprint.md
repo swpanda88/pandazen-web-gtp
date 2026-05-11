@@ -665,6 +665,14 @@ Main area: list/board/calendar
 Right panel: selected record detail/actions
 ```
 
+Future drawer/detail UX:
+
+- Right-hand drawer/detail panels should support collapsible sections.
+- Key action/decision sections stay open by default, for example next action, Quote Assist, quote status, conversion actions and active tasks.
+- Secondary/history/detail-heavy sections can default collapsed, for example old notes, source history, prior quote versions, audit/export history and long property detail.
+- Collapsible drawers must still work later with global Edit -> Save mode.
+- Do not implement collapsible drawers until the global drawer editing pattern is planned.
+
 Admin cockpit principle:
 
 The dashboard should answer:
@@ -847,7 +855,18 @@ Factors may include pays on time, easy access/parking, reasonable expectations, 
 
 ### Quotes & Assessments
 
-Future module for desk assessments, home visits, quote drafts, quote sent/accepted/lost, quote expiry and T&C sent status.
+Internal working module for desk assessments, home visits, property/scope detail, Quote Assist recommendations and quote preparation.
+
+Q&A is not the commercial quote itself. It is the internal working record that gathers:
+
+- source lead context
+- property and scope detail
+- assessment notes
+- internal quote notes
+- Quote Assist recommendation
+- admin judgement before a formal quote is created
+
+Current bridge behaviour: accepted Q&A can convert to Client & Home. This is temporary. The intended future trigger is accepted Quote record, not Q&A directly.
 
 ### Schedule / Work Orders
 
@@ -874,7 +893,98 @@ Future module for completed checklists, cleaner notes, follow-ups, issue/damage 
 
 ### Accounting / Invoices
 
-Lightweight only: invoice records, paid/unpaid/overdue, CSV export, jobs ready to invoice.
+Future commercial module for quotes, quote versions, invoices, payments and CSV/accounting export.
+
+Accounting should group commercial documents by prospect/client:
+
+- Prospect grouping: Lead/Q&A prospect -> quotes -> quote versions.
+- Client grouping: Client & Home -> quotes -> invoices later -> payments later.
+- Active, current and recent documents stay prominent at the top.
+- Rejected/expired quotes remain available but move lower into history/archive so they do not pollute the active table.
+- Paid invoices should behave similarly later: retained for records/export, but lower in history/archive so active unpaid/current documents stay prominent.
+
+Quote architecture rules:
+
+- Q&A is the internal working record.
+- Quote Assist is internal guidance only.
+- Quote is a separate Accounting/commercial record.
+- Quote PDF/download is generated from the Quote record, not directly from Q&A or Quote Assist.
+- Accepted Quote should become the proper trigger for Client & Home conversion.
+- Current Q&A -> Client & Home conversion is a temporary bridge until the Quote layer replaces it.
+
+Future quote workflow:
+
+```text
+Lead
+-> Q&A / Assessment
+-> Quote Assist recommendation
+-> Draft Quote record
+-> Admin finalises Quote
+-> Quote PDF/download
+-> Quote sent
+-> Quote accepted or rejected
+-> Accepted Quote converts Q&A to Client & Home
+-> Jobs / invoices later
+```
+
+Quote versions:
+
+- Support versions from the start.
+- Simple format is acceptable, for example `Q-00023/01`, `Q-00023/02`, `Q-00023/03`.
+- Multiple quote versions may be sent to the same prospect/client.
+- Only one version may eventually be accepted.
+- Sent quote versions must not be silently overwritten.
+- Revised sent quotes should create a new version.
+
+Future Quote record concept:
+
+```text
+id
+quote_number
+version_number
+display_reference, e.g. Q-00023/02
+assessment_quote_id
+lead_id
+client_id after acceptance/conversion
+status: draft / sent / accepted / rejected / expired
+scope_of_work
+included_items
+excluded_items
+assumptions
+price_lines
+total_price or recurring_price
+valid_until
+client_notes
+internal_notes
+sent_at
+accepted_at
+rejected_at
+created_at / updated_at
+```
+
+Future quote PDF template requirements:
+
+- PandaZen branding
+- quote number and version
+- quote date
+- client/prospect details
+- service address
+- service type/frequency
+- scope of work
+- inclusions
+- exclusions
+- assumptions
+- price lines
+- total/recurring price
+- valid-until date
+- acceptance instruction
+- contact details
+
+Future invoice relationship:
+
+- Accepted Quote should later feed one-off invoices, recurring invoice templates and job-generated invoice adjustments.
+- Admin must still be able to add extras when jobs are scheduled/generated.
+- The quote is the commercial promise; jobs/reports may add approved extras or adjustments before invoicing.
 
 ### Settings / Data & Backups
 
@@ -1089,13 +1199,40 @@ Security:
 
 ## 17. Future Core Workflow
 
-Master long-term workflow:
+Corrected quote/accounting workflow:
+
+```text
+Lead
+-> Q&A / Assessment
+-> Quote Assist recommendation
+-> Draft Quote record
+-> Admin finalises Quote
+-> Quote PDF/download
+-> Quote sent
+-> Quote accepted or rejected
+-> Accepted Quote converts Q&A to Client & Home
+-> Cleaning Plan
+-> Job
+-> Report
+-> Follow-Up
+-> Invoice
+```
+
+Current bridge:
+
+```text
+Lead -> Q&A -> Q&A Quote Assist -> temporary Q&A to Client & Home bridge
+```
+
+The older direct Q&A -> Client & Home conversion is only a temporary bridge. Once the Quote layer exists, accepted Quote is the proper trigger for Client & Home conversion.
+
+Legacy workflow note, superseded by the corrected quote/accounting workflow above:
 
 ```text
 Lead → Quote Assist → Assessment/Quote → Accepted → Client & Home → Cleaning Plan → Job → Report → Follow-Up → Invoice
 ```
 
-Current build only:
+Legacy current-build note, superseded by the current bridge note above:
 
 ```text
 Lead → Quote Assist → Admin Review → Next Action
@@ -1180,14 +1317,23 @@ Future modules:
 - completion/follow-up notes
 - later PWA/offline
 
-### Phase 8 — Invoicing
+### Phase 8 - Accounting Quote Layer
+
+- quote records linked to Q&A and Lead
+- quote versioning, for example `Q-00023/01`
+- draft/finalise/send/accept/reject/expire status flow
+- PDF/download generated from Quote record
+- accepted Quote becomes the future trigger for Client & Home conversion
+- keep current Q&A -> Client & Home conversion as temporary bridge until this layer replaces it
+
+### Phase 9 - Invoicing
 
 - missing report alerts
 - admin review
 - invoice-ready jobs
 - invoice records and CSV export
 
-### Phase 9 — Files, Staff, Business Reminders
+### Phase 10 — Files, Staff, Business Reminders
 
 - uploaded file references
 - photo cleanup prompts

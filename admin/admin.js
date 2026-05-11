@@ -585,6 +585,47 @@ function renderLinkedLeadNotes(record) {
   `;
 }
 
+function assistHourRange(assist, prefix) {
+  const min = assist?.[`${prefix}Min`];
+  const max = assist?.[`${prefix}Max`];
+  if (!min && !max) return "";
+  if (min && max) return `${min}-${max}h`;
+  return `${min || max}h`;
+}
+
+function renderAssessmentQuoteAssist(record) {
+  const assist = record.quoteAssist;
+  return `
+    <section class="drawer-section">
+      <h3>Quote Assist</h3>
+      ${
+        assist
+          ? detailRows([
+              ["Fit score", `${assist.fitScore}/100`],
+              ["Risk", assist.priceShopperRisk],
+              ["Travel", assist.travelSuitability],
+              ["First clean", assistHourRange(assist, "estimatedFirstCleanHours")],
+              ["Recurring", assistHourRange(assist, "estimatedRecurringHours")],
+              ["Suggested range", assist.suggestedPriceLabel || `${formatMoneyPence(assist.suggestedPriceMin)}-${formatMoneyPence(assist.suggestedPriceMax)}`],
+              ["Minimum price", assist.minimumRecommendedPriceLabel || formatMoneyPence(assist.minimumRecommendedPrice)],
+              ["Next action", assist.recommendedNextAction],
+              ["Confidence", assist.confidence],
+              ["Explanation", assist.explanation],
+              ["Risk flags", (assist.riskFlags || []).join("; ")],
+              ["Positive flags", (assist.positiveFlags || []).join("; ")],
+              ["Rule version", assist.ruleVersion],
+              ["Last run", formatDateTime(assist.updatedAt || assist.createdAt)]
+            ])
+          : `<p class="record-sub">No Quote Assist result yet. Run it from this Q&A record when the available detail is ready.</p>`
+      }
+      <div class="drawer-actions">
+        <button class="primary" type="button" data-run-quote-assist="${escapeHtml(record.id)}">Run Quote Assist</button>
+      </div>
+      <p class="record-sub" data-assessment-action-status></p>
+    </section>
+  `;
+}
+
 function leadTasks(record) {
   return (data.tasks || []).filter((task) => task.linkedType === "lead" && String(task.linkedId) === String(record.id));
 }
@@ -823,6 +864,31 @@ function setupTaskDrawerActions(record) {
   });
 }
 
+async function refreshAssessmentDrawer(assessmentId) {
+  await loadApiData();
+  const updated = data.assessments.find((assessment) => String(assessment.id) === String(assessmentId));
+  if (updated) openDrawer("assessment", updated);
+}
+
+function setAssessmentActionStatus(message) {
+  const status = drawer.querySelector("[data-assessment-action-status]");
+  if (status) status.textContent = message;
+}
+
+function setupAssessmentDrawerActions(record) {
+  if (!state.apiReady || !record.id) return;
+
+  drawer.querySelector("[data-run-quote-assist]")?.addEventListener("click", async () => {
+    try {
+      setAssessmentActionStatus("Running Quote Assist...");
+      await apiPost(`/api/assessment-quotes/${record.id}/assist`, {});
+      await refreshAssessmentDrawer(record.id);
+    } catch (err) {
+      setAssessmentActionStatus(`Could not run Quote Assist. ${err.message}`);
+    }
+  });
+}
+
 function resetDrawer() {
   drawer.innerHTML = `
     <div class="drawer-empty">
@@ -841,20 +907,6 @@ function openDrawer(type, record = {}) {
       sections: [
         ["Contact", [["Name", record.name], ["Area", record.area], ["Phone", record.phone], ["Email", record.email], ["Contact", record.contact], ["Source", record.sourceLabel || record.source]]],
         ["Progress", [["Status", record.statusLabel || record.status], ["Service", record.serviceLabel || record.service], ["Created", formatDateTime(record.createdAt)], ["Updated", formatDateTime(record.updatedAt)]]],
-        [
-          "Quote assist",
-          record.quoteAssist
-            ? [
-                ["Fit score", `${record.quoteAssist.fitScore}/100`],
-                ["Price-shopper risk", record.quoteAssist.priceShopperRisk],
-                ["Estimated first clean", `${record.quoteAssist.estimatedFirstCleanHoursMin}-${record.quoteAssist.estimatedFirstCleanHoursMax} hours`],
-                ["Suggested internal range", record.quoteAssist.suggestedPriceLabel],
-                ["Next action", record.quoteAssist.recommendedNextAction],
-                ["Confidence", record.quoteAssist.confidence],
-                ["Flags", [...(record.quoteAssist.positiveFlags || []), ...(record.quoteAssist.riskFlags || [])].join("; ")]
-              ]
-            : [["Status", "Not generated yet"]]
-        ],
         ["Notes", [["Internal note", record.note || record.notes]]]
       ],
       actions: ["Generate reply", "Request photos", "Mark contacted", "Add note", "Snooze", "Mark lost"]
@@ -1042,7 +1094,7 @@ function openDrawer(type, record = {}) {
 
   const template = templates[type];
   const nextAction = type === "lead"
-    ? record.quoteAssist?.recommendedNextAction || "Review enquiry and choose next action"
+    ? "Review enquiry and choose next action"
     : type === "task"
       ? record.notes || "Review task and update status"
       : "";
@@ -1079,6 +1131,7 @@ function openDrawer(type, record = {}) {
           </section>
         `)
         .join("")}
+      ${type === "assessment" ? renderAssessmentQuoteAssist(record) : ""}
       ${type === "assessment" ? renderLinkedLeadNotes(record) : ""}
       ${type === "client" ? renderOriginalLeadNotes(record) : ""}
       ${leadDrawerTools(type, record)}
@@ -1119,6 +1172,7 @@ function openDrawer(type, record = {}) {
   drawer.querySelector("[data-close-drawer]")?.addEventListener("click", resetDrawer);
   setupLeadDrawerActions(record);
   if (type === "task") setupTaskDrawerActions(record);
+  if (type === "assessment") setupAssessmentDrawerActions(record);
 
   const followupForm = drawer.querySelector("[data-followup-form]");
   if (followupForm) {

@@ -415,11 +415,11 @@ function canCreateAssessmentQuote(record) {
 }
 
 function clientServiceLabel(record) {
-  return record.originalServiceLabel || record.serviceLabel || record.service || record.originalServiceType || "";
+  return record.qaServiceLabel || record.originalServiceLabel || record.serviceLabel || record.service || record.originalServiceType || "";
 }
 
 function clientFrequencyLabel(record) {
-  return record.frequencyLabel || record.frequency || record.requestedFrequencyLabel || record.requestedFrequency || "";
+  return record.frequencyLabel || record.frequency || record.qaFrequencyLabel || record.qaFrequency || record.requestedFrequencyLabel || record.requestedFrequency || "";
 }
 
 function clientOriginalLeadId(record) {
@@ -622,6 +622,33 @@ function renderAssessmentQuoteAssist(record) {
         <button class="primary" type="button" data-run-quote-assist="${escapeHtml(record.id)}">Run Quote Assist</button>
       </div>
       <p class="record-sub" data-assessment-action-status></p>
+    </section>
+  `;
+}
+
+function clientForAssessmentQuote(record) {
+  return (data.clients || []).find((client) => String(client.assessmentQuoteId) === String(record.id))
+    || (record.convertedClientId ? (data.clients || []).find((client) => String(client.id) === String(record.convertedClientId)) : null);
+}
+
+function renderAssessmentQuoteConversion(record) {
+  const client = clientForAssessmentQuote(record);
+  return `
+    <section class="drawer-section">
+      <h3>Client & Home</h3>
+      <div class="drawer-actions">
+        ${
+          client
+            ? `<button class="primary" type="button" data-open-qa-client="${escapeHtml(client.id)}">Open Client & Home</button>`
+            : `<button class="primary" type="button" data-convert-assessment-quote="${escapeHtml(record.id)}">Accept & Convert to Client & Home</button>`
+        }
+      </div>
+      <p class="record-sub">${
+        client
+          ? `Converted to Client & Home #${escapeHtml(client.id)}`
+          : "Marks this Q&A as accepted and creates a linked Client & Home record."
+      }</p>
+      <p class="record-sub" data-assessment-conversion-status></p>
     </section>
   `;
 }
@@ -875,6 +902,22 @@ function setAssessmentActionStatus(message) {
   if (status) status.textContent = message;
 }
 
+function setAssessmentConversionStatus(message) {
+  const status = drawer.querySelector("[data-assessment-conversion-status]");
+  if (status) status.textContent = message;
+}
+
+function openClientFromAssessment(clientId) {
+  const client = data.clients.find((item) => String(item.id) === String(clientId));
+  if (!client) {
+    setAssessmentConversionStatus("Client & Home record is not available in the current D1 data.");
+    return false;
+  }
+  openDrawer("client", client);
+  setView("clients");
+  return true;
+}
+
 function setupAssessmentDrawerActions(record) {
   if (!state.apiReady || !record.id) return;
 
@@ -886,6 +929,22 @@ function setupAssessmentDrawerActions(record) {
     } catch (err) {
       setAssessmentActionStatus(`Could not run Quote Assist. ${err.message}`);
     }
+  });
+
+  drawer.querySelector("[data-convert-assessment-quote]")?.addEventListener("click", async () => {
+    try {
+      setAssessmentConversionStatus("Converting to Client & Home...");
+      const result = await apiPost(`/api/assessment-quotes/${record.id}/convert`, { convertedBy: "admin" });
+      await loadApiData();
+      if (openClientFromAssessment(result.id)) return;
+      setAssessmentConversionStatus("Converted, but the Client & Home record was not returned by the current data load.");
+    } catch (err) {
+      setAssessmentConversionStatus(`Could not convert Q&A. ${err.message}`);
+    }
+  });
+
+  drawer.querySelector("[data-open-qa-client]")?.addEventListener("click", (event) => {
+    openClientFromAssessment(event.currentTarget.dataset.openQaClient);
   });
 }
 
@@ -1054,6 +1113,9 @@ function openDrawer(type, record = {}) {
           "Notes",
           [
             ["Client notes", record.notes],
+            ["Q&A notes", record.qaNotes],
+            ["Assessment notes", record.qaAssessmentNotes],
+            ["Quote notes", record.qaQuoteNotes],
             ["Original lead summary", record.originalLeadNote]
           ]
         ],
@@ -1061,6 +1123,9 @@ function openDrawer(type, record = {}) {
           "Original lead",
           [
             ["Original lead ID", clientOriginalLeadId(record)],
+            ["Assessment / Quote ID", record.assessmentQuoteId],
+            ["Q&A stage", record.assessmentQuoteStage],
+            ["Q&A accepted", formatDateTime(record.qaQuoteAcceptedAt)],
             ["Lead status", record.originalLeadStatus],
             ["Lead source", record.originalLeadSourceLabel || record.originalLeadSource],
             ["Lead submitted", formatDateTime(record.originalLeadCreatedAt)],
@@ -1132,6 +1197,7 @@ function openDrawer(type, record = {}) {
         `)
         .join("")}
       ${type === "assessment" ? renderAssessmentQuoteAssist(record) : ""}
+      ${type === "assessment" ? renderAssessmentQuoteConversion(record) : ""}
       ${type === "assessment" ? renderLinkedLeadNotes(record) : ""}
       ${type === "client" ? renderOriginalLeadNotes(record) : ""}
       ${leadDrawerTools(type, record)}
@@ -1602,8 +1668,8 @@ function renderTables() {
   data.clients.forEach((client) => {
     clientTable.append(recordRow("client", client, [
       `<div class="record-main">${client.name}</div><div class="record-sub">${client.area}</div>`,
-      `${client.frequencyLabel || client.frequency || ""}`,
-      `${client.manHours} man-hours`,
+      `${clientFrequencyLabel(client)}`,
+      `${client.manHours ? `${client.manHours} man-hours` : "Plan pending"}`,
       `<span class="pill">${client.mainCleaner}</span>`
     ]));
   });

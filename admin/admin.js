@@ -405,6 +405,18 @@ function isConvertibleLead(record) {
   return convertibleLeadStatuses.has(String(record.statusValue || record.status || "").toLowerCase());
 }
 
+function clientServiceLabel(record) {
+  return record.originalServiceLabel || record.serviceLabel || record.service || record.originalServiceType || "";
+}
+
+function clientFrequencyLabel(record) {
+  return record.frequencyLabel || record.frequency || record.requestedFrequencyLabel || record.requestedFrequency || "";
+}
+
+function clientOriginalLeadId(record) {
+  return record.originalLeadId || record.leadId || "";
+}
+
 function leadStatusOptions() {
   const options = state.options.lead_status?.options;
   if (options?.length) return options;
@@ -505,6 +517,31 @@ function renderLeadNotes(record) {
         <button class="primary" type="submit">Save note</button>
       </form>
       <p class="record-sub" data-lead-action-status></p>
+    </section>
+  `;
+}
+
+function renderOriginalLeadNotes(record) {
+  const notes = record.originalLeadNotes || [];
+  if (!clientOriginalLeadId(record)) return "";
+  return `
+    <section class="drawer-section">
+      <h3>Original lead notes</h3>
+      ${
+        notes.length
+          ? `<div class="note-list">
+              ${notes
+                .map((note) => `
+                  <article class="note-item">
+                    <strong>${escapeHtml(formatDateTime(note.createdAt) || "Saved note")}</strong>
+                    <p>${escapeHtml(note.note)}</p>
+                    <small>${escapeHtml(compactMeta([note.noteType, note.createdBy]))}</small>
+                  </article>
+                `)
+                .join("")}
+            </div>`
+          : `<p class="record-sub">No linked lead history notes yet.</p>`
+      }
     </section>
   `;
 }
@@ -753,14 +790,81 @@ function openDrawer(type, record = {}) {
     },
     client: {
       title: record.name || "New client",
-      subtitle: record.frequency || "Client record",
+      subtitle: compactMeta([record.area, clientServiceLabel(record), record.status]),
       sections: [
-        ["Cleaning plan", [["Area", record.area], ["Frequency", record.frequency], ["Man-hours", record.manHours], ["Main cleaner", record.mainCleaner], ["Helper", record.helper]]],
-        ["Conversion", [["Original lead ID", record.leadId], ["Converted", formatDateTime(record.convertedAt)], ["Converted by", record.convertedBy]]],
-        ["Quote", [["Price", record.price]]],
-        ["Notes", [["Internal note", record.notes]]]
+        [
+          "Contact",
+          [
+            ["Name", record.name],
+            ["Phone", record.phone],
+            ["Email", record.email],
+            ["Preferred contact", record.preferredContactLabel || record.preferredContact],
+            ["Best contact time", record.bestContactTime],
+            ["Client status", record.status]
+          ]
+        ],
+        [
+          "Home / property",
+          [
+            ["Area", record.area],
+            ["Address", record.address],
+            ["Postcode", record.postcode],
+            ["Property type", record.propertyType],
+            ["Bedrooms", record.bedrooms],
+            ["Bathrooms", record.bathrooms],
+            ["Reception rooms", record.receptionRooms],
+            ["Kitchen size", record.kitchenSize],
+            ["Property size", record.propertySize],
+            ["Condition", record.propertyCondition]
+          ]
+        ],
+        [
+          "Service",
+          [
+            ["Requested service", clientServiceLabel(record)],
+            ["Current frequency", record.frequencyLabel || record.frequency],
+            ["Requested frequency", record.requestedFrequencyLabel || record.requestedFrequency],
+            ["Preferred days", record.preferredDays],
+            ["Urgency", record.urgency],
+            ["Man-hours", record.manHours],
+            ["Main cleaner", record.mainCleaner],
+            ["Helper", record.helper]
+          ]
+        ],
+        [
+          "Preferences / access",
+          [
+            ["Access method", record.accessLabel || record.accessMethod],
+            ["Access notes", record.accessNotes],
+            ["Parking notes", record.parkingNotes || record.leadParking],
+            ["Pets", record.petLabel || record.petType || record.leadPets],
+            ["Pet notes", record.petNotes],
+            ["Products", record.productLabel || record.productPreference || record.leadProductPreferences],
+            ["Surface notes", record.surfaceNotes],
+            ["Priorities", record.priorities],
+            ["Photos", record.photoAvailable]
+          ]
+        ],
+        [
+          "Notes",
+          [
+            ["Client notes", record.notes],
+            ["Original lead summary", record.originalLeadNote]
+          ]
+        ],
+        [
+          "Original lead",
+          [
+            ["Original lead ID", clientOriginalLeadId(record)],
+            ["Lead status", record.originalLeadStatus],
+            ["Lead source", record.originalLeadSourceLabel || record.originalLeadSource],
+            ["Lead submitted", formatDateTime(record.originalLeadCreatedAt)],
+            ["Converted", formatDateTime(record.convertedAt)],
+            ["Converted by", record.convertedBy]
+          ]
+        ]
       ],
-      actions: ["Generate jobs", "Edit cleaning plan", "Create invoice"]
+      actions: []
     },
     job: {
       title: record.client || "New work order",
@@ -822,14 +926,19 @@ function openDrawer(type, record = {}) {
           </section>
         `)
         .join("")}
+      ${type === "client" ? renderOriginalLeadNotes(record) : ""}
       ${leadDrawerTools(type, record)}
-      <section class="drawer-section">
-        <h3>Actions</h3>
-        <div class="drawer-actions">
-          ${template.actions.map((action) => renderDrawerAction(type, record, action)).join("")}
-        </div>
-        <p class="record-sub" data-drawer-action-status></p>
-      </section>
+      ${
+        template.actions.length
+          ? `<section class="drawer-section">
+              <h3>Actions</h3>
+              <div class="drawer-actions">
+                ${template.actions.map((action) => renderDrawerAction(type, record, action)).join("")}
+              </div>
+              <p class="record-sub" data-drawer-action-status></p>
+            </section>`
+          : ""
+      }
       ${
         type === "job"
           ? `<section class="drawer-section">

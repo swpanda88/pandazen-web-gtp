@@ -931,6 +931,76 @@ Stage 1: generate copy/manual send.
 Stage 2: send via system and log.  
 Stage 3: inbound email integration much later.
 
+#### Admin Email Notifications
+
+The admin dashboard will not be monitored all day. Important events should be able to notify admin by email, but email is only a notification layer and must not become the operational source of truth.
+
+Required flow:
+
+```text
+important event happens
+-> save/update D1 record
+-> create task if needed
+-> send admin email notification
+-> write notification/send log
+-> admin opens linked record from email
+```
+
+Rules:
+
+- always save the lead/task/event in D1 first
+- send admin email second
+- log the send result third
+- if email fails, the D1 record/task must still exist
+- email failures should be logged and visible later
+- start with admin-only alerts
+- customer email automation/templates are a separate later module
+- full inbound email/inbox CRM is much later, if ever
+
+Useful admin-only triggers later:
+
+```text
+new enquiry submitted
+urgent lead submitted
+high/urgent task created
+task overdue
+quote accepted / booking confirmed later
+cleaner report submitted later
+backup overdue
+export failed later
+website/API error later if practical
+```
+
+Possible future tables/settings:
+
+```text
+notification_events
+email_send_log
+email_templates
+admin_notification_settings
+admin_notification_email
+new_lead_alerts: on/off
+urgent_task_alerts: on/off
+daily_digest: on/off
+backup_reminder_alerts: on/off
+```
+
+Example admin notification:
+
+```text
+Subject: New PandaZen enquiry - Jane Smith - DH7
+
+A new lead has been submitted.
+
+Service: Regular cleaning
+Urgency: Urgent
+Area: DH7
+Preferred contact: Phone
+
+Open lead:
+https://pandazen.co.uk/admin/?lead=123
+```
+
 ### Files / Documents
 
 Future: quote/job photos, insurance, DBS, terms, client docs, staff docs, invoices. Use file references in D1 and dedicated storage later.

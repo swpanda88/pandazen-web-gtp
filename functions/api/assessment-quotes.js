@@ -40,9 +40,22 @@ export async function onRequestGet({ env }) {
                 aq.lost_reason AS lostReason, aq.converted_client_id AS convertedClientId,
                 aq.created_at AS createdAt, aq.updated_at AS updatedAt,
                 l.customer_name AS leadName, l.status AS leadStatus, l.source AS leadSource,
-                l.source_other AS leadSourceOther, l.created_at AS leadCreatedAt
+                l.source_other AS leadSourceOther, l.created_at AS leadCreatedAt,
+                qa.fit_score AS assistFitScore, qa.price_shopper_risk AS assistPriceShopperRisk,
+                qa.travel_suitability AS assistTravelSuitability,
+                qa.estimated_first_clean_hours_min AS assistFirstMin,
+                qa.estimated_first_clean_hours_max AS assistFirstMax,
+                qa.estimated_recurring_hours_min AS assistRecurringMin,
+                qa.estimated_recurring_hours_max AS assistRecurringMax,
+                qa.suggested_price_min AS assistPriceMin, qa.suggested_price_max AS assistPriceMax,
+                qa.minimum_recommended_price AS assistMinimumPrice,
+                qa.recommended_next_action AS assistNextAction, qa.confidence AS assistConfidence,
+                qa.explanation AS assistExplanation, qa.risk_flags AS assistRiskFlags,
+                qa.positive_flags AS assistPositiveFlags, qa.rule_version AS assistRuleVersion,
+                qa.created_at AS assistCreatedAt, qa.updated_at AS assistUpdatedAt
          FROM assessment_quotes aq
          LEFT JOIN leads l ON l.id = aq.lead_id
+         LEFT JOIN assessment_quote_assist qa ON qa.assessment_quote_id = aq.id
          ORDER BY aq.updated_at DESC, aq.id DESC`
       )
       .all();
@@ -80,7 +93,31 @@ export async function onRequestGet({ env }) {
       estimate: hourRange(record.estimatedHoursMin, record.estimatedHoursMax),
       quoteRange: quoteRange(record.suggestedPriceMin, record.suggestedPriceMax),
       quotedPriceLabel: moneyLabel(record.quotedPrice),
-      linkedLeadNotes: notesByLead[record.leadId] || []
+      linkedLeadNotes: notesByLead[record.leadId] || [],
+      quoteAssist: record.assistFitScore === null || record.assistFitScore === undefined
+        ? null
+        : {
+            fitScore: record.assistFitScore,
+            priceShopperRisk: record.assistPriceShopperRisk,
+            travelSuitability: record.assistTravelSuitability,
+            estimatedFirstCleanHoursMin: record.assistFirstMin,
+            estimatedFirstCleanHoursMax: record.assistFirstMax,
+            estimatedRecurringHoursMin: record.assistRecurringMin,
+            estimatedRecurringHoursMax: record.assistRecurringMax,
+            suggestedPriceMin: record.assistPriceMin,
+            suggestedPriceMax: record.assistPriceMax,
+            suggestedPriceLabel: quoteRange(record.assistPriceMin, record.assistPriceMax),
+            minimumRecommendedPrice: record.assistMinimumPrice,
+            minimumRecommendedPriceLabel: moneyLabel(record.assistMinimumPrice),
+            recommendedNextAction: record.assistNextAction,
+            confidence: record.assistConfidence,
+            explanation: record.assistExplanation,
+            riskFlags: JSON.parse(record.assistRiskFlags || "[]"),
+            positiveFlags: JSON.parse(record.assistPositiveFlags || "[]"),
+            ruleVersion: record.assistRuleVersion,
+            createdAt: record.assistCreatedAt,
+            updatedAt: record.assistUpdatedAt
+          }
     }));
 
     return json({ assessmentQuotes, assessments: assessmentQuotes });

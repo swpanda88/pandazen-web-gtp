@@ -1,5 +1,24 @@
 import { error, json, labelFor, optionMap, readJson, requireDb } from "./_util.js";
 
+function leadPriority(urgency) {
+  return urgency === "urgent" ? "High" : "Normal";
+}
+
+async function createLeadFollowUpTask(db, leadId, lead) {
+  await db
+    .prepare(
+      `INSERT INTO admin_tasks (title, notes, task_type, status, priority, due_at, linked_type, linked_id, assigned_to)
+       VALUES (?, ?, 'Lead follow-up', 'Open', ?, datetime('now', '+1 day'), 'lead', ?, 'admin')`
+    )
+    .bind(
+      `Follow up lead: ${lead.name}`,
+      lead.notes || "Review enquiry and contact the lead.",
+      leadPriority(lead.urgency),
+      leadId
+    )
+    .run();
+}
+
 export async function onRequestGet({ env }) {
   try {
     const db = requireDb(env);
@@ -79,6 +98,8 @@ export async function onRequestPost({ request, env }) {
         body.notes || null
       )
       .run();
+
+    await createLeadFollowUpTask(db, result.meta.last_row_id, body);
 
     return json({ ok: true, id: result.meta.last_row_id }, { status: 201 });
   } catch (err) {

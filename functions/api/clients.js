@@ -10,7 +10,7 @@ export async function onRequestGet({ env }) {
                 c.preferred_contact AS preferredContact, c.access_method AS accessMethod, c.access_notes AS accessNotes,
                 c.parking_notes AS parkingNotes, c.pet_type AS petType, c.pet_notes AS petNotes,
                 c.product_preference AS productPreference, c.surface_notes AS surfaceNotes,
-                c.internal_notes AS notes, c.status,
+                c.internal_notes AS notes, c.status, c.converted_at AS convertedAt, c.converted_by AS convertedBy,
                 cp.frequency, cp.default_man_hours AS manHours,
                 s.display_name AS mainCleaner, h.display_name AS helper
          FROM clients c
@@ -24,6 +24,7 @@ export async function onRequestGet({ env }) {
     return json({
       clients: results.map((client) => ({
         ...client,
+        originalLeadId: client.leadId,
         frequencyLabel: labelFor(labels, "frequency", client.frequency),
         productLabel: labelFor(labels, "product_preference", client.productPreference),
         accessLabel: labelFor(labels, "access_method", client.accessMethod),

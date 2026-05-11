@@ -218,7 +218,8 @@ const titles = {
 };
 
 const leadStatuses = ["New enquiry", "Contacted", "Assessment booked", "Quote sent", "Accepted"];
-const convertedLeadStatuses = new Set(["accepted", "booked", "converted"]);
+const convertedLeadStatuses = new Set(["converted"]);
+const convertibleLeadStatuses = new Set(["accepted", "booked", "quote_accepted", "converted"]);
 
 const viewTitle = document.querySelector("[data-view-title]");
 const drawer = document.querySelector("[data-drawer]");
@@ -396,6 +397,14 @@ function fullLead(record) {
   return data.leads.find((lead) => String(lead.id) === String(record.id)) || record;
 }
 
+function clientForLead(record) {
+  return (data.clients || []).find((client) => String(client.leadId) === String(record.id));
+}
+
+function isConvertibleLead(record) {
+  return convertibleLeadStatuses.has(String(record.statusValue || record.status || "").toLowerCase());
+}
+
 function leadStatusOptions() {
   const options = state.options.lead_status?.options;
   if (options?.length) return options;
@@ -534,9 +543,27 @@ function renderLeadTasks(record) {
   `;
 }
 
+function renderLeadConversion(record) {
+  const client = clientForLead(record);
+  if (!client && !isConvertibleLead(record)) return "";
+  return `
+    <section class="drawer-section">
+      <h3>Client & Home</h3>
+      <div class="drawer-actions">
+        ${
+          client
+            ? `<button class="primary" type="button" data-open-client="${escapeHtml(client.id)}">Open Client & Home</button>`
+            : `<button class="primary" type="button" data-convert-lead="${escapeHtml(record.id)}">Convert to Client & Home</button>`
+        }
+      </div>
+      <p class="record-sub">${client ? `Linked to client #${escapeHtml(client.id)}` : "Creates a Client & Home record from this accepted lead."}</p>
+    </section>
+  `;
+}
+
 function leadDrawerTools(type, record) {
   if (type !== "lead" || !state.apiReady || !record.id) return "";
-  return `${renderLeadStatusForm(record)}${renderLeadTasks(record)}${renderLeadNotes(record)}`;
+  return `${renderLeadStatusForm(record)}${renderLeadConversion(record)}${renderLeadTasks(record)}${renderLeadNotes(record)}`;
 }
 
 async function refreshLeadDrawer(leadId) {
@@ -552,6 +579,33 @@ function setLeadActionStatus(message) {
 
 function setupLeadDrawerActions(record) {
   if (!state.apiReady || !record.id) return;
+
+  drawer.querySelector("[data-convert-lead]")?.addEventListener("click", async () => {
+    try {
+      setLeadActionStatus("Converting lead...");
+      const result = await apiPost(`/api/leads/${record.id}/convert`, { convertedBy: "admin" });
+      await loadApiData();
+      const client = data.clients.find((item) => String(item.id) === String(result.id));
+      if (client) {
+        openDrawer("client", client);
+        setView("clients");
+        return;
+      }
+      setLeadActionStatus("Converted, but the linked client record was not returned by the current data load.");
+    } catch (err) {
+      setLeadActionStatus(`Could not convert lead. ${err.message}`);
+    }
+  });
+
+  drawer.querySelector("[data-open-client]")?.addEventListener("click", (event) => {
+    const client = data.clients.find((item) => String(item.id) === String(event.currentTarget.dataset.openClient));
+    if (client) {
+      openDrawer("client", client);
+      setView("clients");
+      return;
+    }
+    setLeadActionStatus("Linked Client & Home record is not available in the current data.");
+  });
 
   drawer.querySelectorAll("[data-task-done]").forEach((button) => {
     button.addEventListener("click", async () => {
@@ -702,6 +756,7 @@ function openDrawer(type, record = {}) {
       subtitle: record.frequency || "Client record",
       sections: [
         ["Cleaning plan", [["Area", record.area], ["Frequency", record.frequency], ["Man-hours", record.manHours], ["Main cleaner", record.mainCleaner], ["Helper", record.helper]]],
+        ["Conversion", [["Original lead ID", record.leadId], ["Converted", formatDateTime(record.convertedAt)], ["Converted by", record.convertedBy]]],
         ["Quote", [["Price", record.price]]],
         ["Notes", [["Internal note", record.notes]]]
       ],

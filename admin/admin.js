@@ -405,6 +405,18 @@ function isConvertibleLead(record) {
   return convertibleLeadStatuses.has(String(record.statusValue || record.status || "").toLowerCase());
 }
 
+function clientServiceLabel(record) {
+  return record.originalServiceLabel || record.serviceLabel || record.service || record.originalServiceType || "";
+}
+
+function clientFrequencyLabel(record) {
+  return record.frequencyLabel || record.frequency || record.requestedFrequencyLabel || record.requestedFrequency || "";
+}
+
+function clientOriginalLeadId(record) {
+  return record.originalLeadId || record.leadId || "";
+}
+
 function leadStatusOptions() {
   const options = state.options.lead_status?.options;
   if (options?.length) return options;
@@ -753,14 +765,81 @@ function openDrawer(type, record = {}) {
     },
     client: {
       title: record.name || "New client",
-      subtitle: record.frequency || "Client record",
+      subtitle: compactMeta([record.area, clientServiceLabel(record), record.status]),
       sections: [
-        ["Cleaning plan", [["Area", record.area], ["Frequency", record.frequency], ["Man-hours", record.manHours], ["Main cleaner", record.mainCleaner], ["Helper", record.helper]]],
-        ["Conversion", [["Original lead ID", record.leadId], ["Converted", formatDateTime(record.convertedAt)], ["Converted by", record.convertedBy]]],
-        ["Quote", [["Price", record.price]]],
-        ["Notes", [["Internal note", record.notes]]]
+        [
+          "Contact",
+          [
+            ["Name", record.name],
+            ["Phone", record.phone],
+            ["Email", record.email],
+            ["Preferred contact", record.preferredContactLabel || record.preferredContact],
+            ["Best contact time", record.bestContactTime],
+            ["Client status", record.status]
+          ]
+        ],
+        [
+          "Home / property",
+          [
+            ["Area", record.area],
+            ["Address", record.address],
+            ["Postcode", record.postcode],
+            ["Property type", record.propertyType],
+            ["Bedrooms", record.bedrooms],
+            ["Bathrooms", record.bathrooms],
+            ["Reception rooms", record.receptionRooms],
+            ["Kitchen size", record.kitchenSize],
+            ["Property size", record.propertySize],
+            ["Condition", record.propertyCondition]
+          ]
+        ],
+        [
+          "Service",
+          [
+            ["Requested service", clientServiceLabel(record)],
+            ["Current frequency", record.frequencyLabel || record.frequency],
+            ["Requested frequency", record.requestedFrequencyLabel || record.requestedFrequency],
+            ["Preferred days", record.preferredDays],
+            ["Urgency", record.urgency],
+            ["Man-hours", record.manHours],
+            ["Main cleaner", record.mainCleaner],
+            ["Helper", record.helper]
+          ]
+        ],
+        [
+          "Preferences / access",
+          [
+            ["Access method", record.accessLabel || record.accessMethod],
+            ["Access notes", record.accessNotes],
+            ["Parking notes", record.parkingNotes || record.leadParking],
+            ["Pets", record.petLabel || record.petType || record.leadPets],
+            ["Pet notes", record.petNotes],
+            ["Products", record.productLabel || record.productPreference || record.leadProductPreferences],
+            ["Surface notes", record.surfaceNotes],
+            ["Priorities", record.priorities],
+            ["Photos", record.photoAvailable]
+          ]
+        ],
+        [
+          "Notes",
+          [
+            ["Client notes", record.notes],
+            ["Original lead notes", record.originalLeadNotes]
+          ]
+        ],
+        [
+          "Original lead",
+          [
+            ["Original lead ID", clientOriginalLeadId(record)],
+            ["Lead status", record.originalLeadStatus],
+            ["Lead source", record.originalLeadSourceLabel || record.originalLeadSource],
+            ["Lead submitted", formatDateTime(record.originalLeadCreatedAt)],
+            ["Converted", formatDateTime(record.convertedAt)],
+            ["Converted by", record.convertedBy]
+          ]
+        ]
       ],
-      actions: ["Generate jobs", "Edit cleaning plan", "Create invoice"]
+      actions: []
     },
     job: {
       title: record.client || "New work order",
@@ -823,13 +902,17 @@ function openDrawer(type, record = {}) {
         `)
         .join("")}
       ${leadDrawerTools(type, record)}
-      <section class="drawer-section">
-        <h3>Actions</h3>
-        <div class="drawer-actions">
-          ${template.actions.map((action) => renderDrawerAction(type, record, action)).join("")}
-        </div>
-        <p class="record-sub" data-drawer-action-status></p>
-      </section>
+      ${
+        template.actions.length
+          ? `<section class="drawer-section">
+              <h3>Actions</h3>
+              <div class="drawer-actions">
+                ${template.actions.map((action) => renderDrawerAction(type, record, action)).join("")}
+              </div>
+              <p class="record-sub" data-drawer-action-status></p>
+            </section>`
+          : ""
+      }
       ${
         type === "job"
           ? `<section class="drawer-section">
@@ -1278,10 +1361,11 @@ function renderTables() {
   clientTable.innerHTML = "";
   data.clients.forEach((client) => {
     clientTable.append(recordRow("client", client, [
-      `<div class="record-main">${client.name}</div><div class="record-sub">${client.area}</div>`,
-      `${client.frequencyLabel || client.frequency || ""}`,
-      `${client.manHours} man-hours`,
-      `<span class="pill">${client.mainCleaner}</span>`
+      `<div class="record-main">${escapeHtml(client.name)}</div><div class="record-sub">${escapeHtml(compactMeta([client.phone, client.email, client.preferredContactLabel || client.preferredContact]))}</div>`,
+      `<div class="record-main">${escapeHtml(client.area || "Area not set")}</div><div class="record-sub">${escapeHtml(client.address || client.postcode || "Address not set")}</div>`,
+      `<div class="record-main">${escapeHtml(clientServiceLabel(client) || "Service not set")}</div><div class="record-sub">${escapeHtml(compactMeta([clientFrequencyLabel(client), client.manHours ? `${client.manHours} man-hours` : "", client.preferredDays]))}</div>`,
+      `<div class="record-main">${escapeHtml(client.accessLabel || client.accessMethod || "Access not set")}</div><div class="record-sub">${escapeHtml(compactMeta([client.petLabel || client.petType, client.productLabel || client.productPreference]))}</div>`,
+      `<span class="pill">${escapeHtml(clientOriginalLeadId(client) ? `Lead #${clientOriginalLeadId(client)}` : "Manual")}</span>`
     ]));
   });
 

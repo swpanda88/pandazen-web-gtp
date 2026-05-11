@@ -37,7 +37,7 @@ export async function onRequestGet({ env }) {
                 aq.suggested_price_min AS suggestedPriceMin, aq.suggested_price_max AS suggestedPriceMax,
                 aq.quoted_price AS quotedPrice, aq.quote_sent_at AS quoteSentAt,
                 aq.quote_accepted_at AS quoteAcceptedAt, aq.quote_rejected_at AS quoteRejectedAt,
-                aq.lost_reason AS lostReason, aq.converted_client_id AS convertedClientId,
+                aq.lost_reason AS lostReason, COALESCE(aq.converted_client_id, c.id) AS convertedClientId,
                 aq.created_at AS createdAt, aq.updated_at AS updatedAt,
                 l.customer_name AS leadName, l.status AS leadStatus, l.source AS leadSource,
                 l.source_other AS leadSourceOther, l.created_at AS leadCreatedAt,
@@ -56,6 +56,7 @@ export async function onRequestGet({ env }) {
          FROM assessment_quotes aq
          LEFT JOIN leads l ON l.id = aq.lead_id
          LEFT JOIN assessment_quote_assist qa ON qa.assessment_quote_id = aq.id
+         LEFT JOIN clients c ON c.assessment_quote_id = aq.id
          ORDER BY aq.updated_at DESC, aq.id DESC`
       )
       .all();

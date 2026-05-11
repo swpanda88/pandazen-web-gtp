@@ -12,7 +12,8 @@ export async function onRequestGet({ env }) {
     const labels = await optionMap(db);
     const { results } = await db
       .prepare(
-        `SELECT c.id, c.lead_id AS leadId, c.customer_name AS name, c.phone, c.email, c.area, c.address,
+        `SELECT c.id, c.lead_id AS leadId, c.assessment_quote_id AS assessmentQuoteId,
+                c.customer_name AS name, c.phone, c.email, c.area, c.address,
                 c.preferred_contact AS preferredContact, c.access_method AS accessMethod, c.access_other AS accessOther,
                 c.access_notes AS accessNotes, c.parking_notes AS parkingNotes,
                 c.pet_type AS petType, c.pet_other AS petOther, c.pet_notes AS petNotes,
@@ -29,12 +30,21 @@ export async function onRequestGet({ env }) {
                 l.property_size AS propertySize, l.property_condition AS propertyCondition,
                 l.priorities, l.pets AS leadPets, l.parking AS leadParking,
                 l.product_preferences AS leadProductPreferences, l.photo_available AS photoAvailable,
-                l.notes AS originalLeadNote, l.created_at AS originalLeadCreatedAt
+                l.notes AS originalLeadNote, l.created_at AS originalLeadCreatedAt,
+                aq.status AS assessmentQuoteStatus, aq.quote_stage AS assessmentQuoteStage,
+                aq.service_type AS qaServiceType, aq.frequency AS qaFrequency,
+                aq.property_type AS qaPropertyType, aq.bedrooms AS qaBedrooms, aq.bathrooms AS qaBathrooms,
+                aq.property_condition AS qaPropertyCondition, aq.pets AS qaPets, aq.parking AS qaParking,
+                aq.priorities AS qaPriorities, aq.product_preferences AS qaProductPreferences,
+                aq.notes AS qaNotes, aq.assessment_notes AS qaAssessmentNotes, aq.quote_notes AS qaQuoteNotes,
+                aq.quoted_price AS qaQuotedPrice, aq.suggested_price_min AS qaSuggestedPriceMin,
+                aq.suggested_price_max AS qaSuggestedPriceMax, aq.quote_accepted_at AS qaQuoteAcceptedAt
          FROM clients c
          LEFT JOIN cleaning_plans cp ON cp.client_id = c.id AND cp.is_active = 1
          LEFT JOIN staff s ON s.id = cp.main_cleaner_id
          LEFT JOIN staff h ON h.id = cp.helper_id
          LEFT JOIN leads l ON l.id = c.lead_id
+         LEFT JOIN assessment_quotes aq ON aq.id = c.assessment_quote_id
          ORDER BY c.customer_name`
       )
       .all();
@@ -67,12 +77,22 @@ export async function onRequestGet({ env }) {
         originalLeadNotes: notesByLead[client.leadId] || [],
         frequencyLabel: labelFor(labels, "frequency", client.frequency),
         requestedFrequencyLabel: labelFor(labels, "frequency", client.requestedFrequency),
+        qaFrequencyLabel: labelFor(labels, "frequency", client.qaFrequency),
         productLabel: labelWithOther(labels, "product_preference", client.productPreference, client.productOther),
         accessLabel: labelWithOther(labels, "access_method", client.accessMethod, client.accessOther),
         petLabel: labelWithOther(labels, "pet_type", client.petType, client.petOther),
         preferredContactLabel: labelFor(labels, "preferred_contact", client.preferredContact),
         originalServiceLabel: labelWithOther(labels, "service_type", client.originalServiceType, client.originalServiceOther),
+        qaServiceLabel: labelFor(labels, "service_type", client.qaServiceType),
         originalLeadSourceLabel: labelWithOther(labels, "lead_source", client.originalLeadSource, client.originalLeadSourceOther),
+        propertyType: client.qaPropertyType || client.propertyType,
+        bedrooms: client.qaBedrooms || client.bedrooms,
+        bathrooms: client.qaBathrooms || client.bathrooms,
+        propertyCondition: client.qaPropertyCondition || client.propertyCondition,
+        priorities: client.qaPriorities || client.priorities,
+        leadPets: client.qaPets || client.leadPets,
+        leadParking: client.qaParking || client.leadParking,
+        leadProductPreferences: client.qaProductPreferences || client.leadProductPreferences,
         helper: client.helper || "Optional"
       }))
     });

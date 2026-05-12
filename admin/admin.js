@@ -219,6 +219,7 @@ const titles = {
 
 const leadStatuses = ["New enquiry", "Contacted", "Assessment booked", "Quote sent", "Accepted"];
 const convertedLeadStatuses = new Set(["converted"]);
+const closedLeadStatuses = new Set(["lost", "rejected", "not_suitable", "no_response", "spam", "declined"]);
 const convertibleLeadStatuses = new Set(["accepted", "booked", "quote_accepted", "converted"]);
 
 const viewTitle = document.querySelector("[data-view-title]");
@@ -390,7 +391,14 @@ function escapeHtml(value) {
 }
 
 function activeLeads() {
-  return data.leads.filter((lead) => !convertedLeadStatuses.has(String(lead.statusValue || lead.status || "").toLowerCase()));
+  return data.leads.filter((lead) => {
+    const status = String(lead.statusValue || lead.status || "").toLowerCase();
+    return !convertedLeadStatuses.has(status) && !closedLeadStatuses.has(status);
+  });
+}
+
+function closedLeads() {
+  return data.leads.filter((lead) => closedLeadStatuses.has(String(lead.statusValue || lead.status || "").toLowerCase()));
 }
 
 function fullLead(record) {
@@ -411,7 +419,7 @@ function isConvertibleLead(record) {
 
 function canCreateAssessmentQuote(record) {
   const status = String(record.statusValue || record.status || "").toLowerCase();
-  return !["converted", "lost", "no_response", "not_suitable", "declined", "rejected"].includes(status);
+  return !["converted", "lost", "no_response", "not_suitable", "declined", "rejected", "spam"].includes(status);
 }
 
 function clientServiceLabel(record) {
@@ -556,6 +564,31 @@ function renderOriginalLeadNotes(record) {
             </div>`
           : `<p class="record-sub">No linked lead history notes yet.</p>`
       }
+    </section>
+  `;
+}
+
+function renderLeadOutcomeActions(record) {
+  if (assessmentQuoteForLead(record)) {
+    return `
+      <section class="drawer-section">
+        <h3>Lead closure</h3>
+        <p class="record-sub">This lead already has a linked Q&A / Assessment, so close-out should continue from that stage rather than the original Lead record.</p>
+      </section>
+    `;
+  }
+
+  return `
+    <section class="drawer-section">
+      <h3>Close without Q&A</h3>
+      <div class="drawer-actions">
+        <button class="ghost" type="button" data-close-lead-status="not_suitable">Not suitable</button>
+        <button class="ghost" type="button" data-close-lead-status="no_response">No response</button>
+        <button class="ghost" type="button" data-close-lead-status="lost">Lost</button>
+        <button class="ghost" type="button" data-close-lead-status="spam">Spam</button>
+      </div>
+      <p class="record-sub">Use these only for enquiries that should stop at the Lead stage and should not move into Q&A / Assessment.</p>
+      <p class="record-sub" data-lead-close-status></p>
     </section>
   `;
 }
@@ -780,7 +813,7 @@ function renderLeadAssessmentQuote(record) {
 
 function leadDrawerTools(type, record) {
   if (type !== "lead" || !state.apiReady || !record.id) return "";
-  return `${renderLeadStatusForm(record)}${renderLeadAssessmentQuote(record)}${renderLeadConversion(record)}${renderLeadTasks(record)}${renderLeadNotes(record)}`;
+  return `${renderLeadStatusForm(record)}${renderLeadAssessmentQuote(record)}${renderLeadOutcomeActions(record)}${renderLeadConversion(record)}${renderLeadTasks(record)}${renderLeadNotes(record)}`;
 }
 
 async function refreshLeadDrawer(leadId) {
@@ -791,6 +824,11 @@ async function refreshLeadDrawer(leadId) {
 
 function setLeadActionStatus(message) {
   const status = drawer.querySelector("[data-lead-action-status]");
+  if (status) status.textContent = message;
+}
+
+function setLeadCloseStatus(message) {
+  const status = drawer.querySelector("[data-lead-close-status]");
   if (status) status.textContent = message;
 }
 
@@ -823,6 +861,19 @@ function setupLeadDrawerActions(record) {
 
   drawer.querySelector("[data-open-assessment-quote]")?.addEventListener("click", (event) => {
     openAssessmentQuoteFromLead(event.currentTarget.dataset.openAssessmentQuote);
+  });
+
+  drawer.querySelectorAll("[data-close-lead-status]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const status = button.dataset.closeLeadStatus;
+      try {
+        setLeadCloseStatus("Saving lead outcome...");
+        await apiPatch(`/api/leads/${record.id}`, { status, lostReason: status });
+        await refreshLeadDrawer(record.id);
+      } catch (err) {
+        setLeadCloseStatus(`Could not close lead. ${err.message}`);
+      }
+    });
   });
 
   drawer.querySelector("[data-convert-lead]")?.addEventListener("click", async () => {
@@ -1535,6 +1586,37 @@ function renderPriorityList(selector = "[data-priority-list]") {
   });
 }
 
+function renderLeadHistory() {
+  const host = document.querySelector("[data-lead-history]");
+  if (!host) return;
+  const leads = [...closedLeads()].sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""))).slice(0, 12);
+  if (!leads.length) {
+    host.innerHTML = emptyState("No closed leads yet", "Rejected or unsuitable enquiries will remain visible here for traceability.");
+    return;
+  }
+
+  host.innerHTML = leads.map((lead) => `
+    <button class="priority-row" type="button" data-history-lead="${lead.id}">
+      <span>
+        <strong>${escapeHtml(lead.name)}</strong>
+        <small>${escapeHtml(compactMeta([lead.area, lead.contact]))}</small>
+      </span>
+      <span>
+        <strong>${escapeHtml(lead.serviceLabel || lead.service || "Enquiry")}</strong>
+        <small>${escapeHtml(compactMeta([lead.statusLabel || lead.status, formatDateTime(lead.updatedAt || lead.createdAt)]))}</small>
+      </span>
+      <mark class="rose">${escapeHtml(lead.statusLabel || lead.status || "Closed")}</mark>
+    </button>
+  `).join("");
+
+  host.querySelectorAll("[data-history-lead]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const lead = data.leads.find((item) => String(item.id) === button.dataset.historyLead);
+      if (lead) openDrawer("lead", lead);
+    });
+  });
+}
+
 function groupedJobs(jobs = data.jobs) {
   return jobs.reduce((groups, job) => {
     const key = job.date;
@@ -1985,6 +2067,7 @@ function renderAll() {
   renderDashboard();
   renderPriorityList();
   renderPriorityList("[data-lead-list]");
+  renderLeadHistory();
   renderLeadBoard();
   renderTables();
   renderCleanerPhone();

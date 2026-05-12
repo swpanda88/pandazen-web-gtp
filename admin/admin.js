@@ -218,7 +218,6 @@ const titles = {
 };
 
 const leadStatuses = ["New enquiry", "Contacted", "Assessment booked", "Quote sent", "Accepted"];
-const convertedLeadStatuses = new Set(["converted"]);
 const activeLeadStatusValues = new Set(["new", "contacted", "waiting_customer", "assessment_needed"]);
 const closedLeadStatuses = new Set(["rejected", "not_suitable"]);
 const convertibleLeadStatuses = new Set(["accepted", "booked", "quote_accepted", "converted"]);
@@ -401,8 +400,13 @@ function activeLeads() {
 function leadHistory() {
   return data.leads.filter((lead) => {
     const status = String(lead.statusValue || lead.status || "").toLowerCase();
-    return !activeLeadStatusValues.has(status) && !convertedLeadStatuses.has(status);
+    return !activeLeadStatusValues.has(status);
   });
+}
+
+function isActiveLead(record) {
+  const status = String(record.statusValue || record.status || "").toLowerCase();
+  return activeLeadStatusValues.has(status);
 }
 
 function fullLead(record) {
@@ -600,6 +604,7 @@ function renderOriginalLeadNotes(record) {
 }
 
 function renderLeadOutcomeActions(record) {
+  if (!isActiveLead(record)) return "";
   if (assessmentQuoteForLead(record)) {
     return `
       <div class="lead-action-group">
@@ -857,6 +862,20 @@ function renderLeadAssessmentQuote(record) {
   `;
 }
 
+function renderLeadLinkedRecords(record) {
+  const assessmentQuote = assessmentQuoteForLead(record);
+  const client = clientForLead(record);
+  if (!assessmentQuote && !client) return "";
+  return `
+    <section class="drawer-section">
+      <div class="lead-action-stack">
+        ${assessmentQuote ? renderLeadAssessmentQuote(record) : ""}
+        ${client ? renderLeadConversion(record) : ""}
+      </div>
+    </section>
+  `;
+}
+
 function renderLeadIntakeDetails(record) {
   const priorityValue = Array.isArray(record.priorities) ? record.priorities.join(", ") : record.priorities;
   return detailRows([
@@ -887,6 +906,7 @@ function renderLeadIntakeDetails(record) {
 }
 
 function renderLeadWorkingSection(record) {
+  if (!isActiveLead(record)) return "";
   return `
     <section class="drawer-section">
       <div class="lead-action-stack">
@@ -929,6 +949,7 @@ function renderLeadDrawer(record) {
       </section>
 
       ${renderLeadWorkingSection(record)}
+      ${renderLeadLinkedRecords(record)}
       ${renderLeadTasks(record)}
       ${renderLeadNotes(record)}
 

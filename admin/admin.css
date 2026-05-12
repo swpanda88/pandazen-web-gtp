@@ -1061,16 +1061,22 @@ mark.rose {
   height: 100%;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
+  width: 100%;
 }
 
 .drawer-header {
   background: white;
   border-bottom: 1px solid transparent;
+  min-width: 0;
+  width: 100%;
 }
 
 .drawer-body {
   min-height: 0;
   overflow-y: auto;
+  min-width: 0;
+  width: 100%;
 }
 
 .drawer-content {
@@ -1092,6 +1098,8 @@ mark.rose {
   align-items: flex-start;
   justify-content: space-between;
   gap: 14px;
+  min-width: 0;
+  width: 100%;
   z-index: 8;
   padding: 24px 24px 16px;
   background: rgba(255, 255, 255, 0.96);
@@ -1108,7 +1116,7 @@ mark.rose {
   display: grid;
   align-content: start;
   min-width: 0;
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-height: 34px;
 }
 
@@ -1130,6 +1138,7 @@ mark.rose {
 
 .drawer-titlebar-compact {
   display: none;
+  flex: 1 1 auto;
   min-width: 0;
   padding: 0;
   color: var(--ink);
@@ -1163,6 +1172,7 @@ mark.rose {
 .drawer-titlebar.is-scrolled .drawer-titlebar-main {
   display: flex;
   align-items: center;
+  min-width: 0;
 }
 
 .drawer-close {

@@ -52,11 +52,17 @@ export async function onRequestGet({ env }) {
                 qa.recommended_next_action AS assistNextAction, qa.confidence AS assistConfidence,
                 qa.explanation AS assistExplanation, qa.risk_flags AS assistRiskFlags,
                 qa.positive_flags AS assistPositiveFlags, qa.rule_version AS assistRuleVersion,
-                qa.created_at AS assistCreatedAt, qa.updated_at AS assistUpdatedAt
+                qa.created_at AS assistCreatedAt, qa.updated_at AS assistUpdatedAt,
+                q.id AS quoteRecordId, q.quote_number AS quoteNumber,
+                q.version_number AS quoteVersionNumber, q.display_reference AS quoteDisplayReference,
+                q.status AS quoteRecordStatus, q.total_price AS quoteTotalPrice,
+                q.recurring_price AS quoteRecurringPrice, q.valid_until AS quoteValidUntil,
+                q.created_at AS quoteRecordCreatedAt, q.updated_at AS quoteRecordUpdatedAt
          FROM assessment_quotes aq
          LEFT JOIN leads l ON l.id = aq.lead_id
          LEFT JOIN assessment_quote_assist qa ON qa.assessment_quote_id = aq.id
          LEFT JOIN clients c ON c.assessment_quote_id = aq.id
+         LEFT JOIN accounting_quotes q ON q.assessment_quote_id = aq.id AND q.version_number = 1
          ORDER BY aq.updated_at DESC, aq.id DESC`
       )
       .all();
@@ -95,6 +101,22 @@ export async function onRequestGet({ env }) {
       quoteRange: quoteRange(record.suggestedPriceMin, record.suggestedPriceMax),
       quotedPriceLabel: moneyLabel(record.quotedPrice),
       linkedLeadNotes: notesByLead[record.leadId] || [],
+      accountingQuote: record.quoteRecordId
+        ? {
+            id: record.quoteRecordId,
+            quoteNumber: record.quoteNumber,
+            versionNumber: record.quoteVersionNumber,
+            displayReference: record.quoteDisplayReference,
+            status: record.quoteRecordStatus,
+            totalPrice: record.quoteTotalPrice,
+            totalPriceLabel: moneyLabel(record.quoteTotalPrice),
+            recurringPrice: record.quoteRecurringPrice,
+            recurringPriceLabel: moneyLabel(record.quoteRecurringPrice),
+            validUntil: record.quoteValidUntil,
+            createdAt: record.quoteRecordCreatedAt,
+            updatedAt: record.quoteRecordUpdatedAt
+          }
+        : null,
       quoteAssist: record.assistFitScore === null || record.assistFitScore === undefined
         ? null
         : {

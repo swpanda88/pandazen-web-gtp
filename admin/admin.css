@@ -1053,14 +1053,21 @@ mark.rose {
   box-shadow: none;
 }
 
-.drawer-empty,
-.drawer-content {
+.drawer-empty {
   padding: 24px;
+}
+
+.drawer-content {
+  padding: 0;
 }
 
 .lead-drawer {
   display: grid;
   gap: 0;
+}
+
+.drawer-titlebar-shell {
+  position: relative;
 }
 
 .drawer h2 {
@@ -1070,13 +1077,12 @@ mark.rose {
 
 .drawer-titlebar {
   position: sticky;
-  top: -24px;
+  top: 0;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 14px;
   z-index: 8;
-  margin: -24px -24px 0;
   padding: 24px 24px 16px;
   background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(8px);
@@ -1161,7 +1167,7 @@ mark.rose {
 .next-action-strip {
   display: grid;
   gap: 10px;
-  margin: 16px 0 8px;
+  margin: 16px 24px 8px;
   padding: 16px;
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -1268,7 +1274,7 @@ mark.rose {
 }
 
 .drawer-section {
-  padding: 16px 0;
+  padding: 16px 24px;
   border-top: 1px solid var(--line);
 }
 

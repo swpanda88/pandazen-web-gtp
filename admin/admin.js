@@ -925,16 +925,18 @@ function compactDrawerLabel(parts) {
 
 function renderDrawerTitlebar({ eyebrow, title, subtitle, compactTitle }) {
   return `
-    <div class="drawer-titlebar">
-      <div class="drawer-titlebar-main">
-        <div class="drawer-title-copy">
-          <p class="eyebrow">${escapeHtml(eyebrow)}</p>
-          <h2>${escapeHtml(title)}</h2>
-          <p>${escapeHtml(subtitle || "")}</p>
+    <div class="drawer-titlebar-shell">
+      <div class="drawer-titlebar">
+        <div class="drawer-titlebar-main">
+          <div class="drawer-title-copy">
+            <p class="eyebrow">${escapeHtml(eyebrow)}</p>
+            <h2>${escapeHtml(title)}</h2>
+            <p>${escapeHtml(subtitle || "")}</p>
+          </div>
+          <div class="drawer-titlebar-compact">${escapeHtml(compactTitle || title)}</div>
         </div>
-        <div class="drawer-titlebar-compact">${escapeHtml(compactTitle || title)}</div>
+        <button class="drawer-close" type="button" data-close-drawer aria-label="Close detail panel">Close</button>
       </div>
-      <button class="drawer-close" type="button" data-close-drawer aria-label="Close detail panel">Close</button>
     </div>
   `;
 }
@@ -948,13 +950,17 @@ function setupDrawerChrome() {
   }
 
   const titlebar = drawer.querySelector(".drawer-titlebar");
+  const titlebarShell = drawer.querySelector(".drawer-titlebar-shell");
   if (!titlebar) return;
+  if (titlebarShell) {
+    titlebarShell.style.height = `${titlebar.offsetHeight}px`;
+  }
 
   drawer.scrollTop = 0;
   let isCompact = false;
   drawerScrollHandler = () => {
     const scrollTop = drawer.scrollTop;
-    const shouldCompact = isCompact ? scrollTop > 14 : scrollTop > 34;
+    const shouldCompact = isCompact ? scrollTop > 6 : scrollTop > 16;
     if (shouldCompact !== isCompact) {
       isCompact = shouldCompact;
       titlebar.classList.toggle("is-scrolled", isCompact);

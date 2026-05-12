@@ -525,7 +525,7 @@ function renderLeadStatusForm(record) {
               .join("")}
           </select>
         </label>
-        <button class="primary" type="submit">Save status</button>
+        <button class="primary lead-action-primary" type="submit">Save status</button>
       </form>
     </div>
   `;
@@ -621,7 +621,6 @@ function renderLeadOutcomeActions(record) {
         <button class="ghost" type="button" data-close-lead-status="rejected">Rejected</button>
         <button class="ghost" type="button" data-close-lead-status="not_suitable">Not suitable</button>
       </div>
-      <p class="record-sub">Use these only when the enquiry should stop at the Lead stage and should not move into Q&A / Assessment.</p>
       <p class="record-sub" data-lead-close-status></p>
     </div>
   `;
@@ -833,7 +832,7 @@ function renderLeadConversion(record) {
     <div class="lead-action-group">
       <h4>Client & Home</h4>
       <div class="drawer-actions compact">
-        <button class="primary" type="button" data-open-client="${escapeHtml(client.id)}">Open Client & Home</button>
+        <button class="primary lead-action-primary" type="button" data-open-client="${escapeHtml(client.id)}">Open Client & Home</button>
       </div>
       <p class="record-sub">Linked to client #${escapeHtml(client.id)}</p>
     </div>
@@ -849,15 +848,15 @@ function renderLeadAssessmentQuote(record) {
       <div class="drawer-actions compact">
         ${
           assessmentQuote
-            ? `<button class="primary" type="button" data-open-assessment-quote="${escapeHtml(assessmentQuote.id)}">Open Assessment / Quote</button>`
-            : `<button class="primary" type="button" data-create-assessment-quote="${escapeHtml(record.id)}">Create Assessment / Quote</button>`
+            ? `<button class="primary lead-action-primary" type="button" data-open-assessment-quote="${escapeHtml(assessmentQuote.id)}">Open Assessment / Quote</button>`
+            : `<button class="primary lead-action-primary" type="button" data-create-assessment-quote="${escapeHtml(record.id)}">Create Assessment / Quote</button>`
         }
       </div>
-      <p class="record-sub">${
+      ${
         assessmentQuote
-          ? `Linked Q&A #${escapeHtml(assessmentQuote.id)} - ${escapeHtml(assessmentQuote.quoteStageLabel || assessmentQuote.quoteStage || assessmentQuote.statusLabel || assessmentQuote.status || "Draft")}`
-          : "Creates a linked pre-client Q&A record without changing the original enquiry history."
-      }</p>
+          ? `<p class="record-sub">Linked Q&A #${escapeHtml(assessmentQuote.id)} - ${escapeHtml(assessmentQuote.quoteStageLabel || assessmentQuote.quoteStage || assessmentQuote.statusLabel || assessmentQuote.status || "Draft")}</p>`
+          : ""
+      }
     </div>
   `;
 }

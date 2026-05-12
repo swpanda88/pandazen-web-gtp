@@ -1223,6 +1223,15 @@ mark.rose {
   text-transform: uppercase;
 }
 
+.lead-action-primary {
+  width: 100%;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 14px;
+}
+
 .drawer-collapsible {
   border: 1px solid var(--line);
   border-radius: 8px;

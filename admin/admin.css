@@ -1047,7 +1047,7 @@ mark.rose {
   position: sticky;
   top: 0;
   height: calc(100svh - 48px);
-  overflow-y: auto;
+  overflow: hidden;
   border-width: 1px;
   border-radius: 14px;
   box-shadow: none;
@@ -1055,6 +1055,22 @@ mark.rose {
 
 .drawer-empty {
   padding: 24px;
+}
+
+.drawer-frame {
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.drawer-header {
+  background: white;
+  border-bottom: 1px solid transparent;
+}
+
+.drawer-body {
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .drawer-content {
@@ -1066,18 +1082,12 @@ mark.rose {
   gap: 0;
 }
 
-.drawer-titlebar-shell {
-  position: relative;
-}
-
 .drawer h2 {
   margin-bottom: 10px;
   font-size: 1.5rem;
 }
 
 .drawer-titlebar {
-  position: sticky;
-  top: 0;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -1135,6 +1145,9 @@ mark.rose {
   align-items: center;
   padding-top: 10px;
   padding-bottom: 10px;
+}
+
+.drawer-header.is-scrolled {
   border-bottom-color: var(--line);
   box-shadow: 0 8px 24px rgba(28, 42, 35, 0.08);
 }

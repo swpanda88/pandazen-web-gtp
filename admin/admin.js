@@ -14,7 +14,7 @@ const data = {
         priceShopperRisk: "Low",
         estimatedFirstCleanHoursMin: 5,
         estimatedFirstCleanHoursMax: 6.5,
-        suggestedPriceLabel: "£150.00-£195.00",
+        suggestedPriceLabel: "Ã‚Â£150.00-Ã‚Â£195.00",
         recommendedNextAction: "Strong lead - call and consider home visit",
         confidence: "Medium",
         positiveFlags: ["Regular recurring work", "Values reliability and continuity"],
@@ -167,7 +167,7 @@ const data = {
       number: "PZ-2026-0001",
       client: "Mrs Knowles",
       date: "31 May",
-      amount: "£184",
+      amount: "Ã‚Â£184",
       status: "Draft",
       paid: "-"
     },
@@ -176,7 +176,7 @@ const data = {
       number: "PZ-2026-0002",
       client: "Mr Green",
       date: "12 May",
-      amount: "£246",
+      amount: "Ã‚Â£246",
       status: "Sent",
       paid: "-"
     }
@@ -378,7 +378,7 @@ function leadPrice(lead) {
 }
 
 function compactMeta(items) {
-  return items.filter(Boolean).join(" · ");
+  return items.filter(Boolean).join(" Ã‚Â· ");
 }
 
 function escapeHtml(value) {
@@ -920,54 +920,66 @@ function renderLeadWorkingSection(record) {
 }
 
 function compactDrawerLabel(parts) {
-  return parts.filter(Boolean).join(" · ");
+  return parts.filter(Boolean).join(" Ã‚Â· ");
 }
 
 function renderDrawerTitlebar({ eyebrow, title, subtitle, compactTitle }) {
   return `
-    <div class="drawer-titlebar-shell">
-      <div class="drawer-titlebar">
-        <div class="drawer-titlebar-main">
-          <div class="drawer-title-copy">
-            <p class="eyebrow">${escapeHtml(eyebrow)}</p>
-            <h2>${escapeHtml(title)}</h2>
-            <p>${escapeHtml(subtitle || "")}</p>
-          </div>
-          <div class="drawer-titlebar-compact">${escapeHtml(compactTitle || title)}</div>
+    <div class="drawer-titlebar">
+      <div class="drawer-titlebar-main">
+        <div class="drawer-title-copy">
+          <p class="eyebrow">${escapeHtml(eyebrow)}</p>
+          <h2>${escapeHtml(title)}</h2>
+          <p>${escapeHtml(subtitle || "")}</p>
         </div>
-        <button class="drawer-close" type="button" data-close-drawer aria-label="Close detail panel">Close</button>
+        <div class="drawer-titlebar-compact">${escapeHtml(compactTitle || title)}</div>
       </div>
+      <button class="drawer-close" type="button" data-close-drawer aria-label="Close detail panel">Close</button>
     </div>
   `;
 }
 
 let drawerScrollHandler = null;
 
+function renderDrawerFrame({ titlebar, body, bodyTag = "div", bodyAttrs = "", frameClass = "" }) {
+  return `
+    <div class="drawer-frame ${frameClass}">
+      <div class="drawer-header">
+        ${titlebar}
+      </div>
+      <${bodyTag} class="drawer-body" ${bodyAttrs}>
+        <div class="drawer-content">
+          ${body}
+        </div>
+      </${bodyTag}>
+    </div>
+  `;
+}
+
 function setupDrawerChrome() {
   if (drawerScrollHandler) {
-    drawer.removeEventListener("scroll", drawerScrollHandler);
+    drawer.querySelector(".drawer-body")?.removeEventListener("scroll", drawerScrollHandler);
     drawerScrollHandler = null;
   }
 
   const titlebar = drawer.querySelector(".drawer-titlebar");
-  const titlebarShell = drawer.querySelector(".drawer-titlebar-shell");
-  if (!titlebar) return;
-  if (titlebarShell) {
-    titlebarShell.style.height = `${titlebar.offsetHeight}px`;
-  }
+  const drawerHeader = drawer.querySelector(".drawer-header");
+  const drawerBody = drawer.querySelector(".drawer-body");
+  if (!titlebar || !drawerBody) return;
 
-  drawer.scrollTop = 0;
+  drawerBody.scrollTop = 0;
   let isCompact = false;
   drawerScrollHandler = () => {
-    const scrollTop = drawer.scrollTop;
-    const shouldCompact = isCompact ? scrollTop > 6 : scrollTop > 16;
+    const scrollTop = drawerBody.scrollTop;
+    const shouldCompact = isCompact ? scrollTop > 10 : scrollTop > 24;
     if (shouldCompact !== isCompact) {
       isCompact = shouldCompact;
       titlebar.classList.toggle("is-scrolled", isCompact);
+      drawerHeader?.classList.toggle("is-scrolled", isCompact);
     }
   };
 
-  drawer.addEventListener("scroll", drawerScrollHandler, { passive: true });
+  drawerBody.addEventListener("scroll", drawerScrollHandler, { passive: true });
   drawerScrollHandler();
   drawer.querySelector("[data-close-drawer]")?.addEventListener("click", resetDrawer);
 }
@@ -975,15 +987,13 @@ function setupDrawerChrome() {
 function renderLeadDrawer(record) {
   const title = record.name || "New lead";
   const subtitle = record.serviceLabel || record.service || "Customer enquiry";
-  return `
-    <div class="drawer-content lead-drawer">
-      ${renderDrawerTitlebar({
-        eyebrow: "Lead",
-        title,
-        subtitle,
-        compactTitle: compactDrawerLabel([title, "Lead", record.statusLabel || record.status || subtitle])
-      })}
-
+  const titlebar = renderDrawerTitlebar({
+    eyebrow: "Lead",
+    title,
+    subtitle,
+    compactTitle: compactDrawerLabel([title, "Lead", record.statusLabel || record.status || subtitle])
+  });
+  const body = `
       <section class="drawer-section">
         <h3>Contact</h3>
         ${detailRows([
@@ -1014,8 +1024,12 @@ function renderLeadDrawer(record) {
           ["Updated", formatDateTime(record.updatedAt)]
         ])}
       </section>
-    </div>
   `;
+  return renderDrawerFrame({
+    titlebar,
+    body,
+    frameClass: "lead-drawer"
+  });
 }
 
 function leadDrawerTools(type, record) {
@@ -1274,10 +1288,9 @@ function setupAssessmentDrawerActions(record) {
 
 function resetDrawer() {
   if (drawerScrollHandler) {
-    drawer.removeEventListener("scroll", drawerScrollHandler);
+    drawer.querySelector(".drawer-body")?.removeEventListener("scroll", drawerScrollHandler);
     drawerScrollHandler = null;
   }
-  drawer.scrollTop = 0;
   drawer.innerHTML = `
     <div class="drawer-empty">
       <p class="eyebrow">Detail panel</p>
@@ -1492,18 +1505,17 @@ function openDrawer(type, record = {}) {
   const nextAction = type === "task"
       ? record.notes || "Review task and update status"
       : "";
-  drawer.innerHTML = `
-    <div class="drawer-content">
-      ${renderDrawerTitlebar({
-        eyebrow: type === "assessment" ? "Q&A / Assessment" : compactType,
-        title: template.title,
-        subtitle: template.subtitle,
-        compactTitle: compactDrawerLabel([
-          template.title,
-          compactType,
-          record.quoteStageLabel || record.quoteStage || record.statusLabel || record.status || template.subtitle
-        ])
-      })}
+  const titlebar = renderDrawerTitlebar({
+    eyebrow: type === "assessment" ? "Q&A / Assessment" : compactType,
+    title: template.title,
+    subtitle: template.subtitle,
+    compactTitle: compactDrawerLabel([
+      template.title,
+      compactType,
+      record.quoteStageLabel || record.quoteStage || record.statusLabel || record.status || template.subtitle
+    ])
+  });
+  const body = `
       ${
         nextAction
           ? `<section class="next-action-strip">
@@ -1556,8 +1568,8 @@ function openDrawer(type, record = {}) {
             </section>`
           : ""
       }
-    </div>
   `;
+  drawer.innerHTML = renderDrawerFrame({ titlebar, body });
 
   drawer.querySelectorAll("select[data-group]").forEach((select) => {
     const other = select.parentElement.querySelector(".other-field");
@@ -1607,42 +1619,46 @@ function openDrawer(type, record = {}) {
 }
 
 function openLeadForm() {
-  drawer.innerHTML = `
-    <form class="drawer-content" data-lead-form>
-      ${renderDrawerTitlebar({
-        eyebrow: "Lead",
-        title: "New lead",
-        subtitle: "Add the first enquiry details. Dropdowns keep typing low; choose Other when needed.",
-        compactTitle: "New lead · Lead form"
-      })}
-      <section class="drawer-section">
-        <h3>Contact</h3>
-        <div class="field-grid">
-          <label>Name<input name="name" required></label>
-          <label>Phone<input name="phone"></label>
-          <label>Email<input name="email" type="email"></label>
-          <label>Area<input name="area"></label>
-        </div>
-      </section>
-      <section class="drawer-section">
-        <h3>Enquiry</h3>
-        <div class="field-grid">
-          <label>Source${renderSelect("source", "lead_source", "website")}</label>
-          <label>Service${renderSelect("serviceType", "service_type", "regular_cleaning")}</label>
-          <label>Preferred contact${renderSelect("preferredContact", "preferred_contact", "phone")}</label>
-          <label>Preferred days<input name="preferredDays" placeholder="e.g. Tuesday morning"></label>
-          <label>Status${renderSelect("status", "lead_status", "new")}</label>
-          <label>Notes<textarea name="notes" rows="3"></textarea></label>
-        </div>
-      </section>
-      <section class="drawer-section">
-        <div class="drawer-actions">
-          <button class="primary" type="submit">Save lead</button>
-          <button class="ghost" type="button" data-close-drawer>Cancel</button>
-        </div>
-      </section>
-    </form>
+  const titlebar = renderDrawerTitlebar({
+    eyebrow: "Lead",
+    title: "New lead",
+    subtitle: "Add the first enquiry details. Dropdowns keep typing low; choose Other when needed.",
+    compactTitle: "New lead Â· Lead form"
+  });
+  const body = `
+    <section class="drawer-section">
+      <h3>Contact</h3>
+      <div class="field-grid">
+        <label>Name<input name="name" required></label>
+        <label>Phone<input name="phone"></label>
+        <label>Email<input name="email" type="email"></label>
+        <label>Area<input name="area"></label>
+      </div>
+    </section>
+    <section class="drawer-section">
+      <h3>Enquiry</h3>
+      <div class="field-grid">
+        <label>Source${renderSelect("source", "lead_source", "website")}</label>
+        <label>Service${renderSelect("serviceType", "service_type", "regular_cleaning")}</label>
+        <label>Preferred contact${renderSelect("preferredContact", "preferred_contact", "phone")}</label>
+        <label>Preferred days<input name="preferredDays" placeholder="e.g. Tuesday morning"></label>
+        <label>Status${renderSelect("status", "lead_status", "new")}</label>
+        <label>Notes<textarea name="notes" rows="3"></textarea></label>
+      </div>
+    </section>
+    <section class="drawer-section">
+      <div class="drawer-actions">
+        <button class="primary" type="submit">Save lead</button>
+        <button class="ghost" type="button" data-close-drawer>Cancel</button>
+      </div>
+    </section>
   `;
+  drawer.innerHTML = renderDrawerFrame({
+    titlebar,
+    body,
+    bodyTag: "form",
+    bodyAttrs: 'data-lead-form'
+  });
 
   const form = drawer.querySelector("[data-lead-form]");
   setupDrawerChrome();
@@ -1706,7 +1722,7 @@ function renderDashboard() {
         <span class="row-token">Task</span>
         <span>
           <strong>${task.title}</strong>
-          <small>${task.taskType} · ${formatDateTime(task.dueAt) || "No due date"}</small>
+          <small>${task.taskType} Ã‚Â· ${formatDateTime(task.dueAt) || "No due date"}</small>
         </span>
         <mark class="${task.priority === "High" ? "rose" : ""}">${task.priority || "Normal"}</mark>
       </button>
@@ -2389,3 +2405,4 @@ async function boot() {
 }
 
 boot();
+

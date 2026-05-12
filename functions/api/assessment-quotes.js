@@ -63,7 +63,12 @@ export async function onRequestGet({ env }) {
          LEFT JOIN assessment_quote_assist qa ON qa.assessment_quote_id = aq.id
          LEFT JOIN clients c ON c.assessment_quote_id = aq.id
          LEFT JOIN accounting_quotes q ON q.assessment_quote_id = aq.id AND q.version_number = 1
-         ORDER BY aq.updated_at DESC, aq.id DESC`
+         ORDER BY CASE
+             WHEN COALESCE(aq.converted_client_id, c.id) IS NOT NULL OR aq.status = 'converted' THEN 1
+             ELSE 0
+           END,
+           aq.updated_at DESC,
+           aq.id DESC`
       )
       .all();
 
@@ -100,6 +105,7 @@ export async function onRequestGet({ env }) {
       estimate: hourRange(record.estimatedHoursMin, record.estimatedHoursMax),
       quoteRange: quoteRange(record.suggestedPriceMin, record.suggestedPriceMax),
       quotedPriceLabel: moneyLabel(record.quotedPrice),
+      isConverted: Boolean(record.convertedClientId) || String(record.status || "").toLowerCase() === "converted",
       linkedLeadNotes: notesByLead[record.leadId] || [],
       accountingQuote: record.quoteRecordId
         ? {

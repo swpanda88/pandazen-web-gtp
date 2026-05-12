@@ -14,7 +14,7 @@ const data = {
         priceShopperRisk: "Low",
         estimatedFirstCleanHoursMin: 5,
         estimatedFirstCleanHoursMax: 6.5,
-        suggestedPriceLabel: "Ã‚Â£150.00-Ã‚Â£195.00",
+        suggestedPriceLabel: "GBP 150.00-195.00",
         recommendedNextAction: "Strong lead - call and consider home visit",
         confidence: "Medium",
         positiveFlags: ["Regular recurring work", "Values reliability and continuity"],
@@ -167,7 +167,7 @@ const data = {
       number: "PZ-2026-0001",
       client: "Mrs Knowles",
       date: "31 May",
-      amount: "Ã‚Â£184",
+      amount: "GBP 184",
       status: "Draft",
       paid: "-"
     },
@@ -176,7 +176,7 @@ const data = {
       number: "PZ-2026-0002",
       client: "Mr Green",
       date: "12 May",
-      amount: "Ã‚Â£246",
+      amount: "GBP 246",
       status: "Sent",
       paid: "-"
     }

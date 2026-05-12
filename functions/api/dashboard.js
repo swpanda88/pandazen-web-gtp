@@ -6,7 +6,7 @@ export async function onRequestGet({ env }) {
     const labels = await optionMap(db);
 
     const [newLeads, assessments, jobs, unpaid, attention, today] = await Promise.all([
-      db.prepare("SELECT COUNT(*) AS count FROM leads WHERE status IN ('new', 'contacted')").first(),
+      db.prepare("SELECT COUNT(*) AS count FROM leads WHERE status IN ('new', 'contacted', 'waiting_customer', 'assessment_needed')").first(),
       db.prepare("SELECT COUNT(*) AS count FROM assessments WHERE status = 'booked'").first(),
       db.prepare("SELECT COUNT(*) AS count FROM jobs WHERE status = 'scheduled'").first(),
       db.prepare("SELECT COALESCE(SUM(amount_pence), 0) AS amount FROM invoices WHERE status IN ('sent', 'overdue')").first(),
@@ -14,7 +14,7 @@ export async function onRequestGet({ env }) {
         .prepare(
           `SELECT id, customer_name AS name, area, status, service_type AS serviceType, notes
            FROM leads
-           WHERE status IN ('new', 'contacted', 'assessment_booked', 'quote_sent')
+           WHERE status IN ('new', 'contacted', 'waiting_customer', 'assessment_needed')
            ORDER BY updated_at DESC
            LIMIT 5`
         )

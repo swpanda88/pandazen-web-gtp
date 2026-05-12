@@ -5,7 +5,16 @@ export async function onRequestPatch({ request, env, params }) {
     const db = requireDb(env);
     const body = await readJson(request);
     const status = body.status;
-    const closedStatuses = ["lost", "no_response", "not_suitable", "declined"];
+    const closedStatuses = ["rejected", "not_suitable"];
+    if (status && closedStatuses.includes(status)) {
+      const linkedAssessment = await db
+        .prepare("SELECT id FROM assessment_quotes WHERE lead_id = ? LIMIT 1")
+        .bind(params.id)
+        .first();
+      if (linkedAssessment) {
+        return error("This lead already has a linked Q&A / Assessment. Close it from the Q&A flow instead of the Lead stage.", 409);
+      }
+    }
     const fields = {
       customer_name: body.name,
       phone: body.phone,
@@ -16,7 +25,7 @@ export async function onRequestPatch({ request, env, params }) {
       preferred_days: body.preferredDays,
       status,
       notes: body.notes,
-      lost_reason: body.lostReason,
+      lost_reason: closedStatuses.includes(status) ? (body.lostReason || status) : body.lostReason,
       closed_at: closedStatuses.includes(status) ? new Date().toISOString() : body.closedAt,
       anonymise_after: closedStatuses.includes(status)
         ? new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString()

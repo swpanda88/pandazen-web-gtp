@@ -1,5 +1,11 @@
 import { error, json, labelFor, optionMap, readJson, requireDb } from "./_util.js";
 
+function labelWithOther(labels, group, value, otherValue) {
+  const label = labelFor(labels, group, value);
+  if (value === "other" && otherValue) return `${label}: ${otherValue}`;
+  return label;
+}
+
 function leadPriority(urgency) {
   return urgency === "urgent" ? "High" : "Normal";
 }
@@ -27,7 +33,13 @@ export async function onRequestGet({ env }) {
       .prepare(
         `SELECT id, customer_name AS name, phone, email, area, address, source, source_other AS sourceOther,
                 service_type AS serviceType, service_other AS serviceOther, preferred_contact AS preferredContact,
-                preferred_days AS preferredDays, urgency, status, notes, created_at AS createdAt, updated_at AS updatedAt
+                best_contact_time AS bestContactTime, postcode, preferred_days AS preferredDays, frequency, urgency,
+                property_type AS propertyType, bedrooms, bathrooms, reception_rooms AS receptionRooms,
+                kitchen_size AS kitchenSize, property_size AS propertySize, property_condition AS propertyCondition,
+                priorities, pets, parking, product_preferences AS productPreferences, photo_available AS photoAvailable,
+                privacy_policy_accepted AS privacyPolicyAccepted, marketing_opt_in AS marketingOptIn,
+                status, notes, lost_reason AS lostReason, closed_at AS closedAt,
+                created_at AS createdAt, updated_at AS updatedAt
          FROM leads
          ORDER BY updated_at DESC, id DESC`
       )
@@ -58,8 +70,10 @@ export async function onRequestGet({ env }) {
       leads: results.map((lead) => ({
         ...lead,
         statusLabel: labelFor(labels, "lead_status", lead.status),
-        sourceLabel: labelFor(labels, "lead_source", lead.source),
-        serviceLabel: labelFor(labels, "service_type", lead.serviceType),
+        sourceLabel: labelWithOther(labels, "lead_source", lead.source, lead.sourceOther),
+        serviceLabel: labelWithOther(labels, "service_type", lead.serviceType, lead.serviceOther),
+        preferredContactLabel: labelFor(labels, "preferred_contact", lead.preferredContact),
+        frequencyLabel: labelFor(labels, "frequency", lead.frequency),
         contact: lead.phone || lead.email || "",
         leadNotes: notesByLead[lead.id] || []
       }))

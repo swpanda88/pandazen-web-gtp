@@ -5,7 +5,7 @@ export async function onRequestPatch({ request, env, params }) {
     const db = requireDb(env);
     const body = await readJson(request);
     const status = body.status;
-    const closedStatuses = ["lost", "no_response", "not_suitable", "declined", "rejected", "spam"];
+    const closedStatuses = ["rejected", "not_suitable"];
     if (status && closedStatuses.includes(status)) {
       const linkedAssessment = await db
         .prepare("SELECT id FROM assessment_quotes WHERE lead_id = ? LIMIT 1")

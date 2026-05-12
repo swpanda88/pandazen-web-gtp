@@ -219,7 +219,8 @@ const titles = {
 
 const leadStatuses = ["New enquiry", "Contacted", "Assessment booked", "Quote sent", "Accepted"];
 const convertedLeadStatuses = new Set(["converted"]);
-const closedLeadStatuses = new Set(["lost", "rejected", "not_suitable", "no_response", "spam", "declined"]);
+const activeLeadStatusValues = new Set(["new", "contacted", "waiting_customer", "assessment_needed"]);
+const closedLeadStatuses = new Set(["rejected", "not_suitable"]);
 const convertibleLeadStatuses = new Set(["accepted", "booked", "quote_accepted", "converted"]);
 
 const viewTitle = document.querySelector("[data-view-title]");
@@ -393,12 +394,15 @@ function escapeHtml(value) {
 function activeLeads() {
   return data.leads.filter((lead) => {
     const status = String(lead.statusValue || lead.status || "").toLowerCase();
-    return !convertedLeadStatuses.has(status) && !closedLeadStatuses.has(status);
+    return activeLeadStatusValues.has(status);
   });
 }
 
-function closedLeads() {
-  return data.leads.filter((lead) => closedLeadStatuses.has(String(lead.statusValue || lead.status || "").toLowerCase()));
+function leadHistory() {
+  return data.leads.filter((lead) => {
+    const status = String(lead.statusValue || lead.status || "").toLowerCase();
+    return !activeLeadStatusValues.has(status) && !convertedLeadStatuses.has(status);
+  });
 }
 
 function fullLead(record) {
@@ -419,7 +423,7 @@ function isConvertibleLead(record) {
 
 function canCreateAssessmentQuote(record) {
   const status = String(record.statusValue || record.status || "").toLowerCase();
-  return !["converted", "lost", "no_response", "not_suitable", "declined", "rejected", "spam"].includes(status);
+  return activeLeadStatusValues.has(status);
 }
 
 function clientServiceLabel(record) {
@@ -436,7 +440,7 @@ function clientOriginalLeadId(record) {
 
 function leadStatusOptions() {
   const options = state.options.lead_status?.options;
-  if (options?.length) return options;
+  if (options?.length) return options.filter((option) => activeLeadStatusValues.has(option.value));
   const seen = new Set();
   return activeLeads().reduce((items, lead) => {
     const value = lead.statusValue || lead.status || "new";
@@ -491,6 +495,7 @@ function detailRows(fields) {
 
 function renderLeadStatusForm(record) {
   const current = record.statusValue || record.status || "new";
+  if (!activeLeadStatusValues.has(String(current).toLowerCase())) return "";
   const options = leadStatusOptions();
   if (!options.length) return "";
   return `
@@ -580,14 +585,12 @@ function renderLeadOutcomeActions(record) {
 
   return `
     <section class="drawer-section">
-      <h3>Close without Q&A</h3>
+      <h3>Close Lead</h3>
       <div class="drawer-actions">
+        <button class="ghost" type="button" data-close-lead-status="rejected">Rejected</button>
         <button class="ghost" type="button" data-close-lead-status="not_suitable">Not suitable</button>
-        <button class="ghost" type="button" data-close-lead-status="no_response">No response</button>
-        <button class="ghost" type="button" data-close-lead-status="lost">Lost</button>
-        <button class="ghost" type="button" data-close-lead-status="spam">Spam</button>
       </div>
-      <p class="record-sub">Use these only for enquiries that should stop at the Lead stage and should not move into Q&A / Assessment.</p>
+      <p class="record-sub">Use these only when the enquiry should stop at the Lead stage and should not move into Q&A / Assessment.</p>
       <p class="record-sub" data-lead-close-status></p>
     </section>
   `;
@@ -1589,9 +1592,9 @@ function renderPriorityList(selector = "[data-priority-list]") {
 function renderLeadHistory() {
   const host = document.querySelector("[data-lead-history]");
   if (!host) return;
-  const leads = [...closedLeads()].sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""))).slice(0, 12);
+  const leads = [...leadHistory()].sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""))).slice(0, 12);
   if (!leads.length) {
-    host.innerHTML = emptyState("No closed leads yet", "Rejected or unsuitable enquiries will remain visible here for traceability.");
+    host.innerHTML = emptyState("No lead history yet", "Rejected, unsuitable, or moved-to-Q&A leads will remain visible here for traceability.");
     return;
   }
 
@@ -1605,7 +1608,7 @@ function renderLeadHistory() {
         <strong>${escapeHtml(lead.serviceLabel || lead.service || "Enquiry")}</strong>
         <small>${escapeHtml(compactMeta([lead.statusLabel || lead.status, formatDateTime(lead.updatedAt || lead.createdAt)]))}</small>
       </span>
-      <mark class="rose">${escapeHtml(lead.statusLabel || lead.status || "Closed")}</mark>
+      <mark class="${closedLeadStatuses.has(String(lead.statusValue || lead.status || '').toLowerCase()) ? "rose" : "blue"}">${escapeHtml(lead.statusLabel || lead.status || "History")}</mark>
     </button>
   `).join("");
 
@@ -1757,7 +1760,7 @@ function renderLeadBoard() {
     return;
   }
   const statuses = state.apiReady
-    ? leadStatusOptions().filter((option) => option.value !== "lost" && !convertedLeadStatuses.has(option.value))
+    ? leadStatusOptions()
     : leadStatuses.map((status) => ({ value: status, label: status }));
 
   statuses.forEach((statusOption) => {

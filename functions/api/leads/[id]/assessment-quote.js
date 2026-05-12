@@ -72,8 +72,8 @@ export async function onRequestPost({ env, params }) {
     await db
       .prepare(
         `UPDATE leads
-         SET status = 'assessment_booked', updated_at = CURRENT_TIMESTAMP
-         WHERE id = ? AND status NOT IN ('lost', 'converted')`
+         SET status = 'assessment_created', updated_at = CURRENT_TIMESTAMP
+         WHERE id = ? AND status NOT IN ('rejected', 'not_suitable', 'converted')`
       )
       .bind(lead.id)
       .run();

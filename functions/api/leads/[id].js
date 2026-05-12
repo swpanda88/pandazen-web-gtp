@@ -1,6 +1,6 @@
 import { error, json, readJson, requireDb } from "../_util.js";
 
-const closedStatuses = new Set(["lost", "no_response", "not_suitable", "declined", "rejected", "spam"]);
+const closedStatuses = new Set(["rejected", "not_suitable"]);
 
 export async function onRequestPatch({ request, env, params }) {
   try {

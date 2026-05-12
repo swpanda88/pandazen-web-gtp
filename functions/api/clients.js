@@ -38,13 +38,20 @@ export async function onRequestGet({ env }) {
                 aq.priorities AS qaPriorities, aq.product_preferences AS qaProductPreferences,
                 aq.notes AS qaNotes, aq.assessment_notes AS qaAssessmentNotes, aq.quote_notes AS qaQuoteNotes,
                 aq.quoted_price AS qaQuotedPrice, aq.suggested_price_min AS qaSuggestedPriceMin,
-                aq.suggested_price_max AS qaSuggestedPriceMax, aq.quote_accepted_at AS qaQuoteAcceptedAt
+                aq.suggested_price_max AS qaSuggestedPriceMax, aq.quote_accepted_at AS qaQuoteAcceptedAt,
+                q.id AS accountingQuoteId, q.quote_number AS accountingQuoteNumber,
+                q.version_number AS accountingQuoteVersionNumber,
+                q.display_reference AS accountingQuoteDisplayReference,
+                q.status AS accountingQuoteStatus, q.total_price AS accountingQuoteTotalPrice,
+                q.recurring_price AS accountingQuoteRecurringPrice,
+                q.created_at AS accountingQuoteCreatedAt, q.updated_at AS accountingQuoteUpdatedAt
          FROM clients c
          LEFT JOIN cleaning_plans cp ON cp.client_id = c.id AND cp.is_active = 1
          LEFT JOIN staff s ON s.id = cp.main_cleaner_id
          LEFT JOIN staff h ON h.id = cp.helper_id
          LEFT JOIN leads l ON l.id = c.lead_id
          LEFT JOIN assessment_quotes aq ON aq.id = c.assessment_quote_id
+         LEFT JOIN accounting_quotes q ON q.assessment_quote_id = c.assessment_quote_id AND q.version_number = 1
          ORDER BY c.customer_name`
       )
       .all();
@@ -85,6 +92,19 @@ export async function onRequestGet({ env }) {
         originalServiceLabel: labelWithOther(labels, "service_type", client.originalServiceType, client.originalServiceOther),
         qaServiceLabel: labelFor(labels, "service_type", client.qaServiceType),
         originalLeadSourceLabel: labelWithOther(labels, "lead_source", client.originalLeadSource, client.originalLeadSourceOther),
+        accountingQuote: client.accountingQuoteId
+          ? {
+              id: client.accountingQuoteId,
+              quoteNumber: client.accountingQuoteNumber,
+              versionNumber: client.accountingQuoteVersionNumber,
+              displayReference: client.accountingQuoteDisplayReference,
+              status: client.accountingQuoteStatus,
+              totalPrice: client.accountingQuoteTotalPrice,
+              recurringPrice: client.accountingQuoteRecurringPrice,
+              createdAt: client.accountingQuoteCreatedAt,
+              updatedAt: client.accountingQuoteUpdatedAt
+            }
+          : null,
         propertyType: client.qaPropertyType || client.propertyType,
         bedrooms: client.qaBedrooms || client.bedrooms,
         bathrooms: client.qaBathrooms || client.bathrooms,

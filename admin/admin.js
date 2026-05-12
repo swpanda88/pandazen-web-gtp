@@ -560,6 +560,27 @@ function renderOriginalLeadNotes(record) {
   `;
 }
 
+function renderClientAccountingQuote(record) {
+  const quote = record.accountingQuote;
+  if (!quote && !record.assessmentQuoteId) return "";
+  return `
+    <section class="drawer-section">
+      <h3>Linked quote</h3>
+      ${
+        quote
+          ? detailRows([
+              ["Reference", quote.displayReference],
+              ["Status", quote.status],
+              ["Total", formatMoneyPence(quote.totalPrice)],
+              ["Recurring", formatMoneyPence(quote.recurringPrice)],
+              ["Source Q&A", record.assessmentQuoteId ? `#${record.assessmentQuoteId}` : ""]
+            ])
+          : `<p class="record-sub">No linked accounting quote has been created from this Q&A yet.</p>`
+      }
+    </section>
+  `;
+}
+
 function renderLinkedLeadNotes(record) {
   const notes = record.linkedLeadNotes || [];
   if (!record.leadId) return "";
@@ -1245,6 +1266,7 @@ function openDrawer(type, record = {}) {
       ${type === "assessment" ? renderAssessmentAccountingQuote(record) : ""}
       ${type === "assessment" ? renderAssessmentQuoteConversion(record) : ""}
       ${type === "assessment" ? renderLinkedLeadNotes(record) : ""}
+      ${type === "client" ? renderClientAccountingQuote(record) : ""}
       ${type === "client" ? renderOriginalLeadNotes(record) : ""}
       ${leadDrawerTools(type, record)}
       ${
@@ -1704,8 +1726,12 @@ function renderTables() {
     assessmentTable.append(recordRow("assessment", assessment, [
       `<div class="record-main">${escapeHtml(assessment.customerName || assessment.client || "")}</div><div class="record-sub">${escapeHtml(compactMeta([assessment.area, assessment.postcode]))}</div>`,
       `${escapeHtml(assessment.serviceLabel || assessment.serviceType || "")}<div class="record-sub">${escapeHtml(assessment.frequencyLabel || assessment.frequency || "")}</div>`,
-      `${escapeHtml(assessment.estimate || "Estimate pending")}<div class="record-sub">${escapeHtml(assessment.quoteRange || "")}</div>`,
-      `<span class="pill warn">${escapeHtml(assessment.quoteStageLabel || assessment.quoteStage || assessment.statusLabel || assessment.status || "Draft")}</span>`
+      `${escapeHtml(assessment.estimate || "Estimate pending")}<div class="record-sub">${escapeHtml(compactMeta([assessment.quoteRange || "", assessment.accountingQuote?.displayReference || ""]))}</div>`,
+      `${
+        assessment.isConverted
+          ? `<span class="pill blue">Converted</span><div class="record-sub">${escapeHtml(compactMeta([assessment.quoteStageLabel || assessment.quoteStage, assessment.accountingQuote?.displayReference]))}</div>`
+          : `<span class="pill warn">${escapeHtml(assessment.quoteStageLabel || assessment.quoteStage || assessment.statusLabel || assessment.status || "Draft")}</span>`
+      }`
     ]));
   });
 

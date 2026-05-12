@@ -30,6 +30,22 @@ async function markQuoteConverted(db, quoteId, clientId) {
     .run();
 }
 
+async function linkAccountingQuotesToClient(db, assessmentQuoteId, clientId) {
+  await db
+    .prepare(
+      `UPDATE accounting_quotes
+       SET client_id = ?,
+           updated_at = CASE
+             WHEN client_id IS NULL OR client_id = ? THEN CURRENT_TIMESTAMP
+             ELSE updated_at
+           END
+       WHERE assessment_quote_id = ?
+         AND (client_id IS NULL OR client_id = ?)`
+    )
+    .bind(clientId, clientId, assessmentQuoteId, clientId)
+    .run();
+}
+
 export async function onRequestPost({ request, env, params }) {
   try {
     const db = requireDb(env);
@@ -64,6 +80,7 @@ export async function onRequestPost({ request, env, params }) {
         .prepare("UPDATE clients SET assessment_quote_id = COALESCE(assessment_quote_id, ?), updated_at = CURRENT_TIMESTAMP WHERE id = ?")
         .bind(quote.id, existing.id)
         .run();
+      await linkAccountingQuotesToClient(db, quote.id, existing.id);
       await markQuoteConverted(db, quote.id, existing.id);
       return json({ ok: true, id: existing.id, alreadyConverted: true });
     }
@@ -103,6 +120,7 @@ export async function onRequestPost({ request, env, params }) {
       .run();
 
     const clientId = result.meta.last_row_id;
+    await linkAccountingQuotesToClient(db, quote.id, clientId);
     await markQuoteConverted(db, quote.id, clientId);
 
     return json({ ok: true, id: clientId, alreadyConverted: false }, { status: 201 });

@@ -1089,8 +1089,11 @@ mark.rose {
 }
 
 .drawer-titlebar-main {
+  display: grid;
+  align-content: start;
   min-width: 0;
   flex: 1 1 auto;
+  min-height: 34px;
 }
 
 .drawer-title-copy {
@@ -1112,7 +1115,7 @@ mark.rose {
 .drawer-titlebar-compact {
   display: none;
   min-width: 0;
-  padding: 6px 0;
+  padding: 0;
   color: var(--ink);
   font-size: 0.92rem;
   font-weight: 700;
@@ -1123,25 +1126,32 @@ mark.rose {
 }
 
 .drawer-titlebar.is-scrolled {
-  padding-top: 14px;
-  padding-bottom: 12px;
+  align-items: center;
+  padding-top: 10px;
+  padding-bottom: 10px;
   border-bottom-color: var(--line);
   box-shadow: 0 8px 24px rgba(28, 42, 35, 0.08);
 }
 
 .drawer-titlebar.is-scrolled .drawer-title-copy {
-  opacity: 0;
-  transform: translateY(-6px);
-  max-height: 0;
+  display: none;
 }
 
 .drawer-titlebar.is-scrolled .drawer-titlebar-compact {
   display: block;
 }
 
+.drawer-titlebar.is-scrolled .drawer-titlebar-main {
+  display: flex;
+  align-items: center;
+}
+
 .drawer-close {
   flex: 0 0 auto;
   min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 7px 10px;
   color: var(--muted);
   border: 1px solid var(--line);

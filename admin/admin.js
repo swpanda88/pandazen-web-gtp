@@ -951,8 +951,14 @@ function setupDrawerChrome() {
   if (!titlebar) return;
 
   drawer.scrollTop = 0;
+  let isCompact = false;
   drawerScrollHandler = () => {
-    titlebar.classList.toggle("is-scrolled", drawer.scrollTop > 28);
+    const scrollTop = drawer.scrollTop;
+    const shouldCompact = isCompact ? scrollTop > 14 : scrollTop > 34;
+    if (shouldCompact !== isCompact) {
+      isCompact = shouldCompact;
+      titlebar.classList.toggle("is-scrolled", isCompact);
+    }
   };
 
   drawer.addEventListener("scroll", drawerScrollHandler, { passive: true });

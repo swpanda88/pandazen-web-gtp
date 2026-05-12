@@ -11,7 +11,7 @@ Current build priority:
 Do not build future modules unless specifically selected. The first useful working slice is:
 
 ```text
-Public enquiry form → Lead record → Admin task → Admin review → Quote Assist → Next action
+Public enquiry form -> Lead record -> Admin task -> Admin review -> Quote Assist -> Next action
 ```
 
 ---
@@ -91,14 +91,25 @@ Do not protect only `/api/admin/*` while legacy `/api/*` routes still exist with
 - lead is saved in D1
 - lead appears in admin list/detail
 - admin can update status and add notes
+- admin can reject / mark not suitable without forcing Q&A creation
+- inactive / closed Leads remain traceable in Lead history
 - new lead creates follow-up task
 - Quote Assist runs and stores recommendation
 - admin sees fit score, hours, price range, confidence and next action
+- sticky/shrinking drawer header keeps record identity visible while scrolling
+- Lead drawer supports lightweight edit details mode for contact + enquiry fields
 - Privacy Policy acknowledgement is stored
 - optional marketing opt-in is stored separately
 - lost leads can be marked with lost reason
 - lost leads get anonymisation review date
 - no T&C acceptance is forced at enquiry stage
+
+Current completed Lead/admin foundation:
+
+- Lead rejection / Not suitable path is complete.
+- Inactive / closed Leads now sit in Lead history instead of polluting active Lead work.
+- Right-hand drawers use a sticky/shrinking identity header.
+- Lead drawer edit details mode is complete for contact + enquiry fields.
 
 ---
 
@@ -319,7 +330,7 @@ Checkbox wording:
 
 > I understand PandaZen will use my details to respond to this enquiry, in line with the Privacy Policy.
 
-> I’m happy for PandaZen to contact me occasionally about availability, offers or cleaning tips. This is optional and I can opt out at any time.
+> I'm happy for PandaZen to contact me occasionally about availability, offers or cleaning tips. This is optional and I can opt out at any time.
 
 Marketing must not be pre-ticked.
 
@@ -338,7 +349,7 @@ Quote wording:
 
 Booking wording:
 
-> Thank you — your booking is confirmed. By confirming the booking, you agree to PandaZen Terms & Conditions, including our cancellation, access and payment terms.
+> Thank you - your booking is confirmed. By confirming the booking, you agree to PandaZen Terms & Conditions, including our cancellation, access and payment terms.
 
 Later store:
 
@@ -355,7 +366,7 @@ Purpose: help admin judge fit, likely hours, price/range and next step.
 
 Outputs:
 
-- fit score 0–100
+- fit score 0-100
 - price-shopper risk: Low/Medium/High
 - travel suitability: Good/Borderline/Poor
 - estimated first clean hours
@@ -401,9 +412,9 @@ Negative factors:
 Interpretation:
 
 ```text
-80–100 strong fit
-60–79 possible fit
-40–59 borderline
+80-100 strong fit
+60-79 possible fit
+40-59 borderline
 <40 likely poor fit / decline / premium / waitlist
 ```
 
@@ -412,7 +423,7 @@ Interpretation:
 High-risk indicators:
 
 - chooses cheapest price
-- asks only “how much per hour?”
+- asks only "how much per hour?"
 - gives little detail
 - wants short booking for large property
 - compares to low-price competitors
@@ -454,18 +465,18 @@ Examples:
 
 | Property | Recurring clean |
 |---|---:|
-| 1-bed flat | 1.5–2.0 h |
-| 2-bed flat/house | 2.0–2.5 h |
-| 3-bed house | 2.5–3.5 h |
-| 4-bed house | 3.5–4.5 h |
+| 1-bed flat | 1.5-2.0 h |
+| 2-bed flat/house | 2.0-2.5 h |
+| 3-bed house | 2.5-3.5 h |
+| 4-bed house | 3.5-4.5 h |
 | 5-bed+ / large detached | 4.5 h+ |
 
 Bathroom modifier:
 
 ```text
 1 bath +0
-2 baths +0.3–0.5
-3 baths +0.7–1.0
+2 baths +0.3-0.5
+3 baths +0.7-1.0
 4+ baths +1.0+
 ```
 
@@ -475,16 +486,16 @@ Condition modifier:
 well maintained x1.0
 generally tidy x1.1
 busy family home x1.25
-reset/deep clean first: recurring x1.1, first clean x1.8–2.5
-end of tenancy x2.0–3.0
+reset/deep clean first: recurring x1.1, first clean x1.8-2.5
+end of tenancy x2.0-3.0
 ```
 
 Pets:
 
 ```text
 none +0
-cat/dog +0.25–0.5
-multiple/heavy hair +0.5–1.0
+cat/dog +0.25-0.5
+multiple/heavy hair +0.5-1.0
 ```
 
 First clean multiplier:
@@ -493,7 +504,7 @@ First clean multiplier:
 well maintained x1.25
 generally tidy x1.5
 busy family home x1.75
-needs reset x2.0–2.5
+needs reset x2.0-2.5
 ```
 
 Minimum booking:
@@ -505,7 +516,7 @@ Minimum booking:
 Pricing concept:
 
 ```text
-estimated hours × rate + travel adjustment + difficulty adjustment
+estimated hours x rate + travel adjustment + difficulty adjustment
 ```
 
 Pricing settings later:
@@ -521,7 +532,7 @@ Pricing settings later:
 Use ranges at first:
 
 ```text
-suggested estimate £120–£160
+suggested estimate £120-£160
 minimum recommended £115
 confidence Medium
 ```
@@ -665,13 +676,21 @@ Main area: list/board/calendar
 Right panel: selected record detail/actions
 ```
 
+Interaction layers:
+
+- **Drawer** = quick review, light edits, status changes, notes, linked-record navigation and next-step actions.
+- **Expanded Workspace** = future full-screen or main-area working surface for heavier operational work that no longer fits comfortably inside a drawer.
+- **Document Editor** = future dedicated document-building surface for commercial/client-facing outputs such as formal quotes, quote versions and invoices.
+
+Use the smallest layer that fits the job. Early triage belongs in the drawer. Bigger scoped editing or document authoring should move to an Expanded Workspace or Document Editor rather than bloating the drawer.
+
 Future drawer/detail UX:
 
-- Right-hand drawer/detail panels should support collapsible sections.
-- Key action/decision sections stay open by default, for example next action, Quote Assist, quote status, conversion actions and active tasks.
+- Right-hand drawer/detail panels now use a sticky/shrinking identity header so the active record stays visible while scrolling.
+- Lead drawer now supports lightweight Edit details mode for contact + enquiry fields.
+- Drawers should stay compact, action-led and practical; they are not the place for full document composition or sprawling workspace layouts.
 - Secondary/history/detail-heavy sections can default collapsed, for example old notes, source history, prior quote versions, audit/export history and long property detail.
-- Collapsible drawers must still work later with global Edit -> Save mode.
-- Do not implement collapsible drawers until the global drawer editing pattern is planned.
+- Future global Edit -> Save patterns should build on the lightweight drawer editing model rather than introducing conflicting edit behaviour.
 
 Admin cockpit principle:
 
@@ -735,7 +754,7 @@ Dashboard should show action queues:
 - new leads needing reply
 - quotes to chase
 - assessments due
-- today’s jobs
+- today's jobs
 - missing reports
 - invoices to send/overdue
 - anonymisation reviews
@@ -806,20 +825,30 @@ Sidebar behaviour:
 
 Pipeline for people who enquired but are not clients yet.
 
-Statuses may include:
+Leads are now MVP-sufficient for early triage. The Lead stage is intentionally narrow:
+
+- review the enquiry
+- contact the prospect
+- add notes/tasks
+- decide whether it should move into Q&A / Assessment
+- close it as rejected / not suitable if it should stop here
+
+Active Lead working statuses:
 
 - New
 - Contacted
-- Needs info/photos
-- Call needed
-- Assessment suggested/booked
-- Quote sent
-- Accepted
-- Lost
-- No response
-- Waiting list
+- Waiting customer
+- Assessment needed
 
-Lead detail should show enquiry data, Quote Assist, notes, tasks and actions.
+Lead history / inactive records include:
+
+- Assessment created
+- Rejected
+- Not suitable
+- Converted
+- legacy inactive statuses still present in old data, for example lost, no response, spam, declined, assessment booked or quote sent
+
+Lead detail should show enquiry data, notes, tasks, linked records and early-triage actions. Quote Assist may still be visible for context, but the Lead stage is not the long-term home for quote workflow.
 
 ### Clients & Homes
 
@@ -868,6 +897,13 @@ Q&A is not the commercial quote itself. It is the internal working record that g
 
 Current bridge behaviour: accepted Q&A can convert to Client & Home. This is temporary. The intended future trigger is accepted Quote record, not Q&A directly.
 
+Clear distinction:
+
+- **Lead** = early enquiry / triage only.
+- **Q&A / Assessment** = internal working record for evaluation, scope, notes and Quote Assist.
+- **Quote** = separate commercial/accounting record with versions, status and future PDF output.
+- **Field Document** = separate login-protected staff form used in service delivery, for example assessment visit notes, cleaner checklists, reports or site updates. This is digital-first operational capture, not the same thing as a client-facing quote document.
+
 ### Schedule / Work Orders
 
 Future operational calendar for jobs, cleaner assignment, duration, travel/area, status and notes.
@@ -890,6 +926,14 @@ First-class module. Includes lead follow-up, quote chase, assessment prep, invoi
 ### Cleaner Reports / Quality
 
 Future module for completed checklists, cleaner notes, follow-ups, issue/damage reports and admin review.
+
+Field documents in this area should be:
+
+- login-protected
+- digital-first
+- staff-facing
+- structured for phones/tablets where needed
+- separate from commercial quote/invoice documents
 
 ### Accounting / Invoices
 
@@ -1144,7 +1188,7 @@ Recommended route:
 
 Cleaner should see only assigned safe job data:
 
-- today’s jobs
+- today's jobs
 - job time/window
 - client/property reference
 - address/access notes only when needed
@@ -1174,7 +1218,7 @@ Offline-capable PWA is possible later.
 
 First offline scope:
 
-- cache today’s assigned jobs/checklists/notes
+- cache today's assigned jobs/checklists/notes
 - allow checklist ticks and notes offline
 - save pending report locally
 - show `Not synced yet`
@@ -1229,13 +1273,13 @@ The older direct Q&A -> Client & Home conversion is only a temporary bridge. Onc
 Legacy workflow note, superseded by the corrected quote/accounting workflow above:
 
 ```text
-Lead → Quote Assist → Assessment/Quote → Accepted → Client & Home → Cleaning Plan → Job → Report → Follow-Up → Invoice
+Lead -> Quote Assist -> Assessment/Quote -> Accepted -> Client & Home -> Cleaning Plan -> Job -> Report -> Follow-Up -> Invoice
 ```
 
 Legacy current-build note, superseded by the current bridge note above:
 
 ```text
-Lead → Quote Assist → Admin Review → Next Action
+Lead -> Quote Assist -> Admin Review -> Next Action
 ```
 
 Future modules:
@@ -1244,7 +1288,7 @@ Future modules:
 - Cleaning Plan: recurring plan with frequency, cleaner, default checklist
 - Job/Work Order: one scheduled visit from plan or manual booking
 - Checklist: unlimited plan/job checklist items
-- Follow-Up: carry “do this next time” notes forward
+- Follow-Up: carry "do this next time" notes forward
 - Invoice: lightweight tracking and CSV export
 - Staff: cleaner/admin profiles, availability, documents, absence
 - Files: references to secure storage, temporary retention rules
@@ -1253,7 +1297,7 @@ Future modules:
 
 ## 18. Suggested Build Order
 
-### Phase 0 — Security Foundation
+### Phase 0 - Security Foundation
 
 - Cloudflare domain onboarding
 - Cloudflare Access for `/admin/*`
@@ -1262,7 +1306,7 @@ Future modules:
 - decide admin login users
 - no real data before protection
 
-### Phase 1 — Lead Capture Foundation
+### Phase 1 - Lead Capture Foundation
 
 - leads table
 - lead_notes table
@@ -1274,8 +1318,12 @@ Future modules:
 - new lead creates follow-up task
 - admin lead list/detail
 - status update and notes
+- reject / not suitable close-out path
+- Lead history for inactive / closed Leads
+- sticky/shrinking drawer header
+- Lead drawer lightweight edit details mode
 
-### Phase 2 — Quote Assist Foundation
+### Phase 2 - Quote Assist Foundation
 
 - `_quoteAssist.js`
 - rule-based scoring
@@ -1284,33 +1332,33 @@ Future modules:
 - display Quote Assist panel
 - fit score, risk, hours, price range, confidence, next action
 
-### Phase 3 — Lost Reasons + Anonymisation Hooks
+### Phase 3 - Lost Reasons + Anonymisation Hooks
 
 - lost/no-response/not-suitable status handling
 - `closed_at`
 - `anonymise_after = closed_at + 90 days`
 - future review task/workflow
 
-### Phase 4 — Assessment Module
+### Phase 4 - Assessment Module
 
 - assessment prefilled from lead
 - structured property/scope data
 - man-hours and quote notes
 
-### Phase 5 — Clients & Homes + Cleaning Plans
+### Phase 5 - Clients & Homes + Cleaning Plans
 
 - convert accepted lead to client/home
 - create cleaning plan
 - default checklist
 
-### Phase 6 — Schedule + Jobs
+### Phase 6 - Schedule + Jobs
 
 - manual/generate jobs
 - reschedule/cancel
 - assign cleaner/helper
 - status flow
 
-### Phase 7 — Cleaner Experience
+### Phase 7 - Cleaner Experience
 
 - mobile job list
 - job report/checklist
@@ -1333,7 +1381,7 @@ Future modules:
 - invoice-ready jobs
 - invoice records and CSV export
 
-### Phase 10 — Files, Staff, Business Reminders
+### Phase 10 - Files, Staff, Business Reminders
 
 - uploaded file references
 - photo cleanup prompts
@@ -1347,7 +1395,7 @@ Future modules:
 Each module should follow this cycle:
 
 ```text
-Plan → Build → Test → Deploy → Accept → Compress blueprint → Move to next module
+Plan -> Build -> Test -> Deploy -> Accept -> Compress blueprint -> Move to next module
 ```
 
 Module statuses:
@@ -1377,7 +1425,7 @@ Remove or archive:
 - temporary Codex prompts
 - details that are now represented clearly in code/migrations
 
-The master blueprint should stay around 5k–8k words where possible. The most detailed section should always be the current/next build module.
+The master blueprint should stay around 5k-8k words where possible. The most detailed section should always be the current/next build module.
 
 If one module becomes too large, split it into a separate module spec later, but keep this blueprint as the control document.
 

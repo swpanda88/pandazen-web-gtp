@@ -344,6 +344,80 @@ function optionLabel(groupKey, value) {
   return group?.options?.find((option) => option.value === value)?.label || value || "";
 }
 
+const leadStaticOptions = {
+  urgency: [
+    { value: "", label: "Select" },
+    { value: "flexible", label: "Flexible" },
+    { value: "this_month", label: "This month" },
+    { value: "asap", label: "As soon as possible" },
+    { value: "specific_date", label: "Specific date needed" }
+  ],
+  propertyType: [
+    { value: "", label: "Select" },
+    { value: "house", label: "House" },
+    { value: "flat_apartment", label: "Flat or apartment" },
+    { value: "bungalow", label: "Bungalow" },
+    { value: "townhouse", label: "Townhouse" },
+    { value: "other", label: "Other" }
+  ],
+  propertySize: [
+    { value: "", label: "Select" },
+    { value: "small", label: "Small" },
+    { value: "medium", label: "Medium" },
+    { value: "large", label: "Large" },
+    { value: "not_sure", label: "Not sure" }
+  ],
+  parking: [
+    { value: "", label: "Select" },
+    { value: "driveway", label: "Driveway or easy parking" },
+    { value: "street", label: "Street parking" },
+    { value: "permit_paid", label: "Permit or paid parking" },
+    { value: "not_sure", label: "Not sure" }
+  ],
+  photoAvailable: [
+    { value: "", label: "Select" },
+    { value: "not_needed", label: "Not needed" },
+    { value: "whatsapp_if_requested", label: "Yes, I can send photos by WhatsApp if requested" },
+    { value: "email_if_requested", label: "Yes, I can send photos by email if requested" },
+    { value: "not_sure", label: "Not sure" }
+  ],
+  bedrooms: [
+    { value: "", label: "Select" },
+    { value: "0", label: "0" },
+    { value: "1", label: "1" },
+    { value: "2", label: "2" },
+    { value: "3", label: "3" },
+    { value: "4", label: "4" },
+    { value: "5+", label: "5+" }
+  ],
+  bathrooms: [
+    { value: "", label: "Select" },
+    { value: "1", label: "1" },
+    { value: "2", label: "2" },
+    { value: "3", label: "3" },
+    { value: "4+", label: "4+" }
+  ]
+};
+
+function staticOptionLabel(groupKey, value) {
+  return leadStaticOptions[groupKey]?.find((option) => option.value === value)?.label || "";
+}
+
+function leadValueLabel(key, value) {
+  if (value === null || value === undefined || value === "") return "";
+  const mappedGroups = {
+    source: "lead_source",
+    serviceType: "service_type",
+    preferredContact: "preferred_contact",
+    frequency: "frequency",
+    propertyCondition: "condition_level",
+    productPreferences: "product_preference",
+    pets: "pet_type"
+  };
+  const groupKey = mappedGroups[key];
+  return groupKey ? optionLabel(groupKey, value) : staticOptionLabel(key, value) || value;
+}
+
 function renderSelect(name, groupKey, currentValue) {
   const group = state.options[groupKey];
   if (!group) {
@@ -379,6 +453,17 @@ function leadPrice(lead) {
 
 function compactMeta(items) {
   return items.filter(Boolean).join(" - ");
+}
+
+function parseListValue(value) {
+  if (Array.isArray(value)) return value;
+  if (typeof value !== "string") return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }
 
 function escapeHtml(value) {
@@ -495,6 +580,82 @@ function detailRows(fields) {
         .join("")}
     </div>
   `;
+}
+
+function renderEditableSelect({ name, groupKey, currentValue, otherValue = "", staticOptions = null }) {
+  const group = groupKey ? state.options[groupKey] : null;
+  const allowOther = Boolean(group?.allowOther || staticOptions?.some((option) => option.value === "other"));
+  const rawOptions = group
+    ? [{ value: "", label: "Select" }, ...group.options.map((option) => ({ value: option.value, label: option.label }))]
+    : staticOptions || [];
+  if (currentValue && !rawOptions.some((option) => option.value === currentValue)) {
+    rawOptions.push({
+      value: currentValue,
+      label: optionLabel(groupKey, currentValue) || staticOptionLabel(name, currentValue) || currentValue
+    });
+  }
+  const seen = new Set();
+  const options = rawOptions.filter((option) => {
+    const key = `${option.value}|${option.label}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  return `
+    <select name="${escapeHtml(name)}" data-group="${escapeHtml(groupKey || name)}">
+      ${options
+        .map((option) => `<option value="${escapeHtml(option.value)}" ${option.value === (currentValue || "") ? "selected" : ""}>${escapeHtml(option.label)}</option>`)
+        .join("")}
+    </select>
+    ${
+      allowOther
+        ? `<input class="other-field" name="${escapeHtml(name)}Other" value="${escapeHtml(otherValue || "")}" placeholder="Describe other" hidden>`
+        : ""
+    }
+  `;
+}
+
+function renderEditableInput(label, markup, className = "") {
+  return `
+    <label class="${escapeHtml(className)}">
+      <span>${escapeHtml(label)}</span>
+      ${markup}
+    </label>
+  `;
+}
+
+function leadEditDraft(record) {
+  return {
+    id: record.id,
+    name: record.name || "",
+    phone: record.phone || "",
+    email: record.email || "",
+    area: record.area || "",
+    address: record.address || "",
+    postcode: record.postcode || "",
+    preferredContact: record.preferredContact || "",
+    source: record.source || "",
+    sourceOther: record.sourceOther || "",
+    serviceType: record.serviceType || "",
+    serviceOther: record.serviceOther || "",
+    preferredDays: record.preferredDays || "",
+    bestContactTime: record.bestContactTime || "",
+    frequency: record.frequency || "",
+    urgency: record.urgency || "",
+    propertyType: record.propertyType || "",
+    bedrooms: record.bedrooms || "",
+    bathrooms: record.bathrooms || "",
+    receptionRooms: record.receptionRooms || "",
+    kitchenSize: record.kitchenSize || "",
+    propertySize: record.propertySize || "",
+    propertyCondition: record.propertyCondition || "",
+    priorities: Array.isArray(record.priorities) ? record.priorities.join(", ") : (parseListValue(record.priorities).join(", ") || record.priorities || ""),
+    pets: record.pets || "",
+    parking: record.parking || "",
+    productPreferences: record.productPreferences || "",
+    photoAvailable: record.photoAvailable || "",
+    notes: record.notes || ""
+  };
 }
 
 function renderCollapsibleSection(title, content, open = false) {
@@ -876,32 +1037,135 @@ function renderLeadLinkedRecords(record) {
 }
 
 function renderLeadIntakeDetails(record) {
-  const priorityValue = Array.isArray(record.priorities) ? record.priorities.join(", ") : record.priorities;
+  const priorityValue = Array.isArray(record.priorities)
+    ? record.priorities.join(", ")
+    : parseListValue(record.priorities).join(", ") || record.priorities;
   return detailRows([
     ["Address", record.address],
     ["Postcode", record.postcode],
     ["Preferred days", record.preferredDays],
     ["Best contact time", record.bestContactTime],
-    ["Frequency", record.frequencyLabel || record.frequency],
-    ["Urgency", record.urgency],
-    ["Property type", record.propertyType],
+    ["Frequency", record.frequencyLabel || leadValueLabel("frequency", record.frequency)],
+    ["Urgency", leadValueLabel("urgency", record.urgency)],
+    ["Property type", leadValueLabel("propertyType", record.propertyType)],
     ["Bedrooms", record.bedrooms],
     ["Bathrooms", record.bathrooms],
     ["Reception rooms", record.receptionRooms],
     ["Kitchen size", record.kitchenSize],
-    ["Property size", record.propertySize],
-    ["Condition", record.propertyCondition],
+    ["Property size", leadValueLabel("propertySize", record.propertySize)],
+    ["Condition", leadValueLabel("propertyCondition", record.propertyCondition)],
     ["Priorities", priorityValue],
-    ["Pets", record.pets],
-    ["Parking", record.parking],
-    ["Products", record.productPreferences],
-    ["Photos available", record.photoAvailable, "boolean"],
+    ["Pets", leadValueLabel("pets", record.pets)],
+    ["Parking", leadValueLabel("parking", record.parking)],
+    ["Products", leadValueLabel("productPreferences", record.productPreferences)],
+    ["Photos available", leadValueLabel("photoAvailable", record.photoAvailable)],
     ["Privacy accepted", record.privacyPolicyAccepted, "boolean"],
     ["Marketing opt-in", record.marketingOptIn, "boolean"],
     ["Lead notes", record.notes],
     ["Lost reason", record.lostReason],
     ["Closed", formatDateTime(record.closedAt)]
   ]);
+}
+
+function renderLeadContactSection(record, isEditing, draft) {
+  if (!isEditing) {
+    return `
+      <section class="drawer-section">
+        <div class="drawer-section-head">
+          <h3>Contact</h3>
+          <div class="drawer-actions compact drawer-section-tools">
+            <button class="ghost" type="button" data-edit-lead-details>Edit details</button>
+          </div>
+        </div>
+        ${detailRows([
+          ["Name", record.name],
+          ["Area", record.area],
+          ["Phone", record.phone],
+          ["Email", record.email],
+          ["Contact", record.preferredContactLabel || record.preferredContact || record.contact],
+          ["Source", record.sourceLabel || record.source]
+        ])}
+      </section>
+    `;
+  }
+
+  return `
+    <section class="drawer-section">
+        <div class="drawer-section-head">
+          <h3>Contact</h3>
+          <div class="drawer-actions compact drawer-section-tools">
+            <button class="ghost" type="button" data-cancel-lead-details>Cancel</button>
+            <button class="primary lead-action-primary lead-edit-save" type="submit">Save</button>
+          </div>
+        </div>
+      <div class="field-grid lead-edit-grid">
+        ${renderEditableInput("Customer name", `<input name="name" value="${escapeHtml(draft.name)}">`)}
+        ${renderEditableInput("Phone", `<input name="phone" value="${escapeHtml(draft.phone)}">`)}
+        ${renderEditableInput("Email", `<input name="email" type="email" value="${escapeHtml(draft.email)}">`)}
+        ${renderEditableInput("Area", `<input name="area" value="${escapeHtml(draft.area)}">`)}
+        ${renderEditableInput("Address", `<input name="address" value="${escapeHtml(draft.address)}">`, "field-span-2")}
+        ${renderEditableInput("Postcode", `<input name="postcode" value="${escapeHtml(draft.postcode)}">`)}
+        ${renderEditableInput("Preferred contact", renderEditableSelect({ name: "preferredContact", groupKey: "preferred_contact", currentValue: draft.preferredContact }))}
+        ${renderEditableInput("Source", renderEditableSelect({ name: "source", groupKey: "lead_source", currentValue: draft.source, otherValue: draft.sourceOther }))}
+      </div>
+      <p class="record-sub" data-lead-details-status></p>
+    </section>
+  `;
+}
+
+function renderLeadEditIntakeFields(draft) {
+  return `
+    <div class="field-grid lead-edit-grid">
+      ${renderEditableInput("Service type", renderEditableSelect({ name: "serviceType", groupKey: "service_type", currentValue: draft.serviceType, otherValue: draft.serviceOther }))}
+      ${renderEditableInput("Frequency", renderEditableSelect({ name: "frequency", groupKey: "frequency", currentValue: draft.frequency }))}
+      ${renderEditableInput("Preferred days", `<input name="preferredDays" value="${escapeHtml(draft.preferredDays)}" placeholder="e.g. Tuesday morning">`)}
+      ${renderEditableInput("Best contact time", `<input name="bestContactTime" value="${escapeHtml(draft.bestContactTime)}" placeholder="e.g. after 6pm">`)}
+      ${renderEditableInput("Urgency", renderEditableSelect({ name: "urgency", currentValue: draft.urgency, staticOptions: leadStaticOptions.urgency }))}
+      ${renderEditableInput("Property type", renderEditableSelect({ name: "propertyType", currentValue: draft.propertyType, staticOptions: leadStaticOptions.propertyType }))}
+      ${renderEditableInput("Bedrooms", renderEditableSelect({ name: "bedrooms", currentValue: draft.bedrooms, staticOptions: leadStaticOptions.bedrooms }))}
+      ${renderEditableInput("Bathrooms", renderEditableSelect({ name: "bathrooms", currentValue: draft.bathrooms, staticOptions: leadStaticOptions.bathrooms }))}
+      ${renderEditableInput("Reception rooms", `<input name="receptionRooms" type="number" min="0" step="1" value="${escapeHtml(draft.receptionRooms)}">`)}
+      ${renderEditableInput("Kitchen size", `<input name="kitchenSize" value="${escapeHtml(draft.kitchenSize)}">`)}
+      ${renderEditableInput("Property size", renderEditableSelect({ name: "propertySize", currentValue: draft.propertySize, staticOptions: leadStaticOptions.propertySize }))}
+      ${renderEditableInput("Property condition", renderEditableSelect({ name: "propertyCondition", groupKey: "condition_level", currentValue: draft.propertyCondition }))}
+      ${renderEditableInput("Pets", renderEditableSelect({ name: "pets", groupKey: "pet_type", currentValue: draft.pets }))}
+      ${renderEditableInput("Parking", renderEditableSelect({ name: "parking", currentValue: draft.parking, staticOptions: leadStaticOptions.parking }))}
+      ${renderEditableInput("Product preferences", renderEditableSelect({ name: "productPreferences", groupKey: "product_preference", currentValue: draft.productPreferences }))}
+      ${renderEditableInput("Photos available", renderEditableSelect({ name: "photoAvailable", currentValue: draft.photoAvailable, staticOptions: leadStaticOptions.photoAvailable }))}
+      ${renderEditableInput("Priorities", `<textarea name="priorities" rows="2" placeholder="Trust, same cleaner, kitchen focus">${escapeHtml(draft.priorities)}</textarea>`, "field-span-2")}
+      ${renderEditableInput("Notes", `<textarea name="notes" rows="4" placeholder="Key enquiry notes for admin review.">${escapeHtml(draft.notes)}</textarea>`, "field-span-2")}
+    </div>
+  `;
+}
+
+let leadDetailsEditState = null;
+
+function isEditingLeadDetails(record) {
+  return Boolean(leadDetailsEditState && String(leadDetailsEditState.id) === String(record.id));
+}
+
+function renderLeadDetailSections(record) {
+  const isEditing = isEditingLeadDetails(record);
+  const draft = isEditing ? leadDetailsEditState : leadEditDraft(record);
+  const contactSection = renderLeadContactSection(record, isEditing, draft);
+  const intakeContent = isEditing ? renderLeadEditIntakeFields(draft) : renderLeadIntakeDetails(record);
+  const intakeOpen = isEditing;
+  const intakeSection = `
+    <section class="drawer-section">
+      ${renderCollapsibleSection("Full enquiry / intake details", intakeContent, intakeOpen)}
+    </section>
+  `;
+
+  if (!isEditing) {
+    return `${contactSection}${intakeSection}`;
+  }
+
+  return `
+    <form data-lead-details-form>
+      ${contactSection}
+      ${intakeSection}
+    </form>
+  `;
 }
 
 function renderLeadWorkingSection(record) {
@@ -991,24 +1255,10 @@ function renderLeadDrawer(record) {
     eyebrow: "Lead",
     title,
     subtitle,
-    compactTitle: compactDrawerLabel([title, "Lead", record.statusLabel || record.status || subtitle])
+    compactTitle: compactDrawerLabel([title, "Lead", subtitle, record.statusLabel || record.status])
   });
   const body = `
-      <section class="drawer-section">
-        <h3>Contact</h3>
-        ${detailRows([
-          ["Name", record.name],
-          ["Area", record.area],
-          ["Phone", record.phone],
-          ["Email", record.email],
-          ["Contact", record.contact],
-          ["Source", record.sourceLabel || record.source]
-        ])}
-      </section>
-
-      <section class="drawer-section">
-        ${renderCollapsibleSection("Full enquiry / intake details", renderLeadIntakeDetails(record), false)}
-      </section>
+      ${renderLeadDetailSections(record)}
 
       ${renderLeadWorkingSection(record)}
       ${renderLeadLinkedRecords(record)}
@@ -1053,6 +1303,11 @@ function setLeadCloseStatus(message) {
   if (status) status.textContent = message;
 }
 
+function setLeadDetailStatus(message) {
+  const status = drawer.querySelector("[data-lead-details-status]");
+  if (status) status.textContent = message;
+}
+
 function openAssessmentQuoteFromLead(assessmentQuoteId) {
   const assessmentQuote = data.assessments.find((item) => String(item.id) === String(assessmentQuoteId));
   if (!assessmentQuote) {
@@ -1064,8 +1319,93 @@ function openAssessmentQuoteFromLead(assessmentQuoteId) {
   return true;
 }
 
+function normaliseLeadDetailsPayload(formData) {
+  const raw = Object.fromEntries(formData.entries());
+  const trimmed = (value) => {
+    if (value === undefined || value === null) return null;
+    const text = String(value).trim();
+    return text ? text : null;
+  };
+
+  return {
+    name: trimmed(raw.name),
+    phone: trimmed(raw.phone),
+    email: trimmed(raw.email),
+    area: trimmed(raw.area),
+    address: trimmed(raw.address),
+    postcode: trimmed(raw.postcode),
+    preferredContact: trimmed(raw.preferredContact),
+    source: trimmed(raw.source),
+    sourceOther: raw.source === "other" ? trimmed(raw.sourceOther) : null,
+    serviceType: trimmed(raw.serviceType),
+    serviceOther: raw.serviceType === "other" ? trimmed(raw.serviceTypeOther) : null,
+    preferredDays: trimmed(raw.preferredDays),
+    bestContactTime: trimmed(raw.bestContactTime),
+    frequency: trimmed(raw.frequency),
+    urgency: trimmed(raw.urgency),
+    propertyType: trimmed(raw.propertyType),
+    bedrooms: trimmed(raw.bedrooms),
+    bathrooms: trimmed(raw.bathrooms),
+    receptionRooms: trimmed(raw.receptionRooms),
+    kitchenSize: trimmed(raw.kitchenSize),
+    propertySize: trimmed(raw.propertySize),
+    propertyCondition: trimmed(raw.propertyCondition),
+    priorities: trimmed(raw.priorities),
+    pets: trimmed(raw.pets),
+    parking: trimmed(raw.parking),
+    productPreferences: trimmed(raw.productPreferences),
+    photoAvailable: trimmed(raw.photoAvailable),
+    notes: trimmed(raw.notes)
+  };
+}
+
 function setupLeadDrawerActions(record) {
-  if (!state.apiReady || !record.id) return;
+  if (!record.id) return;
+
+  drawer.querySelector("[data-edit-lead-details]")?.addEventListener("click", () => {
+    leadDetailsEditState = leadEditDraft(record);
+    openDrawer("lead", fullLead(record));
+  });
+
+  drawer.querySelector("[data-cancel-lead-details]")?.addEventListener("click", () => {
+    leadDetailsEditState = null;
+    openDrawer("lead", fullLead(record));
+  });
+
+  const detailsForm = drawer.querySelector("[data-lead-details-form]");
+  detailsForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+      setLeadDetailStatus("Saving details...");
+      const payload = normaliseLeadDetailsPayload(new FormData(detailsForm));
+      if (state.apiReady) {
+        await apiPatch(`/api/leads/${record.id}`, payload);
+      } else {
+        const lead = data.leads.find((item) => String(item.id) === String(record.id));
+        if (lead) {
+          Object.assign(lead, payload, {
+            sourceLabel: payload.source ? leadValueLabel("source", payload.source) : lead.sourceLabel,
+            serviceLabel: payload.serviceType ? leadValueLabel("serviceType", payload.serviceType) : lead.serviceLabel,
+            preferredContactLabel: payload.preferredContact ? leadValueLabel("preferredContact", payload.preferredContact) : lead.preferredContactLabel,
+            frequencyLabel: payload.frequency ? leadValueLabel("frequency", payload.frequency) : lead.frequencyLabel,
+            contact: payload.phone || payload.email || "",
+            updatedAt: new Date().toISOString()
+          });
+        }
+      }
+      leadDetailsEditState = null;
+      if (state.apiReady) {
+        await refreshLeadDrawer(record.id);
+      } else {
+        renderAll();
+        openDrawer("lead", fullLead(record));
+      }
+    } catch (err) {
+      setLeadDetailStatus(`Could not save details. ${err.message}`);
+    }
+  });
+
+  if (!state.apiReady) return;
 
   drawer.querySelector("[data-create-assessment-quote]")?.addEventListener("click", async () => {
     try {
@@ -1287,6 +1627,7 @@ function setupAssessmentDrawerActions(record) {
 }
 
 function resetDrawer() {
+  leadDetailsEditState = null;
   if (drawerScrollHandler) {
     drawer.querySelector(".drawer-body")?.removeEventListener("scroll", drawerScrollHandler);
     drawerScrollHandler = null;
@@ -1301,6 +1642,7 @@ function resetDrawer() {
 }
 
 function openDrawer(type, record = {}) {
+  if (type !== "lead") leadDetailsEditState = null;
   if (type === "lead") {
     drawer.innerHTML = renderLeadDrawer(record);
     setupDrawerChrome();

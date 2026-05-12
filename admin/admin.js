@@ -919,17 +919,58 @@ function renderLeadWorkingSection(record) {
   `;
 }
 
+function compactDrawerLabel(parts) {
+  return parts.filter(Boolean).join(" · ");
+}
+
+function renderDrawerTitlebar({ eyebrow, title, subtitle, compactTitle }) {
+  return `
+    <div class="drawer-titlebar">
+      <div class="drawer-titlebar-main">
+        <div class="drawer-title-copy">
+          <p class="eyebrow">${escapeHtml(eyebrow)}</p>
+          <h2>${escapeHtml(title)}</h2>
+          <p>${escapeHtml(subtitle || "")}</p>
+        </div>
+        <div class="drawer-titlebar-compact">${escapeHtml(compactTitle || title)}</div>
+      </div>
+      <button class="drawer-close" type="button" data-close-drawer aria-label="Close detail panel">Close</button>
+    </div>
+  `;
+}
+
+let drawerScrollHandler = null;
+
+function setupDrawerChrome() {
+  if (drawerScrollHandler) {
+    drawer.removeEventListener("scroll", drawerScrollHandler);
+    drawerScrollHandler = null;
+  }
+
+  const titlebar = drawer.querySelector(".drawer-titlebar");
+  if (!titlebar) return;
+
+  drawer.scrollTop = 0;
+  drawerScrollHandler = () => {
+    titlebar.classList.toggle("is-scrolled", drawer.scrollTop > 28);
+  };
+
+  drawer.addEventListener("scroll", drawerScrollHandler, { passive: true });
+  drawerScrollHandler();
+  drawer.querySelector("[data-close-drawer]")?.addEventListener("click", resetDrawer);
+}
+
 function renderLeadDrawer(record) {
+  const title = record.name || "New lead";
+  const subtitle = record.serviceLabel || record.service || "Customer enquiry";
   return `
     <div class="drawer-content lead-drawer">
-      <div class="drawer-titlebar">
-        <div>
-          <p class="eyebrow">Lead</p>
-          <h2>${escapeHtml(record.name || "New lead")}</h2>
-          <p>${escapeHtml(record.serviceLabel || record.service || "Customer enquiry")}</p>
-        </div>
-        <button class="drawer-close" type="button" data-close-drawer aria-label="Close detail panel">Close</button>
-      </div>
+      ${renderDrawerTitlebar({
+        eyebrow: "Lead",
+        title,
+        subtitle,
+        compactTitle: compactDrawerLabel([title, "Lead", record.statusLabel || record.status || subtitle])
+      })}
 
       <section class="drawer-section">
         <h3>Contact</h3>
@@ -1220,6 +1261,11 @@ function setupAssessmentDrawerActions(record) {
 }
 
 function resetDrawer() {
+  if (drawerScrollHandler) {
+    drawer.removeEventListener("scroll", drawerScrollHandler);
+    drawerScrollHandler = null;
+  }
+  drawer.scrollTop = 0;
   drawer.innerHTML = `
     <div class="drawer-empty">
       <p class="eyebrow">Detail panel</p>
@@ -1232,7 +1278,7 @@ function resetDrawer() {
 function openDrawer(type, record = {}) {
   if (type === "lead") {
     drawer.innerHTML = renderLeadDrawer(record);
-    drawer.querySelector("[data-close-drawer]")?.addEventListener("click", resetDrawer);
+    setupDrawerChrome();
     setupLeadDrawerActions(record);
     return;
   }
@@ -1426,19 +1472,26 @@ function openDrawer(type, record = {}) {
   };
 
   const template = templates[type];
+  const compactType = type === "assessment"
+    ? "Q&A"
+    : type === "client"
+      ? "Client"
+      : type.charAt(0).toUpperCase() + type.slice(1);
   const nextAction = type === "task"
       ? record.notes || "Review task and update status"
       : "";
   drawer.innerHTML = `
     <div class="drawer-content">
-      <div class="drawer-titlebar">
-        <div>
-          <p class="eyebrow">${type}</p>
-          <h2>${escapeHtml(template.title)}</h2>
-          <p>${escapeHtml(template.subtitle)}</p>
-        </div>
-        <button class="drawer-close" type="button" data-close-drawer aria-label="Close detail panel">Close</button>
-      </div>
+      ${renderDrawerTitlebar({
+        eyebrow: type === "assessment" ? "Q&A / Assessment" : compactType,
+        title: template.title,
+        subtitle: template.subtitle,
+        compactTitle: compactDrawerLabel([
+          template.title,
+          compactType,
+          record.quoteStageLabel || record.quoteStage || record.statusLabel || record.status || template.subtitle
+        ])
+      })}
       ${
         nextAction
           ? `<section class="next-action-strip">
@@ -1503,7 +1556,7 @@ function openDrawer(type, record = {}) {
     update();
   });
 
-  drawer.querySelector("[data-close-drawer]")?.addEventListener("click", resetDrawer);
+  setupDrawerChrome();
   setupLeadDrawerActions(record);
   if (type === "task") setupTaskDrawerActions(record);
   if (type === "assessment") setupAssessmentDrawerActions(record);
@@ -1544,14 +1597,12 @@ function openDrawer(type, record = {}) {
 function openLeadForm() {
   drawer.innerHTML = `
     <form class="drawer-content" data-lead-form>
-      <div class="drawer-titlebar">
-        <div>
-          <p class="eyebrow">Lead</p>
-          <h2>New lead</h2>
-          <p>Add the first enquiry details. Dropdowns keep typing low; choose Other when needed.</p>
-        </div>
-        <button class="drawer-close" type="button" data-close-drawer aria-label="Close new lead form">Close</button>
-      </div>
+      ${renderDrawerTitlebar({
+        eyebrow: "Lead",
+        title: "New lead",
+        subtitle: "Add the first enquiry details. Dropdowns keep typing low; choose Other when needed.",
+        compactTitle: "New lead · Lead form"
+      })}
       <section class="drawer-section">
         <h3>Contact</h3>
         <div class="field-grid">
@@ -1582,9 +1633,7 @@ function openLeadForm() {
   `;
 
   const form = drawer.querySelector("[data-lead-form]");
-  drawer.querySelectorAll("[data-close-drawer]").forEach((button) => {
-    button.addEventListener("click", resetDrawer);
-  });
+  setupDrawerChrome();
   form.querySelectorAll("select[data-group]").forEach((select) => {
     const other = select.parentElement.querySelector(".other-field");
     const update = () => {

@@ -1069,10 +1069,74 @@ mark.rose {
 }
 
 .drawer-titlebar {
+  position: sticky;
+  top: -24px;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 14px;
+  z-index: 8;
+  margin: -24px -24px 0;
+  padding: 24px 24px 16px;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid transparent;
+  transition:
+    padding 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background-color 160ms ease;
+}
+
+.drawer-titlebar-main {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.drawer-title-copy {
+  display: grid;
+  gap: 0;
+  transition: opacity 140ms ease, transform 140ms ease, max-height 160ms ease;
+  max-height: 160px;
+  overflow: hidden;
+}
+
+.drawer-title-copy .eyebrow {
+  margin-bottom: 6px;
+}
+
+.drawer-title-copy p:last-child {
+  margin-bottom: 0;
+}
+
+.drawer-titlebar-compact {
+  display: none;
+  min-width: 0;
+  padding: 6px 0;
+  color: var(--ink);
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.drawer-titlebar.is-scrolled {
+  padding-top: 14px;
+  padding-bottom: 12px;
+  border-bottom-color: var(--line);
+  box-shadow: 0 8px 24px rgba(28, 42, 35, 0.08);
+}
+
+.drawer-titlebar.is-scrolled .drawer-title-copy {
+  opacity: 0;
+  transform: translateY(-6px);
+  max-height: 0;
+}
+
+.drawer-titlebar.is-scrolled .drawer-titlebar-compact {
+  display: block;
 }
 
 .drawer-close {

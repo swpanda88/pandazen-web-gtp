@@ -378,7 +378,7 @@ function leadPrice(lead) {
 }
 
 function compactMeta(items) {
-  return items.filter(Boolean).join(" Ã‚Â· ");
+  return items.filter(Boolean).join(" - ");
 }
 
 function escapeHtml(value) {
@@ -920,7 +920,7 @@ function renderLeadWorkingSection(record) {
 }
 
 function compactDrawerLabel(parts) {
-  return parts.filter(Boolean).join(" Ã‚Â· ");
+  return parts.filter(Boolean).join(" - ");
 }
 
 function renderDrawerTitlebar({ eyebrow, title, subtitle, compactTitle }) {
@@ -1623,7 +1623,7 @@ function openLeadForm() {
     eyebrow: "Lead",
     title: "New lead",
     subtitle: "Add the first enquiry details. Dropdowns keep typing low; choose Other when needed.",
-    compactTitle: "New lead Â· Lead form"
+    compactTitle: "New lead - Lead form"
   });
   const body = `
     <section class="drawer-section">
@@ -1722,7 +1722,7 @@ function renderDashboard() {
         <span class="row-token">Task</span>
         <span>
           <strong>${task.title}</strong>
-          <small>${task.taskType} Ã‚Â· ${formatDateTime(task.dueAt) || "No due date"}</small>
+          <small>${[task.taskType, formatDateTime(task.dueAt) || "No due date"].filter(Boolean).join(" - ")}</small>
         </span>
         <mark class="${task.priority === "High" ? "rose" : ""}">${task.priority || "Normal"}</mark>
       </button>

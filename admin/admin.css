@@ -255,15 +255,6 @@ h2 {
   background: #f4f0eb;
 }
 
-.view-switch button {
-  min-height: 38px;
-  padding: 8px 18px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  color: var(--muted);
-  background: #f4f0eb;
-}
-
 .primary,
 .ghost {
   min-height: 40px;
@@ -547,6 +538,13 @@ mark.rose {
   padding: 0 24px 18px;
 }
 
+.list-footer {
+  padding: 0 24px 18px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
 .empty-state {
   padding: 18px;
   border: 1px dashed var(--line);
@@ -568,7 +566,7 @@ mark.rose {
 .priority-row {
   width: 100%;
   display: grid;
-  grid-template-columns: minmax(150px, 1fr) minmax(190px, 1.4fr) auto auto;
+  grid-template-columns: minmax(140px, 1fr) minmax(170px, 1.3fr) auto auto;
   gap: 12px;
   align-items: center;
   padding: 10px 18px;
@@ -715,9 +713,9 @@ mark.rose {
 
 .board {
   display: grid;
-  grid-template-columns: repeat(5, minmax(190px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
-  overflow-x: auto;
+  overflow-x: hidden;
   padding-bottom: 6px;
 }
 
@@ -1060,6 +1058,11 @@ mark.rose {
   padding: 24px;
 }
 
+.lead-drawer {
+  display: grid;
+  gap: 0;
+}
+
 .drawer h2 {
   margin-bottom: 10px;
   font-size: 1.5rem;
@@ -1112,6 +1115,10 @@ mark.rose {
   gap: 10px;
 }
 
+.lead-action-form.compact {
+  gap: 8px;
+}
+
 .lead-action-form label {
   display: grid;
   gap: 6px;
@@ -1136,11 +1143,19 @@ mark.rose {
   margin-bottom: 12px;
 }
 
+.note-list.compact {
+  margin-bottom: 10px;
+}
+
 .note-item {
   padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fffdfa;
+}
+
+.note-item.latest {
+  background: #f8faf5;
 }
 
 .note-item p {
@@ -1150,6 +1165,10 @@ mark.rose {
 .linked-task-list {
   display: grid;
   gap: 8px;
+}
+
+.linked-task-list.compact {
+  gap: 7px;
 }
 
 .linked-task-item {
@@ -1184,6 +1203,62 @@ mark.rose {
   font-size: 0.9rem;
   text-transform: uppercase;
   color: var(--muted);
+}
+
+.lead-action-stack {
+  display: grid;
+  gap: 14px;
+}
+
+.lead-action-group {
+  display: grid;
+  gap: 8px;
+}
+
+.lead-action-group h4 {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.drawer-collapsible {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fffdfa;
+}
+
+.drawer-collapsible summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 12px;
+  list-style: none;
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.drawer-collapsible summary::-webkit-details-marker {
+  display: none;
+}
+
+.drawer-collapsible summary::after {
+  content: "+";
+  color: var(--muted);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.drawer-collapsible[open] summary::after {
+  content: "-";
+}
+
+.drawer-collapsible-body {
+  padding: 0 12px 12px;
 }
 
 .field-grid {
@@ -1276,6 +1351,14 @@ mark.rose {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.drawer-actions.compact {
+  gap: 7px;
+}
+
+.drawer-actions.split > * {
+  flex: 1 1 0;
 }
 
 .drawer-actions button {

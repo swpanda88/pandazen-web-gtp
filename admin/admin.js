@@ -493,15 +493,26 @@ function detailRows(fields) {
   `;
 }
 
+function renderCollapsibleSection(title, content, open = false) {
+  return `
+    <details class="drawer-collapsible" ${open ? "open" : ""}>
+      <summary>${escapeHtml(title)}</summary>
+      <div class="drawer-collapsible-body">
+        ${content}
+      </div>
+    </details>
+  `;
+}
+
 function renderLeadStatusForm(record) {
   const current = record.statusValue || record.status || "new";
   if (!activeLeadStatusValues.has(String(current).toLowerCase())) return "";
   const options = leadStatusOptions();
   if (!options.length) return "";
   return `
-    <section class="drawer-section">
-      <h3>Update status</h3>
-      <form class="lead-action-form" data-lead-status-form>
+    <div class="lead-action-group">
+      <h4>Update status</h4>
+      <form class="lead-action-form compact" data-lead-status-form>
         <label>
           Status
           <select name="status">
@@ -512,31 +523,46 @@ function renderLeadStatusForm(record) {
         </label>
         <button class="primary" type="submit">Save status</button>
       </form>
-    </section>
+    </div>
   `;
 }
 
 function renderLeadNotes(record) {
   const notes = record.leadNotes || [];
+  const [latestNote, ...olderNotes] = notes;
   return `
     <section class="drawer-section">
       <h3>Lead notes</h3>
       ${
-        notes.length
-          ? `<div class="note-list">
-              ${notes
-                .map((note) => `
-                  <article class="note-item">
-                    <strong>${escapeHtml(formatDateTime(note.createdAt) || "Saved note")}</strong>
-                    <p>${escapeHtml(note.note)}</p>
-                    <small>${escapeHtml(compactMeta([note.noteType, note.createdBy]))}</small>
-                  </article>
-                `)
-                .join("")}
-            </div>`
+        latestNote
+          ? `<div class="note-list compact">
+              <article class="note-item latest">
+                <strong>${escapeHtml(formatDateTime(latestNote.createdAt) || "Saved note")}</strong>
+                <p>${escapeHtml(latestNote.note)}</p>
+                <small>${escapeHtml(compactMeta([latestNote.noteType, latestNote.createdBy]))}</small>
+              </article>
+            </div>
+            ${
+              olderNotes.length
+                ? renderCollapsibleSection(
+                    `Older notes (${olderNotes.length})`,
+                    `<div class="note-list compact">
+                      ${olderNotes
+                        .map((note) => `
+                          <article class="note-item">
+                            <strong>${escapeHtml(formatDateTime(note.createdAt) || "Saved note")}</strong>
+                            <p>${escapeHtml(note.note)}</p>
+                            <small>${escapeHtml(compactMeta([note.noteType, note.createdBy]))}</small>
+                          </article>
+                        `)
+                        .join("")}
+                    </div>`
+                  )
+                : ""
+            }`
           : `<p class="record-sub">No notes yet.</p>`
       }
-      <form class="lead-action-form" data-lead-note-form>
+      <form class="lead-action-form compact" data-lead-note-form>
         <label>
           Add note
           <textarea name="note" rows="3" placeholder="Add call outcome, client preference or next step."></textarea>
@@ -576,23 +602,23 @@ function renderOriginalLeadNotes(record) {
 function renderLeadOutcomeActions(record) {
   if (assessmentQuoteForLead(record)) {
     return `
-      <section class="drawer-section">
-        <h3>Lead closure</h3>
+      <div class="lead-action-group">
+        <h4>Close Lead</h4>
         <p class="record-sub">This lead already has a linked Q&A / Assessment, so close-out should continue from that stage rather than the original Lead record.</p>
-      </section>
+      </div>
     `;
   }
 
   return `
-    <section class="drawer-section">
-      <h3>Close Lead</h3>
-      <div class="drawer-actions">
+    <div class="lead-action-group">
+      <h4>Close Lead</h4>
+      <div class="drawer-actions compact split">
         <button class="ghost" type="button" data-close-lead-status="rejected">Rejected</button>
         <button class="ghost" type="button" data-close-lead-status="not_suitable">Not suitable</button>
       </div>
       <p class="record-sub">Use these only when the enquiry should stop at the Lead stage and should not move into Q&A / Assessment.</p>
       <p class="record-sub" data-lead-close-status></p>
-    </section>
+    </div>
   `;
 }
 
@@ -746,13 +772,15 @@ function leadTasks(record) {
 
 function renderLeadTasks(record) {
   const tasks = leadTasks(record);
+  const openTasks = tasks.filter((task) => String(task.status || "").toLowerCase() !== "done");
+  const doneTasks = tasks.filter((task) => String(task.status || "").toLowerCase() === "done");
   return `
     <section class="drawer-section">
       <h3>Linked tasks</h3>
       ${
-        tasks.length
-          ? `<div class="linked-task-list">
-              ${tasks
+        openTasks.length
+          ? `<div class="linked-task-list compact">
+              ${openTasks
                 .map((task) => `
                   <article class="linked-task-item">
                     <div>
@@ -770,25 +798,40 @@ function renderLeadTasks(record) {
             </div>`
           : `<p class="record-sub">No linked tasks yet.</p>`
       }
+      ${
+        doneTasks.length
+          ? renderCollapsibleSection(
+              `Done tasks (${doneTasks.length})`,
+              `<div class="linked-task-list compact">
+                ${doneTasks
+                  .map((task) => `
+                    <article class="linked-task-item">
+                      <div>
+                        <strong>${escapeHtml(task.title)}</strong>
+                        <small>${escapeHtml(compactMeta([task.status, task.priority, formatDateTime(task.dueAt)]))}</small>
+                      </div>
+                    </article>
+                  `)
+                  .join("")}
+              </div>`
+            )
+          : ""
+      }
     </section>
   `;
 }
 
 function renderLeadConversion(record) {
   const client = clientForLead(record);
-  if (!client && !isConvertibleLead(record)) return "";
+  if (!client) return "";
   return `
-    <section class="drawer-section">
-      <h3>Client & Home</h3>
-      <div class="drawer-actions">
-        ${
-          client
-            ? `<button class="primary" type="button" data-open-client="${escapeHtml(client.id)}">Open Client & Home</button>`
-            : `<button class="primary" type="button" data-convert-lead="${escapeHtml(record.id)}">Convert to Client & Home</button>`
-        }
+    <div class="lead-action-group">
+      <h4>Client & Home</h4>
+      <div class="drawer-actions compact">
+        <button class="primary" type="button" data-open-client="${escapeHtml(client.id)}">Open Client & Home</button>
       </div>
-      <p class="record-sub">${client ? `Linked to client #${escapeHtml(client.id)}` : "Creates a Client & Home record from this accepted lead."}</p>
-    </section>
+      <p class="record-sub">Linked to client #${escapeHtml(client.id)}</p>
+    </div>
   `;
 }
 
@@ -796,9 +839,9 @@ function renderLeadAssessmentQuote(record) {
   const assessmentQuote = assessmentQuoteForLead(record);
   if (!assessmentQuote && !canCreateAssessmentQuote(record)) return "";
   return `
-    <section class="drawer-section">
-      <h3>Assessment / Quote</h3>
-      <div class="drawer-actions">
+    <div class="lead-action-group">
+      <h4>Assessment / Quote</h4>
+      <div class="drawer-actions compact">
         ${
           assessmentQuote
             ? `<button class="primary" type="button" data-open-assessment-quote="${escapeHtml(assessmentQuote.id)}">Open Assessment / Quote</button>`
@@ -810,7 +853,95 @@ function renderLeadAssessmentQuote(record) {
           ? `Linked Q&A #${escapeHtml(assessmentQuote.id)} - ${escapeHtml(assessmentQuote.quoteStageLabel || assessmentQuote.quoteStage || assessmentQuote.statusLabel || assessmentQuote.status || "Draft")}`
           : "Creates a linked pre-client Q&A record without changing the original enquiry history."
       }</p>
+    </div>
+  `;
+}
+
+function renderLeadIntakeDetails(record) {
+  const priorityValue = Array.isArray(record.priorities) ? record.priorities.join(", ") : record.priorities;
+  return detailRows([
+    ["Address", record.address],
+    ["Postcode", record.postcode],
+    ["Preferred days", record.preferredDays],
+    ["Best contact time", record.bestContactTime],
+    ["Frequency", record.frequencyLabel || record.frequency],
+    ["Urgency", record.urgency],
+    ["Property type", record.propertyType],
+    ["Bedrooms", record.bedrooms],
+    ["Bathrooms", record.bathrooms],
+    ["Reception rooms", record.receptionRooms],
+    ["Kitchen size", record.kitchenSize],
+    ["Property size", record.propertySize],
+    ["Condition", record.propertyCondition],
+    ["Priorities", priorityValue],
+    ["Pets", record.pets],
+    ["Parking", record.parking],
+    ["Products", record.productPreferences],
+    ["Photos available", record.photoAvailable, "boolean"],
+    ["Privacy accepted", record.privacyPolicyAccepted, "boolean"],
+    ["Marketing opt-in", record.marketingOptIn, "boolean"],
+    ["Lead notes", record.notes],
+    ["Lost reason", record.lostReason],
+    ["Closed", formatDateTime(record.closedAt)]
+  ]);
+}
+
+function renderLeadWorkingSection(record) {
+  return `
+    <section class="drawer-section">
+      <div class="lead-action-stack">
+        ${renderLeadStatusForm(record)}
+        ${renderLeadAssessmentQuote(record)}
+        ${renderLeadConversion(record)}
+        ${renderLeadOutcomeActions(record)}
+      </div>
+      <p class="record-sub" data-lead-action-status></p>
     </section>
+  `;
+}
+
+function renderLeadDrawer(record) {
+  return `
+    <div class="drawer-content lead-drawer">
+      <div class="drawer-titlebar">
+        <div>
+          <p class="eyebrow">Lead</p>
+          <h2>${escapeHtml(record.name || "New lead")}</h2>
+          <p>${escapeHtml(record.serviceLabel || record.service || "Customer enquiry")}</p>
+        </div>
+        <button class="drawer-close" type="button" data-close-drawer aria-label="Close detail panel">Close</button>
+      </div>
+
+      <section class="drawer-section">
+        <h3>Contact</h3>
+        ${detailRows([
+          ["Name", record.name],
+          ["Area", record.area],
+          ["Phone", record.phone],
+          ["Email", record.email],
+          ["Contact", record.contact],
+          ["Source", record.sourceLabel || record.source]
+        ])}
+      </section>
+
+      <section class="drawer-section">
+        ${renderCollapsibleSection("Full enquiry / intake details", renderLeadIntakeDetails(record), false)}
+      </section>
+
+      ${renderLeadWorkingSection(record)}
+      ${renderLeadTasks(record)}
+      ${renderLeadNotes(record)}
+
+      <section class="drawer-section">
+        <h3>Progress</h3>
+        ${detailRows([
+          ["Status", record.statusLabel || record.status],
+          ["Service", record.serviceLabel || record.service],
+          ["Created", formatDateTime(record.createdAt)],
+          ["Updated", formatDateTime(record.updatedAt)]
+        ])}
+      </section>
+    </div>
   `;
 }
 
@@ -1079,17 +1210,14 @@ function resetDrawer() {
 }
 
 function openDrawer(type, record = {}) {
+  if (type === "lead") {
+    drawer.innerHTML = renderLeadDrawer(record);
+    drawer.querySelector("[data-close-drawer]")?.addEventListener("click", resetDrawer);
+    setupLeadDrawerActions(record);
+    return;
+  }
+
   const templates = {
-    lead: {
-      title: record.name || "New lead",
-      subtitle: record.service || "Customer enquiry",
-      sections: [
-        ["Contact", [["Name", record.name], ["Area", record.area], ["Phone", record.phone], ["Email", record.email], ["Contact", record.contact], ["Source", record.sourceLabel || record.source]]],
-        ["Progress", [["Status", record.statusLabel || record.status], ["Service", record.serviceLabel || record.service], ["Created", formatDateTime(record.createdAt)], ["Updated", formatDateTime(record.updatedAt)]]],
-        ["Notes", [["Internal note", record.note || record.notes]]]
-      ],
-      actions: ["Generate reply", "Request photos", "Mark contacted", "Add note", "Snooze", "Mark lost"]
-    },
     task: {
       title: record.title || "New task",
       subtitle: record.taskType || "Admin task",
@@ -1278,9 +1406,7 @@ function openDrawer(type, record = {}) {
   };
 
   const template = templates[type];
-  const nextAction = type === "lead"
-    ? "Review enquiry and choose next action"
-    : type === "task"
+  const nextAction = type === "task"
       ? record.notes || "Review task and update status"
       : "";
   drawer.innerHTML = `
@@ -1557,16 +1683,18 @@ function renderDashboard() {
 function renderPriorityList(selector = "[data-priority-list]") {
   const host = document.querySelector(selector);
   if (!host) return;
-  const leads = [...activeLeads()]
-    .sort((a, b) => (leadFitScore(b) || 0) - (leadFitScore(a) || 0))
-    .slice(0, 5);
+  const isLeadView = selector === "[data-lead-list]";
+  const leads = [...activeLeads()].sort((a, b) => (leadFitScore(b) || 0) - (leadFitScore(a) || 0));
+  const visibleLeads = isLeadView ? leads : leads.slice(0, 5);
+  const countNode = isLeadView ? document.querySelector("[data-lead-list-count]") : null;
 
-  if (!leads.length) {
+  if (!visibleLeads.length) {
     host.innerHTML = emptyState("No active leads yet", "Submit a test enquiry and it will appear in this list.");
+    if (countNode) countNode.textContent = "0 active leads";
     return;
   }
 
-  host.innerHTML = leads.map((lead) => `
+  host.innerHTML = visibleLeads.map((lead) => `
     <button class="priority-row" type="button" data-priority-lead="${lead.id}">
       <span>
         <strong>${escapeHtml(lead.name)}</strong>
@@ -1574,12 +1702,14 @@ function renderPriorityList(selector = "[data-priority-list]") {
       </span>
       <span>
         <strong>${escapeHtml(lead.serviceLabel || lead.service || "Enquiry")}</strong>
-        <small>${escapeHtml(compactMeta([lead.frequency, formatDateTime(lead.createdAt)]))}</small>
+        <small>${escapeHtml(compactMeta([lead.frequencyLabel || lead.frequency, formatDateTime(lead.createdAt)]))}</small>
       </span>
       <mark>${escapeHtml(compactMeta([leadFitScore(lead), leadRisk(lead), leadHours(lead), leadPrice(lead)]) || "Review")}</mark>
       <mark class="status">${escapeHtml(lead.statusLabel || lead.status || "New")}</mark>
     </button>
   `).join("");
+
+  if (countNode) countNode.textContent = `${visibleLeads.length} active lead${visibleLeads.length === 1 ? "" : "s"}`;
 
   host.querySelectorAll("[data-priority-lead]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -1591,10 +1721,12 @@ function renderPriorityList(selector = "[data-priority-list]") {
 
 function renderLeadHistory() {
   const host = document.querySelector("[data-lead-history]");
+  const countNode = document.querySelector("[data-lead-history-count]");
   if (!host) return;
   const leads = [...leadHistory()].sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""))).slice(0, 12);
   if (!leads.length) {
     host.innerHTML = emptyState("No lead history yet", "Rejected, unsuitable, or moved-to-Q&A leads will remain visible here for traceability.");
+    if (countNode) countNode.textContent = "0 history leads";
     return;
   }
 
@@ -1611,6 +1743,8 @@ function renderLeadHistory() {
       <mark class="${closedLeadStatuses.has(String(lead.statusValue || lead.status || '').toLowerCase()) ? "rose" : "blue"}">${escapeHtml(lead.statusLabel || lead.status || "History")}</mark>
     </button>
   `).join("");
+
+  if (countNode) countNode.textContent = `${leads.length} history lead${leads.length === 1 ? "" : "s"}`;
 
   host.querySelectorAll("[data-history-lead]").forEach((button) => {
     button.addEventListener("click", () => {

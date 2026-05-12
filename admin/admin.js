@@ -626,6 +626,36 @@ function renderAssessmentQuoteAssist(record) {
   `;
 }
 
+function renderAssessmentAccountingQuote(record) {
+  const quote = record.accountingQuote;
+  return `
+    <section class="drawer-section">
+      <h3>Accounting quote</h3>
+      ${
+        quote
+          ? detailRows([
+              ["Reference", quote.displayReference],
+              ["Status", quote.status],
+              ["Version", quote.versionNumber],
+              ["Total", quote.totalPriceLabel || formatMoneyPence(quote.totalPrice)],
+              ["Recurring", quote.recurringPriceLabel || formatMoneyPence(quote.recurringPrice)],
+              ["Valid until", quote.validUntil],
+              ["Updated", formatDateTime(quote.updatedAt || quote.createdAt)]
+            ])
+          : `<p class="record-sub">No draft Accounting quote has been created from this Q&A yet.</p>`
+      }
+      <div class="drawer-actions">
+        ${
+          quote
+            ? `<button class="ghost" type="button" disabled aria-disabled="true">Draft quote linked</button>`
+            : `<button class="primary" type="button" data-create-accounting-quote="${escapeHtml(record.id)}">Create Draft Quote</button>`
+        }
+      </div>
+      <p class="record-sub" data-assessment-quote-status></p>
+    </section>
+  `;
+}
+
 function clientForAssessmentQuote(record) {
   return (data.clients || []).find((client) => String(client.assessmentQuoteId) === String(record.id))
     || (record.convertedClientId ? (data.clients || []).find((client) => String(client.id) === String(record.convertedClientId)) : null);
@@ -902,6 +932,11 @@ function setAssessmentActionStatus(message) {
   if (status) status.textContent = message;
 }
 
+function setAssessmentQuoteStatus(message) {
+  const status = drawer.querySelector("[data-assessment-quote-status]");
+  if (status) status.textContent = message;
+}
+
 function setAssessmentConversionStatus(message) {
   const status = drawer.querySelector("[data-assessment-conversion-status]");
   if (status) status.textContent = message;
@@ -928,6 +963,16 @@ function setupAssessmentDrawerActions(record) {
       await refreshAssessmentDrawer(record.id);
     } catch (err) {
       setAssessmentActionStatus(`Could not run Quote Assist. ${err.message}`);
+    }
+  });
+
+  drawer.querySelector("[data-create-accounting-quote]")?.addEventListener("click", async () => {
+    try {
+      setAssessmentQuoteStatus("Creating draft Accounting quote...");
+      await apiPost(`/api/assessment-quotes/${record.id}/quote`, {});
+      await refreshAssessmentDrawer(record.id);
+    } catch (err) {
+      setAssessmentQuoteStatus(`Could not create draft quote. ${err.message}`);
     }
   });
 
@@ -1197,6 +1242,7 @@ function openDrawer(type, record = {}) {
         `)
         .join("")}
       ${type === "assessment" ? renderAssessmentQuoteAssist(record) : ""}
+      ${type === "assessment" ? renderAssessmentAccountingQuote(record) : ""}
       ${type === "assessment" ? renderAssessmentQuoteConversion(record) : ""}
       ${type === "assessment" ? renderLinkedLeadNotes(record) : ""}
       ${type === "client" ? renderOriginalLeadNotes(record) : ""}

@@ -203,9 +203,14 @@ const state = {
   apiReady: false,
   options: {},
   scheduleMonth: null,
+  activeDrawerType: null,
   expandedWorkspaces: {
     assessments: null,
     clients: null
+  },
+  workspaceDrawerMode: {
+    assessments: "collapsed",
+    clients: "collapsed"
   }
 };
 
@@ -226,6 +231,7 @@ const activeLeadStatusValues = new Set(["new", "contacted", "waiting_customer", 
 const closedLeadStatuses = new Set(["rejected", "not_suitable"]);
 const convertibleLeadStatuses = new Set(["accepted", "booked", "quote_accepted", "converted"]);
 const assessmentHistoryStatuses = new Set(["converted", "rejected", "not_proceeding", "expired", "closed", "cancelled", "lost"]);
+const workspaceFirstViews = new Set(["assessments", "clients"]);
 
 const viewTitle = document.querySelector("[data-view-title]");
 const drawer = document.querySelector("[data-drawer]");
@@ -267,6 +273,7 @@ function el(tag, className, html) {
 }
 
 function setView(view) {
+  const previousView = state.view;
   state.view = view;
   viewTitle.textContent = titles[view];
   document.querySelectorAll("[data-view-panel]").forEach((panel) => {
@@ -278,6 +285,14 @@ function setView(view) {
   if (view === "schedule") {
     renderSchedule();
   }
+  if (isWorkspaceFirstView(view) && previousView !== view) {
+    state.workspaceDrawerMode[view] = "collapsed";
+  }
+  if (isWorkspaceFirstView(view) && state.activeDrawerType && state.activeDrawerType !== recordTypeForView(view)) {
+    resetDrawer();
+    return;
+  }
+  syncWorkspaceFirstLayout();
 }
 
 function setRole(role) {
@@ -556,6 +571,7 @@ function setExpandedWorkspace(view, recordId, tab = "overview") {
     state.expandedWorkspaces[view] = { id: recordId, tab: tab || state.expandedWorkspaces[view].tab || "overview" };
   }
   renderTables();
+  syncWorkspaceFirstLayout();
 }
 
 function toggleExpandedWorkspace(view, recordId, defaultTab = "overview") {
@@ -564,13 +580,56 @@ function toggleExpandedWorkspace(view, recordId, defaultTab = "overview") {
     state.expandedWorkspaces[view] = null;
   } else {
     state.expandedWorkspaces[view] = { id: recordId, tab: defaultTab };
+    if (isWorkspaceFirstView(view)) {
+      state.workspaceDrawerMode[view] = "collapsed";
+    }
   }
   renderTables();
+  syncWorkspaceFirstLayout();
 }
 
 function setWorkspaceTab(view, recordId, tab) {
   state.expandedWorkspaces[view] = { id: recordId, tab };
   renderTables();
+  syncWorkspaceFirstLayout();
+}
+
+function isWorkspaceFirstView(view = state.view) {
+  return workspaceFirstViews.has(view);
+}
+
+function recordTypeForView(view = state.view) {
+  if (view === "assessments") return "assessment";
+  if (view === "clients") return "client";
+  return null;
+}
+
+function workspaceDrawerMode(view = state.view) {
+  return state.workspaceDrawerMode[view] || "collapsed";
+}
+
+function setWorkspaceDrawerMode(mode, view = state.view) {
+  if (!isWorkspaceFirstView(view)) return;
+  state.workspaceDrawerMode[view] = mode;
+  syncWorkspaceFirstLayout();
+}
+
+function toggleWorkspaceDrawerMode() {
+  if (!isWorkspaceFirstView()) return;
+  setWorkspaceDrawerMode(workspaceDrawerMode() === "collapsed" ? "expanded" : "collapsed");
+}
+
+function syncWorkspaceFirstLayout() {
+  const workspaceFirst = isWorkspaceFirstView();
+  const hasExpandedWorkspace = workspaceFirst && Boolean(expandedWorkspaceState(state.view));
+  const drawerCollapsed = workspaceFirst && workspaceDrawerMode() === "collapsed";
+  document.body.classList.toggle("workspace-first-view", workspaceFirst);
+  document.body.classList.toggle("workspace-first-drawer-collapsed", workspaceFirst && drawerCollapsed);
+  document.body.classList.toggle("workspace-first-drawer-expanded", workspaceFirst && !drawerCollapsed);
+  document.body.classList.toggle("workspace-first-has-expanded-workspace", hasExpandedWorkspace);
+  drawer.classList.toggle("workspace-first-drawer", workspaceFirst);
+  drawer.classList.toggle("is-collapsed", workspaceFirst && drawerCollapsed);
+  drawer.classList.toggle("is-expanded", workspaceFirst && !drawerCollapsed);
 }
 
 function clientServiceLabel(record) {
@@ -1289,7 +1348,7 @@ function compactDrawerLabel(parts) {
   return parts.filter(Boolean).join(" - ");
 }
 
-function renderDrawerTitlebar({ eyebrow, title, subtitle, compactTitle }) {
+function renderDrawerTitlebar({ eyebrow, title, subtitle, compactTitle, showDrawerToggle = false }) {
   return `
     <div class="drawer-titlebar">
       <div class="drawer-titlebar-main">
@@ -1300,7 +1359,14 @@ function renderDrawerTitlebar({ eyebrow, title, subtitle, compactTitle }) {
         </div>
         <div class="drawer-titlebar-compact">${escapeHtml(compactTitle || title)}</div>
       </div>
-      <button class="drawer-close" type="button" data-close-drawer aria-label="Close detail panel">Close</button>
+      <div class="drawer-titlebar-tools">
+        ${
+          showDrawerToggle
+            ? `<button class="drawer-toggle" type="button" data-toggle-workspace-drawer aria-label="${workspaceDrawerMode() === "collapsed" ? "Open detail drawer" : "Minimise detail drawer"}">${workspaceDrawerMode() === "collapsed" ? "Open drawer" : "Minimise"}</button>`
+            : ""
+        }
+        <button class="drawer-close" type="button" data-close-drawer aria-label="Close detail panel">Close</button>
+      </div>
     </div>
   `;
 }
@@ -1348,6 +1414,8 @@ function setupDrawerChrome() {
   drawerBody.addEventListener("scroll", drawerScrollHandler, { passive: true });
   drawerScrollHandler();
   drawer.querySelector("[data-close-drawer]")?.addEventListener("click", resetDrawer);
+  drawer.querySelector("[data-toggle-workspace-drawer]")?.addEventListener("click", toggleWorkspaceDrawerMode);
+  syncWorkspaceFirstLayout();
 }
 
 function renderLeadDrawer(record) {
@@ -1416,8 +1484,8 @@ function openAssessmentQuoteFromLead(assessmentQuoteId) {
     setLeadActionStatus("Assessment / Quote is not available in the current D1 data.");
     return false;
   }
-  openDrawer("assessment", assessmentQuote);
   setView("assessments");
+  openDrawer("assessment", assessmentQuote);
   return true;
 }
 
@@ -1546,8 +1614,8 @@ function setupLeadDrawerActions(record) {
       await loadApiData();
       const client = data.clients.find((item) => String(item.id) === String(result.id));
       if (client) {
-        openDrawer("client", client);
         setView("clients");
+        openDrawer("client", client);
         return;
       }
       setLeadActionStatus("Converted, but the linked client record was not returned by the current data load.");
@@ -1559,8 +1627,8 @@ function setupLeadDrawerActions(record) {
   drawer.querySelector("[data-open-client]")?.addEventListener("click", (event) => {
     const client = data.clients.find((item) => String(item.id) === String(event.currentTarget.dataset.openClient));
     if (client) {
-      openDrawer("client", client);
       setView("clients");
+      openDrawer("client", client);
       return;
     }
     setLeadActionStatus("Linked Client & Home record is not available in the current data.");
@@ -1683,8 +1751,8 @@ function openClientFromAssessment(clientId) {
     setAssessmentConversionStatus("Client & Home record is not available in the current D1 data.");
     return false;
   }
-  openDrawer("client", client);
   setView("clients");
+  openDrawer("client", client);
   return true;
 }
 
@@ -1729,6 +1797,7 @@ function setupAssessmentDrawerActions(record) {
 }
 
 function resetDrawer() {
+  state.activeDrawerType = null;
   leadDetailsEditState = null;
   if (drawerScrollHandler) {
     drawer.querySelector(".drawer-body")?.removeEventListener("scroll", drawerScrollHandler);
@@ -1741,9 +1810,11 @@ function resetDrawer() {
       <p>Click a lead, task, job or invoice to review details here.</p>
     </div>
   `;
+  syncWorkspaceFirstLayout();
 }
 
 function openDrawer(type, record = {}) {
+  state.activeDrawerType = type;
   if (type !== "lead") leadDetailsEditState = null;
   if (type === "lead") {
     drawer.innerHTML = renderLeadDrawer(record);
@@ -1957,7 +2028,8 @@ function openDrawer(type, record = {}) {
       template.title,
       compactType,
       record.quoteStageLabel || record.quoteStage || record.statusLabel || record.status || template.subtitle
-    ])
+    ]),
+    showDrawerToggle: isWorkspaceFirstView() && type === recordTypeForView()
   });
   const body = `
       ${
@@ -2521,9 +2593,8 @@ function renderExpandableWorkspace({ view, record, eyebrow, title, subtitle, sta
       <div class="workspace-shell">
         <div class="workspace-header">
           <div class="workspace-header-main">
-            <p class="eyebrow">${escapeHtml(eyebrow)}</p>
             <h3>${escapeHtml(title)}</h3>
-            <p>${escapeHtml(compactMeta([subtitle, status, meta]))}</p>
+            <p>${escapeHtml(compactMeta([eyebrow, subtitle, status, meta]))}</p>
           </div>
           <button class="ghost workspace-collapse" type="button" data-workspace-collapse="${escapeHtml(view)}" data-workspace-id="${escapeHtml(record.id)}">Collapse</button>
         </div>
@@ -3186,6 +3257,7 @@ function renderAll() {
   renderCleanerPhone();
   renderMiniCalendar();
   renderSchedule();
+  syncWorkspaceFirstLayout();
 }
 
 function normalizeApiData(payloads) {

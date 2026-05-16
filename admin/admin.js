@@ -202,7 +202,11 @@ const state = {
   role: "admin",
   apiReady: false,
   options: {},
-  scheduleMonth: null
+  scheduleMonth: null,
+  expandedWorkspaces: {
+    assessments: null,
+    clients: null
+  }
 };
 
 const titles = {
@@ -221,6 +225,7 @@ const leadStatuses = ["New enquiry", "Contacted", "Assessment booked", "Quote se
 const activeLeadStatusValues = new Set(["new", "contacted", "waiting_customer", "assessment_needed"]);
 const closedLeadStatuses = new Set(["rejected", "not_suitable"]);
 const convertibleLeadStatuses = new Set(["accepted", "booked", "quote_accepted", "converted"]);
+const assessmentHistoryStatuses = new Set(["converted", "rejected", "not_proceeding", "expired", "closed", "cancelled", "lost"]);
 
 const viewTitle = document.querySelector("[data-view-title]");
 const drawer = document.querySelector("[data-drawer]");
@@ -515,6 +520,59 @@ function canCreateAssessmentQuote(record) {
   return activeLeadStatusValues.has(status);
 }
 
+function isHistoryAssessment(record) {
+  if (!record) return false;
+  if (record.convertedClientId || record.isConverted) return true;
+  const status = String(record.status || "").toLowerCase();
+  const quoteStage = String(record.quoteStage || "").toLowerCase();
+  return assessmentHistoryStatuses.has(status) || assessmentHistoryStatuses.has(quoteStage);
+}
+
+function isActiveAssessment(record) {
+  return !isHistoryAssessment(record);
+}
+
+function assessmentStatusDisplay(record) {
+  return record.quoteStageLabel || record.quoteStage || record.statusLabel || record.status || "Draft";
+}
+
+function clientStatusDisplay(record) {
+  return record.status || (record.convertedAt ? "Converted" : "Active");
+}
+
+function expandedWorkspaceState(view) {
+  return state.expandedWorkspaces?.[view] || null;
+}
+
+function isWorkspaceExpanded(view, record) {
+  const workspace = expandedWorkspaceState(view);
+  return Boolean(workspace && String(workspace.id) === String(record.id));
+}
+
+function setExpandedWorkspace(view, recordId, tab = "overview") {
+  if (!state.expandedWorkspaces[view]) {
+    state.expandedWorkspaces[view] = { id: recordId, tab };
+  } else {
+    state.expandedWorkspaces[view] = { id: recordId, tab: tab || state.expandedWorkspaces[view].tab || "overview" };
+  }
+  renderTables();
+}
+
+function toggleExpandedWorkspace(view, recordId, defaultTab = "overview") {
+  const current = expandedWorkspaceState(view);
+  if (current && String(current.id) === String(recordId)) {
+    state.expandedWorkspaces[view] = null;
+  } else {
+    state.expandedWorkspaces[view] = { id: recordId, tab: defaultTab };
+  }
+  renderTables();
+}
+
+function setWorkspaceTab(view, recordId, tab) {
+  state.expandedWorkspaces[view] = { id: recordId, tab };
+  renderTables();
+}
+
 function clientServiceLabel(record) {
   return record.qaServiceLabel || record.originalServiceLabel || record.serviceLabel || record.service || record.originalServiceType || "";
 }
@@ -577,6 +635,50 @@ function detailRows(fields) {
             </div>
           `;
         })
+        .join("")}
+    </div>
+  `;
+}
+
+function placeholderPanel(message) {
+  return `<div class="workspace-placeholder"><p>${escapeHtml(message)}</p></div>`;
+}
+
+function listSummary(items, emptyMessage, renderer, className = "workspace-list compact") {
+  if (!items.length) return placeholderPanel(emptyMessage);
+  return `<div class="${className}">${items.map(renderer).join("")}</div>`;
+}
+
+function workspaceSummaryRows(fields) {
+  return `
+    <div class="workspace-summary-grid">
+      ${fields
+        .map(([label, value]) => {
+          const rendered = detailValue(value);
+          return `
+            <div class="workspace-summary-row">
+              <span>${escapeHtml(label)}</span>
+              <strong>${escapeHtml(rendered || "Not available")}</strong>
+            </div>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
+function noteSummary(notes, emptyMessage) {
+  if (!notes.length) return placeholderPanel(emptyMessage);
+  return `
+    <div class="workspace-list compact">
+      ${notes
+        .map((note) => `
+          <article class="workspace-list-item">
+            <strong>${escapeHtml(formatDateTime(note.createdAt) || "Saved note")}</strong>
+            <p>${escapeHtml(note.note || note.text || "")}</p>
+            <small>${escapeHtml(compactMeta([note.noteType, note.createdBy]))}</small>
+          </article>
+        `)
         .join("")}
     </div>
   `;
@@ -2363,7 +2465,7 @@ function renderLeadBoard() {
 function recordRow(type, record, cells) {
   const row = el("article", "record-row");
   row.innerHTML = `
-    <button type="button">
+    <button class="record-open" type="button">
       ${cells.map((cell) => `<div>${cell}</div>`).join("")}
     </button>
   `;
@@ -2371,37 +2473,472 @@ function recordRow(type, record, cells) {
   return row;
 }
 
-function renderTables() {
-  const assessmentTable = document.querySelector("[data-assessment-table]");
-  assessmentTable.innerHTML = "";
-  if (!data.assessments.length) {
-    assessmentTable.innerHTML = emptyState(
-      "No assessments or quotes yet",
-      "Create one from an accepted or qualified lead in the next workflow stage."
+function workspaceRow(view, type, record, cells, defaultTab = "overview") {
+  const row = el("article", "record-row workspace-row");
+  const expanded = isWorkspaceExpanded(view, record);
+  row.innerHTML = `
+    <button class="record-open" type="button">
+      ${cells.map((cell) => `<div>${cell}</div>`).join("")}
+    </button>
+    <button class="ghost row-expand-button" type="button" aria-expanded="${expanded ? "true" : "false"}">
+      ${expanded ? "Collapse" : "Expand"}
+    </button>
+  `;
+  row.querySelector(".record-open").addEventListener("click", () => openDrawer(type, record));
+  row.querySelector(".row-expand-button").addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleExpandedWorkspace(view, record.id, defaultTab);
+  });
+  return row;
+}
+
+function workspaceTabs(view, recordId, tabs) {
+  const activeTab = expandedWorkspaceState(view)?.tab || tabs[0].key;
+  return `
+    <div class="workspace-tabs" role="tablist" aria-label="Workspace modules">
+      ${tabs
+        .map((tab) => `
+          <button
+            class="workspace-tab ${tab.key === activeTab ? "active" : ""}"
+            type="button"
+            role="tab"
+            aria-selected="${tab.key === activeTab ? "true" : "false"}"
+            data-workspace-tab="${escapeHtml(tab.key)}"
+            data-workspace-view="${escapeHtml(view)}"
+            data-workspace-id="${escapeHtml(recordId)}"
+          >
+            ${escapeHtml(tab.label)}
+          </button>
+        `)
+        .join("")}
+    </div>
+  `;
+}
+
+function renderExpandableWorkspace({ view, record, eyebrow, title, subtitle, status, meta, tabs, content }) {
+  return `
+    <section class="expandable-workspace" data-workspace="${escapeHtml(view)}" data-workspace-id="${escapeHtml(record.id)}">
+      <div class="workspace-shell">
+        <div class="workspace-header">
+          <div class="workspace-header-main">
+            <p class="eyebrow">${escapeHtml(eyebrow)}</p>
+            <h3>${escapeHtml(title)}</h3>
+            <p>${escapeHtml(compactMeta([subtitle, status, meta]))}</p>
+          </div>
+          <button class="ghost workspace-collapse" type="button" data-workspace-collapse="${escapeHtml(view)}" data-workspace-id="${escapeHtml(record.id)}">Collapse</button>
+        </div>
+        ${workspaceTabs(view, record.id, tabs)}
+        <div class="workspace-panel">
+          ${content}
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function linkedAssessmentTasks(record) {
+  const byAssessment = (data.tasks || []).filter((task) => task.linkedType === "assessment" && String(task.linkedId) === String(record.id));
+  const byLead = record.leadId
+    ? (data.tasks || []).filter((task) => task.linkedType === "lead" && String(task.linkedId) === String(record.leadId))
+    : [];
+  const seen = new Set();
+  return [...byAssessment, ...byLead].filter((task) => {
+    if (seen.has(String(task.id))) return false;
+    seen.add(String(task.id));
+    return true;
+  });
+}
+
+function assessmentWorkspaceTabs() {
+  return [
+    { key: "overview", label: "Overview" },
+    { key: "details", label: "Details" },
+    { key: "quote-assist", label: "Quote Assist" },
+    { key: "quotes", label: "Quotes" },
+    { key: "notes-tasks", label: "Notes / Tasks" }
+  ];
+}
+
+function renderAssessmentWorkspaceTab(record, tab) {
+  if (tab === "details") {
+    return detailRows([
+      ["Property type", record.propertyType],
+      ["Bedrooms", record.bedrooms],
+      ["Bathrooms", record.bathrooms],
+      ["Reception rooms", record.receptionRooms],
+      ["Kitchen size", record.kitchenSize],
+      ["Property size", record.propertySize],
+      ["Condition", record.propertyCondition],
+      ["Pets", record.pets],
+      ["Parking", record.parking],
+      ["Priorities", record.priorities],
+      ["Products", record.productPreferences],
+      ["Assessment notes", record.assessmentNotes],
+      ["Quote notes", record.quoteNotes],
+      ["Internal notes", record.notes]
+    ]);
+  }
+
+  if (tab === "quote-assist") {
+    const assist = record.quoteAssist;
+    return assist
+      ? detailRows([
+          ["Fit score", `${assist.fitScore}/100`],
+          ["Price shopper risk", assist.priceShopperRisk],
+          ["Travel suitability", assist.travelSuitability],
+          ["First clean hours", assistHourRange(assist, "estimatedFirstCleanHours")],
+          ["Recurring hours", assistHourRange(assist, "estimatedRecurringHours")],
+          ["Suggested range", assist.suggestedPriceLabel || `${formatMoneyPence(assist.suggestedPriceMin)}-${formatMoneyPence(assist.suggestedPriceMax)}`],
+          ["Minimum price", assist.minimumRecommendedPriceLabel || formatMoneyPence(assist.minimumRecommendedPrice)],
+          ["Recommended next action", assist.recommendedNextAction],
+          ["Confidence", assist.confidence],
+          ["Explanation", assist.explanation],
+          ["Risk flags", (assist.riskFlags || []).join("; ")],
+          ["Positive flags", (assist.positiveFlags || []).join("; ")],
+          ["Last run", formatDateTime(assist.updatedAt || assist.createdAt)]
+        ])
+      : placeholderPanel("No Quote Assist result saved yet. Use the drawer action when this Q&A has enough detail.");
+  }
+
+  if (tab === "quotes") {
+    const quote = record.accountingQuote;
+    return quote
+      ? detailRows([
+          ["Reference", quote.displayReference],
+          ["Status", quote.status],
+          ["Total", quote.totalPriceLabel || formatMoneyPence(quote.totalPrice)],
+          ["Recurring", quote.recurringPriceLabel || formatMoneyPence(quote.recurringPrice)],
+          ["Valid until", quote.validUntil],
+          ["Created", formatDateTime(quote.createdAt)],
+          ["Updated", formatDateTime(quote.updatedAt)]
+        ]) + `<div class="workspace-placeholder muted"><p>Document editor coming later. This workspace keeps the quote record visible until the dedicated commercial editor exists.</p></div>`
+      : placeholderPanel("No linked accounting quote yet. Create Draft Quote from the drawer when the commercial record is ready.");
+  }
+
+  if (tab === "notes-tasks") {
+    const notes = record.linkedLeadNotes || [];
+    const tasks = linkedAssessmentTasks(record);
+    return `
+      <div class="workspace-stack">
+        <section>
+          <h4>Linked notes</h4>
+          ${noteSummary(notes, "No linked notes yet for this Q&A record.")}
+        </section>
+        <section>
+          <h4>Linked tasks</h4>
+          ${listSummary(
+            tasks,
+            "Notes / activity tasks module is planned here. Linked admin tasks will appear in this tab as the workflow grows.",
+            (task) => `
+              <article class="workspace-list-item">
+                <strong>${escapeHtml(task.title)}</strong>
+                <p>${escapeHtml(task.notes || "")}</p>
+                <small>${escapeHtml(compactMeta([task.status, task.priority, formatDateTime(task.dueAt)]))}</small>
+              </article>
+            `
+          )}
+        </section>
+      </div>
+    `;
+  }
+
+  return workspaceSummaryRows([
+    ["Customer", record.customerName || record.client],
+    ["Phone", record.phone],
+    ["Email", record.email],
+    ["Area / postcode", compactMeta([record.area, record.postcode])],
+    ["Service", record.serviceLabel || record.serviceType],
+    ["Frequency", record.frequencyLabel || record.frequency],
+    ["Status", record.statusLabel || record.status],
+    ["Quote stage", record.quoteStageLabel || record.quoteStage],
+    ["Linked lead", record.leadId ? `#${record.leadId}` : ""],
+    ["Linked client", record.convertedClientId ? `#${record.convertedClientId}` : ""],
+    ["Linked quote", record.accountingQuote?.displayReference],
+    ["Updated", formatDateTime(record.updatedAt)]
+  ]);
+}
+
+function renderAssessmentWorkspace(record) {
+  const tabs = assessmentWorkspaceTabs();
+  const activeTab = expandedWorkspaceState("assessments")?.tab || tabs[0].key;
+  return renderExpandableWorkspace({
+    view: "assessments",
+    record,
+    eyebrow: "Q&A / Assessment",
+    title: record.customerName || record.client || `Q&A #${record.id}`,
+    subtitle: compactMeta([record.serviceLabel || record.serviceType, record.area]),
+    status: assessmentStatusDisplay(record),
+    meta: record.accountingQuote?.displayReference,
+    tabs,
+    content: renderAssessmentWorkspaceTab(record, activeTab)
+  });
+}
+
+function linkedClientTasks(record) {
+  const leadId = clientOriginalLeadId(record);
+  return (data.tasks || []).filter((task) => {
+    if (task.linkedType === "client" && String(task.linkedId) === String(record.id)) return true;
+    if (leadId && task.linkedType === "lead" && String(task.linkedId) === String(leadId)) return true;
+    return false;
+  });
+}
+
+function clientWorkspaceTabs() {
+  return [
+    { key: "overview", label: "Overview" },
+    { key: "contact-access", label: "Contact / Access" },
+    { key: "home-details", label: "Home details" },
+    { key: "cleaning-plan", label: "Cleaning plan" },
+    { key: "schedule-jobs", label: "Schedule / Jobs" },
+    { key: "quotes-invoices", label: "Quotes / Invoices" },
+    { key: "notes-tasks", label: "Notes / Tasks" }
+  ];
+}
+
+function renderClientWorkspaceTab(record, tab) {
+  if (tab === "contact-access") {
+    return detailRows([
+      ["Preferred contact", record.preferredContactLabel || record.preferredContact],
+      ["Best contact time", record.bestContactTime],
+      ["Access method", record.accessLabel || record.accessMethod],
+      ["Access notes", record.accessNotes],
+      ["Parking notes", record.parkingNotes || record.leadParking],
+      ["Pets", record.petLabel || record.petType || record.leadPets],
+      ["Pet notes", record.petNotes],
+      ["Products", record.productLabel || record.productPreference || record.leadProductPreferences],
+      ["Surface notes", record.surfaceNotes],
+      ["Internal notes", record.notes]
+    ]);
+  }
+
+  if (tab === "home-details") {
+    const hasHomeData = [record.propertyType, record.bedrooms, record.bathrooms, record.propertySize, record.propertyCondition].some(Boolean);
+    return hasHomeData
+      ? detailRows([
+          ["Area", record.area],
+          ["Address", record.address],
+          ["Postcode", record.postcode],
+          ["Property type", record.propertyType],
+          ["Bedrooms", record.bedrooms],
+          ["Bathrooms", record.bathrooms],
+          ["Reception rooms", record.receptionRooms],
+          ["Kitchen size", record.kitchenSize],
+          ["Property size", record.propertySize],
+          ["Condition", record.propertyCondition]
+        ])
+      : placeholderPanel("Home details module planned - this will hold property, rooms, surfaces, pets, products and access details.");
+  }
+
+  if (tab === "cleaning-plan") {
+    const hasPlan = [clientFrequencyLabel(record), record.manHours, record.mainCleaner, record.helper, record.priorities].some(Boolean);
+    return hasPlan
+      ? detailRows([
+          ["Service", clientServiceLabel(record)],
+          ["Frequency", clientFrequencyLabel(record)],
+          ["Requested frequency", record.requestedFrequencyLabel || record.requestedFrequency],
+          ["Preferred days", record.preferredDays],
+          ["Man-hours", record.manHours],
+          ["Main cleaner", record.mainCleaner],
+          ["Helper", record.helper],
+          ["Priorities", record.priorities]
+        ])
+      : placeholderPanel("Cleaning plan module planned - confirmed after assessment and early live service setup.");
+  }
+
+  if (tab === "schedule-jobs") {
+    const jobs = (data.jobs || []).filter((job) => String(job.clientId) === String(record.id));
+    return listSummary(
+      jobs,
+      "Schedule and jobs module planned - linked client work orders will appear here when available.",
+      (job) => `
+        <article class="workspace-list-item">
+          <strong>${escapeHtml(job.type || "Job")}</strong>
+          <p>${escapeHtml(compactMeta([formatDate(job.date), job.time, `${job.manHours} man-hours`]))}</p>
+          <small>${escapeHtml(compactMeta([job.statusLabel || job.status, job.mainCleaner, job.helper]))}</small>
+        </article>
+      `
     );
   }
-  data.assessments.forEach((assessment) => {
-    assessmentTable.append(recordRow("assessment", assessment, [
+
+  if (tab === "quotes-invoices") {
+    const quote = record.accountingQuote;
+    const invoices = (data.invoices || []).filter((invoice) => String(invoice.client || "").toLowerCase() === String(record.name || "").toLowerCase());
+    return `
+      <div class="workspace-stack">
+        <section>
+          <h4>Linked quote</h4>
+          ${
+            quote
+              ? detailRows([
+                  ["Reference", quote.displayReference],
+                  ["Status", quote.status],
+                  ["Total", quote.totalPriceLabel || formatMoneyPence(quote.totalPrice)],
+                  ["Recurring", quote.recurringPriceLabel || formatMoneyPence(quote.recurringPrice)],
+                  ["Updated", formatDateTime(quote.updatedAt || quote.createdAt)]
+                ])
+              : placeholderPanel("No linked accounting quote is available for this client record yet.")
+          }
+        </section>
+        <section>
+          <h4>Invoices</h4>
+          ${listSummary(
+            invoices,
+            "Invoice module planned - commercial documents will surface here as the accounting layer grows.",
+            (invoice) => `
+              <article class="workspace-list-item">
+                <strong>${escapeHtml(invoice.number)}</strong>
+                <p>${escapeHtml(invoice.amount)}</p>
+                <small>${escapeHtml(compactMeta([invoice.status, invoice.date]))}</small>
+              </article>
+            `
+          )}
+        </section>
+      </div>
+    `;
+  }
+
+  if (tab === "notes-tasks") {
+    const notes = record.originalLeadNotes || [];
+    const tasks = linkedClientTasks(record);
+    return `
+      <div class="workspace-stack">
+        <section>
+          <h4>Lead history notes</h4>
+          ${noteSummary(notes, "No original lead notes are linked to this client yet.")}
+        </section>
+        <section>
+          <h4>Linked tasks</h4>
+          ${listSummary(
+            tasks,
+            "Notes / tasks module planned - linked admin follow-ups will appear here when present.",
+            (task) => `
+              <article class="workspace-list-item">
+                <strong>${escapeHtml(task.title)}</strong>
+                <p>${escapeHtml(task.notes || "")}</p>
+                <small>${escapeHtml(compactMeta([task.status, task.priority, formatDateTime(task.dueAt)]))}</small>
+              </article>
+            `
+          )}
+        </section>
+      </div>
+    `;
+  }
+
+  return workspaceSummaryRows([
+    ["Client", record.name],
+    ["Phone", record.phone],
+    ["Email", record.email],
+    ["Area / address", compactMeta([record.area, record.address])],
+    ["Status", clientStatusDisplay(record)],
+    ["Linked lead", clientOriginalLeadId(record) ? `#${clientOriginalLeadId(record)}` : ""],
+    ["Linked Q&A", record.assessmentQuoteId ? `#${record.assessmentQuoteId}` : ""],
+    ["Linked quote", record.accountingQuote?.displayReference],
+    ["Converted", formatDateTime(record.convertedAt)]
+  ]);
+}
+
+function renderClientWorkspace(record) {
+  const tabs = clientWorkspaceTabs();
+  const activeTab = expandedWorkspaceState("clients")?.tab || tabs[0].key;
+  return renderExpandableWorkspace({
+    view: "clients",
+    record,
+    eyebrow: "Client & Home",
+    title: record.name || `Client #${record.id}`,
+    subtitle: compactMeta([record.area, clientServiceLabel(record)]),
+    status: clientStatusDisplay(record),
+    meta: record.accountingQuote?.displayReference,
+    tabs,
+    content: renderClientWorkspaceTab(record, activeTab)
+  });
+}
+
+function populateWorkspaceTable({ table, records, view, type, defaultTab, emptyTitle, emptyMessage, cells, renderWorkspace, countTarget, countLabel }) {
+  table.innerHTML = "";
+  if (countTarget) countTarget.textContent = `${records.length} ${countLabel}`;
+  if (!records.length) {
+    table.innerHTML = emptyState(emptyTitle, emptyMessage);
+    return;
+  }
+  records.forEach((record) => {
+    table.append(workspaceRow(view, type, record, cells(record), defaultTab));
+    if (isWorkspaceExpanded(view, record)) {
+      const workspaceRowEl = el("div", "workspace-row-slot");
+      workspaceRowEl.innerHTML = renderWorkspace(record);
+      table.append(workspaceRowEl);
+    }
+  });
+  table.querySelectorAll("[data-workspace-collapse]").forEach((button) => {
+    button.addEventListener("click", () => toggleExpandedWorkspace(button.dataset.workspaceCollapse, button.dataset.workspaceId));
+  });
+  table.querySelectorAll("[data-workspace-tab]").forEach((button) => {
+    button.addEventListener("click", () => setWorkspaceTab(button.dataset.workspaceView, button.dataset.workspaceId, button.dataset.workspaceTab));
+  });
+}
+
+function renderTables() {
+  const assessmentActiveTable = document.querySelector("[data-assessment-active-table]");
+  const assessmentHistoryTable = document.querySelector("[data-assessment-history-table]");
+  const assessmentActiveCount = document.querySelector("[data-assessment-active-count]");
+  const assessmentHistoryCount = document.querySelector("[data-assessment-history-count]");
+  const activeAssessments = (data.assessments || []).filter(isActiveAssessment);
+  const historyAssessments = (data.assessments || []).filter(isHistoryAssessment);
+  populateWorkspaceTable({
+    table: assessmentActiveTable,
+    records: activeAssessments,
+    view: "assessments",
+    type: "assessment",
+    defaultTab: "overview",
+    emptyTitle: "No active Q&A records",
+    emptyMessage: "Create one from a suitable lead when an enquiry is worth assessing further.",
+    countTarget: assessmentActiveCount,
+    countLabel: "active",
+    cells: (assessment) => [
       `<div class="record-main">${escapeHtml(assessment.customerName || assessment.client || "")}</div><div class="record-sub">${escapeHtml(compactMeta([assessment.area, assessment.postcode]))}</div>`,
       `${escapeHtml(assessment.serviceLabel || assessment.serviceType || "")}<div class="record-sub">${escapeHtml(assessment.frequencyLabel || assessment.frequency || "")}</div>`,
       `${escapeHtml(assessment.estimate || "Estimate pending")}<div class="record-sub">${escapeHtml(compactMeta([assessment.quoteRange || "", assessment.accountingQuote?.displayReference || ""]))}</div>`,
-      `${
-        assessment.isConverted
-          ? `<span class="pill blue">Converted</span><div class="record-sub">${escapeHtml(compactMeta([assessment.quoteStageLabel || assessment.quoteStage, assessment.accountingQuote?.displayReference]))}</div>`
-          : `<span class="pill warn">${escapeHtml(assessment.quoteStageLabel || assessment.quoteStage || assessment.statusLabel || assessment.status || "Draft")}</span>`
-      }`
-    ]));
+      `<span class="pill warn">${escapeHtml(assessment.quoteStageLabel || assessment.quoteStage || assessment.statusLabel || assessment.status || "Draft")}</span>`
+    ],
+    renderWorkspace: renderAssessmentWorkspace
+  });
+  populateWorkspaceTable({
+    table: assessmentHistoryTable,
+    records: historyAssessments,
+    view: "assessments",
+    type: "assessment",
+    defaultTab: "overview",
+    emptyTitle: "No Q&A history yet",
+    emptyMessage: "Converted and closed Q&A records will remain visible here for traceability.",
+    countTarget: assessmentHistoryCount,
+    countLabel: "history",
+    cells: (assessment) => [
+      `<div class="record-main">${escapeHtml(assessment.customerName || assessment.client || "")}</div><div class="record-sub">${escapeHtml(compactMeta([assessment.area, assessment.postcode]))}</div>`,
+      `${escapeHtml(assessment.serviceLabel || assessment.serviceType || "")}<div class="record-sub">${escapeHtml(assessment.frequencyLabel || assessment.frequency || "")}</div>`,
+      `${escapeHtml(assessment.estimate || "Estimate pending")}<div class="record-sub">${escapeHtml(compactMeta([assessment.quoteRange || "", assessment.accountingQuote?.displayReference || ""]))}</div>`,
+      `<span class="pill blue">${escapeHtml(assessment.isConverted || assessment.convertedClientId ? "Converted" : assessment.quoteStageLabel || assessment.quoteStage || assessment.statusLabel || assessment.status || "Closed")}</span>`
+    ],
+    renderWorkspace: renderAssessmentWorkspace
   });
 
   const clientTable = document.querySelector("[data-client-table]");
-  clientTable.innerHTML = "";
-  data.clients.forEach((client) => {
-    clientTable.append(recordRow("client", client, [
-      `<div class="record-main">${client.name}</div><div class="record-sub">${client.area}</div>`,
-      `${clientFrequencyLabel(client)}`,
-      `${client.manHours ? `${client.manHours} man-hours` : "Plan pending"}`,
-      `<span class="pill">${client.mainCleaner}</span>`
-    ]));
+  const clientCount = document.querySelector("[data-client-count]");
+  populateWorkspaceTable({
+    table: clientTable,
+    records: data.clients || [],
+    view: "clients",
+    type: "client",
+    defaultTab: "overview",
+    emptyTitle: "No Client & Home records yet",
+    emptyMessage: "Converted accepted Q&A records will appear here as the client base grows.",
+    countTarget: clientCount,
+    countLabel: "records",
+    cells: (client) => [
+      `<div class="record-main">${escapeHtml(client.name || "")}</div><div class="record-sub">${escapeHtml(compactMeta([client.area, client.address]))}</div>`,
+      `${escapeHtml(clientServiceLabel(client) || "Service pending")}<div class="record-sub">${escapeHtml(clientFrequencyLabel(client) || "")}</div>`,
+      `${escapeHtml(client.manHours ? `${client.manHours} man-hours` : "Plan pending")}<div class="record-sub">${escapeHtml(compactMeta([client.mainCleaner, client.helper]))}</div>`,
+      `<span class="pill">${escapeHtml(clientStatusDisplay(client))}</span>`
+    ],
+    renderWorkspace: renderClientWorkspace
   });
 
   const jobTable = document.querySelector("[data-job-table]");

@@ -156,20 +156,37 @@
         </section>
 
         <section class="view" data-view-panel="assessments">
-          <div class="table-panel">
+          <div class="table-panel workspace-table-panel">
             <div class="table-toolbar">
               <h2>Quotes & Assessments</h2>
               <button class="ghost" type="button" disabled title="Open a lead drawer to create an Assessment / Quote.">Create from Lead drawer</button>
             </div>
-            <div class="records-table" data-assessment-table></div>
+            <section class="workspace-group">
+              <div class="workspace-group-head">
+                <h3>Active Q&A</h3>
+                <p data-assessment-active-count></p>
+              </div>
+              <div class="records-table" data-assessment-active-table></div>
+            </section>
+            <section class="workspace-group">
+              <div class="workspace-group-head">
+                <h3>Q&A History</h3>
+                <p data-assessment-history-count></p>
+              </div>
+              <div class="records-table" data-assessment-history-table></div>
+            </section>
           </div>
         </section>
 
         <section class="view" data-view-panel="clients">
-          <div class="table-panel">
+          <div class="table-panel workspace-table-panel">
             <div class="table-toolbar">
               <h2>Clients</h2>
               <a class="ghost" href="forms/cleaning-plan.html">Add client</a>
+            </div>
+            <div class="workspace-group-head">
+              <h3>Client & Home records</h3>
+              <p data-client-count></p>
             </div>
             <div class="records-table" data-client-table></div>
           </div>

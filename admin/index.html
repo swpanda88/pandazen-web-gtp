@@ -168,13 +168,18 @@
               </div>
               <div class="records-table" data-assessment-active-table></div>
             </section>
-            <section class="workspace-group">
-              <div class="workspace-group-head">
-                <h3>Q&A History</h3>
+            <details class="workspace-history">
+              <summary class="workspace-group-head workspace-history-summary">
+                <div>
+                  <h3>Q&A History</h3>
+                  <p>Converted and closed records stay here for traceability.</p>
+                </div>
                 <p data-assessment-history-count></p>
+              </summary>
+              <div class="workspace-history-body">
+                <div class="records-table" data-assessment-history-table></div>
               </div>
-              <div class="records-table" data-assessment-history-table></div>
-            </section>
+            </details>
           </div>
         </section>
 

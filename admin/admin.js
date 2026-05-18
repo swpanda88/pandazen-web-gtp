@@ -623,13 +623,16 @@ function syncWorkspaceFirstLayout() {
   const workspaceFirst = isWorkspaceFirstView();
   const hasExpandedWorkspace = workspaceFirst && Boolean(expandedWorkspaceState(state.view));
   const drawerCollapsed = workspaceFirst && workspaceDrawerMode() === "collapsed";
+  const drawerEmpty = workspaceFirst && !state.activeDrawerType;
   document.body.classList.toggle("workspace-first-view", workspaceFirst);
   document.body.classList.toggle("workspace-first-drawer-collapsed", workspaceFirst && drawerCollapsed);
   document.body.classList.toggle("workspace-first-drawer-expanded", workspaceFirst && !drawerCollapsed);
   document.body.classList.toggle("workspace-first-has-expanded-workspace", hasExpandedWorkspace);
+  document.body.classList.toggle("workspace-first-drawer-empty", drawerEmpty);
   drawer.classList.toggle("workspace-first-drawer", workspaceFirst);
   drawer.classList.toggle("is-collapsed", workspaceFirst && drawerCollapsed);
   drawer.classList.toggle("is-expanded", workspaceFirst && !drawerCollapsed);
+  drawer.classList.toggle("is-empty", drawerEmpty);
 }
 
 function clientServiceLabel(record) {
@@ -1803,13 +1806,20 @@ function resetDrawer() {
     drawer.querySelector(".drawer-body")?.removeEventListener("scroll", drawerScrollHandler);
     drawerScrollHandler = null;
   }
-  drawer.innerHTML = `
-    <div class="drawer-empty">
-      <p class="eyebrow">Detail panel</p>
-      <h2>Select a record</h2>
-      <p>Click a lead, task, job or invoice to review details here.</p>
-    </div>
-  `;
+  drawer.innerHTML = isWorkspaceFirstView()
+    ? `
+      <div class="drawer-empty drawer-empty-minimal">
+        <p class="eyebrow">Quick drawer</p>
+        <p>Select a row for context.</p>
+      </div>
+    `
+    : `
+      <div class="drawer-empty">
+        <p class="eyebrow">Detail panel</p>
+        <h2>Select a record</h2>
+        <p>Click a lead, task, job or invoice to review details here.</p>
+      </div>
+    `;
   syncWorkspaceFirstLayout();
 }
 
@@ -2546,8 +2556,8 @@ function recordRow(type, record, cells) {
 }
 
 function workspaceRow(view, type, record, cells, defaultTab = "overview") {
-  const row = el("article", "record-row workspace-row");
   const expanded = isWorkspaceExpanded(view, record);
+  const row = el("article", `record-row workspace-row ${expanded ? "is-expanded" : ""}`.trim());
   row.innerHTML = `
     <button class="record-open" type="button">
       ${cells.map((cell) => `<div>${cell}</div>`).join("")}
@@ -2589,18 +2599,11 @@ function workspaceTabs(view, recordId, tabs) {
 
 function renderExpandableWorkspace({ view, record, eyebrow, title, subtitle, status, meta, tabs, content }) {
   return `
-    <section class="expandable-workspace" data-workspace="${escapeHtml(view)}" data-workspace-id="${escapeHtml(record.id)}">
-      <div class="workspace-shell">
-        <div class="workspace-header">
-          <div class="workspace-header-main">
-            <h3>${escapeHtml(title)}</h3>
-            <p>${escapeHtml(compactMeta([eyebrow, subtitle, status, meta]))}</p>
-          </div>
-          <button class="ghost workspace-collapse" type="button" data-workspace-collapse="${escapeHtml(view)}" data-workspace-id="${escapeHtml(record.id)}">Collapse</button>
-        </div>
-        ${workspaceTabs(view, record.id, tabs)}
-        <div class="workspace-panel">
-          ${content}
+      <section class="expandable-workspace" data-workspace="${escapeHtml(view)}" data-workspace-id="${escapeHtml(record.id)}">
+        <div class="workspace-shell">
+          ${workspaceTabs(view, record.id, tabs)}
+          <div class="workspace-panel">
+            ${content}
         </div>
       </div>
     </section>
@@ -2939,12 +2942,9 @@ function populateWorkspaceTable({ table, records, view, type, defaultTab, emptyT
       table.append(workspaceRowEl);
     }
   });
-  table.querySelectorAll("[data-workspace-collapse]").forEach((button) => {
-    button.addEventListener("click", () => toggleExpandedWorkspace(button.dataset.workspaceCollapse, button.dataset.workspaceId));
-  });
   table.querySelectorAll("[data-workspace-tab]").forEach((button) => {
     button.addEventListener("click", () => setWorkspaceTab(button.dataset.workspaceView, button.dataset.workspaceId, button.dataset.workspaceTab));
-  });
+    });
 }
 
 function renderTables() {
@@ -2981,7 +2981,7 @@ function renderTables() {
     emptyTitle: "No Q&A history yet",
     emptyMessage: "Converted and closed Q&A records will remain visible here for traceability.",
     countTarget: assessmentHistoryCount,
-    countLabel: "history",
+    countLabel: "records",
     cells: (assessment) => [
       `<div class="record-main">${escapeHtml(assessment.customerName || assessment.client || "")}</div><div class="record-sub">${escapeHtml(compactMeta([assessment.area, assessment.postcode]))}</div>`,
       `${escapeHtml(assessment.serviceLabel || assessment.serviceType || "")}<div class="record-sub">${escapeHtml(assessment.frequencyLabel || assessment.frequency || "")}</div>`,

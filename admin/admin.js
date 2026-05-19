@@ -268,7 +268,18 @@ async function apiPost(path, body) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body)
   });
-  if (!response.ok) throw new Error(`API ${path} failed`);
+  if (!response.ok) {
+    let message = `API ${path} failed`;
+    try {
+      const payload = await response.json();
+      if (payload?.error) {
+        message = payload.error;
+      }
+    } catch {
+      // Keep the generic fallback when the response has no JSON body.
+    }
+    throw new Error(message);
+  }
   return response.json();
 }
 
@@ -278,7 +289,18 @@ async function apiPatch(path, body) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body)
   });
-  if (!response.ok) throw new Error(`API ${path} failed`);
+  if (!response.ok) {
+    let message = `API ${path} failed`;
+    try {
+      const payload = await response.json();
+      if (payload?.error) {
+        message = payload.error;
+      }
+    } catch {
+      // Keep the generic fallback when the response has no JSON body.
+    }
+    throw new Error(message);
+  }
   return response.json();
 }
 

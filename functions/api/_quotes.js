@@ -137,7 +137,10 @@ export async function createDraftQuote(db, assessmentQuoteId) {
   const existingQuotes = await listQuotes(db, { assessmentQuoteId });
   const highestVersion = existingQuotes.reduce((max, quote) => Math.max(max, Number(quote.versionNumber) || 0), 0);
   const versionNumber = highestVersion + 1;
-  const quoteNumber = existingQuotes[0]?.quoteNumber || null;
+  const quoteNumber = existingQuotes.reduce((current, quote) => {
+    if (current) return current;
+    return quote.quoteNumber || null;
+  }, null);
   const clientId = await existingClientIdForAssessment(db, assessmentQuoteId, seed.convertedClientId);
 
   const result = await db

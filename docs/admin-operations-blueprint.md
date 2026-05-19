@@ -6,13 +6,15 @@ Single source of truth for the PandaZen admin/operations system. Replaces separa
 
 Current build priority:
 
-> **Lead Capture + Admin Review + Quote Assist**
+> **Quote Workflow MVP**
 
-Do not build future modules unless specifically selected. The first useful working slice is:
+Do not build future modules unless specifically selected. The next selected slice is:
 
 ```text
-Public enquiry form -> Lead record -> Admin task -> Admin review -> Quote Assist -> Next action
+Q&A / Assessment -> Draft Quote -> quote version/status handling -> sent / accepted / rejected quote path
 ```
+
+The aim is not yet a full quote/PDF editor. The next slice should make quote records useful, traceable and commercially structured before building full document composition.
 
 ---
 
@@ -83,9 +85,22 @@ Do not protect only `/api/admin/*` while legacy `/api/*` routes still exist with
 
 ---
 
-## 5. Current Module: Lead Capture + Quote Assist
+## 5. Current Accepted Build State
 
-### Done when
+- Lead module is MVP-sufficient for early triage.
+- Leads support active/history separation.
+- Leads can be rejected / marked not suitable.
+- Lead drawer supports contact/enquiry edit mode.
+- Drawer headers support sticky shrinking identity.
+- Q&A / Assessments now use workspace-first layout.
+- Q&A has Active Q&A and Q&A History containers.
+- Q&A records can be marked not proceeding with a reason and optional note.
+- Closed Q&A records move into Q&A History.
+- Client & Home now uses the same active/history workspace architecture.
+- Q&A and Client & Home use a collapsed drawer rail by default.
+- Current Q&A to Client & Home conversion remains a temporary bridge.
+
+Completed foundation before the current quote workflow priority includes:
 
 - public enquiry form submits to controlled API
 - lead is saved in D1
@@ -110,6 +125,8 @@ Current completed Lead/admin foundation:
 - Inactive / closed Leads now sit in Lead history instead of polluting active Lead work.
 - Right-hand drawers use a sticky/shrinking identity header.
 - Lead drawer edit details mode is complete for contact + enquiry fields.
+- Q&A / Assessments and Client & Home use workspace-first active/history architecture.
+- Q&A supports not proceeding close-out with reason and optional note.
 
 ---
 
@@ -882,6 +899,13 @@ D = avoid / only premium / no renewal
 
 Factors may include pays on time, easy access/parking, reasonable expectations, flexibility, recurring value, safe/pleasant working relationship, cleaner feedback, complaints/issues and repeated scope creep. Do not expose this to clients and do not over-share it with cleaners.
 
+Current Client & Home behaviour:
+
+- Client & Home uses the same workspace-first architecture as Q&A.
+- Active Clients are separated from Client History / Archived Clients.
+- History may be empty for now, but the structure is in place for ended, archived, inactive, cancelled, lost or closed clients.
+- Client & Home is the operational customer/home record after acceptance/conversion.
+
 ### Quotes & Assessments
 
 Internal working module for desk assessments, home visits, property/scope detail, Quote Assist recommendations and quote preparation.
@@ -903,6 +927,14 @@ Clear distinction:
 - **Q&A / Assessment** = internal working record for evaluation, scope, notes and Quote Assist.
 - **Quote** = separate commercial/accounting record with versions, status and future PDF output.
 - **Field Document** = separate login-protected staff form used in service delivery, for example assessment visit notes, cleaner checklists, reports or site updates. This is digital-first operational capture, not the same thing as a client-facing quote document.
+
+Current Q&A behaviour:
+
+- Active Q&A records are live assessment/quote-prep work.
+- Q&A History holds converted, closed, rejected, not proceeding and similar final records.
+- Active Q&A can be marked not proceeding with a reason and optional note.
+- Closed/not proceeding Q&A stays traceable and may still be converted later if the customer changes their mind.
+- Current Q&A -> Client & Home conversion is a temporary bridge until accepted Quote becomes the proper conversion trigger.
 
 ### Schedule / Work Orders
 
@@ -946,6 +978,7 @@ Accounting should group commercial documents by prospect/client:
 - Active, current and recent documents stay prominent at the top.
 - Rejected/expired quotes remain available but move lower into history/archive so they do not pollute the active table.
 - Paid invoices should behave similarly later: retained for records/export, but lower in history/archive so active unpaid/current documents stay prominent.
+- Accounting should support multiple commercial documents per prospect/client: multiple quote versions, multiple invoices, future credit notes and future reports/documents if needed.
 
 Quote architecture rules:
 
@@ -955,6 +988,20 @@ Quote architecture rules:
 - Quote PDF/download is generated from the Quote record, not directly from Q&A or Quote Assist.
 - Accepted Quote should become the proper trigger for Client & Home conversion.
 - Current Q&A -> Client & Home conversion is a temporary bridge until the Quote layer replaces it.
+- Sent quotes must not be silently overwritten.
+- Revised sent quotes should create a new version.
+- Only one quote version should usually become accepted.
+- Rejected/expired/void quotes stay linked and traceable but move into history/archive.
+
+Market-app alignment:
+
+Most quoting/accounting systems treat estimates/quotes as separate commercial documents with their own number, status and lifecycle. PandaZen should follow that pattern, but keep it simpler:
+
+```text
+Draft -> Sent -> Accepted / Rejected / Expired
+```
+
+Accepted quotes can later feed jobs, billable events and invoices. Sent quotes should not be silently edited; revisions should become new versions.
 
 Future quote workflow:
 
@@ -963,12 +1010,12 @@ Lead
 -> Q&A / Assessment
 -> Quote Assist recommendation
 -> Draft Quote record
--> Admin finalises Quote
--> Quote PDF/download
 -> Quote sent
--> Quote accepted or rejected
+-> Quote accepted / rejected / expired
 -> Accepted Quote converts Q&A to Client & Home
--> Jobs / invoices later
+-> Cleaning Plan
+-> Jobs / Billable Events
+-> Invoice
 ```
 
 Quote versions:
@@ -979,6 +1026,16 @@ Quote versions:
 - Only one version may eventually be accepted.
 - Sent quote versions must not be silently overwritten.
 - Revised sent quotes should create a new version.
+
+Quote statuses:
+
+- `draft`
+- `sent`
+- `accepted`
+- `rejected`
+- `expired`
+- `void`
+- `superseded`
 
 Future Quote record concept:
 
@@ -1026,9 +1083,49 @@ Future quote PDF template requirements:
 
 Future invoice relationship:
 
-- Accepted Quote should later feed one-off invoices, recurring invoice templates and job-generated invoice adjustments.
-- Admin must still be able to add extras when jobs are scheduled/generated.
+- Accepted Quote should later feed jobs, billable events and invoices, while admin can still add extras or manual adjustments.
 - The quote is the commercial promise; jobs/reports may add approved extras or adjustments before invoicing.
+
+Billable Events architecture:
+
+Invoices should be generated from selected billable events, not automatically one-per-job.
+
+A billable event is any chargeable item, for example:
+
+- regular clean visit
+- deep clean visit
+- ad-hoc B&B turnover
+- extra task
+- late cancellation fee
+- travel surcharge
+- manual adjustment
+- discount
+
+Admin should be able to select any combination of uninvoiced billable events for a client/home/prospect and generate one invoice.
+
+Examples:
+
+- one monthly invoice containing four regular cleans and one extra deep clean
+- one ad-hoc B&B invoice containing several turnover visits across a few weeks
+- one immediate invoice for a one-off deep clean
+
+Billable event statuses:
+
+- `draft / pending`
+- `ready_to_invoice`
+- `invoiced`
+- `paid`
+- `void / not_billable`
+
+Once a billable event is included on an invoice, it becomes invoiced and the invoice line stores a snapshot of the description, quantity, rate and amount. Later changes to the original job/event must not silently alter a sent invoice.
+
+Commercial object separation:
+
+- Quote = offer / commercial promise
+- Job = scheduled or completed visit/work order
+- Billable Event = chargeable item generated from a job, extra or manual charge
+- Invoice = selected billable events grouped into one payment request
+- Payment = money received / reconciliation later
 
 ### Settings / Data & Backups
 
@@ -1243,44 +1340,31 @@ Security:
 
 ## 17. Future Core Workflow
 
-Corrected quote/accounting workflow:
+Current live bridge:
+
+```text
+Lead -> Q&A -> Quote Assist / Draft Quote -> Q&A can be closed as not proceeding -> temporary Q&A to Client & Home bridge
+```
+
+Future intended commercial flow:
 
 ```text
 Lead
 -> Q&A / Assessment
--> Quote Assist recommendation
--> Draft Quote record
--> Admin finalises Quote
--> Quote PDF/download
+-> Quote Assist
+-> Draft Quote
 -> Quote sent
--> Quote accepted or rejected
+-> Quote accepted / rejected / expired
 -> Accepted Quote converts Q&A to Client & Home
 -> Cleaning Plan
--> Job
--> Report
--> Follow-Up
--> Invoice
-```
-
-Current bridge:
-
-```text
-Lead -> Q&A -> Q&A Quote Assist -> temporary Q&A to Client & Home bridge
+-> Jobs / Visits
+-> Reports / Follow-ups
+-> Billable Events
+-> Invoice from selected billable events
+-> Payment tracking later
 ```
 
 The older direct Q&A -> Client & Home conversion is only a temporary bridge. Once the Quote layer exists, accepted Quote is the proper trigger for Client & Home conversion.
-
-Legacy workflow note, superseded by the corrected quote/accounting workflow above:
-
-```text
-Lead -> Quote Assist -> Assessment/Quote -> Accepted -> Client & Home -> Cleaning Plan -> Job -> Report -> Follow-Up -> Invoice
-```
-
-Legacy current-build note, superseded by the current bridge note above:
-
-```text
-Lead -> Quote Assist -> Admin Review -> Next Action
-```
 
 Future modules:
 
@@ -1296,6 +1380,33 @@ Future modules:
 ---
 
 ## 18. Suggested Build Order
+
+Accepted/completed foundation:
+
+- Lead Capture Foundation
+- Quote Assist foundation sufficient for current Q&A use
+- Lead lost/reject/not suitable handling
+- Q&A / C&H workspace architecture
+- Q&A close/not proceeding workflow
+
+Next selected phase:
+
+### Accounting Quote Workflow MVP
+
+- quote records linked to Q&A and Lead
+- quote versioning, for example `Q-00023/01`
+- `draft / sent / accepted / rejected / expired / void / superseded` status flow
+- linked quote summary shown in Q&A and Client & Home
+- accepted quote becomes the future trigger for Client & Home conversion
+- keep current Q&A -> Client & Home conversion as temporary bridge
+- do not build full PDF/document editor yet
+
+Later:
+
+- quote document editor / PDF output
+- billable events
+- invoice generation from selected billable events
+- payment tracking
 
 ### Phase 0 - Security Foundation
 
@@ -1339,49 +1450,61 @@ Future modules:
 - `anonymise_after = closed_at + 90 days`
 - future review task/workflow
 
-### Phase 4 - Assessment Module
+### Phase 4 - Q&A / Client Workspace Foundation
 
-- assessment prefilled from lead
-- structured property/scope data
-- man-hours and quote notes
+- Q&A workspace-first layout
+- Q&A Active / History containers
+- collapsed drawer rail
+- Client & Home workspace-first layout
+- active / history structure for Client & Home
+- Q&A not proceeding close-out path
 
-### Phase 5 - Clients & Homes + Cleaning Plans
+### Phase 5 - Accounting Quote Workflow MVP
 
-- convert accepted lead to client/home
+- quote records linked to Q&A and Lead
+- quote versioning, for example `Q-00023/01`
+- draft / sent / accepted / rejected / expired / void / superseded status flow
+- linked quote summary shown in Q&A and Client & Home
+- accepted Quote becomes the future trigger for Client & Home conversion
+- keep current Q&A -> Client & Home conversion as temporary bridge until this layer replaces it
+- do not build full PDF/document editor yet
+
+### Phase 6 - Quote Editor / PDF Output
+
+- admin finalises quote
+- quote document editor
+- PDF/download generated from Quote record
+
+### Phase 7 - Clients & Homes + Cleaning Plans
+
+- conversion on acceptance path
 - create cleaning plan
 - default checklist
 
-### Phase 6 - Schedule + Jobs
+### Phase 8 - Schedule + Jobs
 
 - manual/generate jobs
 - reschedule/cancel
 - assign cleaner/helper
 - status flow
 
-### Phase 7 - Cleaner Experience
+### Phase 9 - Cleaner Experience
 
 - mobile job list
 - job report/checklist
 - completion/follow-up notes
 - later PWA/offline
 
-### Phase 8 - Accounting Quote Layer
-
-- quote records linked to Q&A and Lead
-- quote versioning, for example `Q-00023/01`
-- draft/finalise/send/accept/reject/expire status flow
-- PDF/download generated from Quote record
-- accepted Quote becomes the future trigger for Client & Home conversion
-- keep current Q&A -> Client & Home conversion as temporary bridge until this layer replaces it
-
-### Phase 9 - Invoicing
+### Phase 10 - Billable Events + Invoicing
 
 - missing report alerts
 - admin review
-- invoice-ready jobs
+- billable event generation and readiness states
+- invoice generation from selected billable events
 - invoice records and CSV export
+- payment tracking later
 
-### Phase 10 - Files, Staff, Business Reminders
+### Phase 11 - Files, Staff, Business Reminders
 
 - uploaded file references
 - photo cleanup prompts
@@ -1478,31 +1601,26 @@ Backup/export is mandatory before production deployments that change schema, dat
 
 ## 20. Current MVP State
 
-Already present/planned:
+Already present:
 
-- public website
-- early enquiry form
-- admin shell
-- lead board
-- schedule/jobs/invoice previews
-- D1 migrations
-- Cloudflare Functions API
-- focused form pattern
-- Privacy Policy and Terms & Conditions
-- PP checkbox and marketing checkbox
+- public website and enquiry form
+- admin shell and drawer/workspace patterns
+- Lead active/history workflow
+- Quote Assist inside Q&A
+- Q&A active/history workflow
+- Client & Home workspace foundation
+- draft quote foundation linked to Q&A
+- current temporary Q&A -> Client & Home bridge
+- D1 migrations and Cloudflare Functions API
 
 Still required before real use:
 
 - Cloudflare Access protection
 - protect legacy `/api/*` routes or remove/migrate them before storing real data
-- proper form submit wiring
-- final enquiry field review
-- endpoint security/anti-spam
-- short-term hashed rate-limit event storage and Privacy Policy wording
-- quote assist table/helper/output
-- admin lead review panel
-- lead notes
-- admin tasks/reminders
+- final endpoint security/anti-spam review
+- full Quote Workflow MVP status handling
+- quote document/editor later
+- billable events and invoicing later
 - lost lead anonymisation hooks
 - settings/dropdown editor later
 - files/photos later
@@ -1603,32 +1721,23 @@ Efficient flow:
 ## 23. Codex Instruction Block for Next Build
 
 ```text
-Work only on the Lead Capture + Quote Assist foundation.
+Work only on Quote Workflow MVP.
 
 Goal:
-Create the database/API/admin structure for public PandaZen enquiries and first-pass quote intelligence.
+Make quote records operationally useful and commercially traceable before building a full quote editor/PDF layer.
 
 Build:
-- leads table or migration updates for current enquiry form fields
-- lead_notes table
-- admin_tasks table
-- lead_quote_assist table
-- public lead creation API
-- admin lead list/detail API
-- admin lead status update
-- admin note creation
-- automatic follow-up task creation for new leads
-- rule-based quote assist helper
-- quote assist output saved against each lead
-- admin display of quote assist summary
-- Privacy Policy acknowledgement storage
-- marketing opt-in storage
-- short-term hashed anti-spam/rate-limit event storage
-- lost reason fields and anonymise_after hook
+- quote records linked to Q&A and Lead
+- quote versioning, for example Q-00023/01
+- quote status flow: draft / sent / accepted / rejected / expired / void / superseded
+- linked quote summary shown in Q&A and Client & Home
+- accepted Quote becomes the future trigger for Client & Home conversion
+- keep current Q&A -> Client & Home conversion as temporary bridge until that trigger is replaced
+- no full quote/PDF editor yet
+- no invoice generation yet
 
-Do not build clients, jobs, invoices, staff, file uploads or scheduling in this step.
-Do not redesign the website/admin UI except where needed to display this workflow.
-Do not add T&C acceptance to the enquiry form. T&C belongs at quote/booking stage.
+Do not build the full document editor, billable events, invoice generation, cleaner portal, or scheduling in this step.
+Do not redesign the website/admin UI except where needed to display quote record workflow.
 Keep changes modular and document what was changed.
 Use test/junk data only until admin and API routes are protected.
 ```

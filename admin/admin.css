@@ -2202,36 +2202,178 @@ body.cleaner-mode .notice {
   width: 100%;
 }
 
-.price-line-row {
-  display: flex;
+/* Context Banner Styles */
+.modal-context-banner {
+  background: #f4f6f3;
+  border-bottom: 1px solid var(--line);
+  padding: 12px 24px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: 12px;
-  align-items: center;
-  margin-bottom: 8px;
+  font-size: 0.82rem;
+  color: var(--muted);
 }
 
-.price-line-desc {
-  flex: 1;
+.modal-context-banner strong {
+  color: var(--ink);
 }
 
-.price-line-amount {
-  width: 130px;
-}
-
-.price-line-remove {
-  flex: 0 0 auto;
-  min-height: 40px;
-  padding: 0 12px;
-  color: #8b4e45 !important;
-  border-color: #f3dad5 !important;
-  background: #faecea !important;
+.modal-context-banner .status-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
   font-weight: 800;
-  cursor: pointer;
-  border: 1px solid;
-  border-radius: 6px;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  background: #edf3ea;
+  color: var(--forest);
 }
 
-.price-line-remove:hover {
-  background: #f6dedb !important;
+/* Context / Help Panel Styles */
+.context-help-panel {
+  background: #fbfaf8;
+  border: 1px dashed var(--muted);
+  border-radius: 8px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.context-help-panel h3 {
+  margin: 0 0 2px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--forest);
+  letter-spacing: 0.05em;
+}
+
+.help-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.help-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.help-value {
+  font-size: 0.84rem;
+  color: var(--ink);
+}
+
+.help-value.notes-box {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 6px 8px;
+  max-height: 80px;
+  overflow-y: auto;
+  font-family: monospace;
+  font-size: 0.76rem;
+  white-space: pre-wrap;
+}
+
+/* Pricing Table Styles */
+.editor-pricing-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 12px;
+}
+
+.editor-pricing-table th {
+  text-align: left;
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 2px solid var(--line);
+  padding: 8px 4px;
+}
+
+.editor-pricing-table td {
+  padding: 6px 4px;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--line);
+}
+
+.editor-pricing-table .col-desc {
+  /* description takes remaining width */
+}
+
+.editor-pricing-table .col-amount {
+  width: 140px;
+}
+
+.editor-pricing-table .col-action {
+  width: 48px;
+  text-align: center;
+}
+
+.price-line-row-tr {
+  background: transparent;
+}
+
+.price-line-row-tr input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font: inherit;
+  box-sizing: border-box;
+}
+
+.price-line-remove-btn {
+  background: none;
+  border: 0;
+  font-size: 1.4rem;
+  color: #8b4e45;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 150ms ease;
+}
+
+.price-line-remove-btn:hover {
+  color: #c93b2b;
+}
+
+/* Quick Dates Buttons Styles */
+.quick-dates-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.date-quick-btn {
+  flex: 1;
+  min-height: 28px !important;
+  height: 28px !important;
+  padding: 0 4px !important;
+  font-size: 0.78rem !important;
+  font-weight: 700 !important;
+  border-radius: 4px !important;
+  border: 1px solid var(--line) !important;
+  background: white !important;
+  color: var(--muted) !important;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 150ms ease;
+}
+
+.date-quick-btn:hover {
+  background: var(--light-grey) !important;
+  color: var(--ink) !important;
+  border-color: var(--forest) !important;
 }
 
 .modal-footer {

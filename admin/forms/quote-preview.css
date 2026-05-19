@@ -106,6 +106,10 @@ button.quiet:hover {
 }
 
 /* States */
+.loading-state[hidden], .error-state[hidden], #quote-content[hidden] {
+  display: none !important;
+}
+
 .loading-state, .error-state {
   display: flex;
   flex-direction: column;

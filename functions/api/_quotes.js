@@ -16,6 +16,8 @@ const baseQuoteSelect = `SELECT q.id, q.quote_number AS quoteNumber, q.version_n
         q.created_at AS createdAt, q.updated_at AS updatedAt,
         aq.customer_name AS customerName, aq.area, aq.postcode,
         aq.service_type AS serviceType, aq.frequency,
+        aq.suggested_price_min AS suggestedPriceMin, aq.suggested_price_max AS suggestedPriceMax,
+        aq.notes AS qaNotes, aq.assessment_notes AS qaAssessmentNotes, aq.quote_notes AS qaQuoteNotes,
         c.customer_name AS clientName
  FROM accounting_quotes q
  LEFT JOIN assessment_quotes aq ON aq.id = q.assessment_quote_id

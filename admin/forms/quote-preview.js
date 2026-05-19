@@ -3,7 +3,7 @@
   const quoteId = urlParams.get("id");
   const shouldPrint = urlParams.get("print") === "true";
 
-  const btnBack = document.getElementById("btn-back");
+  const btnClose = document.getElementById("btn-close");
   const btnPrint = document.getElementById("btn-print");
   const loadingIndicator = document.getElementById("loading-indicator");
   const errorIndicator = document.getElementById("error-indicator");
@@ -11,13 +11,23 @@
   const quoteContent = document.getElementById("quote-content");
 
   // Setup navigation handlers
-  if (btnBack) {
-    btnBack.addEventListener("click", () => {
-      if (window.history.length > 1) {
-        window.history.back();
-      } else {
-        window.location.href = "../index.html";
-      }
+  if (btnClose) {
+    btnClose.addEventListener("click", () => {
+      window.close();
+      // If window.close() was blocked by browser
+      setTimeout(() => {
+        const existing = btnClose.parentElement.querySelector(".close-warning");
+        if (!existing) {
+          const warning = document.createElement("span");
+          warning.className = "close-warning";
+          warning.style.fontSize = "0.85rem";
+          warning.style.color = "var(--muted)";
+          warning.style.alignSelf = "center";
+          warning.style.marginRight = "12px";
+          warning.textContent = "You can close this tab and return to the admin tab.";
+          btnClose.parentElement.insertBefore(warning, btnClose);
+        }
+      }, 100);
     });
   }
 
@@ -55,6 +65,7 @@
     if (loadingIndicator) loadingIndicator.hidden = true;
     if (errorIndicator) errorIndicator.hidden = false;
     if (errorMessage) errorMessage.textContent = msg;
+    if (quoteContent) quoteContent.hidden = true;
   }
 
   function formatDate(isoString) {
@@ -163,6 +174,7 @@
 
     // Toggle entire UI loading/content
     if (loadingIndicator) loadingIndicator.hidden = true;
+    if (errorIndicator) errorIndicator.hidden = true;
     if (quoteContent) quoteContent.hidden = false;
 
     // Trigger printing if requested

@@ -3596,7 +3596,7 @@ function renderExports(type) {
 function updateTotalPriceFromLines() {
   const container = document.getElementById("editor-price-lines-list");
   let sum = 0;
-  container.querySelectorAll(".price-line-row").forEach((row) => {
+  container.querySelectorAll(".price-line-row-tr").forEach((row) => {
     const amountVal = parseFloat(row.querySelector(".price-line-amount").value);
     if (!isNaN(amountVal)) {
       sum += amountVal;
@@ -3609,30 +3609,37 @@ function updateTotalPriceFromLines() {
 }
 
 function createPriceLineRow(desc = "", amount = "") {
-  const row = document.createElement("div");
-  row.className = "price-line-row";
+  const row = document.createElement("tr");
+  row.className = "price-line-row-tr";
   
+  const tdDesc = document.createElement("td");
   const descInput = document.createElement("input");
   descInput.type = "text";
   descInput.className = "price-line-desc";
   descInput.placeholder = "Item description";
   descInput.value = desc;
+  tdDesc.appendChild(descInput);
   
+  const tdAmount = document.createElement("td");
   const amountInput = document.createElement("input");
   amountInput.type = "number";
   amountInput.step = "0.01";
   amountInput.className = "price-line-amount";
   amountInput.placeholder = "0.00";
   amountInput.value = amount;
+  tdAmount.appendChild(amountInput);
   
+  const tdAction = document.createElement("td");
+  tdAction.className = "col-action";
   const removeBtn = document.createElement("button");
   removeBtn.type = "button";
-  removeBtn.className = "price-line-remove";
+  removeBtn.className = "price-line-remove-btn";
   removeBtn.innerHTML = "&times;";
+  tdAction.appendChild(removeBtn);
   
-  row.appendChild(descInput);
-  row.appendChild(amountInput);
-  row.appendChild(removeBtn);
+  row.appendChild(tdDesc);
+  row.appendChild(tdAmount);
+  row.appendChild(tdAction);
   
   amountInput.addEventListener("input", updateTotalPriceFromLines);
   removeBtn.addEventListener("click", () => {
@@ -3673,6 +3680,40 @@ async function openQuoteEditor(quoteId) {
     form.elements.totalPrice.value = quote.totalPrice ? (quote.totalPrice / 100).toFixed(2) : "";
     form.elements.recurringPrice.value = quote.recurringPrice ? (quote.recurringPrice / 100).toFixed(2) : "";
     form.elements.validUntil.value = quote.validUntil ? quote.validUntil.slice(0, 10) : "";
+    
+    // Populate Context Banner
+    document.getElementById("ctx-client-name").textContent = quote.clientName || quote.customerName || "N/A";
+    document.getElementById("ctx-area").textContent = quote.area || "N/A";
+    document.getElementById("ctx-service").textContent = quote.serviceType || "N/A";
+    document.getElementById("ctx-frequency").textContent = quote.frequency || "N/A";
+    document.getElementById("ctx-ref").textContent = quote.displayReference || "N/A";
+    
+    const badge = document.getElementById("ctx-status");
+    badge.textContent = quote.status || "N/A";
+    badge.className = `status-badge status-${String(quote.status).toLowerCase()}`;
+    
+    document.getElementById("ctx-qa-id").textContent = quote.assessmentQuoteId || "N/A";
+
+    // Populate Context / Help Panel
+    const helpRange = document.getElementById("help-suggested-range");
+    if (quote.suggestedPriceMin || quote.suggestedPriceMax) {
+      const minStr = quote.suggestedPriceMin ? ("£" + (quote.suggestedPriceMin / 100).toFixed(2)) : "£0.00";
+      const maxStr = quote.suggestedPriceMax ? ("£" + (quote.suggestedPriceMax / 100).toFixed(2)) : "£0.00";
+      helpRange.textContent = `${minStr} - ${maxStr}`;
+    } else {
+      helpRange.textContent = "No suggestion available";
+    }
+
+    const helpQaNotes = document.getElementById("help-qa-notes");
+    helpQaNotes.textContent = quote.qaQuoteNotes || quote.qaNotes || "No notes available";
+    
+    const helpProperty = document.getElementById("help-property-summary");
+    const summaryParts = [];
+    if (quote.serviceType) summaryParts.push(`Service: ${quote.serviceType}`);
+    if (quote.frequency) summaryParts.push(`Frequency: ${quote.frequency}`);
+    if (quote.area) summaryParts.push(`Area: ${quote.area}`);
+    if (quote.qaAssessmentNotes) summaryParts.push(`Assessment: ${quote.qaAssessmentNotes}`);
+    helpProperty.textContent = summaryParts.join("\n") || "No summary available";
     
     const linesList = document.getElementById("editor-price-lines-list");
     linesList.innerHTML = "";
@@ -3739,7 +3780,7 @@ async function saveQuoteEditor(event) {
   
   const linesList = document.getElementById("editor-price-lines-list");
   const priceLines = [];
-  linesList.querySelectorAll(".price-line-row").forEach((row) => {
+  linesList.querySelectorAll(".price-line-row-tr").forEach((row) => {
     const desc = row.querySelector(".price-line-desc").value.trim();
     const amtVal = parseFloat(row.querySelector(".price-line-amount").value);
     const price = isNaN(amtVal) ? 0 : Math.round(amtVal * 100);
@@ -3774,6 +3815,24 @@ function bindEvents() {
   
   document.getElementById("editor-add-price-line")?.addEventListener("click", () => {
     document.getElementById("editor-price-lines-list").appendChild(createPriceLineRow());
+  });
+  
+  document.querySelectorAll("#quote-editor-modal .date-quick-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      const days = parseInt(btn.getAttribute("data-days"), 10);
+      if (isNaN(days)) return;
+      const d = new Date();
+      d.setDate(d.getDate() + days);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      const formatted = `${year}-${month}-${day}`;
+      const input = document.querySelector('#quote-editor-form input[name="validUntil"]');
+      if (input) {
+        input.value = formatted;
+      }
+    });
   });
 
   document.querySelectorAll("[data-view]").forEach((button) => {

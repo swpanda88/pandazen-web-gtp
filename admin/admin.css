@@ -1368,6 +1368,14 @@ body.workspace-first-view .drawer.is-collapsed.is-empty {
   box-shadow: none;
 }
 
+.drawer-shell-empty {
+  padding-top: 20px;
+}
+
+.drawer-shell-empty p {
+  margin-bottom: 0;
+}
+
 .drawer-frame {
   height: 100%;
   display: grid;
@@ -1451,6 +1459,14 @@ body.workspace-first-view .drawer.is-collapsed.is-empty {
 
 .drawer-title-copy p:last-child {
   margin-bottom: 0;
+}
+
+.drawer-title-detail {
+  margin-top: 6px;
+  margin-bottom: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.4;
 }
 
 .drawer-titlebar-compact {

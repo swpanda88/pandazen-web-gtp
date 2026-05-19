@@ -309,6 +309,86 @@
       </aside>
     </div>
 
+    <!-- Quote Editor Modal -->
+    <div class="modal-overlay" id="quote-editor-modal" hidden>
+      <div class="modal-card">
+        <header class="modal-header">
+          <h2>Edit Quote Draft</h2>
+          <button class="close-button" type="button" data-close-modal aria-label="Close modal">&times;</button>
+        </header>
+        <form class="modal-form" id="quote-editor-form">
+          <input type="hidden" name="id">
+          
+          <div class="field-grid">
+            <label class="full">
+              Scope of Work
+              <textarea name="scopeOfWork" rows="3" placeholder="Description of service scope..."></textarea>
+            </label>
+            <label class="full">
+              Included Items
+              <textarea name="includedItems" rows="2" placeholder="Item 1, Item 2..."></textarea>
+            </label>
+            <label class="full">
+              Excluded Items
+              <textarea name="excludedItems" rows="2" placeholder="Item 1, Item 2..."></textarea>
+            </label>
+            <label class="full">
+              Assumptions
+              <textarea name="assumptions" rows="2" placeholder="Assumptions..."></textarea>
+            </label>
+            
+            <hr class="form-divider full" aria-hidden="true">
+            
+            <div class="repeatable full">
+              <h3>Pricing Line Items</h3>
+              <div id="editor-price-lines-list">
+                <!-- Dynamic rows -->
+              </div>
+              <button class="ghost" type="button" id="editor-add-price-line">+ Add Price Line</button>
+            </div>
+            
+            <hr class="form-divider full" aria-hidden="true">
+
+            <label>
+              Total Price (£)
+              <input type="number" name="totalPrice" step="0.01" placeholder="0.00">
+            </label>
+            <label>
+              Recurring Price (£)
+              <input type="number" name="recurringPrice" step="0.01" placeholder="0.00">
+            </label>
+            <label>
+              Valid Until
+              <input type="date" name="validUntil">
+            </label>
+            <label class="full">
+              Pricing Notes
+              <textarea name="pricingNotes" rows="2" placeholder="Pricing detail notes..."></textarea>
+            </label>
+            
+            <hr class="form-divider full" aria-hidden="true">
+            
+            <label class="full">
+              Client Notes
+              <textarea name="clientNotes" rows="2" placeholder="Notes shown to the client..."></textarea>
+            </label>
+            <label class="full">
+              Internal Notes
+              <textarea name="internalNotes" rows="2" placeholder="Internal staff notes..."></textarea>
+            </label>
+          </div>
+          
+          <div class="modal-footer">
+            <span class="status" id="quote-editor-status"></span>
+            <div class="step-actions">
+              <button class="ghost" type="button" data-close-modal>Cancel</button>
+              <button class="primary" type="submit">Save Changes</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <script src="admin.js"></script>
   </body>
 </html>

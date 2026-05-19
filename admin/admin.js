@@ -108,6 +108,7 @@ const data = {
       notes: "Friendly dog. Products preference to confirm."
     }
   ],
+  quotes: [],
   jobs: [
     {
       id: "job-1",
@@ -267,7 +268,18 @@ async function apiPost(path, body) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body)
   });
-  if (!response.ok) throw new Error(`API ${path} failed`);
+  if (!response.ok) {
+    let message = `API ${path} failed`;
+    try {
+      const payload = await response.json();
+      if (payload?.error) {
+        message = payload.error;
+      }
+    } catch {
+      // Keep the generic fallback when the response has no JSON body.
+    }
+    throw new Error(message);
+  }
   return response.json();
 }
 
@@ -277,7 +289,18 @@ async function apiPatch(path, body) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body)
   });
-  if (!response.ok) throw new Error(`API ${path} failed`);
+  if (!response.ok) {
+    let message = `API ${path} failed`;
+    try {
+      const payload = await response.json();
+      if (payload?.error) {
+        message = payload.error;
+      }
+    } catch {
+      // Keep the generic fallback when the response has no JSON body.
+    }
+    throw new Error(message);
+  }
   return response.json();
 }
 
@@ -493,6 +516,146 @@ function leadPrice(lead) {
 
 function compactMeta(items) {
   return items.filter(Boolean).join(" - ");
+}
+
+function humanizeToken(value) {
+  return String(value || "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function quoteStatusDisplay(quote) {
+  return humanizeToken(quote?.status || "draft");
+}
+
+function sortQuotes(quotes) {
+  return [...(quotes || [])].sort((left, right) => {
+    const byNumber = (Number(right.quoteNumber || 0) - Number(left.quoteNumber || 0))
+      || (Number(right.versionNumber || 0) - Number(left.versionNumber || 0))
+      || (Number(right.id || 0) - Number(left.id || 0));
+    return byNumber;
+  });
+}
+
+function latestQuote(quotes) {
+  return sortQuotes(quotes)[0] || null;
+}
+
+function quotesForAssessment(record) {
+  const related = record?.quotes?.length
+    ? record.quotes
+    : (data.quotes || []).filter((quote) => String(quote.assessmentQuoteId) === String(record?.id));
+  return sortQuotes(related);
+}
+
+function quotesForClient(record) {
+  const byClient = (data.quotes || []).filter((quote) => String(quote.clientId || "") === String(record?.id));
+  if (byClient.length) return sortQuotes(byClient);
+  const byAssessment = record?.assessmentQuoteId
+    ? (data.quotes || []).filter((quote) => String(quote.assessmentQuoteId) === String(record.assessmentQuoteId))
+    : [];
+  return sortQuotes(record?.quotes?.length ? record.quotes : byAssessment);
+}
+
+function draftQuoteForAssessment(record) {
+  return quotesForAssessment(record).find((quote) => String(quote.status || "").toLowerCase() === "draft") || null;
+}
+
+function canCreateNewQuoteVersion(record) {
+  return !draftQuoteForAssessment(record);
+}
+
+function quoteSummaryMeta(quote) {
+  return compactMeta([
+    quoteStatusDisplay(quote),
+    quote.totalPriceLabel || formatMoneyPence(quote.totalPrice),
+    quote.recurringPriceLabel || formatMoneyPence(quote.recurringPrice),
+    quote.validUntil ? `Valid ${formatDate(quote.validUntil)}` : ""
+  ]);
+}
+
+function quoteActionButtons(quote, assessmentQuoteId) {
+  const status = String(quote.status || "").toLowerCase();
+  if (status === "draft") {
+    return `
+      <div class="drawer-actions compact">
+        <button class="ghost" type="button" data-update-quote-status="sent" data-quote-id="${escapeHtml(quote.id)}" data-assessment-quote-id="${escapeHtml(assessmentQuoteId)}">Mark sent</button>
+        <button class="ghost" type="button" data-update-quote-status="void" data-quote-id="${escapeHtml(quote.id)}" data-assessment-quote-id="${escapeHtml(assessmentQuoteId)}">Void draft</button>
+      </div>
+    `;
+  }
+
+  if (status === "sent") {
+    return `
+      <div class="drawer-actions compact">
+        <button class="ghost" type="button" data-update-quote-status="accepted" data-quote-id="${escapeHtml(quote.id)}" data-assessment-quote-id="${escapeHtml(assessmentQuoteId)}">Mark accepted</button>
+        <button class="ghost" type="button" data-update-quote-status="rejected" data-quote-id="${escapeHtml(quote.id)}" data-assessment-quote-id="${escapeHtml(assessmentQuoteId)}">Mark rejected</button>
+        <button class="ghost" type="button" data-update-quote-status="expired" data-quote-id="${escapeHtml(quote.id)}" data-assessment-quote-id="${escapeHtml(assessmentQuoteId)}">Mark expired</button>
+      </div>
+    `;
+  }
+
+  return "";
+}
+
+function renderQuoteRecordCard(quote, assessmentQuoteId) {
+  return `
+    <article class="workspace-list-item quote-record-item">
+      <strong>${escapeHtml(quote.displayReference || `Quote #${quote.id}`)}</strong>
+      <p>${escapeHtml(quoteSummaryMeta(quote) || quoteStatusDisplay(quote))}</p>
+      <small>${escapeHtml(compactMeta([
+        quote.clientName || quote.customerName,
+        quote.updatedAt ? `Updated ${formatDateTime(quote.updatedAt)}` : ""
+      ]))}</small>
+      ${assessmentQuoteId ? quoteActionButtons(quote, assessmentQuoteId) : ""}
+    </article>
+  `;
+}
+
+function mergeQuotesIntoRecords(assessments, clients, quotes) {
+  const quotesByAssessment = new Map();
+  const quotesByClient = new Map();
+
+  quotes.forEach((quote) => {
+    const assessmentKey = String(quote.assessmentQuoteId || "");
+    const clientKey = String(quote.clientId || "");
+    if (assessmentKey) {
+      const existing = quotesByAssessment.get(assessmentKey) || [];
+      existing.push(quote);
+      quotesByAssessment.set(assessmentKey, existing);
+    }
+    if (clientKey) {
+      const existing = quotesByClient.get(clientKey) || [];
+      existing.push(quote);
+      quotesByClient.set(clientKey, existing);
+    }
+  });
+
+  const hydratedAssessments = (assessments || []).map((assessment) => {
+    const relatedQuotes = sortQuotes(quotesByAssessment.get(String(assessment.id)) || []);
+    return {
+      ...assessment,
+      quotes: relatedQuotes,
+      accountingQuote: latestQuote(relatedQuotes) || assessment.accountingQuote || null
+    };
+  });
+
+  const hydratedClients = (clients || []).map((client) => {
+    const related = sortQuotes([
+      ...(quotesByClient.get(String(client.id)) || []),
+      ...((quotesByAssessment.get(String(client.assessmentQuoteId || "")) || []).filter(
+        (quote) => !quote.clientId || String(quote.clientId) === String(client.id)
+      ))
+    ]);
+    const uniqueQuotes = related.filter((quote, index, list) => list.findIndex((item) => String(item.id) === String(quote.id)) === index);
+    return {
+      ...client,
+      quotes: uniqueQuotes,
+      accountingQuote: latestQuote(uniqueQuotes) || client.accountingQuote || null
+    };
+  });
+
+  return { hydratedAssessments, hydratedClients };
 }
 
 function parseListValue(value) {
@@ -1078,20 +1241,17 @@ function renderLeadOutcomeActions(record) {
 }
 
 function renderClientAccountingQuote(record) {
-  const quote = record.accountingQuote;
+  const quotes = quotesForClient(record);
+  const quote = latestQuote(quotes);
   if (!quote && !record.assessmentQuoteId) return "";
   return `
     <section class="drawer-section">
-      <h3>Linked quote</h3>
+      <h3>Linked quotes</h3>
       ${
-        quote
-          ? detailRows([
-              ["Reference", quote.displayReference],
-              ["Status", quote.status],
-              ["Total", formatMoneyPence(quote.totalPrice)],
-              ["Recurring", formatMoneyPence(quote.recurringPrice)],
-              ["Source Q&A", record.assessmentQuoteId ? `#${record.assessmentQuoteId}` : ""]
-            ])
+        quotes.length
+          ? `<div class="workspace-list compact">
+              ${quotes.map((item) => renderQuoteRecordCard(item)).join("")}
+            </div>`
           : `<p class="record-sub">No linked accounting quote has been created from this Q&A yet.</p>`
       }
     </section>
@@ -1165,31 +1325,27 @@ function renderAssessmentQuoteAssist(record) {
 }
 
 function renderAssessmentAccountingQuote(record) {
-  const quote = record.accountingQuote;
+  const quotes = quotesForAssessment(record);
+  const quote = latestQuote(quotes);
+  const draftQuote = draftQuoteForAssessment(record);
   return `
     <section class="drawer-section">
-      <h3>Accounting quote</h3>
+      <h3>Quotes</h3>
       ${
-        quote
-          ? detailRows([
-              ["Reference", quote.displayReference],
-              ["Status", quote.status],
-              ["Version", quote.versionNumber],
-              ["Total", quote.totalPriceLabel || formatMoneyPence(quote.totalPrice)],
-              ["Recurring", quote.recurringPriceLabel || formatMoneyPence(quote.recurringPrice)],
-              ["Valid until", quote.validUntil],
-              ["Updated", formatDateTime(quote.updatedAt || quote.createdAt)]
-            ])
+        quotes.length
+          ? `<div class="workspace-list compact">
+              ${quotes.map((item) => renderQuoteRecordCard(item, record.id)).join("")}
+            </div>`
           : `<p class="record-sub">No draft Accounting quote has been created from this Q&A yet.</p>`
       }
       <div class="drawer-actions">
         ${
-          quote
+          draftQuote
             ? `<button class="ghost" type="button" disabled aria-disabled="true">Draft quote linked</button>`
-            : `<button class="primary" type="button" data-create-accounting-quote="${escapeHtml(record.id)}">Create Draft Quote</button>`
+            : `<button class="primary" type="button" data-create-quote-for-assessment="${escapeHtml(record.id)}">${quotes.length ? "Create Revised Draft" : "Create Draft Quote"}</button>`
         }
       </div>
-      <p class="record-sub" data-assessment-quote-status></p>
+      <p class="record-sub" data-quote-action-status="${escapeHtml(record.id)}"></p>
     </section>
   `;
 }
@@ -1888,14 +2044,32 @@ async function refreshAssessmentDrawer(assessmentId) {
   if (updated) openDrawer("assessment", updated);
 }
 
+async function refreshQuoteLinkedViews(assessmentQuoteId, clientId = null) {
+  await loadApiData();
+
+  if (state.activeDrawerType === "assessment") {
+    const updatedAssessment = data.assessments.find((assessment) => String(assessment.id) === String(assessmentQuoteId));
+    if (updatedAssessment) openDrawer("assessment", updatedAssessment);
+  }
+
+  const resolvedClientId = clientId || data.clients.find((client) => String(client.assessmentQuoteId) === String(assessmentQuoteId))?.id;
+  if (state.activeDrawerType === "client" && resolvedClientId) {
+    const updatedClient = data.clients.find((client) => String(client.id) === String(resolvedClientId));
+    if (updatedClient) openDrawer("client", updatedClient);
+  }
+}
+
 function setAssessmentActionStatus(message) {
   const status = drawer.querySelector("[data-assessment-action-status]");
   if (status) status.textContent = message;
 }
 
-function setAssessmentQuoteStatus(message) {
-  const status = drawer.querySelector("[data-assessment-quote-status]");
-  if (status) status.textContent = message;
+function setQuoteActionStatus(assessmentQuoteId, message) {
+  document.querySelectorAll("[data-quote-action-status]").forEach((node) => {
+    if (String(node.dataset.quoteActionStatus) === String(assessmentQuoteId)) {
+      node.textContent = message;
+    }
+  });
 }
 
 function setAssessmentConversionStatus(message) {
@@ -1929,16 +2103,6 @@ function setupAssessmentDrawerActions(record) {
       await refreshAssessmentDrawer(record.id);
     } catch (err) {
       setAssessmentActionStatus(`Could not run Quote Assist. ${err.message}`);
-    }
-  });
-
-  drawer.querySelector("[data-create-accounting-quote]")?.addEventListener("click", async () => {
-    try {
-      setAssessmentQuoteStatus("Creating draft Accounting quote...");
-      await apiPost(`/api/assessment-quotes/${record.id}/quote`, {});
-      await refreshAssessmentDrawer(record.id);
-    } catch (err) {
-      setAssessmentQuoteStatus(`Could not create draft quote. ${err.message}`);
     }
   });
 
@@ -2900,18 +3064,33 @@ function renderAssessmentWorkspaceTab(record, tab) {
   }
 
   if (tab === "quotes") {
-    const quote = record.accountingQuote;
-    return quote
-      ? detailRows([
-          ["Reference", quote.displayReference],
-          ["Status", quote.status],
-          ["Total", quote.totalPriceLabel || formatMoneyPence(quote.totalPrice)],
-          ["Recurring", quote.recurringPriceLabel || formatMoneyPence(quote.recurringPrice)],
-          ["Valid until", quote.validUntil],
-          ["Created", formatDateTime(quote.createdAt)],
-          ["Updated", formatDateTime(quote.updatedAt)]
-        ]) + `<div class="workspace-placeholder muted"><p>Document editor coming later. This workspace keeps the quote record visible until the dedicated commercial editor exists.</p></div>`
-      : placeholderPanel("No linked accounting quote yet. Create Draft Quote from the drawer when the commercial record is ready.");
+    const quotes = quotesForAssessment(record);
+    const draftQuote = draftQuoteForAssessment(record);
+    return `
+      <div class="workspace-stack">
+        <section>
+          <h4>Linked quotes</h4>
+          ${
+            quotes.length
+              ? `<div class="workspace-list compact">
+                  ${quotes.map((quote) => renderQuoteRecordCard(quote, record.id)).join("")}
+                </div>`
+              : placeholderPanel("No linked accounting quote yet. Create Draft Quote when the commercial record is ready.")
+          }
+          <div class="drawer-actions">
+            ${
+              draftQuote
+                ? `<button class="ghost" type="button" disabled aria-disabled="true">Draft quote linked</button>`
+                : `<button class="primary" type="button" data-create-quote-for-assessment="${escapeHtml(record.id)}">${quotes.length ? "Create Revised Draft" : "Create Draft Quote"}</button>`
+            }
+          </div>
+          <p class="record-sub" data-quote-action-status="${escapeHtml(record.id)}"></p>
+        </section>
+        <section>
+          <div class="workspace-placeholder muted"><p>Document editor coming later. This workspace keeps quote records visible and commercially traceable until the dedicated quote editor exists.</p></div>
+        </section>
+      </div>
+    `;
   }
 
   if (tab === "notes-tasks") {
@@ -3060,21 +3239,17 @@ function renderClientWorkspaceTab(record, tab) {
   }
 
   if (tab === "quotes-invoices") {
-    const quote = record.accountingQuote;
+    const quotes = quotesForClient(record);
     const invoices = (data.invoices || []).filter((invoice) => String(invoice.client || "").toLowerCase() === String(record.name || "").toLowerCase());
     return `
       <div class="workspace-stack">
         <section>
-          <h4>Linked quote</h4>
+          <h4>Linked quotes</h4>
           ${
-            quote
-              ? detailRows([
-                  ["Reference", quote.displayReference],
-                  ["Status", quote.status],
-                  ["Total", quote.totalPriceLabel || formatMoneyPence(quote.totalPrice)],
-                  ["Recurring", quote.recurringPriceLabel || formatMoneyPence(quote.recurringPrice)],
-                  ["Updated", formatDateTime(quote.updatedAt || quote.createdAt)]
-                ])
+            quotes.length
+              ? `<div class="workspace-list compact">
+                  ${quotes.map((quote) => renderQuoteRecordCard(quote)).join("")}
+                </div>`
               : placeholderPanel("No linked accounting quote is available for this client record yet.")
           }
         </section>
@@ -3465,6 +3640,40 @@ function bindEvents() {
     button.addEventListener("click", () => renderExports(button.dataset.export));
   });
 
+  document.addEventListener("click", async (event) => {
+    const createQuoteButton = event.target.closest("[data-create-quote-for-assessment]");
+    if (createQuoteButton) {
+      const assessmentQuoteId = createQuoteButton.dataset.createQuoteForAssessment;
+      try {
+        setQuoteActionStatus(assessmentQuoteId, "Creating draft quote...");
+        const result = await apiPost("/api/quotes", { assessmentQuoteId });
+        await refreshQuoteLinkedViews(assessmentQuoteId, result.quote?.clientId || null);
+        setQuoteActionStatus(
+          assessmentQuoteId,
+          result.alreadyExists ? "Using existing draft quote." : "Draft quote created."
+        );
+      } catch (err) {
+        setQuoteActionStatus(assessmentQuoteId, `Could not create draft quote. ${err.message}`);
+      }
+      return;
+    }
+
+    const quoteStatusButton = event.target.closest("[data-update-quote-status]");
+    if (quoteStatusButton) {
+      const quoteId = quoteStatusButton.dataset.quoteId;
+      const assessmentQuoteId = quoteStatusButton.dataset.assessmentQuoteId;
+      const nextStatus = quoteStatusButton.dataset.updateQuoteStatus;
+      try {
+        setQuoteActionStatus(assessmentQuoteId, `Updating quote to ${quoteStatusDisplay({ status: nextStatus }).toLowerCase()}...`);
+        const result = await apiPatch(`/api/quotes/${quoteId}`, { status: nextStatus });
+        await refreshQuoteLinkedViews(assessmentQuoteId, result.quote?.clientId || null);
+        setQuoteActionStatus(assessmentQuoteId, `Quote marked ${quoteStatusDisplay({ status: nextStatus }).toLowerCase()}.`);
+      } catch (err) {
+        setQuoteActionStatus(assessmentQuoteId, `Could not update quote. ${err.message}`);
+      }
+    }
+  });
+
   document.querySelectorAll("[data-filter]").forEach((select) => {
     select.addEventListener("change", renderSchedule);
   });
@@ -3546,11 +3755,12 @@ async function loadApiData() {
     apiGet("/api/admin/tasks"),
     apiGet("/api/assessment-quotes"),
     apiGet("/api/clients"),
+    apiGet("/api/quotes"),
     apiGet("/api/jobs"),
     apiGet("/api/invoices")
   ]);
 
-  const [options, dashboard, leads, tasks, assessments, clients, jobs, invoices] = payloads;
+  const [options, dashboard, leads, tasks, assessments, clients, quotes, jobs, invoices] = payloads;
   if (leads.status !== "fulfilled") throw leads.reason || new Error("API /api/leads failed");
 
   if (options.status === "fulfilled") {
@@ -3562,8 +3772,12 @@ async function loadApiData() {
   normalizeLeadData(leads.value);
   data.dashboard = dashboard.status === "fulfilled" ? dashboard.value : null;
   data.tasks = tasks.status === "fulfilled" ? tasks.value.tasks || [] : [];
-  data.assessments = assessments.status === "fulfilled" ? assessments.value.assessmentQuotes || assessments.value.assessments || [] : [];
-  data.clients = clients.status === "fulfilled" ? clients.value.clients || [] : [];
+  data.quotes = quotes.status === "fulfilled" ? quotes.value.quotes || [] : [];
+  const rawAssessments = assessments.status === "fulfilled" ? assessments.value.assessmentQuotes || assessments.value.assessments || [] : [];
+  const rawClients = clients.status === "fulfilled" ? clients.value.clients || [] : [];
+  const hydrated = mergeQuotesIntoRecords(rawAssessments, rawClients, data.quotes);
+  data.assessments = hydrated.hydratedAssessments;
+  data.clients = hydrated.hydratedClients;
   data.jobs = jobs.status === "fulfilled"
     ? jobs.value.jobs.map((job) => ({
         ...job,

@@ -3087,13 +3087,14 @@ async function handleGenerateQuoteFromBuilder(assessmentId) {
     const frequency = (assessment.frequencyLabel || assessment.frequency || "").toLowerCase();
     const area = assessment.area || "";
 
-    if (service.includes("regular") || frequency.includes("weekly") || frequency.includes("fortnightly") || frequency.includes("monthly") || frequency.includes("regular")) {
-      const freqPart = frequency ? `regular ${frequency}` : "regular";
-      scopeOfWork = `Initial reset clean and ${freqPart} domestic cleaning service for the property in ${area || "the area"}.`;
-    } else if (service.includes("deep") || service.includes("tenancy") || service.includes("one-off") || service.includes("end of tenancy")) {
-      scopeOfWork = `One-off domestic cleaning visit for the property in ${area || "the area"}, based on the details provided during enquiry.`;
+    if (service.includes("deep") || service.includes("tenancy") || service.includes("end of tenancy")) {
+      scopeOfWork = `One-off deep cleaning service for the property${area ? " in " + area : ""}, based on the details provided during enquiry.`;
+    } else if (service.includes("regular") || frequency.includes("weekly") || frequency.includes("fortnightly") || frequency.includes("monthly") || frequency.includes("regular")) {
+      scopeOfWork = `Initial reset clean followed by regular domestic cleaning visits for the property${area ? " in " + area : ""}, based on the agreed cleaning scope.`;
+    } else if (service.includes("one-off") || service.includes("one off")) {
+      scopeOfWork = `One-off domestic cleaning visit for the property${area ? " in " + area : ""}, based on the details provided during enquiry.`;
     } else {
-      scopeOfWork = `Domestic cleaning service for the property in ${area || "the area"}, based on the details provided during enquiry.`;
+      scopeOfWork = `Domestic cleaning service for the property${area ? " in " + area : ""}, based on the details provided during enquiry.`;
     }
 
     // 2. includedItems
@@ -4045,13 +4046,20 @@ async function openQuoteEditor(quoteId) {
     }
     
     const quote = res.quote;
+    const defaultAssumptions = [
+      "Work is based on normal access and parking availability.",
+      "Agreed scope of work as detailed in the included items list.",
+      "Pricing assumes no major property condition changes since the initial assessment."
+    ].join("\n");
+    const defaultClientNotes = "This quote is based on the information provided and may be adjusted if the agreed scope changes.";
+
     form.elements.id.value = quote.id;
     form.elements.scopeOfWork.value = quote.scopeOfWork || "";
     form.elements.includedItems.value = quote.includedItems || "";
     form.elements.excludedItems.value = quote.excludedItems || "";
-    form.elements.assumptions.value = quote.assumptions || "";
+    form.elements.assumptions.value = quote.assumptions || defaultAssumptions;
     form.elements.pricingNotes.value = quote.pricingNotes || "";
-    form.elements.clientNotes.value = quote.clientNotes || "";
+    form.elements.clientNotes.value = quote.clientNotes || defaultClientNotes;
     form.elements.internalNotes.value = quote.internalNotes || "";
     
     form.elements.totalPrice.value = quote.totalPrice ? (quote.totalPrice / 100).toFixed(2) : "";

@@ -106,15 +106,19 @@ async function existingClientIdForAssessment(db, assessmentQuoteId, convertedCli
 }
 
 function scopeFromAssessment(assessment) {
-  return [
-    assessment.serviceType ? `Service: ${assessment.serviceType}` : "",
-    assessment.frequency ? `Frequency: ${assessment.frequency}` : "",
-    assessment.propertyType ? `Property: ${assessment.propertyType}` : "",
-    assessment.bedrooms || assessment.bathrooms
-      ? `Rooms: ${assessment.bedrooms || "?"} bed / ${assessment.bathrooms || "?"} bath`
-      : "",
-    assessment.priorities ? `Priorities: ${assessment.priorities}` : ""
-  ].filter(Boolean).join("\n");
+  const service = (assessment.serviceType || "domestic cleaning").toLowerCase();
+  const frequency = (assessment.frequency || "").toLowerCase();
+  const area = assessment.area || "";
+
+  if (service.includes("deep") || service.includes("tenancy") || service.includes("end of tenancy")) {
+    return `One-off deep cleaning service for the property${area ? " in " + area : ""}, based on the details provided during enquiry.`;
+  } else if (service.includes("regular") || frequency.includes("weekly") || frequency.includes("fortnightly") || frequency.includes("monthly") || frequency.includes("regular")) {
+    return `Initial reset clean followed by regular domestic cleaning visits for the property${area ? " in " + area : ""}, based on the agreed cleaning scope.`;
+  } else if (service.includes("one-off") || service.includes("one off") || frequency.includes("one_off") || frequency.includes("one-off")) {
+    return `One-off domestic cleaning visit for the property${area ? " in " + area : ""}, based on the details provided during enquiry.`;
+  } else {
+    return `Domestic cleaning service for the property${area ? " in " + area : ""}, based on the details provided during enquiry.`;
+  }
 }
 
 function notesFromAssessment(assessment) {
@@ -145,13 +149,21 @@ export async function createDraftQuote(db, assessmentQuoteId) {
   }, null);
   const clientId = await existingClientIdForAssessment(db, assessmentQuoteId, seed.convertedClientId);
 
+  const defaultAssumptions = [
+    "Work is based on normal access and parking availability.",
+    "Agreed scope of work as detailed in the included items list.",
+    "Pricing assumes no major property condition changes since the initial assessment."
+  ].join("\n");
+
+  const defaultClientNotes = "This quote is based on the information provided and may be adjusted if the agreed scope changes.";
+
   const result = await db
     .prepare(
       `INSERT INTO accounting_quotes (
         quote_number, version_number, assessment_quote_id, lead_id, client_id, status,
-        scope_of_work, pricing_notes, total_price, internal_notes
+        scope_of_work, pricing_notes, total_price, internal_notes, client_notes, assumptions
       )
-      VALUES (?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?)`
+      VALUES (?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       quoteNumber,
@@ -162,7 +174,9 @@ export async function createDraftQuote(db, assessmentQuoteId) {
       scopeFromAssessment(seed) || null,
       seed.quoteNotes || null,
       seed.quotedPrice || seed.suggestedPriceMax || seed.suggestedPriceMin || null,
-      notesFromAssessment(seed) || null
+      notesFromAssessment(seed) || null,
+      defaultClientNotes,
+      defaultAssumptions
     )
     .run();
 

@@ -211,6 +211,10 @@ const state = {
   workspaceDrawerMode: {
     assessments: "collapsed",
     clients: "collapsed"
+  },
+  workspaceDrawerRecord: {
+    assessments: null,
+    clients: null
   }
 };
 
@@ -231,6 +235,7 @@ const activeLeadStatusValues = new Set(["new", "contacted", "waiting_customer", 
 const closedLeadStatuses = new Set(["rejected", "not_suitable"]);
 const convertibleLeadStatuses = new Set(["accepted", "booked", "quote_accepted", "converted"]);
 const assessmentHistoryStatuses = new Set(["converted", "rejected", "not_proceeding", "expired", "closed", "cancelled", "lost"]);
+const clientHistoryStatuses = new Set(["ended", "archived", "inactive", "cancelled", "lost", "closed"]);
 const workspaceFirstViews = new Set(["assessments", "clients"]);
 
 const viewTitle = document.querySelector("[data-view-title]");
@@ -289,6 +294,10 @@ function setView(view) {
     state.workspaceDrawerMode[view] = "collapsed";
   }
   if (isWorkspaceFirstView(view) && state.activeDrawerType && state.activeDrawerType !== recordTypeForView(view)) {
+    resetDrawer();
+    return;
+  }
+  if (isWorkspaceFirstView(view) && !state.activeDrawerType) {
     resetDrawer();
     return;
   }
@@ -547,6 +556,16 @@ function isActiveAssessment(record) {
   return !isHistoryAssessment(record);
 }
 
+function isHistoryClient(record) {
+  if (!record) return false;
+  const status = String(record.status || "").toLowerCase();
+  return status ? clientHistoryStatuses.has(status) : false;
+}
+
+function isActiveClient(record) {
+  return !isHistoryClient(record);
+}
+
 function assessmentStatusDisplay(record) {
   return record.quoteStageLabel || record.quoteStage || record.statusLabel || record.status || "Draft";
 }
@@ -616,7 +635,11 @@ function setWorkspaceDrawerMode(mode, view = state.view) {
 
 function toggleWorkspaceDrawerMode() {
   if (!isWorkspaceFirstView()) return;
-  setWorkspaceDrawerMode(workspaceDrawerMode() === "collapsed" ? "expanded" : "collapsed");
+  if (workspaceDrawerMode() === "collapsed") {
+    reopenWorkspaceDrawer();
+    return;
+  }
+  resetDrawer();
 }
 
 function syncWorkspaceFirstLayout() {
@@ -633,6 +656,53 @@ function syncWorkspaceFirstLayout() {
   drawer.classList.toggle("is-collapsed", workspaceFirst && drawerCollapsed);
   drawer.classList.toggle("is-expanded", workspaceFirst && !drawerCollapsed);
   drawer.classList.toggle("is-empty", drawerEmpty);
+}
+
+function recordsForType(type) {
+  if (type === "assessment") return data.assessments || [];
+  if (type === "client") return data.clients || [];
+  if (type === "lead") return data.leads || [];
+  if (type === "task") return data.tasks || [];
+  if (type === "job") return data.jobs || [];
+  if (type === "invoice") return data.invoices || [];
+  return [];
+}
+
+function currentWorkspaceDrawerRecord(view = state.view) {
+  if (!isWorkspaceFirstView(view)) return null;
+  return state.workspaceDrawerRecord?.[view] || null;
+}
+
+function rememberWorkspaceDrawerRecord(type, record) {
+  const view = type === "assessment" ? "assessments" : type === "client" ? "clients" : null;
+  if (!view || !record?.id) return;
+  state.workspaceDrawerRecord[view] = { type, id: record.id };
+}
+
+function reopenWorkspaceDrawer(view = state.view) {
+  if (!isWorkspaceFirstView(view)) return;
+  const stored = currentWorkspaceDrawerRecord(view);
+  if (!stored?.id) return;
+  const record = recordsForType(stored.type).find((item) => String(item.id) === String(stored.id));
+  if (!record) return;
+  openDrawer(stored.type, record);
+}
+
+function renderWorkspaceDrawerRail(view = state.view) {
+  const stored = currentWorkspaceDrawerRecord(view);
+  return `
+    <div class="drawer-rail">
+      <button
+        class="drawer-rail-button"
+        type="button"
+        data-open-workspace-drawer
+        ${stored?.id ? "" : "disabled aria-disabled=\"true\""}
+        aria-label="Open detail drawer"
+      >
+        Open drawer
+      </button>
+    </div>
+  `;
 }
 
 function clientServiceLabel(record) {
@@ -1802,17 +1872,15 @@ function setupAssessmentDrawerActions(record) {
 function resetDrawer() {
   state.activeDrawerType = null;
   leadDetailsEditState = null;
+  if (isWorkspaceFirstView()) {
+    state.workspaceDrawerMode[state.view] = "collapsed";
+  }
   if (drawerScrollHandler) {
     drawer.querySelector(".drawer-body")?.removeEventListener("scroll", drawerScrollHandler);
     drawerScrollHandler = null;
   }
   drawer.innerHTML = isWorkspaceFirstView()
-    ? `
-      <div class="drawer-empty drawer-empty-minimal">
-        <p class="eyebrow">Quick drawer</p>
-        <p>Select a row for context.</p>
-      </div>
-    `
+    ? renderWorkspaceDrawerRail()
     : `
       <div class="drawer-empty">
         <p class="eyebrow">Detail panel</p>
@@ -1820,11 +1888,16 @@ function resetDrawer() {
         <p>Click a lead, task, job or invoice to review details here.</p>
       </div>
     `;
+  drawer.querySelector("[data-open-workspace-drawer]")?.addEventListener("click", reopenWorkspaceDrawer);
   syncWorkspaceFirstLayout();
 }
 
 function openDrawer(type, record = {}) {
   state.activeDrawerType = type;
+  rememberWorkspaceDrawerRecord(type, record);
+  if (isWorkspaceFirstView() && type === recordTypeForView()) {
+    state.workspaceDrawerMode[state.view] = "expanded";
+  }
   if (type !== "lead") leadDetailsEditState = null;
   if (type === "lead") {
     drawer.innerHTML = renderLeadDrawer(record);
@@ -2944,7 +3017,7 @@ function populateWorkspaceTable({ table, records, view, type, defaultTab, emptyT
   });
   table.querySelectorAll("[data-workspace-tab]").forEach((button) => {
     button.addEventListener("click", () => setWorkspaceTab(button.dataset.workspaceView, button.dataset.workspaceId, button.dataset.workspaceTab));
-    });
+  });
 }
 
 function renderTables() {
@@ -2992,22 +3065,44 @@ function renderTables() {
   });
 
   const clientTable = document.querySelector("[data-client-table]");
+  const clientHistoryTable = document.querySelector("[data-client-history-table]");
   const clientCount = document.querySelector("[data-client-count]");
+  const clientHistoryCount = document.querySelector("[data-client-history-count]");
+  const activeClients = (data.clients || []).filter(isActiveClient);
+  const historyClients = (data.clients || []).filter(isHistoryClient);
   populateWorkspaceTable({
     table: clientTable,
-    records: data.clients || [],
+    records: activeClients,
     view: "clients",
     type: "client",
     defaultTab: "overview",
-    emptyTitle: "No Client & Home records yet",
-    emptyMessage: "Converted accepted Q&A records will appear here as the client base grows.",
+    emptyTitle: "No active Client & Home records yet",
+    emptyMessage: "Converted accepted Q&A records will appear here as active client records.",
     countTarget: clientCount,
-    countLabel: "records",
+    countLabel: "active",
     cells: (client) => [
       `<div class="record-main">${escapeHtml(client.name || "")}</div><div class="record-sub">${escapeHtml(compactMeta([client.area, client.address]))}</div>`,
       `${escapeHtml(clientServiceLabel(client) || "Service pending")}<div class="record-sub">${escapeHtml(clientFrequencyLabel(client) || "")}</div>`,
       `${escapeHtml(client.manHours ? `${client.manHours} man-hours` : "Plan pending")}<div class="record-sub">${escapeHtml(compactMeta([client.mainCleaner, client.helper]))}</div>`,
       `<span class="pill">${escapeHtml(clientStatusDisplay(client))}</span>`
+    ],
+    renderWorkspace: renderClientWorkspace
+  });
+  populateWorkspaceTable({
+    table: clientHistoryTable,
+    records: historyClients,
+    view: "clients",
+    type: "client",
+    defaultTab: "overview",
+    emptyTitle: "No client history yet",
+    emptyMessage: "Archived and inactive client records will remain visible here for traceability.",
+    countTarget: clientHistoryCount,
+    countLabel: "records",
+    cells: (client) => [
+      `<div class="record-main">${escapeHtml(client.name || "")}</div><div class="record-sub">${escapeHtml(compactMeta([client.area, client.address]))}</div>`,
+      `${escapeHtml(clientServiceLabel(client) || "Service pending")}<div class="record-sub">${escapeHtml(clientFrequencyLabel(client) || "")}</div>`,
+      `${escapeHtml(client.manHours ? `${client.manHours} man-hours` : "Plan pending")}<div class="record-sub">${escapeHtml(compactMeta([client.mainCleaner, client.helper]))}</div>`,
+      `<span class="pill blue">${escapeHtml(clientStatusDisplay(client))}</span>`
     ],
     renderWorkspace: renderClientWorkspace
   });

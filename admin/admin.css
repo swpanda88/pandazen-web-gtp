@@ -805,6 +805,19 @@ mark.rose {
 
 .workspace-table-panel {
   gap: 18px;
+  padding-bottom: 18px;
+}
+
+.workspace-section-panel {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fffdfa;
+}
+
+.workspace-section-head {
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--line);
 }
 
 .workspace-group {
@@ -830,8 +843,6 @@ mark.rose {
 }
 
 .workspace-history {
-  border: 1px solid var(--line);
-  border-radius: 10px;
   background: #f7f8f5;
 }
 
@@ -1324,30 +1335,37 @@ body.workspace-first-view .drawer.is-collapsed .drawer-body {
 body.workspace-first-view .drawer.is-collapsed {
   border-color: transparent;
   background: transparent;
+  box-shadow: none;
 }
 
 body.workspace-first-view .drawer.is-collapsed.is-empty {
   box-shadow: none;
 }
 
-.drawer-empty-minimal {
-  display: grid;
-  gap: 6px;
-  align-content: start;
-  min-height: auto;
+.drawer-rail {
+  display: flex;
+  justify-content: center;
+  padding-top: 8px;
+}
+
+.drawer-rail-button {
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 10px;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.9);
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.96);
+  font: inherit;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(28, 42, 35, 0.05);
 }
 
-.drawer-empty-minimal .eyebrow {
-  margin-bottom: 0;
-  font-size: 0.68rem;
-}
-
-.drawer-empty-minimal p:last-child {
-  margin-bottom: 0;
-  font-size: 0.78rem;
+.drawer-rail-button:disabled {
+  cursor: default;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: none;
 }
 
 .drawer-frame {

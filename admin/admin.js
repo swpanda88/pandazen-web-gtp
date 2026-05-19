@@ -682,27 +682,50 @@ function rememberWorkspaceDrawerRecord(type, record) {
 function reopenWorkspaceDrawer(view = state.view) {
   if (!isWorkspaceFirstView(view)) return;
   const stored = currentWorkspaceDrawerRecord(view);
-  if (!stored?.id) return;
+  if (!stored?.id) {
+    state.workspaceDrawerMode[view] = "expanded";
+    state.activeDrawerType = null;
+    drawer.innerHTML = renderWorkspaceEmptyDrawerShell(view);
+    setupDrawerChrome();
+    return;
+  }
   const record = recordsForType(stored.type).find((item) => String(item.id) === String(stored.id));
-  if (!record) return;
+  if (!record) {
+    state.workspaceDrawerRecord[view] = null;
+    state.workspaceDrawerMode[view] = "expanded";
+    state.activeDrawerType = null;
+    drawer.innerHTML = renderWorkspaceEmptyDrawerShell(view);
+    setupDrawerChrome();
+    return;
+  }
   openDrawer(stored.type, record);
 }
 
-function renderWorkspaceDrawerRail(view = state.view) {
-  const stored = currentWorkspaceDrawerRecord(view);
+function renderWorkspaceDrawerRail() {
   return `
     <div class="drawer-rail">
       <button
         class="drawer-rail-button"
         type="button"
         data-open-workspace-drawer
-        ${stored?.id ? "" : "disabled aria-disabled=\"true\""}
         aria-label="Open detail drawer"
       >
         Open drawer
       </button>
     </div>
   `;
+}
+
+function selectWorkspaceDrawerContext(view, type, record) {
+  rememberWorkspaceDrawerRecord(type, record);
+  if (workspaceDrawerMode(view) === "expanded") {
+    openDrawer(type, record);
+    return;
+  }
+  state.activeDrawerType = null;
+  drawer.innerHTML = renderWorkspaceDrawerRail();
+  drawer.querySelector("[data-open-workspace-drawer]")?.addEventListener("click", reopenWorkspaceDrawer);
+  syncWorkspaceFirstLayout();
 }
 
 function clientServiceLabel(record) {
@@ -1421,7 +1444,7 @@ function compactDrawerLabel(parts) {
   return parts.filter(Boolean).join(" - ");
 }
 
-function renderDrawerTitlebar({ eyebrow, title, subtitle, compactTitle, showDrawerToggle = false }) {
+function renderDrawerTitlebar({ eyebrow, title, subtitle, detailLine, compactTitle, showDrawerToggle = false }) {
   return `
     <div class="drawer-titlebar">
       <div class="drawer-titlebar-main">
@@ -1429,6 +1452,7 @@ function renderDrawerTitlebar({ eyebrow, title, subtitle, compactTitle, showDraw
           <p class="eyebrow">${escapeHtml(eyebrow)}</p>
           <h2>${escapeHtml(title)}</h2>
           <p>${escapeHtml(subtitle || "")}</p>
+          ${detailLine ? `<p class="drawer-title-detail">${escapeHtml(detailLine)}</p>` : ""}
         </div>
         <div class="drawer-titlebar-compact">${escapeHtml(compactTitle || title)}</div>
       </div>
@@ -2101,18 +2125,32 @@ function openDrawer(type, record = {}) {
       ? "Client"
       : type.charAt(0).toUpperCase() + type.slice(1);
   const nextAction = type === "task"
-      ? record.notes || "Review task and update status"
+    ? record.notes || "Review task and update status"
+    : "";
+  const detailSubtitle =
+    type === "assessment"
+      ? compactMeta([record.serviceLabel || record.serviceType, record.area, record.postcode])
+      : type === "client"
+        ? compactMeta([clientServiceLabel(record), record.area, record.address])
+        : template.subtitle;
+  const detailLine =
+    type === "assessment" || type === "client"
+      ? compactMeta([
+          record.quoteStageLabel || record.quoteStage || record.statusLabel || record.status,
+          record.accountingQuote?.displayReference
+        ])
       : "";
   const titlebar = renderDrawerTitlebar({
     eyebrow: type === "assessment" ? "Q&A / Assessment" : compactType,
     title: template.title,
-    subtitle: template.subtitle,
+    subtitle: detailSubtitle || template.subtitle,
+    detailLine,
     compactTitle: compactDrawerLabel([
       template.title,
       compactType,
       record.quoteStageLabel || record.quoteStage || record.statusLabel || record.status || template.subtitle
     ]),
-    showDrawerToggle: isWorkspaceFirstView() && type === recordTypeForView()
+    showDrawerToggle: false
   });
   const body = `
       ${
@@ -2639,7 +2677,7 @@ function workspaceRow(view, type, record, cells, defaultTab = "overview") {
       ${expanded ? "Collapse" : "Expand"}
     </button>
   `;
-  row.querySelector(".record-open").addEventListener("click", () => openDrawer(type, record));
+  row.querySelector(".record-open").addEventListener("click", () => selectWorkspaceDrawerContext(view, type, record));
   row.querySelector(".row-expand-button").addEventListener("click", (event) => {
     event.stopPropagation();
     toggleExpandedWorkspace(view, record.id, defaultTab);
@@ -2668,6 +2706,29 @@ function workspaceTabs(view, recordId, tabs) {
         .join("")}
     </div>
   `;
+}
+
+function workspaceDrawerEyebrow(view = state.view) {
+  return view === "clients" ? "Client & Home" : "Q&A / Assessment";
+}
+
+function renderWorkspaceEmptyDrawerShell(view = state.view) {
+  const titlebar = renderDrawerTitlebar({
+    eyebrow: workspaceDrawerEyebrow(view),
+    title: "Detail drawer",
+    subtitle: "Use the selected record when you want the full detail panel.",
+    compactTitle: "Detail drawer"
+  });
+  const body = `
+    <section class="drawer-section drawer-shell-empty">
+      <p>Pick a row, then open the drawer when you need the full record view.</p>
+    </section>
+  `;
+  return renderDrawerFrame({
+    titlebar,
+    body,
+    frameClass: "workspace-record-drawer"
+  });
 }
 
 function renderExpandableWorkspace({ view, record, eyebrow, title, subtitle, status, meta, tabs, content }) {

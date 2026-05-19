@@ -600,7 +600,9 @@ function toggleExpandedWorkspace(view, recordId, defaultTab = "overview") {
   } else {
     state.expandedWorkspaces[view] = { id: recordId, tab: defaultTab };
     if (isWorkspaceFirstView(view)) {
-      state.workspaceDrawerMode[view] = "collapsed";
+      renderTables();
+      renderWorkspaceDrawerClosedState(view);
+      return;
     }
   }
   renderTables();
@@ -629,6 +631,10 @@ function workspaceDrawerMode(view = state.view) {
 
 function setWorkspaceDrawerMode(mode, view = state.view) {
   if (!isWorkspaceFirstView(view)) return;
+  if (mode === "collapsed") {
+    renderWorkspaceDrawerClosedState(view);
+    return;
+  }
   state.workspaceDrawerMode[view] = mode;
   syncWorkspaceFirstLayout();
 }
@@ -720,16 +726,28 @@ function attachWorkspaceDrawerRailHandler() {
   drawer.querySelector("[data-open-workspace-drawer]")?.addEventListener("click", () => reopenWorkspaceDrawer());
 }
 
+function renderWorkspaceDrawerClosedState(view = state.view) {
+  state.activeDrawerType = null;
+  leadDetailsEditState = null;
+  if (isWorkspaceFirstView(view)) {
+    state.workspaceDrawerMode[view] = "collapsed";
+  }
+  if (drawerScrollHandler) {
+    drawer.querySelector(".drawer-body")?.removeEventListener("scroll", drawerScrollHandler);
+    drawerScrollHandler = null;
+  }
+  drawer.innerHTML = renderWorkspaceDrawerRail();
+  attachWorkspaceDrawerRailHandler();
+  syncWorkspaceFirstLayout();
+}
+
 function selectWorkspaceDrawerContext(view, type, record) {
   rememberWorkspaceDrawerRecord(type, record);
   if (workspaceDrawerMode(view) === "expanded") {
     openDrawer(type, record);
     return;
   }
-  state.activeDrawerType = null;
-  drawer.innerHTML = renderWorkspaceDrawerRail();
-  attachWorkspaceDrawerRailHandler();
-  syncWorkspaceFirstLayout();
+  renderWorkspaceDrawerClosedState(view);
 }
 
 function clientServiceLabel(record) {
@@ -1898,11 +1916,12 @@ function setupAssessmentDrawerActions(record) {
 }
 
 function resetDrawer() {
+  if (isWorkspaceFirstView()) {
+    renderWorkspaceDrawerClosedState(state.view);
+    return;
+  }
   state.activeDrawerType = null;
   leadDetailsEditState = null;
-  if (isWorkspaceFirstView()) {
-    state.workspaceDrawerMode[state.view] = "collapsed";
-  }
   if (drawerScrollHandler) {
     drawer.querySelector(".drawer-body")?.removeEventListener("scroll", drawerScrollHandler);
     drawerScrollHandler = null;
@@ -1916,7 +1935,6 @@ function resetDrawer() {
         <p>Click a lead, task, job or invoice to review details here.</p>
       </div>
     `;
-  attachWorkspaceDrawerRailHandler();
   syncWorkspaceFirstLayout();
 }
 

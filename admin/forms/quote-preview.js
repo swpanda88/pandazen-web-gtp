@@ -100,9 +100,7 @@
     document.getElementById("meta-date").textContent = formatDate(quote.updatedAt || quote.createdAt);
     document.getElementById("meta-valid").textContent = quote.validUntil ? formatDate(quote.validUntil) : "Not Specified";
     
-    const statusNode = document.getElementById("meta-status");
-    statusNode.textContent = quote.status;
-    statusNode.className = `status-pill status-${String(quote.status).toLowerCase()}`;
+
 
     // Customer / Client info
     document.getElementById("client-name").textContent = quote.clientName || quote.customerName || "Valued Client";

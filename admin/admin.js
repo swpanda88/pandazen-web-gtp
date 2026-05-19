@@ -3082,7 +3082,20 @@ async function handleGenerateQuoteFromBuilder(assessmentId) {
     const selectedModules = builder.modules.filter(m => m.selected);
     
     // 1. scopeOfWork
-    const scopeOfWork = selectedModules.map(m => `• ${m.name}: ${m.client_description || ""}`).join("\n");
+    let scopeOfWork = "";
+    const service = (assessment.serviceLabel || assessment.serviceType || "domestic cleaning").toLowerCase();
+    const frequency = (assessment.frequencyLabel || assessment.frequency || "").toLowerCase();
+    const area = assessment.area || "";
+
+    if (service.includes("regular") || frequency.includes("weekly") || frequency.includes("fortnightly") || frequency.includes("monthly") || frequency.includes("regular")) {
+      const freqPart = frequency ? `regular ${frequency}` : "regular";
+      scopeOfWork = `Initial reset clean and ${freqPart} domestic cleaning service for the property in ${area || "the area"}.`;
+    } else if (service.includes("deep") || service.includes("tenancy") || service.includes("one-off") || service.includes("end of tenancy")) {
+      scopeOfWork = `One-off domestic cleaning visit for the property in ${area || "the area"}, based on the details provided during enquiry.`;
+    } else {
+      scopeOfWork = `Domestic cleaning service for the property in ${area || "the area"}, based on the details provided during enquiry.`;
+    }
+
     // 2. includedItems
     const includedItems = selectedModules.map(m => `• ${m.name}`).join("\n");
     // 3. assumptions
@@ -3102,7 +3115,7 @@ async function handleGenerateQuoteFromBuilder(assessmentId) {
     const recurringTotalPence = Math.round(selectedModules.filter(m => m.is_recurring).reduce((sum, m) => sum + Number(m.amount || 0), 0) * 100);
     
     const pricingNotes = `Generated from Q&A Quote Builder. Selected modules count: ${selectedModules.length}.`;
-    const clientNotes = assessment.notes || assessment.assessmentNotes || "";
+    const clientNotes = "This quote is based on the information provided and may be adjusted if the agreed scope changes.";
 
     setBuilderStatus(assessmentId, "Saving work modules content to draft quote...");
 

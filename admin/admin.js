@@ -716,6 +716,10 @@ function renderWorkspaceDrawerRail() {
   `;
 }
 
+function attachWorkspaceDrawerRailHandler() {
+  drawer.querySelector("[data-open-workspace-drawer]")?.addEventListener("click", () => reopenWorkspaceDrawer());
+}
+
 function selectWorkspaceDrawerContext(view, type, record) {
   rememberWorkspaceDrawerRecord(type, record);
   if (workspaceDrawerMode(view) === "expanded") {
@@ -724,7 +728,7 @@ function selectWorkspaceDrawerContext(view, type, record) {
   }
   state.activeDrawerType = null;
   drawer.innerHTML = renderWorkspaceDrawerRail();
-  drawer.querySelector("[data-open-workspace-drawer]")?.addEventListener("click", reopenWorkspaceDrawer);
+  attachWorkspaceDrawerRailHandler();
   syncWorkspaceFirstLayout();
 }
 
@@ -1912,7 +1916,7 @@ function resetDrawer() {
         <p>Click a lead, task, job or invoice to review details here.</p>
       </div>
     `;
-  drawer.querySelector("[data-open-workspace-drawer]")?.addEventListener("click", reopenWorkspaceDrawer);
+  attachWorkspaceDrawerRailHandler();
   syncWorkspaceFirstLayout();
 }
 

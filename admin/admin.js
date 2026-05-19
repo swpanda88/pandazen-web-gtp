@@ -3028,17 +3028,381 @@ function linkedAssessmentTasks(record) {
   });
 }
 
+function assistHourRange(assist, prefix) {
+  const min = assist[`${prefix}Min`] || assist[`${prefix}_min`] || assist[`${prefix}`];
+  const max = assist[`${prefix}Max`] || assist[`${prefix}_max`] || assist[`${prefix}`];
+  if (!min && !max) return "Not Specified";
+  if (min && max) return `${min}-${max}h`;
+  return `${min || max}h`;
+}
+
+function updateBuilderTotalsUI(assessmentId) {
+  const builder = state.quoteBuilder[assessmentId];
+  if (!builder) return;
+  const selectedModules = builder.modules.filter(m => m.selected);
+  const oneOffTotal = selectedModules.filter(m => !m.is_recurring).reduce((sum, m) => sum + Number(m.amount || 0), 0);
+  const recurringTotal = selectedModules.filter(m => m.is_recurring).reduce((sum, m) => sum + Number(m.amount || 0), 0);
+  const selectedCount = selectedModules.length;
+
+  const oneOffEl = document.getElementById(`builder-oneoff-total-${assessmentId}`);
+  if (oneOffEl) oneOffEl.textContent = `£${oneOffTotal.toFixed(2)}`;
+
+  const recurringEl = document.getElementById(`builder-recurring-total-${assessmentId}`);
+  if (recurringEl) recurringEl.textContent = `£${recurringTotal.toFixed(2)}`;
+
+  const countEl = document.getElementById(`builder-selected-count-${assessmentId}`);
+  if (countEl) countEl.textContent = selectedCount;
+}
+
+function setBuilderStatus(assessmentId, message) {
+  const el = document.getElementById(`builder-status-msg-${assessmentId}`);
+  if (el) el.textContent = message;
+}
+
+async function handleGenerateQuoteFromBuilder(assessmentId) {
+  try {
+    setBuilderStatus(assessmentId, "Locating or creating draft quote...");
+    
+    const assessment = data.assessments.find(a => String(a.id) === String(assessmentId));
+    if (!assessment) throw new Error("Assessment not found");
+
+    let draftQuote = draftQuoteForAssessment(assessment);
+    if (!draftQuote) {
+      setBuilderStatus(assessmentId, "Creating new draft quote version...");
+      const response = await apiPost("/api/quotes", { assessmentQuoteId: assessmentId });
+      draftQuote = response.quote;
+      if (!draftQuote) {
+        throw new Error("Failed to create draft quote record");
+      }
+    }
+
+    const builder = state.quoteBuilder[assessmentId];
+    if (!builder) throw new Error("No builder state found");
+
+    const selectedModules = builder.modules.filter(m => m.selected);
+    
+    // 1. scopeOfWork
+    const scopeOfWork = selectedModules.map(m => `• ${m.name}: ${m.client_description || ""}`).join("\n");
+    // 2. includedItems
+    const includedItems = selectedModules.map(m => `• ${m.name}`).join("\n");
+    // 3. assumptions
+    const assumptions = [
+      "Work is based on normal access and parking availability.",
+      "Agreed scope of work as detailed in the included items list.",
+      "Pricing assumes no major property condition changes since the initial assessment."
+    ].join("\n");
+    // 4. priceLines
+    const priceLines = JSON.stringify(selectedModules.map(m => ({
+      description: m.name,
+      price: Math.round(Number(m.amount || 0) * 100)
+    })));
+    // 5. totalPrice
+    const oneOffTotalPence = Math.round(selectedModules.filter(m => !m.is_recurring).reduce((sum, m) => sum + Number(m.amount || 0), 0) * 100);
+    // 6. recurringPrice
+    const recurringTotalPence = Math.round(selectedModules.filter(m => m.is_recurring).reduce((sum, m) => sum + Number(m.amount || 0), 0) * 100);
+    
+    const pricingNotes = `Generated from Q&A Quote Builder. Selected modules count: ${selectedModules.length}.`;
+    const clientNotes = assessment.notes || assessment.assessmentNotes || "";
+
+    setBuilderStatus(assessmentId, "Saving work modules content to draft quote...");
+
+    await apiPatch(`/api/quotes/${draftQuote.id}`, {
+      scopeOfWork,
+      includedItems,
+      excludedItems: "",
+      assumptions,
+      priceLines,
+      totalPrice: oneOffTotalPence,
+      recurringPrice: recurringTotalPence,
+      pricingNotes,
+      clientNotes
+    });
+
+    setBuilderStatus(assessmentId, "Refreshing view...");
+    await refreshQuoteLinkedViews(assessmentId, draftQuote.clientId || null);
+    
+    setWorkspaceTab("assessments", assessmentId, "quotes");
+    
+    setTimeout(() => {
+      setQuoteActionStatus(assessmentId, "Draft quote generated/updated successfully from Quote Builder.");
+    }, 100);
+  } catch (err) {
+    setBuilderStatus(assessmentId, `Error generating quote: ${err.message}`);
+  }
+}
+
+function renderAssessmentQuoteBuilder(record) {
+  if (!state.quoteBuilder) {
+    state.quoteBuilder = {};
+  }
+  if (!state.quoteBuilder[record.id]) {
+    const service = record.serviceType || "regular_cleaning";
+    const assist = record.quoteAssist || {};
+    const rate = 30.00;
+    const modules = [];
+
+    if (service === "regular_cleaning") {
+      const deepCleanHours = assist.estimatedFirstCleanHoursMin || 4;
+      modules.push({
+        id: "initial_deep_clean",
+        name: "Initial clean / reset visit",
+        type: "initial_deep_clean",
+        client_description: "Initial deep clean to reset the home to standard cleaning condition.",
+        internal_note: "Derived from first clean hours estimate.",
+        hours: deepCleanHours,
+        rate: rate,
+        amount: deepCleanHours * rate,
+        is_recurring: false,
+        selected: true
+      });
+
+      const regularCleanHours = assist.estimatedRecurringHoursMin || 3;
+      modules.push({
+        id: "regular_clean",
+        name: "Regular recurring clean",
+        type: "regular_clean",
+        client_description: "Standard regular cleaning visit matching the Q&A specification.",
+        internal_note: "Standard recurring cleaning plan.",
+        hours: regularCleanHours,
+        rate: rate,
+        amount: regularCleanHours * rate,
+        is_recurring: true,
+        selected: true
+      });
+
+      modules.push({
+        id: "extra_task",
+        name: "Optional extra task",
+        type: "extra_task",
+        client_description: "Optional extra task (e.g. oven clean, inside windows, fridge reset).",
+        internal_note: "",
+        hours: 1,
+        rate: rate,
+        amount: rate,
+        is_recurring: false,
+        selected: false
+      });
+    } else if (service === "deep_cleaning" || service === "end_of_tenancy") {
+      const deepCleanHours = assist.estimatedFirstCleanHoursMin || 6;
+      modules.push({
+        id: "one_off_deep",
+        name: "One-off deep clean",
+        type: "initial_deep_clean",
+        client_description: service === "end_of_tenancy" ? "End of tenancy move out deep cleaning." : "One-off deep clean to standard conditions.",
+        internal_note: "",
+        hours: deepCleanHours,
+        rate: rate,
+        amount: deepCleanHours * rate,
+        is_recurring: false,
+        selected: true
+      });
+
+      modules.push({
+        id: "extra_task",
+        name: "Optional extra task",
+        type: "extra_task",
+        client_description: "Optional extra task (e.g. oven clean, inside windows, fridge reset).",
+        internal_note: "",
+        hours: 1,
+        rate: rate,
+        amount: rate,
+        is_recurring: false,
+        selected: false
+      });
+    } else {
+      // one_off_cleaning
+      const hours = assist.estimatedFirstCleanHoursMin || 4;
+      modules.push({
+        id: "one_off_clean",
+        name: "One-off clean",
+        type: "one_off_clean",
+        client_description: "One-off standard cleaning service.",
+        internal_note: "",
+        hours: hours,
+        rate: rate,
+        amount: hours * rate,
+        is_recurring: false,
+        selected: true
+      });
+
+      modules.push({
+        id: "extra_task",
+        name: "Optional extra task",
+        type: "extra_task",
+        client_description: "Optional extra task (e.g. oven clean, inside windows, fridge reset).",
+        internal_note: "",
+        hours: 1,
+        rate: rate,
+        amount: rate,
+        is_recurring: false,
+        selected: false
+      });
+    }
+
+    // Common optional Travel/Access module
+    modules.push({
+      id: "travel_or_access",
+      name: "Travel or travel time",
+      type: "travel_or_access",
+      client_description: "Travel expenses or travel time allowance.",
+      internal_note: "",
+      hours: 0,
+      rate: 0,
+      amount: 20.00,
+      is_recurring: false,
+      selected: false
+    });
+
+    state.quoteBuilder[record.id] = {
+      modules
+    };
+  }
+
+  const builder = state.quoteBuilder[record.id];
+  const assist = record.quoteAssist || {};
+  
+  // Calculate Totals
+  const selectedModules = builder.modules.filter(m => m.selected);
+  const oneOffTotal = selectedModules.filter(m => !m.is_recurring).reduce((sum, m) => sum + Number(m.amount || 0), 0);
+  const recurringTotal = selectedModules.filter(m => m.is_recurring).reduce((sum, m) => sum + Number(m.amount || 0), 0);
+  const selectedCount = selectedModules.length;
+
+  return `
+    <div class="quote-builder-workspace">
+      <!-- 1. Source Context Panel -->
+      <div class="builder-context-grid">
+        <div class="builder-context-card font-small">
+          <h4 style="margin:0 0 8px; font-size:0.9rem; color:var(--forest); border-bottom:1px solid var(--line); padding-bottom:4px;">Q&A Source Context</h4>
+          <div class="context-details">
+            <div><strong>Client:</strong> ${escapeHtml(record.customerName || record.client || "")}</div>
+            <div><strong>Location:</strong> ${escapeHtml(compactMeta([record.area, record.postcode])) || "Not Specified"}</div>
+            <div><strong>Service Type:</strong> ${escapeHtml(record.serviceLabel || record.serviceType || "")}</div>
+            <div><strong>Frequency:</strong> ${escapeHtml(record.frequencyLabel || record.frequency || "")}</div>
+            <div><strong>Property Details:</strong> ${escapeHtml(compactMeta([record.propertyType, record.bedrooms ? `${record.bedrooms} Bedrooms` : "", record.bathrooms ? `${record.bathrooms} Bathrooms` : ""]))}</div>
+            <div><strong>Parking:</strong> ${escapeHtml(record.parking || "")}</div>
+            <div><strong>Pets:</strong> ${escapeHtml(record.pets || "")}</div>
+            <div><strong>Assessment Notes:</strong> <span class="notes-text">${escapeHtml(record.assessmentNotes || "")}</span></div>
+            <div><strong>Q&A Notes:</strong> <span class="notes-text">${escapeHtml(record.quoteNotes || "")}</span></div>
+          </div>
+        </div>
+        <div class="builder-context-card font-small">
+          <h4 style="margin:0 0 8px; font-size:0.9rem; color:var(--forest); border-bottom:1px solid var(--line); padding-bottom:4px;">Quote Assist Recommendations</h4>
+          ${assist.fitScore !== undefined ? `
+            <div class="context-details">
+              <div><strong>Suggested First Clean:</strong> ${escapeHtml(assistHourRange(assist, "estimatedFirstCleanHours"))}</div>
+              <div><strong>Suggested Recurring:</strong> ${escapeHtml(assistHourRange(assist, "estimatedRecurringHours"))}</div>
+              <div><strong>Suggested Price Range:</strong> ${escapeHtml(assist.suggestedPriceLabel || "")}</div>
+              <div><strong>Minimum Recommended:</strong> ${escapeHtml(assist.minimumRecommendedPriceLabel || "")}</div>
+              <div><strong>Confidence Level:</strong> ${escapeHtml(assist.confidence || "")}</div>
+              <div><strong>Price Shopper Risk:</strong> ${escapeHtml(assist.priceShopperRisk || "")}</div>
+              <div><strong>Travel Suitability:</strong> ${escapeHtml(assist.travelSuitability || "")}</div>
+              <div><strong>Risk Flags:</strong> <span class="notes-text">${escapeHtml((assist.riskFlags || []).join("; "))}</span></div>
+              <div><strong>Positive Flags:</strong> <span class="notes-text">${escapeHtml((assist.positiveFlags || []).join("; "))}</span></div>
+            </div>
+          ` : `<div class="placeholder-text text-muted">No Quote Assist recommendations available.</div>`}
+        </div>
+      </div>
+
+      <!-- 2. Work Modules Workspace -->
+      <div class="builder-modules-section">
+        <h4 style="margin:0 0 10px; font-size:0.95rem; color:var(--ink);">Work Modules / Scope Items</h4>
+        <div class="builder-modules-table-container">
+          <table class="builder-modules-table">
+            <thead>
+              <tr>
+                <th class="col-chk">Selected</th>
+                <th class="col-mod-name">Module Name</th>
+                <th class="col-desc">Client-Facing Description</th>
+                <th class="col-num">Hours</th>
+                <th class="col-num">Rate (£/h)</th>
+                <th class="col-num">Amount (£)</th>
+                <th class="col-recur">Recurring</th>
+                <th class="col-del">Remove</th>
+              </tr>
+            </thead>
+            <tbody data-builder-modules-body="${record.id}">
+              ${builder.modules.map((mod, index) => {
+                return `
+                  <tr class="builder-module-row ${mod.selected ? "is-selected" : ""}" data-module-index="${index}">
+                    <td class="col-chk text-center">
+                      <input type="checkbox" class="mod-selected-chk" ${mod.selected ? "checked" : ""}>
+                    </td>
+                    <td class="col-mod-name">
+                      <input type="text" class="mod-name-input input-clean" value="${escapeHtml(mod.name)}">
+                    </td>
+                    <td class="col-desc">
+                      <textarea class="mod-desc-input input-clean" rows="1">${escapeHtml(mod.client_description || "")}</textarea>
+                    </td>
+                    <td class="col-num">
+                      <input type="number" class="mod-hours-input input-clean text-right" step="0.25" min="0" value="${mod.hours || 0}">
+                    </td>
+                    <td class="col-num">
+                      <input type="number" class="mod-rate-input input-clean text-right" step="0.5" min="0" value="${mod.rate || 0}">
+                    </td>
+                    <td class="col-num">
+                      <input type="number" class="mod-amount-input input-clean text-right" step="0.01" min="0" value="${mod.amount || 0}">
+                    </td>
+                    <td class="col-recur text-center">
+                      <select class="mod-recurring-sel select-clean">
+                        <option value="false" ${!mod.is_recurring ? "selected" : ""}>No</option>
+                        <option value="true" ${mod.is_recurring ? "selected" : ""}>Yes</option>
+                      </select>
+                    </td>
+                    <td class="col-del text-center">
+                      <button type="button" class="btn-module-delete font-large" title="Remove module">×</button>
+                    </td>
+                  </tr>
+                `;
+              }).join("")}
+            </tbody>
+          </table>
+        </div>
+        <div class="builder-modules-actions">
+          <button type="button" class="secondary" data-builder-add-custom="${record.id}">+ Add Custom Module</button>
+        </div>
+      </div>
+
+      <!-- 3. Summary & Quote Generation Bar -->
+      <div class="builder-summary-bar">
+        <div class="summary-stats">
+          <div class="stat-box">
+            <span class="stat-label">One-off / Initial Total</span>
+            <strong class="stat-value" id="builder-oneoff-total-${record.id}">£${oneOffTotal.toFixed(2)}</strong>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">Recurring Visit Price</span>
+            <strong class="stat-value" id="builder-recurring-total-${record.id}">£${recurringTotal.toFixed(2)}</strong>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">Selected Modules</span>
+            <span class="stat-value" id="builder-selected-count-${record.id}">${selectedCount}</span>
+          </div>
+        </div>
+        <div class="summary-actions">
+          <button type="button" class="primary" data-builder-generate-quote="${record.id}">Generate / Update Draft Quote</button>
+        </div>
+      </div>
+      <p class="record-sub builder-status-message text-center" id="builder-status-msg-${record.id}"></p>
+    </div>
+  `;
+}
+
 function assessmentWorkspaceTabs() {
   return [
     { key: "overview", label: "Overview" },
     { key: "details", label: "Details" },
     { key: "quote-assist", label: "Quote Assist" },
+    { key: "quote-builder", label: "Quote Builder" },
     { key: "quotes", label: "Quotes" },
     { key: "notes-tasks", label: "Notes / Tasks" }
   ];
 }
 
 function renderAssessmentWorkspaceTab(record, tab) {
+  if (tab === "quote-builder") {
+    return renderAssessmentQuoteBuilder(record);
+  }
+
   if (tab === "details") {
     return detailRows([
       ["Property type", record.propertyType],
@@ -3935,6 +4299,112 @@ function bindEvents() {
       } catch (err) {
         setQuoteActionStatus(assessmentQuoteId, `Could not update quote. ${err.message}`);
       }
+      return;
+    }
+
+    const addCustomBtn = event.target.closest("[data-builder-add-custom]");
+    if (addCustomBtn) {
+      const assessmentId = addCustomBtn.dataset.builderAddCustom;
+      const builder = state.quoteBuilder[assessmentId];
+      if (builder) {
+        builder.modules.push({
+          id: `custom_${Date.now()}`,
+          name: "Custom task",
+          type: "custom",
+          client_description: "Custom task details.",
+          internal_note: "",
+          hours: 0,
+          rate: 0,
+          amount: 0.00,
+          is_recurring: false,
+          selected: true
+        });
+        setWorkspaceTab("assessments", assessmentId, "quote-builder");
+      }
+      return;
+    }
+
+    const deleteBtn = event.target.closest(".btn-module-delete");
+    if (deleteBtn) {
+      const row = deleteBtn.closest(".builder-module-row");
+      const workspace = deleteBtn.closest(".expandable-workspace");
+      if (row && workspace) {
+        const assessmentId = workspace.dataset.workspaceId;
+        const moduleIndex = parseInt(row.dataset.moduleIndex, 10);
+        const builder = state.quoteBuilder[assessmentId];
+        if (builder) {
+          builder.modules.splice(moduleIndex, 1);
+          setWorkspaceTab("assessments", assessmentId, "quote-builder");
+        }
+      }
+      return;
+    }
+
+    const generateBtn = event.target.closest("[data-builder-generate-quote]");
+    if (generateBtn) {
+      const assessmentId = generateBtn.dataset.builderGenerateQuote;
+      await handleGenerateQuoteFromBuilder(assessmentId);
+      return;
+    }
+  });
+
+  document.addEventListener("input", (event) => {
+    const row = event.target.closest(".builder-module-row");
+    if (!row) return;
+    const workspace = event.target.closest(".expandable-workspace");
+    if (!workspace) return;
+    const assessmentId = workspace.dataset.workspaceId;
+    const moduleIndex = parseInt(row.dataset.moduleIndex, 10);
+    const builder = state.quoteBuilder[assessmentId];
+    if (!builder) return;
+    const mod = builder.modules[moduleIndex];
+    if (!mod) return;
+
+    if (event.target.classList.contains("mod-name-input")) {
+      mod.name = event.target.value;
+    } else if (event.target.classList.contains("mod-desc-input")) {
+      mod.client_description = event.target.value;
+    } else if (event.target.classList.contains("mod-hours-input")) {
+      mod.hours = parseFloat(event.target.value) || 0;
+      if (mod.hours > 0 || mod.rate > 0) {
+        mod.amount = Number((mod.hours * mod.rate).toFixed(2));
+        const amountInput = row.querySelector(".mod-amount-input");
+        if (amountInput) amountInput.value = mod.amount;
+      }
+      updateBuilderTotalsUI(assessmentId);
+    } else if (event.target.classList.contains("mod-rate-input")) {
+      mod.rate = parseFloat(event.target.value) || 0;
+      if (mod.hours > 0 || mod.rate > 0) {
+        mod.amount = Number((mod.hours * mod.rate).toFixed(2));
+        const amountInput = row.querySelector(".mod-amount-input");
+        if (amountInput) amountInput.value = mod.amount;
+      }
+      updateBuilderTotalsUI(assessmentId);
+    } else if (event.target.classList.contains("mod-amount-input")) {
+      mod.amount = parseFloat(event.target.value) || 0;
+      updateBuilderTotalsUI(assessmentId);
+    }
+  });
+
+  document.addEventListener("change", (event) => {
+    const row = event.target.closest(".builder-module-row");
+    if (!row) return;
+    const workspace = event.target.closest(".expandable-workspace");
+    if (!workspace) return;
+    const assessmentId = workspace.dataset.workspaceId;
+    const moduleIndex = parseInt(row.dataset.moduleIndex, 10);
+    const builder = state.quoteBuilder[assessmentId];
+    if (!builder) return;
+    const mod = builder.modules[moduleIndex];
+    if (!mod) return;
+
+    if (event.target.classList.contains("mod-selected-chk")) {
+      mod.selected = event.target.checked;
+      row.classList.toggle("is-selected", mod.selected);
+      updateBuilderTotalsUI(assessmentId);
+    } else if (event.target.classList.contains("mod-recurring-sel")) {
+      mod.is_recurring = event.target.value === "true";
+      updateBuilderTotalsUI(assessmentId);
     }
   });
 

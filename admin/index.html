@@ -303,10 +303,341 @@
       <aside class="drawer" aria-live="polite" data-drawer>
         <div class="drawer-empty">
           <p class="eyebrow">Detail panel</p>
+              <div class="panel-head">
+                <h2>Today schedule <span>Week</span></h2>
+                <button type="button" data-view-link="schedule">Open schedule</button>
+              </div>
+              <div class="today-card" data-today-card></div>
+            </section>
+          </div>
+
+          <section class="panel priority-panel">
+            <div class="panel-head">
+              <h2>High-fit leads <span>Priority</span></h2>
+              <p>No side-scroll</p>
+            </div>
+            <div class="priority-list" data-priority-list></div>
+          </section>
+        </section>
+
+        <section class="view" data-view-panel="leads">
+          <section class="panel lead-priority-panel">
+            <div class="panel-head">
+              <h2>Priority lead list <span>Main view</span></h2>
+              <p>Active triage only</p>
+            </div>
+            <div class="priority-list" data-lead-list></div>
+            <div class="list-footer" data-lead-list-count></div>
+          </section>
+          <div class="board" data-lead-board></div>
+          <section class="panel lead-priority-panel">
+            <div class="panel-head">
+              <h2>Lead history <span>Closed and moved on</span></h2>
+              <p>Rejected, unsuitable and moved-to-Q&A leads remain traceable here</p>
+            </div>
+            <div class="priority-list" data-lead-history></div>
+            <div class="list-footer" data-lead-history-count></div>
+          </section>
+        </section>
+
+        <section class="view" data-view-panel="tasks">
+          <div class="table-panel">
+            <div class="table-toolbar">
+              <h2>Admin tasks</h2>
+              <button class="ghost" type="button" data-open-drawer="task">Add task</button>
+            </div>
+            <div class="records-table" data-task-table></div>
+          </div>
+        </section>
+
+        <section class="view" data-view-panel="assessments">
+          <div class="table-panel workspace-table-panel">
+            <div class="table-toolbar">
+              <h2>Quotes & Assessments</h2>
+              <button class="ghost" type="button" disabled title="Open a lead drawer to create an Assessment / Quote.">Create from Lead drawer</button>
+            </div>
+            <section class="workspace-section-panel workspace-group">
+              <div class="workspace-group-head workspace-section-head">
+                <h3>Active Q&A</h3>
+                <p data-assessment-active-count></p>
+              </div>
+              <div class="records-table" data-assessment-active-table></div>
+            </section>
+            <details class="workspace-history workspace-section-panel">
+              <summary class="workspace-group-head workspace-history-summary">
+                <div>
+                  <h3>Q&A History</h3>
+                  <p>Converted and closed records stay here for traceability.</p>
+                </div>
+                <p data-assessment-history-count></p>
+              </summary>
+              <div class="workspace-history-body">
+                <div class="records-table" data-assessment-history-table></div>
+              </div>
+            </details>
+          </div>
+        </section>
+
+        <section class="view" data-view-panel="clients">
+          <div class="table-panel workspace-table-panel">
+            <div class="table-toolbar">
+              <h2>Clients</h2>
+              <a class="ghost" href="forms/cleaning-plan.html">Add client</a>
+            </div>
+            <section class="workspace-section-panel workspace-group">
+              <div class="workspace-group-head workspace-section-head">
+                <h3>Active Clients</h3>
+                <p data-client-count></p>
+              </div>
+              <div class="records-table" data-client-table></div>
+            </section>
+            <details class="workspace-history workspace-section-panel">
+              <summary class="workspace-group-head workspace-history-summary">
+                <div>
+                  <h3>Client History</h3>
+                  <p>Archived and inactive records stay here for traceability.</p>
+                </div>
+                <p data-client-history-count></p>
+              </summary>
+              <div class="workspace-history-body">
+                <div class="records-table" data-client-history-table></div>
+              </div>
+            </details>
+          </div>
+        </section>
+
+        <section class="view" data-view-panel="schedule">
+          <div class="schedule-shell">
+            <section class="panel">
+              <div class="panel-head schedule-head">
+                <div>
+                  <h2>Schedule</h2>
+                  <p>Hover a day for a quick view. Click a job to open details.</p>
+                </div>
+                <div class="schedule-controls">
+                  <div class="month-controls" aria-label="Schedule month controls">
+                    <button type="button" data-schedule-prev>Previous</button>
+                    <button type="button" data-schedule-today>Today</button>
+                    <button type="button" data-schedule-next>Next</button>
+                  </div>
+                  <label>
+                    Jump to
+                    <input type="month" data-schedule-month>
+                  </label>
+                  <label>
+                    Client
+                    <select data-filter="client"></select>
+                  </label>
+                  <label>
+                    Cleaner
+                    <select data-filter="cleaner"></select>
+                  </label>
+                  <label>
+                    Status
+                    <select data-filter="status"></select>
+                  </label>
+                </div>
+              </div>
+              <div class="calendar-grid" data-schedule-calendar></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" data-view-panel="jobs">
+          <div class="jobs-layout">
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Work orders</h2>
+                <button type="button" data-generate-jobs>Generate June jobs</button>
+              </div>
+              <div class="records-table" data-job-table></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Cleaner checklist</h2>
+                <span class="pill">Mobile preview</span>
+              </div>
+              <div class="cleaner-phone" data-cleaner-phone></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" data-view-panel="invoices">
+          <div class="table-panel">
+            <div class="table-toolbar">
+              <h2>Invoices</h2>
+              <a class="ghost" href="forms/invoice.html">New invoice record</a>
+            </div>
+            <div class="records-table" data-invoice-table></div>
+          </div>
+        </section>
+
+        <section class="view" data-view-panel="exports">
+          <div class="export-grid">
+            <article class="export-card">
+              <h2>Invoices CSV</h2>
+              <p>Invoice number, client, date, amount, status and payment date for monthly accounts checks.</p>
+              <button class="primary" type="button" data-export="invoices">Preview export</button>
+            </article>
+            <article class="export-card">
+              <h2>Jobs CSV</h2>
+              <p>Completed and scheduled work orders with man-hours, cleaner assignment and completion notes.</p>
+              <button class="primary" type="button" data-export="jobs">Preview export</button>
+            </article>
+            <article class="export-card">
+              <h2>Clients CSV</h2>
+              <p>Active client list for backup and handoff. Sensitive access notes can be excluded later.</p>
+              <button class="primary" type="button" data-export="clients">Preview export</button>
+            </article>
+          </div>
+          <pre class="export-preview" data-export-preview>Choose an export to preview sample CSV output.</pre>
+        </section>
+      </main>
+
+      <aside class="drawer" aria-live="polite" data-drawer>
+        <div class="drawer-empty">
+          <p class="eyebrow">Detail panel</p>
           <h2>Select a record</h2>
           <p>Click a lead, task, job or invoice to review details here.</p>
         </div>
       </aside>
+    </div>
+    <!-- Quote Editor Modal -->
+    <div class="modal-overlay" id="quote-editor-modal" hidden>
+      <div class="modal-card">
+        <header class="modal-header">
+          <h2>Edit Quote Draft</h2>
+          <button class="close-button" type="button" data-close-modal aria-label="Close modal">&times;</button>
+        </header>
+        
+        <!-- Context Banner -->
+        <div class="modal-context-banner" id="quote-editor-context">
+          <div class="context-item"><strong>Client:</strong> <span id="ctx-client-name">--</span></div>
+          <div class="context-item"><strong>Area:</strong> <span id="ctx-area">--</span></div>
+          <div class="context-item"><strong>Service:</strong> <span id="ctx-service">--</span></div>
+          <div class="context-item"><strong>Frequency:</strong> <span id="ctx-frequency">--</span></div>
+          <div class="context-item"><strong>Ref:</strong> <span id="ctx-ref">--</span></div>
+          <div class="context-item"><strong>Status:</strong> <span id="ctx-status" class="status-badge">--</span></div>
+          <div class="context-item"><strong>Linked Q&A ID:</strong> <span id="ctx-qa-id">--</span></div>
+        </div>
+
+        <form class="modal-form" id="quote-editor-form">
+          <input type="hidden" name="id">
+          
+          <div class="modal-body">
+            <!-- Left Column (Main Content) -->
+            <div class="modal-col-main">
+              <label class="field-label">
+                Scope of Work
+                <textarea name="scopeOfWork" rows="3" placeholder="Description of service scope..."></textarea>
+              </label>
+              
+              <div class="grid-2col">
+                <label class="field-label">
+                  Included Items
+                  <textarea name="includedItems" rows="2" placeholder="Item 1, Item 2..."></textarea>
+                </label>
+                <label class="field-label">
+                  Excluded Items
+                  <textarea name="excludedItems" rows="2" placeholder="Item 1, Item 2..."></textarea>
+                </label>
+              </div>
+
+              <label class="field-label">
+                Assumptions
+                <textarea name="assumptions" rows="2" placeholder="Assumptions..."></textarea>
+              </label>
+
+              <hr class="form-divider" aria-hidden="true">
+
+              <div class="repeatable">
+                <h3>Pricing Line Items</h3>
+                <table class="editor-pricing-table">
+                  <thead>
+                    <tr>
+                      <th class="col-desc">Description</th>
+                      <th class="col-amount">Amount (£)</th>
+                      <th class="col-action"></th>
+                    </tr>
+                  </thead>
+                  <tbody id="editor-price-lines-list">
+                    <!-- Dynamic rows injected here -->
+                  </tbody>
+                </table>
+                <button class="ghost" type="button" id="editor-add-price-line">+ Add Price Line</button>
+              </div>
+            </div>
+
+            <!-- Right Column (Sidebar/Metadata) -->
+            <div class="modal-col-side">
+              <!-- Context / Help Panel -->
+              <div class="context-help-panel" id="quote-editor-help-panel">
+                <h3>Quote Assist & Context</h3>
+                <div class="help-section">
+                  <div class="help-label">Suggested Price Range:</div>
+                  <div class="help-value" id="help-suggested-range">--</div>
+                </div>
+                <div class="help-section">
+                  <div class="help-label">Q&A Quote Notes:</div>
+                  <div class="help-value notes-box" id="help-qa-notes">--</div>
+                </div>
+                <div class="help-section">
+                  <div class="help-label">Property Summary:</div>
+                  <div class="help-value notes-box" id="help-property-summary">--</div>
+                </div>
+              </div>
+
+              <div class="pricing-card">
+                <h3>Pricing & Validity</h3>
+                
+                <label class="field-label">
+                  Total Price (£)
+                  <input type="number" name="totalPrice" step="0.01" placeholder="0.00">
+                </label>
+                
+                <label class="field-label">
+                  Recurring Price (£)
+                  <input type="number" name="recurringPrice" step="0.01" placeholder="0.00">
+                </label>
+                
+                <label class="field-label">
+                  Valid Until
+                  <input type="date" name="validUntil">
+                  <div class="quick-dates-row">
+                    <button type="button" class="date-quick-btn" data-days="7">7d</button>
+                    <button type="button" class="date-quick-btn" data-days="14">14d</button>
+                    <button type="button" class="date-quick-btn" data-days="30">30d</button>
+                  </div>
+                </label>
+              </div>
+
+              <label class="field-label">
+                Pricing Notes
+                <textarea name="pricingNotes" rows="2" placeholder="Pricing detail notes..."></textarea>
+              </label>
+
+              <label class="field-label">
+                Client Notes
+                <textarea name="clientNotes" rows="2" placeholder="Notes shown to the client..."></textarea>
+              </label>
+
+              <label class="field-label">
+                Internal Notes
+                <textarea name="internalNotes" rows="2" placeholder="Internal staff notes..."></textarea>
+              </label>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <span class="status" id="quote-editor-status"></span>
+            <div class="step-actions">
+              <button class="ghost" type="button" data-close-modal>Cancel</button>
+              <button class="primary" type="submit">Save Changes</button>
+            </div>
+          </div>
+        </form>
+      </div>
     </div>
 
     <script src="admin.js"></script>

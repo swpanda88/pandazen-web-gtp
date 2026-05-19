@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex">
+    <title>Quote Preview - Panda Zen</title>
+    <link rel="stylesheet" href="quote-preview.css">
+  </head>
+  <body>
+    <header class="preview-actions-bar">
+      <div class="actions-left">
+        <a class="brand" href="../index.html">
+          <img src="../../assets/logo.png" alt="Panda Zen">
+          <span>Panda Zen</span>
+        </a>
+      </div>
+      <div class="actions-right">
+        <button class="quiet" type="button" id="btn-close">Close Tab</button>
+        <button class="primary" type="button" id="btn-print">Print Document</button>
+      </div>
+    </header>
+
+    <main class="document-container">
+      <div class="a4-page" id="quote-document">
+        <!-- Loading state -->
+        <div class="loading-state" id="loading-indicator">
+          <p>Loading quote document...</p>
+        </div>
+        
+        <!-- Error state -->
+        <div class="error-state" id="error-indicator" hidden>
+          <h2>Could Not Load Quote</h2>
+          <p id="error-message"></p>
+        </div>
+
+        <!-- Quote Content -->
+        <div id="quote-content" hidden>
+          <div class="doc-header">
+            <div class="company-info">
+              <div class="logo-wrapper">
+                <img src="../../assets/logo.png" alt="" class="doc-logo">
+                <span class="doc-brand">Panda Zen</span>
+              </div>
+              <p class="company-details">
+                Panda Zen Ltd<br>
+                hello@pandazen.co.uk<br>
+                www.pandazen.co.uk
+              </p>
+            </div>
+            
+            <div class="doc-meta-box">
+              <h1 class="doc-title">QUOTE</h1>
+              <table class="meta-table">
+                <tr>
+                  <th>Quote Ref:</th>
+                  <td id="meta-ref">Q-XXXX-VX</td>
+                </tr>
+                <tr>
+                  <th>Date:</th>
+                  <td id="meta-date">--/--/----</td>
+                </tr>
+                <tr>
+                  <th>Valid Until:</th>
+                  <td id="meta-valid">--/--/----</td>
+                </tr>
+                <tr>
+                  <th>Status:</th>
+                  <td><span class="status-pill" id="meta-status">DRAFT</span></td>
+                </tr>
+              </table>
+            </div>
+          </div>
+
+          <hr class="doc-divider">
+
+          <div class="bill-to-section">
+            <h2>Prepared For</h2>
+            <p id="client-name" class="client-name">Client Name</p>
+            <p id="client-area" class="client-area">Area</p>
+          </div>
+
+          <div class="doc-section" id="section-scope" hidden>
+            <h2>Scope of Work</h2>
+            <div id="doc-scope" class="markdown-text"></div>
+          </div>
+
+          <div class="doc-grid">
+            <div class="doc-section" id="section-included" hidden>
+              <h2>Included Items</h2>
+              <div id="doc-included" class="markdown-text"></div>
+            </div>
+            <div class="doc-section" id="section-excluded" hidden>
+              <h2>Excluded Items</h2>
+              <div id="doc-excluded" class="markdown-text"></div>
+            </div>
+          </div>
+
+          <div class="doc-section" id="section-assumptions" hidden>
+            <h2>Assumptions</h2>
+            <div id="doc-assumptions" class="markdown-text"></div>
+          </div>
+
+          <div class="doc-section" id="section-pricing-table" hidden>
+            <h2>Pricing Details</h2>
+            <table class="pricing-table">
+              <thead>
+                <tr>
+                  <th>Description</th>
+                  <th class="amount-col">Amount</th>
+                </tr>
+              </thead>
+              <tbody id="pricing-table-body">
+                <!-- Rows injected dynamically -->
+              </tbody>
+            </table>
+          </div>
+
+          <div class="summary-section">
+            <div class="pricing-summary">
+              <div class="summary-row" id="row-total" hidden>
+                <span class="label">Total Price:</span>
+                <span class="value" id="doc-total">£0.00</span>
+              </div>
+              <div class="summary-row" id="row-recurring" hidden>
+                <span class="label">Recurring Fee:</span>
+                <span class="value" id="doc-recurring">£0.00</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="doc-section client-notes-section" id="section-client-notes" hidden>
+            <h2>Additional Notes</h2>
+            <div id="doc-client-notes" class="markdown-text"></div>
+          </div>
+          
+          <div class="doc-footer">
+            <p>Thank you for considering Panda Zen. If you have any questions, please contact hello@pandazen.co.uk.</p>
+            <p class="terms">All services subject to Panda Zen's standard terms and conditions.</p>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script src="quote-preview.js"></script>
+  </body>
+</html>

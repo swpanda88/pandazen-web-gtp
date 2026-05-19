@@ -579,6 +579,8 @@ function quoteActionButtons(quote, assessmentQuoteId) {
   if (status === "draft") {
     return `
       <div class="drawer-actions compact">
+        <button class="ghost" type="button" data-edit-draft-quote="${escapeHtml(quote.id)}">Edit draft</button>
+        <a class="ghost button-link" href="forms/quote-preview.html?id=${escapeHtml(quote.id)}" target="_blank">Preview</a>
         <button class="ghost" type="button" data-update-quote-status="sent" data-quote-id="${escapeHtml(quote.id)}" data-assessment-quote-id="${escapeHtml(assessmentQuoteId)}">Mark sent</button>
         <button class="ghost" type="button" data-update-quote-status="void" data-quote-id="${escapeHtml(quote.id)}" data-assessment-quote-id="${escapeHtml(assessmentQuoteId)}">Void draft</button>
       </div>
@@ -588,6 +590,7 @@ function quoteActionButtons(quote, assessmentQuoteId) {
   if (status === "sent") {
     return `
       <div class="drawer-actions compact">
+        <a class="ghost button-link" href="forms/quote-preview.html?id=${escapeHtml(quote.id)}" target="_blank">Preview</a>
         <button class="ghost" type="button" data-update-quote-status="accepted" data-quote-id="${escapeHtml(quote.id)}" data-assessment-quote-id="${escapeHtml(assessmentQuoteId)}">Mark accepted</button>
         <button class="ghost" type="button" data-update-quote-status="rejected" data-quote-id="${escapeHtml(quote.id)}" data-assessment-quote-id="${escapeHtml(assessmentQuoteId)}">Mark rejected</button>
         <button class="ghost" type="button" data-update-quote-status="expired" data-quote-id="${escapeHtml(quote.id)}" data-assessment-quote-id="${escapeHtml(assessmentQuoteId)}">Mark expired</button>
@@ -595,7 +598,20 @@ function quoteActionButtons(quote, assessmentQuoteId) {
     `;
   }
 
-  return "";
+  return `
+    <div class="drawer-actions compact">
+      <a class="ghost button-link" href="forms/quote-preview.html?id=${escapeHtml(quote.id)}" target="_blank">Preview</a>
+    </div>
+  `;
+}
+
+function clientQuoteActionButtons(quote) {
+  return `
+    <div class="drawer-actions compact">
+      <a class="ghost button-link" href="forms/quote-preview.html?id=${escapeHtml(quote.id)}" target="_blank">Preview</a>
+      <a class="ghost button-link" href="forms/quote-preview.html?id=${escapeHtml(quote.id)}&print=true" target="_blank">Print</a>
+    </div>
+  `;
 }
 
 function renderQuoteRecordCard(quote, assessmentQuoteId) {
@@ -607,7 +623,7 @@ function renderQuoteRecordCard(quote, assessmentQuoteId) {
         quote.clientName || quote.customerName,
         quote.updatedAt ? `Updated ${formatDateTime(quote.updatedAt)}` : ""
       ]))}</small>
-      ${assessmentQuoteId ? quoteActionButtons(quote, assessmentQuoteId) : ""}
+      ${assessmentQuoteId ? quoteActionButtons(quote, assessmentQuoteId) : clientQuoteActionButtons(quote)}
     </article>
   `;
 }
@@ -3577,7 +3593,248 @@ function renderExports(type) {
   preview.textContent = rows[type].map((row) => row.join(",")).join("\n");
 }
 
+function updateTotalPriceFromLines() {
+  const container = document.getElementById("editor-price-lines-list");
+  let sum = 0;
+  container.querySelectorAll(".price-line-row-tr").forEach((row) => {
+    const amountVal = parseFloat(row.querySelector(".price-line-amount").value);
+    if (!isNaN(amountVal)) {
+      sum += amountVal;
+    }
+  });
+  const totalInput = document.querySelector('#quote-editor-form input[name="totalPrice"]');
+  if (totalInput) {
+    totalInput.value = sum.toFixed(2);
+  }
+}
+
+function createPriceLineRow(desc = "", amount = "") {
+  const row = document.createElement("tr");
+  row.className = "price-line-row-tr";
+  
+  const tdDesc = document.createElement("td");
+  const descInput = document.createElement("input");
+  descInput.type = "text";
+  descInput.className = "price-line-desc";
+  descInput.placeholder = "Item description";
+  descInput.value = desc;
+  tdDesc.appendChild(descInput);
+  
+  const tdAmount = document.createElement("td");
+  const amountInput = document.createElement("input");
+  amountInput.type = "number";
+  amountInput.step = "0.01";
+  amountInput.className = "price-line-amount";
+  amountInput.placeholder = "0.00";
+  amountInput.value = amount;
+  tdAmount.appendChild(amountInput);
+  
+  const tdAction = document.createElement("td");
+  tdAction.className = "col-action";
+  const removeBtn = document.createElement("button");
+  removeBtn.type = "button";
+  removeBtn.className = "price-line-remove-btn";
+  removeBtn.innerHTML = "&times;";
+  tdAction.appendChild(removeBtn);
+  
+  row.appendChild(tdDesc);
+  row.appendChild(tdAmount);
+  row.appendChild(tdAction);
+  
+  amountInput.addEventListener("input", updateTotalPriceFromLines);
+  removeBtn.addEventListener("click", () => {
+    row.remove();
+    updateTotalPriceFromLines();
+  });
+  
+  return row;
+}
+
+async function openQuoteEditor(quoteId) {
+  const modal = document.getElementById("quote-editor-modal");
+  const form = document.getElementById("quote-editor-form");
+  const statusNode = document.getElementById("quote-editor-status");
+  
+  if (!modal || !form) return;
+  
+  statusNode.textContent = "Loading quote details...";
+  statusNode.className = "status";
+  modal.hidden = false;
+  
+  try {
+    const res = await apiGet(`/api/quotes/${quoteId}`);
+    if (!res || !res.quote) {
+      throw new Error("Failed to load quote details.");
+    }
+    
+    const quote = res.quote;
+    form.elements.id.value = quote.id;
+    form.elements.scopeOfWork.value = quote.scopeOfWork || "";
+    form.elements.includedItems.value = quote.includedItems || "";
+    form.elements.excludedItems.value = quote.excludedItems || "";
+    form.elements.assumptions.value = quote.assumptions || "";
+    form.elements.pricingNotes.value = quote.pricingNotes || "";
+    form.elements.clientNotes.value = quote.clientNotes || "";
+    form.elements.internalNotes.value = quote.internalNotes || "";
+    
+    form.elements.totalPrice.value = quote.totalPrice ? (quote.totalPrice / 100).toFixed(2) : "";
+    form.elements.recurringPrice.value = quote.recurringPrice ? (quote.recurringPrice / 100).toFixed(2) : "";
+    form.elements.validUntil.value = quote.validUntil ? quote.validUntil.slice(0, 10) : "";
+    
+    // Populate Context Banner
+    document.getElementById("ctx-client-name").textContent = quote.clientName || quote.customerName || "N/A";
+    document.getElementById("ctx-area").textContent = quote.area || "N/A";
+    document.getElementById("ctx-service").textContent = quote.serviceType || "N/A";
+    document.getElementById("ctx-frequency").textContent = quote.frequency || "N/A";
+    document.getElementById("ctx-ref").textContent = quote.displayReference || "N/A";
+    
+    const badge = document.getElementById("ctx-status");
+    badge.textContent = quote.status || "N/A";
+    badge.className = `status-badge status-${String(quote.status).toLowerCase()}`;
+    
+    document.getElementById("ctx-qa-id").textContent = quote.assessmentQuoteId || "N/A";
+
+    // Populate Context / Help Panel
+    const helpRange = document.getElementById("help-suggested-range");
+    if (quote.suggestedPriceMin || quote.suggestedPriceMax) {
+      const minStr = quote.suggestedPriceMin ? ("£" + (quote.suggestedPriceMin / 100).toFixed(2)) : "£0.00";
+      const maxStr = quote.suggestedPriceMax ? ("£" + (quote.suggestedPriceMax / 100).toFixed(2)) : "£0.00";
+      helpRange.textContent = `${minStr} - ${maxStr}`;
+    } else {
+      helpRange.textContent = "No suggestion available";
+    }
+
+    const helpQaNotes = document.getElementById("help-qa-notes");
+    helpQaNotes.textContent = quote.qaQuoteNotes || quote.qaNotes || "No notes available";
+    
+    const helpProperty = document.getElementById("help-property-summary");
+    const summaryParts = [];
+    if (quote.serviceType) summaryParts.push(`Service: ${quote.serviceType}`);
+    if (quote.frequency) summaryParts.push(`Frequency: ${quote.frequency}`);
+    if (quote.area) summaryParts.push(`Area: ${quote.area}`);
+    if (quote.qaAssessmentNotes) summaryParts.push(`Assessment: ${quote.qaAssessmentNotes}`);
+    helpProperty.textContent = summaryParts.join("\n") || "No summary available";
+    
+    const linesList = document.getElementById("editor-price-lines-list");
+    linesList.innerHTML = "";
+    
+    let priceLines = [];
+    if (quote.priceLines) {
+      try {
+        priceLines = JSON.parse(quote.priceLines);
+      } catch (e) {
+        console.error("Failed to parse priceLines JSON", e);
+      }
+    }
+    
+    if (Array.isArray(priceLines) && priceLines.length > 0) {
+      priceLines.forEach((line) => {
+        const amt = line.price !== undefined ? (line.price / 100).toFixed(2) : "";
+        const row = createPriceLineRow(line.description || "", amt);
+        linesList.appendChild(row);
+      });
+    } else {
+      linesList.appendChild(createPriceLineRow());
+    }
+    
+    statusNode.textContent = "";
+  } catch (err) {
+    statusNode.textContent = err.message;
+    statusNode.className = "status error";
+  }
+}
+
+function closeQuoteEditor() {
+  const modal = document.getElementById("quote-editor-modal");
+  if (modal) {
+    modal.hidden = true;
+  }
+}
+
+async function saveQuoteEditor(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const quoteId = form.elements.id.value;
+  const statusNode = document.getElementById("quote-editor-status");
+  
+  statusNode.textContent = "Saving changes...";
+  statusNode.className = "status";
+  
+  const payload = {
+    scopeOfWork: form.elements.scopeOfWork.value,
+    includedItems: form.elements.includedItems.value,
+    excludedItems: form.elements.excludedItems.value,
+    assumptions: form.elements.assumptions.value,
+    pricingNotes: form.elements.pricingNotes.value,
+    clientNotes: form.elements.clientNotes.value,
+    internalNotes: form.elements.internalNotes.value,
+  };
+  
+  payload.validUntil = form.elements.validUntil.value || null;
+  
+  const totalVal = parseFloat(form.elements.totalPrice.value);
+  payload.totalPrice = isNaN(totalVal) ? null : Math.round(totalVal * 100);
+  
+  const recVal = parseFloat(form.elements.recurringPrice.value);
+  payload.recurringPrice = isNaN(recVal) ? null : Math.round(recVal * 100);
+  
+  const linesList = document.getElementById("editor-price-lines-list");
+  const priceLines = [];
+  linesList.querySelectorAll(".price-line-row-tr").forEach((row) => {
+    const desc = row.querySelector(".price-line-desc").value.trim();
+    const amtVal = parseFloat(row.querySelector(".price-line-amount").value);
+    const price = isNaN(amtVal) ? 0 : Math.round(amtVal * 100);
+    if (desc || price > 0) {
+      priceLines.push({ description: desc, price });
+    }
+  });
+  payload.priceLines = JSON.stringify(priceLines);
+  
+  try {
+    const res = await apiPatch(`/api/quotes/${quoteId}`, payload);
+    if (!res || !res.ok) {
+      throw new Error("Failed to save quote changes.");
+    }
+    
+    const quote = res.quote || {};
+    await refreshQuoteLinkedViews(quote.assessmentQuoteId, quote.clientId || null);
+    
+    closeQuoteEditor();
+  } catch (err) {
+    statusNode.textContent = err.message;
+    statusNode.className = "status error";
+  }
+}
+
 function bindEvents() {
+  document.querySelectorAll("#quote-editor-modal [data-close-modal]").forEach((btn) => {
+    btn.addEventListener("click", closeQuoteEditor);
+  });
+  
+  document.getElementById("quote-editor-form")?.addEventListener("submit", saveQuoteEditor);
+  
+  document.getElementById("editor-add-price-line")?.addEventListener("click", () => {
+    document.getElementById("editor-price-lines-list").appendChild(createPriceLineRow());
+  });
+  
+  document.querySelectorAll("#quote-editor-modal .date-quick-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      const days = parseInt(btn.getAttribute("data-days"), 10);
+      if (isNaN(days)) return;
+      const d = new Date();
+      d.setDate(d.getDate() + days);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      const formatted = `${year}-${month}-${day}`;
+      const input = document.querySelector('#quote-editor-form input[name="validUntil"]');
+      if (input) {
+        input.value = formatted;
+      }
+    });
+  });
+
   document.querySelectorAll("[data-view]").forEach((button) => {
     button.addEventListener("click", () => setView(button.dataset.view));
   });
@@ -3641,6 +3898,13 @@ function bindEvents() {
   });
 
   document.addEventListener("click", async (event) => {
+    const editDraftButton = event.target.closest("[data-edit-draft-quote]");
+    if (editDraftButton) {
+      const quoteId = editDraftButton.dataset.editDraftQuote;
+      openQuoteEditor(quoteId);
+      return;
+    }
+
     const createQuoteButton = event.target.closest("[data-create-quote-for-assessment]");
     if (createQuoteButton) {
       const assessmentQuoteId = createQuoteButton.dataset.createQuoteForAssessment;

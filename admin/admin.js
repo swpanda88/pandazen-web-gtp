@@ -237,6 +237,17 @@ const convertibleLeadStatuses = new Set(["accepted", "booked", "quote_accepted",
 const assessmentHistoryStatuses = new Set(["converted", "rejected", "not_proceeding", "expired", "closed", "cancelled", "lost"]);
 const clientHistoryStatuses = new Set(["ended", "archived", "inactive", "cancelled", "lost", "closed"]);
 const workspaceFirstViews = new Set(["assessments", "clients"]);
+const assessmentCloseReasons = [
+  { value: "customer_changed_mind", label: "Customer changed mind" },
+  { value: "no_response", label: "No response" },
+  { value: "not_suitable", label: "Not suitable" },
+  { value: "fully_booked", label: "Fully booked" },
+  { value: "outside_service_area", label: "Outside service area" },
+  { value: "quote_rejected", label: "Quote rejected" },
+  { value: "duplicate", label: "Duplicate" },
+  { value: "test_or_error", label: "Test or error" },
+  { value: "other", label: "Other" }
+];
 
 const viewTitle = document.querySelector("[data-view-title]");
 const drawer = document.querySelector("[data-drawer]");
@@ -1490,6 +1501,34 @@ function renderDrawerTitlebar({ eyebrow, title, subtitle, detailLine, compactTit
   `;
 }
 
+function renderAssessmentCloseout(record) {
+  if (isHistoryAssessment(record)) return "";
+
+  return `
+    <section class="drawer-section">
+      <h3>Close Q&A</h3>
+      <form class="lead-action-form compact" data-assessment-close-form>
+        <label>
+          Reason
+          <select name="closeReason" required>
+            ${assessmentCloseReasons
+              .map((reason) => `<option value="${escapeHtml(reason.value)}">${escapeHtml(reason.label)}</option>`)
+              .join("")}
+          </select>
+        </label>
+        <label>
+          Note (optional)
+          <textarea name="closeNote" rows="3" placeholder="Optional internal note about why this Q&A is not proceeding."></textarea>
+        </label>
+        <div class="drawer-actions">
+          <button class="ghost" type="submit">Mark not proceeding</button>
+        </div>
+      </form>
+      <p class="record-sub" data-assessment-close-status></p>
+    </section>
+  `;
+}
+
 let drawerScrollHandler = null;
 
 function renderDrawerFrame({ titlebar, body, bodyTag = "div", bodyAttrs = "", frameClass = "" }) {
@@ -1864,6 +1903,11 @@ function setAssessmentConversionStatus(message) {
   if (status) status.textContent = message;
 }
 
+function setAssessmentCloseStatus(message) {
+  const status = drawer.querySelector("[data-assessment-close-status]");
+  if (status) status.textContent = message;
+}
+
 function openClientFromAssessment(clientId) {
   const client = data.clients.find((item) => String(item.id) === String(clientId));
   if (!client) {
@@ -1912,6 +1956,30 @@ function setupAssessmentDrawerActions(record) {
 
   drawer.querySelector("[data-open-qa-client]")?.addEventListener("click", (event) => {
     openClientFromAssessment(event.currentTarget.dataset.openQaClient);
+  });
+
+  drawer.querySelector("[data-assessment-close-form]")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const lostReason = String(formData.get("closeReason") || "");
+    const closeNote = String(formData.get("closeNote") || "").trim();
+
+    try {
+      setAssessmentCloseStatus("Marking Q&A as not proceeding...");
+      if (state.expandedWorkspaces.assessments && String(state.expandedWorkspaces.assessments.id) === String(record.id)) {
+        state.expandedWorkspaces.assessments = null;
+      }
+      await apiPatch(`/api/assessment-quotes/${record.id}`, {
+        status: "not_proceeding",
+        lostReason,
+        closeNote
+      });
+      await refreshAssessmentDrawer(record.id);
+      setAssessmentCloseStatus("Marked as not proceeding.");
+    } catch (err) {
+      setAssessmentCloseStatus(`Could not close Q&A. ${err.message}`);
+    }
   });
 }
 
@@ -2201,6 +2269,7 @@ function openDrawer(type, record = {}) {
       ${type === "assessment" ? renderAssessmentQuoteAssist(record) : ""}
       ${type === "assessment" ? renderAssessmentAccountingQuote(record) : ""}
       ${type === "assessment" ? renderAssessmentQuoteConversion(record) : ""}
+      ${type === "assessment" ? renderAssessmentCloseout(record) : ""}
       ${type === "assessment" ? renderLinkedLeadNotes(record) : ""}
       ${type === "client" ? renderClientAccountingQuote(record) : ""}
       ${type === "client" ? renderOriginalLeadNotes(record) : ""}

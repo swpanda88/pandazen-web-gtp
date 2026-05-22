@@ -10,7 +10,7 @@ export async function onRequestPost({ env, params }) {
       { status: result.alreadyExists ? 200 : 201 }
     );
   } catch (err) {
-    if (String(err.message || "") === "Assessment / Quote not found.") {
+    if (String(err.message || "") === "Assessment not found.") {
       return error(err.message, 404);
     }
     return error(err.message, 500);

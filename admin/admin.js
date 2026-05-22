@@ -534,6 +534,30 @@ function humanizeToken(value) {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+function assessmentSourceDisplay(record) {
+  const value = record?.sourceType || (record?.clientId ? "existing_client" : record?.leadId ? "new_prospect" : "unknown");
+  const labels = {
+    new_prospect: "New Prospect",
+    existing_client: "Existing Client",
+    manual_admin: "Manual / Admin",
+    unknown: "Unknown"
+  };
+  return labels[value] || humanizeToken(value);
+}
+
+function assessmentPurposeDisplay(record) {
+  const value = record?.assessmentPurpose || "unknown";
+  const labels = {
+    base_recurring: "Base Recurring",
+    one_off_extra_work: "One-off / Extra Work",
+    deep_clean: "Deep Clean",
+    follow_up: "Follow-up",
+    complaint_review: "Complaint / Review",
+    unknown: "Unknown"
+  };
+  return labels[value] || humanizeToken(value);
+}
+
 function quoteStatusDisplay(quote) {
   return humanizeToken(quote?.status || "draft");
 }
@@ -565,6 +589,15 @@ function quotesForClient(record) {
     ? (data.quotes || []).filter((quote) => String(quote.assessmentQuoteId) === String(record.assessmentQuoteId))
     : [];
   return sortQuotes(record?.quotes?.length ? record.quotes : byAssessment);
+}
+
+function assessmentsForClient(record) {
+  const related = (data.assessments || []).filter((assessment) =>
+    String(assessment.clientId || "") === String(record?.id)
+    || String(assessment.convertedClientId || "") === String(record?.id)
+    || (record?.assessmentQuoteId && String(assessment.id) === String(record.assessmentQuoteId))
+  );
+  return [...related].sort((left, right) => new Date(right.updatedAt || right.createdAt || 0) - new Date(left.updatedAt || left.createdAt || 0));
 }
 
 function draftQuoteForAssessment(record) {
@@ -1269,7 +1302,7 @@ function renderLeadOutcomeActions(record) {
     return `
       <div class="lead-action-group">
         <h4>Close Lead</h4>
-        <p class="record-sub">This lead already has a linked Q&A / Assessment, so close-out should continue from that stage rather than the original Lead record.</p>
+        <p class="record-sub">This lead already has a linked Assessment, so close-out should continue from that stage rather than the original Lead record.</p>
       </div>
     `;
   }
@@ -1298,7 +1331,7 @@ function renderClientAccountingQuote(record) {
           ? `<div class="workspace-list compact">
               ${quotes.map((item) => renderQuoteRecordCard(item)).join("")}
             </div>`
-          : `<p class="record-sub">No linked accounting quote has been created from this Q&A yet.</p>`
+          : `<p class="record-sub">No linked accounting quote has been created from this Assessment yet.</p>`
       }
     </section>
   `;
@@ -1360,7 +1393,7 @@ function renderAssessmentQuoteAssist(record) {
               ["Rule version", assist.ruleVersion],
               ["Last run", formatDateTime(assist.updatedAt || assist.createdAt)]
             ])
-          : `<p class="record-sub">No Quote Assist result yet. Run it from this Q&A record when the available detail is ready.</p>`
+          : `<p class="record-sub">No Quote Assist result yet. Run it from this Assessment when the available detail is ready.</p>`
       }
       <div class="drawer-actions">
         <button class="primary" type="button" data-run-quote-assist="${escapeHtml(record.id)}">Run Quote Assist</button>
@@ -1382,7 +1415,7 @@ function renderAssessmentAccountingQuote(record) {
           ? `<div class="workspace-list compact">
               ${quotes.map((item) => renderQuoteRecordCard(item, record.id)).join("")}
             </div>`
-          : `<p class="record-sub">No draft Accounting quote has been created from this Q&A yet.</p>`
+          : `<p class="record-sub">No draft Accounting quote has been created from this Assessment yet.</p>`
       }
       <div class="drawer-actions">
         ${
@@ -1397,7 +1430,8 @@ function renderAssessmentAccountingQuote(record) {
 }
 
 function clientForAssessmentQuote(record) {
-  return (data.clients || []).find((client) => String(client.assessmentQuoteId) === String(record.id))
+  return (record.clientId ? (data.clients || []).find((client) => String(client.id) === String(record.clientId)) : null)
+    || (data.clients || []).find((client) => String(client.assessmentQuoteId) === String(record.id))
     || (record.convertedClientId ? (data.clients || []).find((client) => String(client.id) === String(record.convertedClientId)) : null);
 }
 
@@ -1416,7 +1450,9 @@ function renderAssessmentQuoteConversion(record) {
       <p class="record-sub">${
         client
           ? `Converted to Client & Home #${escapeHtml(client.id)}`
-          : "Marks this Q&A as accepted and creates a linked Client & Home record."
+          : record.clientId
+            ? "Marks this Assessment as accepted and keeps it linked to the existing Client & Home record."
+            : "Marks this Assessment as accepted and creates a linked Client & Home record."
       }</p>
       <p class="record-sub" data-assessment-conversion-status></p>
     </section>
@@ -1497,17 +1533,17 @@ function renderLeadAssessmentQuote(record) {
   if (!assessmentQuote && !canCreateAssessmentQuote(record)) return "";
   return `
     <div class="lead-action-group">
-      <h4>Assessment / Quote</h4>
+      <h4>Assessment</h4>
       <div class="drawer-actions compact">
         ${
           assessmentQuote
-            ? `<button class="primary lead-action-primary" type="button" data-open-assessment-quote="${escapeHtml(assessmentQuote.id)}">Open Assessment / Quote</button>`
-            : `<button class="primary lead-action-primary" type="button" data-create-assessment-quote="${escapeHtml(record.id)}">Create Assessment / Quote</button>`
+            ? `<button class="primary lead-action-primary" type="button" data-open-assessment-quote="${escapeHtml(assessmentQuote.id)}">Open Assessment</button>`
+            : `<button class="primary lead-action-primary" type="button" data-create-assessment-quote="${escapeHtml(record.id)}">Create Assessment</button>`
         }
       </div>
       ${
         assessmentQuote
-          ? `<p class="record-sub">Linked Q&A #${escapeHtml(assessmentQuote.id)} - ${escapeHtml(assessmentQuote.quoteStageLabel || assessmentQuote.quoteStage || assessmentQuote.statusLabel || assessmentQuote.status || "Draft")}</p>`
+          ? `<p class="record-sub">Linked Assessment #${escapeHtml(assessmentQuote.id)} - ${escapeHtml(assessmentQuote.quoteStageLabel || assessmentQuote.quoteStage || assessmentQuote.statusLabel || assessmentQuote.status || "Draft")}</p>`
           : ""
       }
     </div>
@@ -1971,6 +2007,23 @@ async function refreshWorkspaceRecord(view, type, recordId, tab) {
   }
 }
 
+async function createAssessmentFromClient(clientId) {
+  const result = await apiPost("/api/assessment-quotes", {
+    action: "create_from_client",
+    clientId,
+    purpose: "one_off_extra_work"
+  });
+  await loadApiData();
+  const created = findRecordByType("assessment", result.id || result.assessmentQuoteId);
+  if (!created) return result;
+  setView("assessments");
+  state.expandedWorkspaces.assessments = { id: created.id, tab: "details" };
+  state.workspaceDrawerMode.assessments = "collapsed";
+  rememberWorkspaceDrawerRecord("assessment", created);
+  renderAll();
+  return result;
+}
+
 function applyAssessmentLocalUpdate(recordId, payload) {
   const record = data.assessments.find((item) => String(item.id) === String(recordId));
   if (!record) return;
@@ -2115,7 +2168,7 @@ function renderAssessmentCloseout(record) {
 
   return `
     <section class="drawer-section">
-      <h3>Close Q&A</h3>
+      <h3>Close Assessment</h3>
       <form class="lead-action-form compact" data-assessment-close-form>
         <label>
           Reason
@@ -2127,7 +2180,7 @@ function renderAssessmentCloseout(record) {
         </label>
         <label>
           Note (optional)
-          <textarea name="closeNote" rows="3" placeholder="Optional internal note about why this Q&A is not proceeding."></textarea>
+          <textarea name="closeNote" rows="3" placeholder="Optional internal note about why this Assessment is not proceeding."></textarea>
         </label>
         <div class="drawer-actions">
           <button class="ghost" type="submit">Mark not proceeding</button>
@@ -2248,7 +2301,7 @@ function setLeadDetailStatus(message) {
 function openAssessmentQuoteFromLead(assessmentQuoteId) {
   const assessmentQuote = data.assessments.find((item) => String(item.id) === String(assessmentQuoteId));
   if (!assessmentQuote) {
-    setLeadActionStatus("Assessment / Quote is not available in the current D1 data.");
+    setLeadActionStatus("Assessment is not available in the current D1 data.");
     return false;
   }
   setView("assessments");
@@ -2346,14 +2399,14 @@ function setupLeadDrawerActions(record) {
 
   drawer.querySelector("[data-create-assessment-quote]")?.addEventListener("click", async () => {
     try {
-      setLeadActionStatus("Creating Assessment / Quote...");
+      setLeadActionStatus("Creating Assessment...");
       const result = await apiPost(`/api/leads/${record.id}/assessment-quote`, {});
       await loadApiData();
       const assessmentQuoteId = result.assessmentQuote?.id || result.id;
       if (openAssessmentQuoteFromLead(assessmentQuoteId)) return;
-      setLeadActionStatus("Assessment / Quote was created, but it was not returned by the current data load.");
+      setLeadActionStatus("Assessment was created, but it was not returned by the current data load.");
     } catch (err) {
-      setLeadActionStatus(`Could not create Assessment / Quote. ${err.message}`);
+      setLeadActionStatus(`Could not create Assessment. ${err.message}`);
     }
   });
 
@@ -2567,7 +2620,7 @@ function setupAssessmentDrawerActions(record) {
       if (openClientFromAssessment(result.id)) return;
       setAssessmentConversionStatus("Converted, but the Client & Home record was not returned by the current data load.");
     } catch (err) {
-      setAssessmentConversionStatus(`Could not convert Q&A. ${err.message}`);
+      setAssessmentConversionStatus(`Could not convert Assessment. ${err.message}`);
     }
   });
 
@@ -2583,7 +2636,7 @@ function setupAssessmentDrawerActions(record) {
     const closeNote = String(formData.get("closeNote") || "").trim();
 
     try {
-      setAssessmentCloseStatus("Marking Q&A as not proceeding...");
+      setAssessmentCloseStatus("Marking Assessment as not proceeding...");
       if (state.expandedWorkspaces.assessments && String(state.expandedWorkspaces.assessments.id) === String(record.id)) {
         state.expandedWorkspaces.assessments = null;
       }
@@ -2595,7 +2648,7 @@ function setupAssessmentDrawerActions(record) {
       await refreshAssessmentDrawer(record.id);
       setAssessmentCloseStatus("Marked as not proceeding.");
     } catch (err) {
-      setAssessmentCloseStatus(`Could not close Q&A. ${err.message}`);
+      setAssessmentCloseStatus(`Could not close Assessment. ${err.message}`);
     }
   });
 }
@@ -2648,7 +2701,7 @@ function openDrawer(type, record = {}) {
       actions: ["Mark done", "Reschedule", "Open linked record"]
     },
     assessment: {
-      title: record.customerName || record.client || "Assessment / quote",
+      title: record.customerName || record.client || "Assessment",
       subtitle: compactMeta([record.area, record.serviceLabel || record.serviceType, record.quoteStageLabel || record.quoteStage]),
       sections: [
         [
@@ -2690,6 +2743,8 @@ function openDrawer(type, record = {}) {
           "Assessment",
           [
             ["Assessment type", record.assessmentType],
+            ["Source", assessmentSourceDisplay(record)],
+            ["Purpose", assessmentPurposeDisplay(record)],
             ["Estimated hours", record.estimate],
             ["Assessment notes", record.assessmentNotes]
           ]
@@ -2711,7 +2766,7 @@ function openDrawer(type, record = {}) {
           [
             ["Status", record.statusLabel || record.status],
             ["Quote stage", record.quoteStageLabel || record.quoteStage],
-            ["Converted client ID", record.convertedClientId],
+            ["Linked client ID", record.clientId || record.convertedClientId],
             ["Created", formatDateTime(record.createdAt)],
             ["Updated", formatDateTime(record.updatedAt)]
           ]
@@ -2781,7 +2836,7 @@ function openDrawer(type, record = {}) {
           "Notes",
           [
             ["Client notes", record.notes],
-            ["Q&A notes", record.qaNotes],
+            ["Assessment internal notes", record.qaNotes],
             ["Assessment notes", record.qaAssessmentNotes],
             ["Quote notes", record.qaQuoteNotes],
             ["Original lead summary", record.originalLeadNote]
@@ -2791,9 +2846,9 @@ function openDrawer(type, record = {}) {
           "Original lead",
           [
             ["Original lead ID", clientOriginalLeadId(record)],
-            ["Assessment / Quote ID", record.assessmentQuoteId],
-            ["Q&A stage", record.assessmentQuoteStage],
-            ["Q&A accepted", formatDateTime(record.qaQuoteAcceptedAt)],
+            ["Assessment ID", record.assessmentQuoteId],
+            ["Assessment stage", record.assessmentQuoteStage],
+            ["Assessment accepted", formatDateTime(record.qaQuoteAcceptedAt)],
             ["Lead status", record.originalLeadStatus],
             ["Lead source", record.originalLeadSourceLabel || record.originalLeadSource],
             ["Lead submitted", formatDateTime(record.originalLeadCreatedAt)],
@@ -2827,7 +2882,7 @@ function openDrawer(type, record = {}) {
 
   const template = templates[type];
   const compactType = type === "assessment"
-    ? "Q&A"
+    ? "Assessment"
     : type === "client"
       ? "Client"
       : type.charAt(0).toUpperCase() + type.slice(1);
@@ -2848,7 +2903,7 @@ function openDrawer(type, record = {}) {
         ])
       : "";
   const titlebar = renderDrawerTitlebar({
-    eyebrow: type === "assessment" ? "Q&A / Assessment" : compactType,
+    eyebrow: type === "assessment" ? "Assessment" : compactType,
     title: template.title,
     subtitle: detailSubtitle || template.subtitle,
     detailLine,
@@ -3167,7 +3222,7 @@ function renderLeadHistory() {
   if (!host) return;
   const leads = [...leadHistory()].sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""))).slice(0, 12);
   if (!leads.length) {
-    host.innerHTML = emptyState("No lead history yet", "Rejected, unsuitable, or moved-to-Q&A leads will remain visible here for traceability.");
+    host.innerHTML = emptyState("No lead history yet", "Rejected, unsuitable, or moved-to-Assessment leads will remain visible here for traceability.");
     if (countNode) countNode.textContent = "0 history leads";
     return;
   }
@@ -3417,7 +3472,7 @@ function workspaceTabs(view, recordId, tabs) {
 }
 
 function workspaceDrawerEyebrow(view = state.view) {
-  return view === "clients" ? "Client & Home" : "Q&A / Assessment";
+  return view === "clients" ? "Client & Home" : "Assessment";
 }
 
 function renderWorkspaceEmptyDrawerShell(view = state.view) {
@@ -3439,11 +3494,12 @@ function renderWorkspaceEmptyDrawerShell(view = state.view) {
   });
 }
 
-function renderExpandableWorkspace({ view, record, eyebrow, title, subtitle, status, meta, tabs, content }) {
+function renderExpandableWorkspace({ view, record, tabs, actions = "", content }) {
   return `
       <section class="expandable-workspace" data-workspace="${escapeHtml(view)}" data-workspace-id="${escapeHtml(record.id)}">
         <div class="workspace-shell">
           ${workspaceTabs(view, record.id, tabs)}
+          ${actions ? `<div class="workspace-toolbar">${actions}</div>` : ""}
           <div class="workspace-panel">
             ${content}
         </div>
@@ -3552,7 +3608,7 @@ async function handleGenerateQuoteFromBuilder(assessmentId) {
     // 6. recurringPrice
     const recurringTotalPence = Math.round(selectedModules.filter(m => m.is_recurring).reduce((sum, m) => sum + Number(m.amount || 0), 0) * 100);
     
-    const pricingNotes = `Generated from Q&A Quote Builder. Selected modules count: ${selectedModules.length}.`;
+    const pricingNotes = `Generated from Assessment Quote Builder. Selected modules count: ${selectedModules.length}.`;
     const clientNotes = "This quote is based on the information provided and may be adjusted if the agreed scope changes.";
 
     setBuilderStatus(assessmentId, "Saving work modules content to draft quote...");
@@ -3612,7 +3668,7 @@ function renderAssessmentQuoteBuilder(record) {
         id: "regular_clean",
         name: "Regular recurring clean",
         type: "regular_clean",
-        client_description: "Standard regular cleaning visit matching the Q&A specification.",
+        client_description: "Standard regular cleaning visit matching the Assessment specification.",
         internal_note: "Standard recurring cleaning plan.",
         hours: regularCleanHours,
         rate: rate,
@@ -3723,7 +3779,7 @@ function renderAssessmentQuoteBuilder(record) {
       <!-- 1. Source Context Panel -->
       <div class="builder-context-grid">
         <div class="builder-context-card font-small">
-          <h4 style="margin:0 0 8px; font-size:0.9rem; color:var(--forest); border-bottom:1px solid var(--line); padding-bottom:4px;">Q&A Source Context</h4>
+          <h4 style="margin:0 0 8px; font-size:0.9rem; color:var(--forest); border-bottom:1px solid var(--line); padding-bottom:4px;">Assessment Source Context</h4>
           <div class="context-details">
             <div><strong>Client:</strong> ${escapeHtml(record.customerName || record.client || "")}</div>
             <div><strong>Location:</strong> ${escapeHtml(compactMeta([record.area, record.postcode])) || "Not Specified"}</div>
@@ -3733,7 +3789,7 @@ function renderAssessmentQuoteBuilder(record) {
             <div><strong>Parking:</strong> ${escapeHtml(record.parking || "")}</div>
             <div><strong>Pets:</strong> ${escapeHtml(record.pets || "")}</div>
             <div><strong>Assessment Notes:</strong> <span class="notes-text">${escapeHtml(record.assessmentNotes || "")}</span></div>
-            <div><strong>Q&A Notes:</strong> <span class="notes-text">${escapeHtml(record.quoteNotes || "")}</span></div>
+            <div><strong>Assessment / Quote Notes:</strong> <span class="notes-text">${escapeHtml(record.quoteNotes || "")}</span></div>
           </div>
         </div>
         <div class="builder-context-card font-small">
@@ -3858,8 +3914,8 @@ function renderAssessmentWorkspaceTab(record, tab) {
     const isEditing = isEditingAssessmentDetails(record);
     const draft = isEditing ? assessmentDetailsEditState : assessmentDetailsDraft(record);
     const header = workspaceEditHeader({
-      title: "Q&A details",
-      helper: "These fields belong to this Q&A record only. Saving here does not sync back to Leads or forward to Client & Home.",
+      title: "Assessment details",
+      helper: "These fields belong to this Assessment only. Saving here does not sync back to Leads or forward to Client & Home.",
       editing: isEditing,
       editLabel: "Edit details",
       editAction: `data-edit-assessment-details="${escapeHtml(record.id)}"`,
@@ -3921,7 +3977,7 @@ function renderAssessmentWorkspaceTab(record, tab) {
           ["Positive flags", (assist.positiveFlags || []).join("; ")],
           ["Last run", formatDateTime(assist.updatedAt || assist.createdAt)]
         ])
-      : placeholderPanel("No Quote Assist result saved yet. Use the drawer action when this Q&A has enough detail.");
+      : placeholderPanel("No Quote Assist result saved yet. Use the drawer action when this Assessment has enough detail.");
   }
 
   if (tab === "quotes") {
@@ -3948,7 +4004,7 @@ function renderAssessmentWorkspaceTab(record, tab) {
           <p class="record-sub" data-quote-action-status="${escapeHtml(record.id)}"></p>
         </section>
         <section>
-          <div class="workspace-placeholder muted"><p>Document editor coming later. This workspace keeps quote records visible and commercially traceable until the dedicated quote editor exists.</p></div>
+          <div class="workspace-placeholder muted"><p>Use the linked quote cards to open the draft Quote Editor or Preview / Print the commercial document. This workspace keeps quote records visible and traceable alongside the Assessment.</p></div>
         </section>
       </div>
     `;
@@ -3961,7 +4017,7 @@ function renderAssessmentWorkspaceTab(record, tab) {
       <div class="workspace-stack">
         <section>
           <h4>Linked notes</h4>
-          ${noteSummary(notes, "No linked notes yet for this Q&A record.")}
+          ${noteSummary(notes, "No linked notes yet for this Assessment.")}
         </section>
         <section>
           <h4>Linked tasks</h4>
@@ -3986,12 +4042,14 @@ function renderAssessmentWorkspaceTab(record, tab) {
     ["Phone", record.phone],
     ["Email", record.email],
     ["Area / postcode", compactMeta([record.area, record.postcode])],
+    ["Source", assessmentSourceDisplay(record)],
+    ["Purpose", assessmentPurposeDisplay(record)],
     ["Service", record.serviceLabel || record.serviceType],
     ["Frequency", record.frequencyLabel || record.frequency],
     ["Status", record.statusLabel || record.status],
     ["Quote stage", record.quoteStageLabel || record.quoteStage],
     ["Linked lead", record.leadId ? `#${record.leadId}` : ""],
-    ["Linked client", record.convertedClientId ? `#${record.convertedClientId}` : ""],
+    ["Linked client", record.clientId ? `#${record.clientId}` : record.convertedClientId ? `#${record.convertedClientId}` : ""],
     ["Linked quote", record.accountingQuote?.displayReference],
     ["Updated", formatDateTime(record.updatedAt)]
   ]);
@@ -4003,12 +4061,12 @@ function renderAssessmentWorkspace(record) {
   return renderExpandableWorkspace({
     view: "assessments",
     record,
-    eyebrow: "Q&A / Assessment",
-    title: record.customerName || record.client || `Q&A #${record.id}`,
-    subtitle: compactMeta([record.serviceLabel || record.serviceType, record.area]),
-    status: assessmentStatusDisplay(record),
-    meta: record.accountingQuote?.displayReference,
     tabs,
+    actions: `
+      <div class="drawer-actions compact workspace-toolbar-actions">
+        <span class="record-sub">${escapeHtml(compactMeta([assessmentSourceDisplay(record), assessmentPurposeDisplay(record), record.linkedClientName ? `Linked client: ${record.linkedClientName}` : ""]))}</span>
+      </div>
+    `,
     content: renderAssessmentWorkspaceTab(record, activeTab)
   });
 }
@@ -4040,7 +4098,7 @@ function renderClientWorkspaceTab(record, tab) {
     const draft = isEditing ? clientWorkspaceEditState : clientContactAccessDraft(record);
     const header = workspaceEditHeader({
       title: "Contact / Access",
-      helper: "Updates stay on the Client & Home record only. They do not rewrite linked Lead or Q&A history.",
+      helper: "Updates stay on the Client & Home record only. They do not rewrite linked Lead or Assessment history.",
       editing: isEditing,
       editLabel: "Edit contact/access",
       editAction: `data-edit-client-workspace="${escapeHtml(record.id)}" data-client-workspace-tab="contact-access"`,
@@ -4123,7 +4181,7 @@ function renderClientWorkspaceTab(record, tab) {
     const header = workspaceEditHeader({
       title: "Cleaning plan",
       helper: record.cleaningPlanId
-        ? "This updates the active cleaning plan only. It does not sync back to Lead or Q&A."
+        ? "This updates the active cleaning plan only. It does not sync back to Lead or Assessment."
         : "A live cleaning plan has not been created yet, so this section remains read-only for now.",
       editing: isEditing,
       editLabel: "Edit cleaning plan",
@@ -4232,17 +4290,36 @@ function renderClientWorkspaceTab(record, tab) {
     `;
   }
 
-  return workspaceSummaryRows([
-    ["Client", record.name],
-    ["Phone", record.phone],
-    ["Email", record.email],
-    ["Area / address", compactMeta([record.area, record.address])],
-    ["Status", clientStatusDisplay(record)],
-    ["Linked lead", clientOriginalLeadId(record) ? `#${clientOriginalLeadId(record)}` : ""],
-    ["Linked Q&A", record.assessmentQuoteId ? `#${record.assessmentQuoteId}` : ""],
-    ["Linked quote", record.accountingQuote?.displayReference],
-    ["Converted", formatDateTime(record.convertedAt)]
-  ]);
+  const linkedAssessments = assessmentsForClient(record);
+  return `
+    <div class="workspace-stack">
+      ${workspaceSummaryRows([
+        ["Client", record.name],
+        ["Phone", record.phone],
+        ["Email", record.email],
+        ["Area / address", compactMeta([record.area, record.address])],
+        ["Status", clientStatusDisplay(record)],
+        ["Linked lead", clientOriginalLeadId(record) ? `#${clientOriginalLeadId(record)}` : ""],
+        ["Primary Assessment", record.assessmentQuoteId ? `#${record.assessmentQuoteId}` : ""],
+        ["Linked quote", record.accountingQuote?.displayReference],
+        ["Converted", formatDateTime(record.convertedAt)]
+      ])}
+      <section>
+        <h4>Linked Assessments</h4>
+        ${listSummary(
+          linkedAssessments,
+          "Create a new Assessment when this client requests new scoped work, extra work, or a new quoteable piece of work.",
+          (assessment) => `
+            <article class="workspace-list-item">
+              <strong>${escapeHtml(assessment.customerName || assessment.client || `Assessment #${assessment.id}`)}</strong>
+              <p>${escapeHtml(compactMeta([assessmentSourceDisplay(assessment), assessmentPurposeDisplay(assessment), assessment.serviceLabel || assessment.serviceType]))}</p>
+              <small>${escapeHtml(compactMeta([assessmentStatusDisplay(assessment), assessment.accountingQuote?.displayReference, formatDateTime(assessment.updatedAt)]))}</small>
+            </article>
+          `
+        )}
+      </section>
+    </div>
+  `;
 }
 
 function renderClientWorkspace(record) {
@@ -4251,12 +4328,12 @@ function renderClientWorkspace(record) {
   return renderExpandableWorkspace({
     view: "clients",
     record,
-    eyebrow: "Client & Home",
-    title: record.name || `Client #${record.id}`,
-    subtitle: compactMeta([record.area, clientServiceLabel(record)]),
-    status: clientStatusDisplay(record),
-    meta: record.accountingQuote?.displayReference,
     tabs,
+    actions: `
+      <div class="drawer-actions compact workspace-toolbar-actions">
+        <button class="primary" type="button" data-create-assessment-from-client="${escapeHtml(record.id)}">+ New Assessment</button>
+      </div>
+    `,
     content: renderClientWorkspaceTab(record, activeTab)
   });
 }
@@ -4294,14 +4371,14 @@ function renderTables() {
     view: "assessments",
     type: "assessment",
     defaultTab: "overview",
-    emptyTitle: "No active Q&A records",
-    emptyMessage: "Create one from a suitable lead when an enquiry is worth assessing further.",
+    emptyTitle: "No active Assessments",
+    emptyMessage: "Create one from a suitable lead or existing client when scoped work is worth assessing further.",
     countTarget: assessmentActiveCount,
     countLabel: "active",
     cells: (assessment) => [
-      `<div class="record-main">${escapeHtml(assessment.customerName || assessment.client || "")}</div><div class="record-sub">${escapeHtml(compactMeta([assessment.area, assessment.postcode]))}</div>`,
-      `${escapeHtml(assessment.serviceLabel || assessment.serviceType || "")}<div class="record-sub">${escapeHtml(assessment.frequencyLabel || assessment.frequency || "")}</div>`,
-      `${escapeHtml(assessment.estimate || "Estimate pending")}<div class="record-sub">${escapeHtml(compactMeta([assessment.quoteRange || "", assessment.accountingQuote?.displayReference || ""]))}</div>`,
+      `<div class="record-main">${escapeHtml(assessment.customerName || assessment.client || "")}</div><div class="record-sub">${escapeHtml(compactMeta([assessment.area, assessment.postcode, assessmentSourceDisplay(assessment)]))}</div>`,
+      `${escapeHtml(assessment.serviceLabel || assessment.serviceType || "")}<div class="record-sub">${escapeHtml(compactMeta([assessment.frequencyLabel || assessment.frequency || "", assessmentPurposeDisplay(assessment)]))}</div>`,
+      `${escapeHtml(assessment.estimate || "Estimate pending")}<div class="record-sub">${escapeHtml(compactMeta([assessment.quoteRange || "", assessment.accountingQuote?.displayReference || "", assessment.linkedClientName ? `Client: ${assessment.linkedClientName}` : ""]))}</div>`,
       `<span class="pill warn">${escapeHtml(assessment.quoteStageLabel || assessment.quoteStage || assessment.statusLabel || assessment.status || "Draft")}</span>`
     ],
     renderWorkspace: renderAssessmentWorkspace
@@ -4312,14 +4389,14 @@ function renderTables() {
     view: "assessments",
     type: "assessment",
     defaultTab: "overview",
-    emptyTitle: "No Q&A history yet",
-    emptyMessage: "Converted and closed Q&A records will remain visible here for traceability.",
+    emptyTitle: "No Assessment history yet",
+    emptyMessage: "Converted and closed Assessments remain visible here for traceability.",
     countTarget: assessmentHistoryCount,
     countLabel: "records",
     cells: (assessment) => [
-      `<div class="record-main">${escapeHtml(assessment.customerName || assessment.client || "")}</div><div class="record-sub">${escapeHtml(compactMeta([assessment.area, assessment.postcode]))}</div>`,
-      `${escapeHtml(assessment.serviceLabel || assessment.serviceType || "")}<div class="record-sub">${escapeHtml(assessment.frequencyLabel || assessment.frequency || "")}</div>`,
-      `${escapeHtml(assessment.estimate || "Estimate pending")}<div class="record-sub">${escapeHtml(compactMeta([assessment.quoteRange || "", assessment.accountingQuote?.displayReference || ""]))}</div>`,
+      `<div class="record-main">${escapeHtml(assessment.customerName || assessment.client || "")}</div><div class="record-sub">${escapeHtml(compactMeta([assessment.area, assessment.postcode, assessmentSourceDisplay(assessment)]))}</div>`,
+      `${escapeHtml(assessment.serviceLabel || assessment.serviceType || "")}<div class="record-sub">${escapeHtml(compactMeta([assessment.frequencyLabel || assessment.frequency || "", assessmentPurposeDisplay(assessment)]))}</div>`,
+      `${escapeHtml(assessment.estimate || "Estimate pending")}<div class="record-sub">${escapeHtml(compactMeta([assessment.quoteRange || "", assessment.accountingQuote?.displayReference || "", assessment.linkedClientName ? `Client: ${assessment.linkedClientName}` : ""]))}</div>`,
       `<span class="pill blue">${escapeHtml(assessment.isConverted || assessment.convertedClientId ? "Converted" : assessment.quoteStageLabel || assessment.quoteStage || assessment.statusLabel || assessment.status || "Closed")}</span>`
     ],
     renderWorkspace: renderAssessmentWorkspace
@@ -4338,7 +4415,7 @@ function renderTables() {
     type: "client",
     defaultTab: "overview",
     emptyTitle: "No active Client & Home records yet",
-    emptyMessage: "Converted accepted Q&A records will appear here as active client records.",
+    emptyMessage: "Converted accepted Assessments will appear here as active client records.",
     countTarget: clientCount,
     countLabel: "active",
     cells: (client) => [
@@ -4869,6 +4946,17 @@ function bindEvents() {
       return;
     }
 
+    const newAssessmentButton = event.target.closest("[data-create-assessment-from-client]");
+    if (newAssessmentButton) {
+      const clientId = newAssessmentButton.dataset.createAssessmentFromClient;
+      try {
+        await createAssessmentFromClient(clientId);
+      } catch (err) {
+        window.alert(`Could not create Assessment. ${err.message}`);
+      }
+      return;
+    }
+
     const createQuoteButton = event.target.closest("[data-create-quote-for-assessment]");
     if (createQuoteButton) {
       const assessmentQuoteId = createQuoteButton.dataset.createQuoteForAssessment;
@@ -4972,7 +5060,7 @@ function bindEvents() {
           }
         }
       } catch (err) {
-        window.alert(`Could not save Q&A details. ${err.message}`);
+        window.alert(`Could not save Assessment details. ${err.message}`);
       }
       return;
     }

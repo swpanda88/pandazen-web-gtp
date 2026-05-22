@@ -31,7 +31,7 @@ const assessmentDetailFields = [
   ["productPreferences", "product_preferences", "Product preferences"],
   ["notes", "notes", "Internal notes"],
   ["assessmentNotes", "assessment_notes", "Assessment notes"],
-  ["quoteNotes", "quote_notes", "Q&A / quote notes"]
+  ["quoteNotes", "quote_notes", "Assessment / quote notes"]
 ];
 
 function normalizeValue(value) {
@@ -77,7 +77,7 @@ async function handleDetailsUpdate(db, body, assessmentId) {
     .first();
 
   if (!existing) {
-    return error("Q&A / Assessment record not found.", 404);
+    return error("Assessment record not found.", 404);
   }
 
   const payload = {};
@@ -137,13 +137,13 @@ async function handleDetailsUpdate(db, body, assessmentId) {
     )
     .run();
 
-  await writeLeadAuditNote(db, existing.lead_id, "Q&A Details", changes);
+  await writeLeadAuditNote(db, existing.lead_id, "Assessment Details", changes);
   return json({ ok: true, updatedFields: changes.length });
 }
 
 async function handleCloseout(db, body, assessmentId) {
   if (body.status !== finalStatus) {
-    return error("Only the Q&A not proceeding close-out is supported by this route.");
+    return error("Only the Assessment not proceeding close-out is supported by this route.");
   }
 
   const existing = await db
@@ -152,7 +152,7 @@ async function handleCloseout(db, body, assessmentId) {
     .first();
 
   if (!existing) {
-    return error("Q&A / Assessment record not found.", 404);
+    return error("Assessment record not found.", 404);
   }
 
   const lostReason = validReasons.has(body.lostReason) ? body.lostReason : "other";

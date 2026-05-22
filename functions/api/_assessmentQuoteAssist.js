@@ -58,7 +58,7 @@ export function runAssessmentQuoteAssist(record) {
   }
   if (record.assessmentNotes || record.quoteNotes || givenMin || givenMax) {
     score += 6;
-    pushUnique(positives, "Q&A record has useful working detail");
+    pushUnique(positives, "Assessment has useful working detail");
   }
 
   if (service === "one_off_cleaning") {
@@ -115,9 +115,9 @@ export function runAssessmentQuoteAssist(record) {
   const confidence = (bedrooms || givenMin) && (bathrooms || givenMax) && service ? (record.assessmentNotes || record.quoteNotes ? "High" : "Medium") : "Low";
   score = Math.max(0, Math.min(100, score));
 
-  let nextAction = "Review Q&A record and confirm scope before quoting";
+  let nextAction = "Review Assessment and confirm scope before quoting";
   if (score >= 78 && frequency !== "one_off") nextAction = "Strong fit - prepare quote or arrange final scope call";
-  if (score >= 60 && service === "one_off_cleaning") nextAction = "Quote carefully from Q&A detail and request photos if needed";
+  if (score >= 60 && service === "one_off_cleaning") nextAction = "Quote carefully from Assessment detail and request photos if needed";
   if (service === "end_of_tenancy") nextAction = "Request photos or detailed scope before quoting";
   if (score < 45) nextAction = "Review fit and boundaries before offering availability";
 
@@ -134,7 +134,7 @@ export function runAssessmentQuoteAssist(record) {
     minimumRecommendedPrice,
     recommendedNextAction: nextAction,
     confidence,
-    explanation: "Rule-based Q&A assist using service, frequency, property size, condition, location, parking, priorities and Q&A notes. Internal guide only; admin judgement required.",
+    explanation: "Rule-based Assessment assist using service, frequency, property size, condition, location, parking, priorities and Assessment notes. Internal guide only; admin judgement required.",
     riskFlags: risks,
     positiveFlags: positives,
     ruleVersion: "assessment-quote-assist-v1"

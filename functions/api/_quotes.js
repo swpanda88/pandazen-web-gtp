@@ -83,7 +83,7 @@ async function findDraftQuoteForAssessment(db, assessmentQuoteId) {
 async function quoteSeedForAssessment(db, assessmentQuoteId) {
   return db
     .prepare(
-      `SELECT aq.id, aq.lead_id AS leadId, aq.converted_client_id AS convertedClientId,
+      `SELECT aq.id, aq.lead_id AS leadId, aq.client_id AS clientId, aq.converted_client_id AS convertedClientId,
               aq.customer_name AS customerName, aq.service_type AS serviceType, aq.frequency,
               aq.property_type AS propertyType, aq.bedrooms, aq.bathrooms, aq.priorities, aq.notes,
               aq.assessment_notes AS assessmentNotes, aq.quote_notes AS quoteNotes,
@@ -98,6 +98,11 @@ async function quoteSeedForAssessment(db, assessmentQuoteId) {
 
 async function existingClientIdForAssessment(db, assessmentQuoteId, convertedClientId) {
   if (convertedClientId) return convertedClientId;
+  const linked = await db
+    .prepare("SELECT client_id AS clientId FROM assessment_quotes WHERE id = ? LIMIT 1")
+    .bind(assessmentQuoteId)
+    .first();
+  if (linked?.clientId) return linked.clientId;
   const client = await db
     .prepare("SELECT id FROM clients WHERE assessment_quote_id = ? LIMIT 1")
     .bind(assessmentQuoteId)
@@ -125,14 +130,14 @@ function notesFromAssessment(assessment) {
   return [
     assessment.notes,
     assessment.assessmentNotes ? `Assessment notes: ${assessment.assessmentNotes}` : "",
-    assessment.quoteNotes ? `Q&A quote notes: ${assessment.quoteNotes}` : ""
+    assessment.quoteNotes ? `Assessment quote notes: ${assessment.quoteNotes}` : ""
   ].filter(Boolean).join("\n\n");
 }
 
 export async function createDraftQuote(db, assessmentQuoteId) {
   const seed = await quoteSeedForAssessment(db, assessmentQuoteId);
   if (!seed) {
-    throw new Error("Assessment / Quote not found.");
+    throw new Error("Assessment not found.");
   }
 
   const existingDraft = await findDraftQuoteForAssessment(db, assessmentQuoteId);

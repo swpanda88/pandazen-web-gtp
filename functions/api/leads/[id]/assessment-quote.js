@@ -1,5 +1,13 @@
 import { error, json, requireDb } from "../../_util.js";
 
+function inferPurpose(lead) {
+  const serviceType = String(lead.serviceType || "").toLowerCase();
+  const frequency = String(lead.frequency || "").toLowerCase();
+  if (serviceType.includes("deep")) return "deep_clean";
+  if (frequency.includes("one") || serviceType.includes("one_off")) return "one_off_extra_work";
+  return "base_recurring";
+}
+
 async function findAssessmentQuote(db, leadId) {
   return db
     .prepare(
@@ -42,14 +50,15 @@ export async function onRequestPost({ env, params }) {
     const result = await db
       .prepare(
         `INSERT INTO assessment_quotes (
-          lead_id, status, assessment_type, quote_stage, customer_name, phone, email, area, postcode,
+          lead_id, source_type, assessment_purpose, status, assessment_type, quote_stage, customer_name, phone, email, area, postcode,
           service_type, frequency, property_type, bedrooms, bathrooms, property_condition, pets, parking,
           priorities, product_preferences, notes
         )
-        VALUES (?, 'draft', 'lead_enquiry', 'new', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        VALUES (?, 'new_prospect', ?, 'draft', 'lead_enquiry', 'new', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .bind(
         lead.id,
+        inferPurpose(lead),
         lead.customerName,
         lead.phone || null,
         lead.email || null,

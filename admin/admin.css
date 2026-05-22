@@ -1189,6 +1189,24 @@ mark.rose {
   background: rgba(251, 250, 246, 0.985);
 }
 
+.workspace-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px 0;
+}
+
+.workspace-toolbar-actions {
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.workspace-toolbar-actions .record-sub {
+  margin: 0;
+}
+
 .workspace-tab {
   min-height: 30px;
   padding: 4px 11px;

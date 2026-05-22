@@ -12,7 +12,7 @@ export async function onRequestPatch({ request, env, params }) {
         .bind(params.id)
         .first();
       if (linkedAssessment) {
-        return error("This lead already has a linked Q&A / Assessment. Close it from the Q&A flow instead of the Lead stage.", 409);
+        return error("This lead already has a linked Assessment. Close it from the Assessment flow instead of the Lead stage.", 409);
       }
     }
     const fields = {

@@ -52,7 +52,7 @@ export async function onRequestPost({ request, env, params }) {
     const body = await readJson(request);
     const quote = await db
       .prepare(
-        `SELECT aq.id, aq.lead_id AS leadId, aq.converted_client_id AS convertedClientId,
+        `SELECT aq.id, aq.lead_id AS leadId, aq.client_id AS clientId, aq.converted_client_id AS convertedClientId,
                 aq.customer_name AS customerName, aq.phone, aq.email, aq.area, aq.postcode,
                 aq.service_type AS serviceType, aq.frequency, aq.property_type AS propertyType,
                 aq.bedrooms, aq.bathrooms, aq.property_condition AS propertyCondition,
@@ -70,11 +70,13 @@ export async function onRequestPost({ request, env, params }) {
       .bind(params.id)
       .first();
 
-    if (!quote) return error("Assessment / Quote not found.", 404);
+    if (!quote) return error("Assessment not found.", 404);
 
     const existing = quote.convertedClientId
       ? { id: quote.convertedClientId }
-      : await findClientForQuote(db, quote.id) || await findClientForLead(db, quote.leadId);
+      : quote.clientId
+        ? { id: quote.clientId }
+        : await findClientForQuote(db, quote.id) || await findClientForLead(db, quote.leadId);
     if (existing) {
       await db
         .prepare("UPDATE clients SET assessment_quote_id = COALESCE(assessment_quote_id, ?), updated_at = CURRENT_TIMESTAMP WHERE id = ?")

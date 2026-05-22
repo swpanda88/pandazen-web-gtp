@@ -203,6 +203,8 @@ const state = {
   role: "admin",
   apiReady: false,
   options: {},
+  assessmentSetupClientId: null,
+  assessmentWizard: null,
   editingAssessmentId: null,
   editingAssessmentTab: null,
   editingClientId: null,
@@ -253,6 +255,19 @@ const assessmentCloseReasons = [
   { value: "test_or_error", label: "Test or error" },
   { value: "other", label: "Other" }
 ];
+const assessmentReasonOptions = [
+  { value: "existing_client_extra", label: "Existing client extra work" },
+  { value: "new_property_existing_client", label: "New property for existing client" },
+  { value: "cleaner_follow_up", label: "Cleaner follow-up" },
+  { value: "complaint_review", label: "Complaint / Review" },
+  { value: "other", label: "Other" }
+];
+const assessmentPhotoOptions = [
+  { value: "", label: "Not set" },
+  { value: "yes", label: "Yes" },
+  { value: "no", label: "No" },
+  { value: "to_request", label: "Need to request" }
+];
 
 const viewTitle = document.querySelector("[data-view-title]");
 const drawer = document.querySelector("[data-drawer]");
@@ -275,9 +290,18 @@ async function apiPost(path, body) {
   if (!response.ok) {
     let message = `API ${path} failed`;
     try {
-      const payload = await response.json();
-      if (payload?.error) {
-        message = payload.error;
+      const text = await response.text();
+      if (text) {
+        try {
+          const payload = JSON.parse(text);
+          if (payload?.error) {
+            message = payload.error;
+          } else {
+            message = text;
+          }
+        } catch {
+          message = text;
+        }
       }
     } catch {
       // Keep the generic fallback when the response has no JSON body.
@@ -534,6 +558,83 @@ function humanizeToken(value) {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+function assessmentSourceDisplay(record) {
+  const value = record?.sourceType || (record?.clientId ? "existing_client" : record?.leadId ? "new_prospect" : "unknown");
+  const labels = {
+    new_prospect: "New Prospect",
+    existing_client: "Existing Client",
+    manual_admin: "Manual / Admin",
+    unknown: "Unknown"
+  };
+  return labels[value] || humanizeToken(value);
+}
+
+function assessmentPurposeDisplay(record) {
+  const value = record?.assessmentPurpose || "unknown";
+  const labels = {
+    base_recurring: "Base Recurring",
+    one_off_extra_work: "One-off / Extra Work",
+    deep_clean: "Deep Clean",
+    follow_up: "Follow-up",
+    complaint_review: "Complaint / Review",
+    unknown: "Unknown"
+  };
+  return labels[value] || humanizeToken(value);
+}
+
+function assessmentTitle(record) {
+  return record?.workLabel || record?.customerName || record?.client || `Assessment #${record?.id || ""}`;
+}
+
+function assessmentPropertyContext(record) {
+  return compactMeta([record?.propertyLabel, record?.propertyAddress, record?.area, record?.postcode]);
+}
+
+function initialsLabel(value) {
+  const parts = String(value || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2);
+  if (!parts.length) return "CL";
+  return parts.map((part) => part.charAt(0).toUpperCase()).join("");
+}
+
+function setupServiceTypeOptions() {
+  const fromState = (state.options.service_type?.options || []).map((option) => ({
+    value: option.value,
+    label: option.label
+  }));
+  const preferred = [
+    { value: "", label: "Select service type" },
+    { value: "regular_cleaning", label: "Regular cleaning" },
+    { value: "one_off_cleaning", label: "One-off cleaning" },
+    { value: "deep_cleaning", label: "Deep clean" },
+    { value: "after_builders_cleaning", label: "After-builders clean" },
+    { value: "end_of_tenancy_cleaning", label: "End of tenancy clean" },
+    { value: "bnb_turnover", label: "B&B / Guest Turnover" },
+    { value: "other", label: "Other" }
+  ];
+  const merged = [];
+  const seen = new Set();
+  [...preferred, ...fromState].forEach((option) => {
+    const key = option.value;
+    if (seen.has(key)) return;
+    seen.add(key);
+    merged.push(option);
+  });
+  return merged;
+}
+
+function assessmentIdentityContext(record) {
+  const titleDiffers = record?.workLabel && record?.customerName && record.workLabel !== record.customerName;
+  return compactMeta([
+    titleDiffers ? record.customerName : "",
+    assessmentPropertyContext(record),
+    assessmentSourceDisplay(record)
+  ]);
+}
+
 function quoteStatusDisplay(quote) {
   return humanizeToken(quote?.status || "draft");
 }
@@ -565,6 +666,35 @@ function quotesForClient(record) {
     ? (data.quotes || []).filter((quote) => String(quote.assessmentQuoteId) === String(record.assessmentQuoteId))
     : [];
   return sortQuotes(record?.quotes?.length ? record.quotes : byAssessment);
+}
+
+function assessmentsForClient(record) {
+  const related = (data.assessments || []).filter((assessment) =>
+    String(assessment.clientId || "") === String(record?.id)
+    || String(assessment.convertedClientId || "") === String(record?.id)
+    || (record?.assessmentQuoteId && String(assessment.id) === String(record.assessmentQuoteId))
+  );
+  return [...related].sort((left, right) => new Date(right.updatedAt || right.createdAt || 0) - new Date(left.updatedAt || left.createdAt || 0));
+}
+
+function assessmentDisplayMeta(record) {
+  return compactMeta([
+    assessmentSourceDisplay(record),
+    assessmentPurposeDisplay(record),
+    record.linkedClientName ? `Client: ${record.linkedClientName}` : ""
+  ]);
+}
+
+function renderPrefillOption(name, label, preview, checked) {
+  return `
+    <label class="prefill-option">
+      <input type="checkbox" name="${escapeHtml(name)}" ${checked ? "checked" : ""}>
+      <span>
+        <strong>${escapeHtml(label)}</strong>
+        <small>${escapeHtml(preview || "No current data to copy")}</small>
+      </span>
+    </label>
+  `;
 }
 
 function draftQuoteForAssessment(record) {
@@ -767,6 +897,7 @@ function isActiveClient(record) {
 }
 
 function assessmentStatusDisplay(record) {
+  if (record?.accountingQuote?.status) return quoteStatusDisplay(record.accountingQuote);
   return record.quoteStageLabel || record.quoteStage || record.statusLabel || record.status || "Draft";
 }
 
@@ -1269,7 +1400,7 @@ function renderLeadOutcomeActions(record) {
     return `
       <div class="lead-action-group">
         <h4>Close Lead</h4>
-        <p class="record-sub">This lead already has a linked Q&A / Assessment, so close-out should continue from that stage rather than the original Lead record.</p>
+        <p class="record-sub">This lead already has a linked Assessment, so close-out should continue from that stage rather than the original Lead record.</p>
       </div>
     `;
   }
@@ -1298,7 +1429,7 @@ function renderClientAccountingQuote(record) {
           ? `<div class="workspace-list compact">
               ${quotes.map((item) => renderQuoteRecordCard(item)).join("")}
             </div>`
-          : `<p class="record-sub">No linked accounting quote has been created from this Q&A yet.</p>`
+          : `<p class="record-sub">No linked accounting quote has been created from this Assessment yet.</p>`
       }
     </section>
   `;
@@ -1360,7 +1491,7 @@ function renderAssessmentQuoteAssist(record) {
               ["Rule version", assist.ruleVersion],
               ["Last run", formatDateTime(assist.updatedAt || assist.createdAt)]
             ])
-          : `<p class="record-sub">No Quote Assist result yet. Run it from this Q&A record when the available detail is ready.</p>`
+          : `<p class="record-sub">No Quote Assist result yet. Run it from this Assessment when the available detail is ready.</p>`
       }
       <div class="drawer-actions">
         <button class="primary" type="button" data-run-quote-assist="${escapeHtml(record.id)}">Run Quote Assist</button>
@@ -1382,7 +1513,7 @@ function renderAssessmentAccountingQuote(record) {
           ? `<div class="workspace-list compact">
               ${quotes.map((item) => renderQuoteRecordCard(item, record.id)).join("")}
             </div>`
-          : `<p class="record-sub">No draft Accounting quote has been created from this Q&A yet.</p>`
+          : `<p class="record-sub">No draft Accounting quote has been created from this Assessment yet.</p>`
       }
       <div class="drawer-actions">
         ${
@@ -1397,7 +1528,8 @@ function renderAssessmentAccountingQuote(record) {
 }
 
 function clientForAssessmentQuote(record) {
-  return (data.clients || []).find((client) => String(client.assessmentQuoteId) === String(record.id))
+  return (record.clientId ? (data.clients || []).find((client) => String(client.id) === String(record.clientId)) : null)
+    || (data.clients || []).find((client) => String(client.assessmentQuoteId) === String(record.id))
     || (record.convertedClientId ? (data.clients || []).find((client) => String(client.id) === String(record.convertedClientId)) : null);
 }
 
@@ -1416,7 +1548,9 @@ function renderAssessmentQuoteConversion(record) {
       <p class="record-sub">${
         client
           ? `Converted to Client & Home #${escapeHtml(client.id)}`
-          : "Marks this Q&A as accepted and creates a linked Client & Home record."
+          : record.clientId
+            ? "Marks this Assessment as accepted and keeps it linked to the existing Client & Home record."
+            : "Marks this Assessment as accepted and creates a linked Client & Home record."
       }</p>
       <p class="record-sub" data-assessment-conversion-status></p>
     </section>
@@ -1497,17 +1631,17 @@ function renderLeadAssessmentQuote(record) {
   if (!assessmentQuote && !canCreateAssessmentQuote(record)) return "";
   return `
     <div class="lead-action-group">
-      <h4>Assessment / Quote</h4>
+      <h4>Assessment</h4>
       <div class="drawer-actions compact">
         ${
           assessmentQuote
-            ? `<button class="primary lead-action-primary" type="button" data-open-assessment-quote="${escapeHtml(assessmentQuote.id)}">Open Assessment / Quote</button>`
-            : `<button class="primary lead-action-primary" type="button" data-create-assessment-quote="${escapeHtml(record.id)}">Create Assessment / Quote</button>`
+            ? `<button class="primary lead-action-primary" type="button" data-open-assessment-quote="${escapeHtml(assessmentQuote.id)}">Open Assessment</button>`
+            : `<button class="primary lead-action-primary" type="button" data-create-assessment-quote="${escapeHtml(record.id)}">Create Assessment</button>`
         }
       </div>
       ${
         assessmentQuote
-          ? `<p class="record-sub">Linked Q&A #${escapeHtml(assessmentQuote.id)} - ${escapeHtml(assessmentQuote.quoteStageLabel || assessmentQuote.quoteStage || assessmentQuote.statusLabel || assessmentQuote.status || "Draft")}</p>`
+          ? `<p class="record-sub">Linked Assessment #${escapeHtml(assessmentQuote.id)} - ${escapeHtml(assessmentQuote.quoteStageLabel || assessmentQuote.quoteStage || assessmentQuote.statusLabel || assessmentQuote.status || "Draft")}</p>`
           : ""
       }
     </div>
@@ -1971,6 +2105,720 @@ async function refreshWorkspaceRecord(view, type, recordId, tab) {
   }
 }
 
+function clientAssessmentServiceSuggestion(record) {
+  return record.qaServiceType || record.originalServiceType || "";
+}
+
+function clientAssessmentFrequencyContext(record) {
+  return record.frequencyLabel || record.frequency || record.requestedFrequencyLabel || record.requestedFrequency || "";
+}
+
+function defaultAssessmentWizard(record) {
+  return {
+    clientId: record.id,
+    step: 1,
+    workLabelManual: false,
+    values: {
+      clientName: record.name || "",
+      phone: record.phone || "",
+      email: record.email || "",
+      workLabel: "",
+      assessmentReason: "existing_client_extra",
+      serviceType: clientAssessmentServiceSuggestion(record) || "",
+      frequency: "one_off",
+      propertyMode: "existing_home",
+      propertyLabel: record.address || "",
+      area: record.area || "",
+      address: record.address || "",
+      postcode: record.postcode || "",
+      propertyType: record.propertyType || "",
+      bedrooms: record.bedrooms || "",
+      bathrooms: record.bathrooms || "",
+      propertyCondition: record.propertyCondition || "",
+      parking: record.parkingNotes || record.leadParking || "",
+      accessMethod: record.accessMethod || "",
+      accessNotes: record.accessNotes || "",
+      pets: record.petType || record.leadPets || "",
+      productPreference: record.productPreference || record.leadProductPreferences || "",
+      surfaceNotes: record.surfaceNotes || "",
+      initialScopeNotes: "",
+      priorityTasks: record.priorities || "",
+      includedAreas: "",
+      exclusions: "",
+      specialRequirements: "",
+      photosAvailable: "",
+      internalNotes: record.notes || "",
+      risksToCheck: "",
+      carryAccessParking: true,
+      carryPetsProducts: true,
+      carryPreviousAssessmentNotes: false,
+      carryCleaningPlanNotes: false
+    }
+  };
+}
+
+function applyAssessmentWizardPropertyMode(wizard, record, nextMode) {
+  if (!wizard || !record) return;
+  const values = wizard.values;
+  const currentMode = values.propertyMode || "existing_home";
+  if (currentMode === nextMode) return;
+  values.propertyMode = nextMode;
+
+  if (nextMode === "existing_home") {
+    values.propertyLabel = record.address || values.propertyLabel || "";
+    values.area = record.area || "";
+    values.address = record.address || "";
+    values.postcode = record.postcode || "";
+    values.propertyType = record.propertyType || "";
+    values.bedrooms = record.bedrooms || "";
+    values.bathrooms = record.bathrooms || "";
+    values.propertyCondition = record.propertyCondition || "";
+    values.parking = record.parkingNotes || record.leadParking || "";
+    values.accessMethod = record.accessMethod || "";
+    values.accessNotes = record.accessNotes || "";
+    values.pets = record.petType || record.leadPets || "";
+    values.productPreference = record.productPreference || record.leadProductPreferences || "";
+    values.surfaceNotes = record.surfaceNotes || "";
+    return;
+  }
+
+  values.propertyLabel = nextMode === "unknown_address" ? "Address TBC" : "";
+  values.address = "";
+  values.postcode = "";
+  values.propertyType = "";
+  values.bedrooms = "";
+  values.bathrooms = "";
+  values.propertyCondition = "";
+  values.parking = "";
+  values.accessMethod = "";
+  values.accessNotes = "";
+  values.pets = "";
+  values.productPreference = "";
+  values.surfaceNotes = "";
+  if (nextMode === "another_address") {
+    values.area = "";
+  }
+}
+
+function assessmentWizardRecord() {
+  const clientId = state.assessmentWizard?.clientId || state.assessmentSetupClientId;
+  return clientId ? findRecordByType("client", clientId) : null;
+}
+
+function assessmentWizardValues() {
+  return state.assessmentWizard?.values || {};
+}
+
+function wizardDisplayValue(value, emptyLabel = "Not provided") {
+  const rendered = detailValue(value);
+  return rendered || emptyLabel;
+}
+
+function assessmentWizardStepTitle(step) {
+  const labels = {
+    1: "Step 1 of 4 - Setup",
+    2: "Step 2 of 4 - Property / Access",
+    3: "Step 3 of 4 - Scope / Priorities",
+    4: "Step 4 of 4 - Review & Create"
+  };
+  return labels[step] || labels[1];
+}
+
+function carryPreviewText(record, values, key) {
+  if (key === "carryAccessParking") {
+    return compactMeta([
+      values.accessMethod || record.accessLabel || record.accessMethod,
+      values.parking || record.parkingNotes || record.leadParking,
+      values.accessNotes || record.accessNotes
+    ]);
+  }
+  if (key === "carryPetsProducts") {
+    return compactMeta([
+      values.pets || record.petLabel || record.petType || record.leadPets,
+      values.productPreference || record.productLabel || record.productPreference || record.leadProductPreferences,
+      values.surfaceNotes || record.surfaceNotes
+    ]);
+  }
+  if (key === "carryPreviousAssessmentNotes") {
+    return record.qaAssessmentNotes || record.qaNotes || "No previous assessment notes available";
+  }
+  if (key === "carryCleaningPlanNotes") {
+    return record.specialInstructions || "No cleaning plan notes available";
+  }
+  return "";
+}
+
+function assessmentWizardContextItems(record, values) {
+  const items = [
+    { label: "Main service", value: record.qaServiceLabel || record.originalServiceLabel || "Not set" },
+    { label: "Current frequency", value: clientAssessmentFrequencyContext(record) || "Not set" },
+    { label: "Current address", value: compactMeta([record.address, record.area, record.postcode]) || "Not set" }
+  ];
+  if (values.propertyMode === "another_address") {
+    items.push({ label: "Assessment address", value: compactMeta([values.propertyLabel, values.address, values.area, values.postcode]) || "Will be entered next" });
+  } else if (values.propertyMode === "unknown_address") {
+    items.push({ label: "Assessment address", value: values.propertyLabel || "Address TBC" });
+  }
+  return items;
+}
+
+function renderAssessmentWizardHero(record, values) {
+  return `
+    <section class="assessment-wizard-card assessment-client-summary-card">
+      <div class="assessment-client-summary">
+        <div class="assessment-client-avatar">${escapeHtml(initialsLabel(record.name))}</div>
+        <div class="assessment-client-copy">
+          <h3>Client summary</h3>
+          <strong>${escapeHtml(record.name || "")}</strong>
+          <p>Starting a new scoped assessment for this existing client. Nothing is created until Review & Create.</p>
+        </div>
+        <div class="assessment-client-meta">
+          <div><span>Phone</span><strong>${escapeHtml(record.phone || "Not available")}</strong></div>
+          <div><span>Email</span><strong>${escapeHtml(record.email || "Not available")}</strong></div>
+          <div><span>Linked client ID</span><strong>#${escapeHtml(record.id || "")}</strong></div>
+        </div>
+      </div>
+      <div class="assessment-hero-summary">
+        <span class="summary-pill">${escapeHtml(assessmentReasonOptions.find((option) => option.value === values.assessmentReason)?.label || "Extra work")}</span>
+        <span class="summary-pill soft">${escapeHtml(setupServiceTypeOptions().find((option) => option.value === values.serviceType)?.label || "Service to confirm")}</span>
+        <span class="summary-pill soft">${escapeHtml(optionLabel("frequency", values.frequency) || values.frequency || "Frequency to confirm")}</span>
+      </div>
+    </section>
+  `;
+}
+
+function wizardPropertyContextCard(record, values) {
+  const propertySummary = compactMeta([
+    values.address || record.address,
+    values.area || record.area,
+    values.postcode || record.postcode
+  ]) || "No address confirmed yet.";
+  if (values.propertyMode === "another_address") {
+    return `
+      <div class="assessment-property-preview">
+        <strong>${escapeHtml(values.propertyLabel || "Another address")}</strong>
+        <p>${escapeHtml(propertySummary)}</p>
+        <small>${escapeHtml(compactMeta([leadValueLabel("propertyType", values.propertyType), values.bedrooms ? `${values.bedrooms} bed` : "", values.bathrooms ? `${values.bathrooms} bath` : ""]))}</small>
+      </div>
+    `;
+  }
+  if (values.propertyMode === "unknown_address") {
+    return `
+      <div class="assessment-property-preview">
+        <strong>${escapeHtml(values.propertyLabel || "Address TBC")}</strong>
+        <p>${escapeHtml(values.area || "Address/property details can be completed later.")}</p>
+        <small>Address/property details can be completed later.</small>
+      </div>
+    `;
+  }
+  return `
+    <div class="assessment-property-preview">
+      <strong>${escapeHtml(values.propertyLabel || record.address || "Existing property")}</strong>
+      <p>${escapeHtml(compactMeta([record.address, record.area, record.postcode]) || "No current address is stored for this client yet.")}</p>
+      <small>${escapeHtml(compactMeta([leadValueLabel("propertyType", record.propertyType), record.bedrooms ? `${record.bedrooms} bedrooms` : "", record.bathrooms ? `${record.bathrooms} bathrooms` : "", record.updatedAt ? `Updated ${formatDate(record.updatedAt)}` : ""]))}</small>
+    </div>
+  `;
+}
+
+function renderAssessmentWizardStep1(record, values) {
+  const serviceOptions = setupServiceTypeOptions();
+  const frequencyContext = clientAssessmentFrequencyContext(record);
+  return `
+    <div class="assessment-wizard-layout">
+      <div class="assessment-wizard-main">
+        <section class="assessment-wizard-card assessment-client-summary-card">
+          <div class="assessment-client-summary">
+            <div class="assessment-client-avatar">${escapeHtml(initialsLabel(record.name))}</div>
+            <div class="assessment-client-copy">
+              <h3>Client summary</h3>
+              <strong>${escapeHtml(record.name || "")}</strong>
+              <p>Creating a new scoped assessment for an existing client.</p>
+            </div>
+            <div class="assessment-client-meta">
+              <div><span>Phone</span><strong>${escapeHtml(record.phone || "Not available")}</strong></div>
+              <div><span>Email</span><strong>${escapeHtml(record.email || "Not available")}</strong></div>
+              <div><span>Linked client ID</span><strong>#${escapeHtml(record.id || "")}</strong></div>
+            </div>
+          </div>
+          <div class="assessment-hero-summary">
+            <span class="summary-pill">${escapeHtml(assessmentReasonOptions.find((option) => option.value === values.assessmentReason)?.label || "Extra work")}</span>
+            <span class="summary-pill soft">${escapeHtml(setupServiceTypeOptions().find((option) => option.value === values.serviceType)?.label || "Service to confirm")}</span>
+            <span class="summary-pill soft">${escapeHtml(optionLabel("frequency", values.frequency) || values.frequency || "Frequency to confirm")}</span>
+          </div>
+        </section>
+        <div class="assessment-wizard-grid">
+          <section class="assessment-wizard-card">
+            <h3>A. Assessment setup</h3>
+            <div class="assessment-wizard-form-grid">
+              <input type="hidden" name="propertyMode" value="${escapeHtml(values.propertyMode || "existing_home")}">
+              ${renderEditableInput("Work label", `<input name="workLabel" value="${escapeHtml(values.workLabel || "")}" placeholder="e.g. One-off cleaning - 5 Garden Lane">`, "field-span-2")}
+              ${renderEditableInput("Reason for opening assessment", renderEditableSelect({ name: "assessmentReason", groupKey: null, currentValue: values.assessmentReason, staticOptions: assessmentReasonOptions }))}
+              ${renderEditableInput("Service type", renderEditableSelect({ name: "serviceType", groupKey: null, currentValue: values.serviceType, staticOptions: serviceOptions, allowOtherOverride: false }))}
+              ${renderEditableInput("Frequency", renderEditableSelect({ name: "frequency", groupKey: "frequency", currentValue: values.frequency }))}
+            </div>
+            <p class="record-sub">Current cleaning plan frequency is ${escapeHtml(frequencyContext || "not set")} and is shown here as context only.</p>
+          </section>
+          <section class="assessment-wizard-card">
+            <h3>D. Current client context</h3>
+            <div class="assessment-context-list">
+              ${assessmentWizardContextItems(record, values).map((item) => `
+                <div><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(item.value || "Not set")}</strong></div>
+              `).join("")}
+            </div>
+            <div class="workspace-placeholder muted">
+              <p>Used as context only; this assessment can be for different work or a different property.</p>
+            </div>
+          </section>
+          <section class="assessment-wizard-card">
+            <h3>B. Property context</h3>
+            <div class="assessment-property-mode-control" data-property-mode-control>
+              <button class="${values.propertyMode === "existing_home" ? "active" : ""}" type="button" data-set-property-mode="existing_home">Existing property</button>
+              <button class="${values.propertyMode === "another_address" ? "active" : ""}" type="button" data-set-property-mode="another_address">Another address</button>
+              <button class="${values.propertyMode === "unknown_address" ? "active" : ""}" type="button" data-set-property-mode="unknown_address">Address unknown</button>
+            </div>
+            ${wizardPropertyContextCard(record, values)}
+          </section>
+          <section class="assessment-wizard-card">
+            <h3>E. Optional carry-over</h3>
+            <p class="record-sub">Only optional context is copied. Client identity and property choice are already set by the wizard.</p>
+            <div class="checkbox-stack">
+              ${renderPrefillOption("carryAccessParking", "Access / parking notes", carryPreviewText(record, values, "carryAccessParking"), values.carryAccessParking)}
+              ${renderPrefillOption("carryPetsProducts", "Pets / product preferences", carryPreviewText(record, values, "carryPetsProducts"), values.carryPetsProducts)}
+              ${renderPrefillOption("carryPreviousAssessmentNotes", "Previous assessment notes", carryPreviewText(record, values, "carryPreviousAssessmentNotes"), values.carryPreviousAssessmentNotes)}
+              ${renderPrefillOption("carryCleaningPlanNotes", "Cleaning plan notes", carryPreviewText(record, values, "carryCleaningPlanNotes"), values.carryCleaningPlanNotes)}
+            </div>
+          </section>
+          <section class="assessment-wizard-card field-span-2">
+            <h3>F. What happens next</h3>
+            <ol class="assessment-next-steps">
+              <li>Create the assessment</li>
+              <li>Review details and run Quote Assist</li>
+              <li>Build the quote from the assessment</li>
+            </ol>
+          </section>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderAssessmentWizardStep2(record, values) {
+  const propertyTypeOptions = leadStaticOptions.propertyType;
+  return `
+    <div class="assessment-wizard-layout">
+      <div class="assessment-wizard-main">
+        ${renderAssessmentWizardHero(record, values)}
+        <div class="assessment-wizard-grid">
+          <section class="assessment-wizard-card">
+            <h3>Property details</h3>
+            ${values.propertyMode === "unknown_address" ? `<div class="workspace-placeholder muted"><p>Address/property details can be completed later. Capture only what is known now so the assessment can move forward cleanly.</p></div>` : ""}
+            <div class="assessment-wizard-form-grid">
+              ${renderEditableInput("Property label", `<input name="propertyLabel" value="${escapeHtml(values.propertyLabel || "")}" placeholder="${escapeHtml(values.propertyMode === "unknown_address" ? "Address TBC" : "e.g. Holiday let, Flat 2, Annex")}">`, "field-span-2")}
+              ${renderEditableInput("Address", `<textarea name="address" rows="3" placeholder="${escapeHtml(values.propertyMode === "existing_home" ? "Current client/home address" : "Property address")}">${escapeHtml(values.address || "")}</textarea>`, "field-span-2")}
+              ${renderEditableInput("Area", `<input name="area" value="${escapeHtml(values.area || "")}" placeholder="${escapeHtml(values.propertyMode === "existing_home" ? "Current area" : "Area")}">`)}
+              ${renderEditableInput("Postcode", `<input name="postcode" value="${escapeHtml(values.postcode || "")}" placeholder="${escapeHtml(values.propertyMode === "existing_home" ? "Current postcode" : "Postcode")}">`)}
+              ${renderEditableInput("Property type", renderEditableSelect({ name: "propertyType", groupKey: null, currentValue: values.propertyType, staticOptions: propertyTypeOptions }))}
+              ${renderEditableInput("Property condition", `<input name="propertyCondition" value="${escapeHtml(values.propertyCondition || "")}" placeholder="Condition">`)}
+              ${renderEditableInput("Bedrooms", `<input name="bedrooms" value="${escapeHtml(values.bedrooms || "")}" placeholder="Bedrooms">`)}
+              ${renderEditableInput("Bathrooms", `<input name="bathrooms" value="${escapeHtml(values.bathrooms || "")}" placeholder="Bathrooms">`)}
+            </div>
+          </section>
+          <section class="assessment-wizard-card">
+            <h3>Access / parking</h3>
+            <div class="assessment-wizard-form-grid">
+              ${renderEditableInput("Access method", renderEditableSelect({ name: "accessMethod", groupKey: "access_method", currentValue: values.accessMethod, allowOtherOverride: false }))}
+              ${renderEditableInput("Parking", `<input name="parking" value="${escapeHtml(values.parking || "")}" placeholder="Parking / arrival note">`)}
+              ${renderEditableInput("Access notes", `<textarea name="accessNotes" rows="4" placeholder="Access details for this assessment only">${escapeHtml(values.accessNotes || "")}</textarea>`, "field-span-2")}
+            </div>
+          </section>
+          <section class="assessment-wizard-card">
+            <h3>Pets / products / surfaces</h3>
+            <div class="assessment-wizard-form-grid">
+              ${renderEditableInput("Pets", renderEditableSelect({ name: "pets", groupKey: "pet_type", currentValue: values.pets, allowOtherOverride: false }))}
+              ${renderEditableInput("Product preference", renderEditableSelect({ name: "productPreference", groupKey: "product_preference", currentValue: values.productPreference, allowOtherOverride: false }))}
+              ${renderEditableInput("Surface / material notes", `<textarea name="surfaceNotes" rows="4" placeholder="Materials, finishes, delicate surfaces, or product cautions">${escapeHtml(values.surfaceNotes || "")}</textarea>`, "field-span-2")}
+            </div>
+          </section>
+          <section class="assessment-wizard-card">
+            <h3>Assessment identity / context</h3>
+            ${workspaceSummaryRows([
+              ["Work label", wizardDisplayValue(values.workLabel)],
+              ["Address mode", values.propertyMode === "existing_home" ? "Existing property" : values.propertyMode === "another_address" ? "Another address" : "Address unknown"],
+              ["Property / address", wizardDisplayValue(compactMeta([values.propertyLabel, values.address, values.area, values.postcode]))],
+              ["Service", wizardDisplayValue(setupServiceTypeOptions().find((option) => option.value === values.serviceType)?.label || values.serviceType)],
+              ["Frequency", wizardDisplayValue(optionLabel("frequency", values.frequency) || values.frequency)]
+            ])}
+          </section>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderAssessmentWizardStep3(record, values) {
+  return `
+    <div class="assessment-wizard-layout">
+      <div class="assessment-wizard-main">
+        ${renderAssessmentWizardHero(record, values)}
+        <div class="assessment-wizard-grid">
+          <section class="assessment-wizard-card">
+            <h3>Customer request / initial scope</h3>
+            <div class="assessment-wizard-form-grid">
+              ${renderEditableInput("Initial scope notes", `<textarea name="initialScopeNotes" rows="6" placeholder="What is the client asking for? Any important context, special requirements, or early scope notes?">${escapeHtml(values.initialScopeNotes || "")}</textarea>`, "field-span-2")}
+              ${renderEditableInput("Priority tasks", `<textarea name="priorityTasks" rows="4" placeholder="Priority areas or tasks to focus on first">${escapeHtml(values.priorityTasks || "")}</textarea>`)}
+              ${renderEditableInput("Areas included", `<textarea name="includedAreas" rows="4" placeholder="Rooms, zones, or areas included">${escapeHtml(values.includedAreas || "")}</textarea>`)}
+            </div>
+          </section>
+          <section class="assessment-wizard-card">
+            <h3>Boundaries & checks</h3>
+            <div class="assessment-wizard-form-grid">
+              ${renderEditableInput("Exclusions / not included", `<textarea name="exclusions" rows="3" placeholder="Anything not included or explicitly excluded">${escapeHtml(values.exclusions || "")}</textarea>`, "field-span-2")}
+              ${renderEditableInput("Special requirements", `<textarea name="specialRequirements" rows="3" placeholder="Special handling, products, timing, or customer requirements">${escapeHtml(values.specialRequirements || "")}</textarea>`, "field-span-2")}
+              ${renderEditableInput("Photos available", renderEditableSelect({ name: "photosAvailable", groupKey: null, currentValue: values.photosAvailable, staticOptions: assessmentPhotoOptions }))}
+              ${renderEditableInput("Risks / things to check", `<textarea name="risksToCheck" rows="3" placeholder="Risks, unknowns, or things to confirm before quoting">${escapeHtml(values.risksToCheck || "")}</textarea>`, "field-span-2")}
+              ${renderEditableInput("Internal / admin notes", `<textarea name="internalNotes" rows="4" placeholder="Internal-only notes for this assessment">${escapeHtml(values.internalNotes || "")}</textarea>`, "field-span-2")}
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderAssessmentWizardStep4(record, values) {
+  const carryItems = [
+    values.carryAccessParking ? "Access / parking notes" : "",
+    values.carryPetsProducts ? "Pets / product preferences" : "",
+    values.carryPreviousAssessmentNotes ? "Previous assessment notes" : "",
+    values.carryCleaningPlanNotes ? "Cleaning plan notes" : ""
+  ].filter(Boolean).join(", ");
+  return `
+    <div class="assessment-wizard-layout">
+      <div class="assessment-wizard-main">
+        ${renderAssessmentWizardHero(record, values)}
+        <div class="assessment-wizard-grid">
+          <section class="assessment-wizard-card">
+            <h3>Client / identity</h3>
+            ${workspaceSummaryRows([
+              ["Client", wizardDisplayValue(record.name, "Not available")],
+              ["Linked client ID", `#${record.id}`],
+              ["Work label", wizardDisplayValue(values.workLabel)],
+              ["Reason", wizardDisplayValue(assessmentReasonOptions.find((option) => option.value === values.assessmentReason)?.label || values.assessmentReason)],
+              ["Service type", wizardDisplayValue(setupServiceTypeOptions().find((option) => option.value === values.serviceType)?.label || values.serviceType)],
+              ["Frequency", wizardDisplayValue(optionLabel("frequency", values.frequency) || values.frequency)]
+            ])}
+          </section>
+          <section class="assessment-wizard-card">
+            <h3>Property / access</h3>
+            ${workspaceSummaryRows([
+              ["Property mode", values.propertyMode === "existing_home" ? "Existing property" : values.propertyMode === "another_address" ? "Another address" : "Address unknown"],
+              ["Property label", wizardDisplayValue(values.propertyLabel)],
+              ["Address", wizardDisplayValue(values.address)],
+              ["Area", wizardDisplayValue(values.area)],
+              ["Postcode", wizardDisplayValue(values.postcode)],
+              ["Property type", wizardDisplayValue(leadValueLabel("propertyType", values.propertyType) || values.propertyType)],
+              ["Bedrooms", wizardDisplayValue(values.bedrooms)],
+              ["Bathrooms", wizardDisplayValue(values.bathrooms)],
+              ["Property condition", wizardDisplayValue(values.propertyCondition)],
+              ["Parking", wizardDisplayValue(values.parking)],
+              ["Access method", wizardDisplayValue(values.accessMethod)],
+              ["Access notes", wizardDisplayValue(values.accessNotes)],
+              ["Pets", wizardDisplayValue(values.pets)],
+              ["Product preference", wizardDisplayValue(values.productPreference)],
+              ["Surface / material notes", wizardDisplayValue(values.surfaceNotes)]
+            ])}
+          </section>
+          <section class="assessment-wizard-card">
+            <h3>Scope / priorities</h3>
+            ${workspaceSummaryRows([
+              ["Initial scope notes", wizardDisplayValue(values.initialScopeNotes)],
+              ["Priority tasks", wizardDisplayValue(values.priorityTasks)],
+              ["Areas included", wizardDisplayValue(values.includedAreas)],
+              ["Exclusions / not included", wizardDisplayValue(values.exclusions)],
+              ["Special requirements", wizardDisplayValue(values.specialRequirements)],
+              ["Photos available", wizardDisplayValue(values.photosAvailable)],
+              ["Risks / things to check", wizardDisplayValue(values.risksToCheck)],
+              ["Internal / admin notes", wizardDisplayValue(values.internalNotes)],
+              ["Optional carry-over", carryItems || "None"]
+            ])}
+          </section>
+          <section class="assessment-wizard-card">
+            <h3>System links</h3>
+            ${workspaceSummaryRows([
+              ["Source", "Existing Client"],
+              ["lead_id", "NULL"],
+              ["client_id", String(record.id)]
+            ])}
+            <div class="workspace-placeholder muted">
+              <p>The Assessment record will only be created when you click Create Assessment. It will then open in the global Assessments queue.</p>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderAssessmentWizardBody(record) {
+  const wizard = state.assessmentWizard || defaultAssessmentWizard(record);
+  const values = wizard.values;
+  if (wizard.step === 2) return renderAssessmentWizardStep2(record, values);
+  if (wizard.step === 3) return renderAssessmentWizardStep3(record, values);
+  if (wizard.step === 4) return renderAssessmentWizardStep4(record, values);
+  return renderAssessmentWizardStep1(record, values);
+}
+
+function renderAssessmentWizardFooter(step) {
+  if (step === 1) {
+    return `
+      <button class="ghost" type="button" data-close-assessment-setup>Cancel</button>
+      <button class="primary" type="button" data-assessment-wizard-nav="next">Continue</button>
+    `;
+  }
+  if (step === 4) {
+    return `
+      <button class="ghost" type="button" data-assessment-wizard-nav="back">Back</button>
+      <button class="primary" type="button" data-assessment-wizard-nav="create">Create Assessment</button>
+    `;
+  }
+  return `
+    <button class="ghost" type="button" data-assessment-wizard-nav="back">Back</button>
+    <button class="primary" type="button" data-assessment-wizard-nav="next">Continue</button>
+  `;
+}
+
+function syncAssessmentWizardChrome() {
+  const wizard = state.assessmentWizard;
+  const stepNode = document.getElementById("assessment-setup-step-indicator");
+  const actionsNode = document.getElementById("assessment-setup-footer-actions");
+  if (stepNode && wizard) stepNode.textContent = assessmentWizardStepTitle(wizard.step);
+  if (actionsNode && wizard) actionsNode.innerHTML = renderAssessmentWizardFooter(wizard.step);
+}
+
+function captureAssessmentWizardForm(form) {
+  const wizard = state.assessmentWizard;
+  if (!wizard) return;
+  const values = wizard.values;
+  const raw = Object.fromEntries(new FormData(form).entries());
+  Object.assign(values, {
+    workLabel: raw.workLabel || "",
+    assessmentReason: raw.assessmentReason || values.assessmentReason,
+    serviceType: raw.serviceType || values.serviceType,
+    frequency: raw.frequency || values.frequency,
+    propertyMode: raw.propertyMode || values.propertyMode,
+    propertyLabel: raw.propertyLabel || "",
+    area: raw.area || "",
+    address: raw.address || "",
+    postcode: raw.postcode || "",
+    propertyType: raw.propertyType || "",
+    bedrooms: raw.bedrooms || "",
+    bathrooms: raw.bathrooms || "",
+    propertyCondition: raw.propertyCondition || "",
+    parking: raw.parking || "",
+    accessMethod: raw.accessMethod || "",
+    accessNotes: raw.accessNotes || "",
+    pets: raw.pets || "",
+    productPreference: raw.productPreference || "",
+    surfaceNotes: raw.surfaceNotes || "",
+    initialScopeNotes: raw.initialScopeNotes || "",
+    priorityTasks: raw.priorityTasks || "",
+    includedAreas: raw.includedAreas || "",
+    exclusions: raw.exclusions || "",
+    specialRequirements: raw.specialRequirements || "",
+    photosAvailable: raw.photosAvailable || "",
+    internalNotes: raw.internalNotes || "",
+    risksToCheck: raw.risksToCheck || "",
+    carryAccessParking: form.querySelector('[name="carryAccessParking"]')?.checked ?? values.carryAccessParking,
+    carryPetsProducts: form.querySelector('[name="carryPetsProducts"]')?.checked ?? values.carryPetsProducts,
+    carryPreviousAssessmentNotes: form.querySelector('[name="carryPreviousAssessmentNotes"]')?.checked ?? values.carryPreviousAssessmentNotes,
+    carryCleaningPlanNotes: form.querySelector('[name="carryCleaningPlanNotes"]')?.checked ?? values.carryCleaningPlanNotes
+  });
+}
+
+function updateAssessmentWizardModeAndLabel(form) {
+  if (!form) return;
+  const wizard = state.assessmentWizard;
+  if (!wizard) return;
+  captureAssessmentWizardForm(form);
+  suggestAssessmentWorkLabel(form);
+  renderAssessmentWizardModal();
+}
+
+function suggestAssessmentWorkLabel(form) {
+  if (!form) return;
+  const wizard = state.assessmentWizard;
+  if (!wizard) return;
+  const values = wizard.values;
+  if (wizard.workLabelManual) return;
+  const serviceValue = values.serviceType || form.querySelector('[name="serviceType"]')?.value || "";
+  const serviceLabel = setupServiceTypeOptions().find((option) => option.value === serviceValue)?.label
+    || optionLabel("service_type", serviceValue)
+    || serviceValue;
+  const propertyLabel = values.propertyLabel || form.querySelector('[name="propertyLabel"]')?.value?.trim() || "";
+  const propertyMode = values.propertyMode || form.querySelector('[name="propertyMode"]')?.value || "existing_home";
+  const address = propertyMode === "another_address"
+    ? (values.address || values.area || form.querySelector('[name="address"]')?.value?.trim() || form.querySelector('[name="area"]')?.value?.trim() || "")
+    : propertyMode === "unknown_address"
+      ? (propertyLabel || "Address TBC")
+      : (form.dataset.clientAddress || "");
+  values.workLabel = [serviceLabel, propertyLabel || address].filter(Boolean).join(" - ");
+  const workLabelInput = form.querySelector('[name="workLabel"]');
+  if (workLabelInput) workLabelInput.value = values.workLabel;
+}
+
+function renderAssessmentWizardModal() {
+  const record = assessmentWizardRecord();
+  const body = document.getElementById("assessment-setup-body");
+  const form = document.getElementById("assessment-setup-form");
+  if (!record || !body || !form) return;
+  body.innerHTML = renderAssessmentWizardBody(record);
+  form.dataset.clientAddress = compactMeta([record.address, record.area, record.postcode]) || "";
+  syncAssessmentWizardChrome();
+}
+
+function resetAssessmentWizardUi() {
+  const modal = document.getElementById("assessment-setup-modal");
+  const body = document.getElementById("assessment-setup-body");
+  const status = document.getElementById("assessment-setup-status");
+  const stepNode = document.getElementById("assessment-setup-step-indicator");
+  const actionsNode = document.getElementById("assessment-setup-footer-actions");
+  if (body) body.innerHTML = "";
+  if (actionsNode) actionsNode.innerHTML = "";
+  if (stepNode) stepNode.textContent = "Step 1 of 4 - Setup";
+  if (status) {
+    status.textContent = "";
+    status.className = "status";
+  }
+  if (modal) modal.hidden = true;
+  document.body.style.overflow = "";
+}
+
+function openAssessmentSetupModal(clientId) {
+  const client = findRecordByType("client", clientId);
+  if (!client) throw new Error("Client & Home record not found.");
+  resetAssessmentWizardUi();
+  state.assessmentSetupClientId = client.id;
+  state.assessmentWizard = defaultAssessmentWizard(client);
+  const modal = document.getElementById("assessment-setup-modal");
+  const status = document.getElementById("assessment-setup-status");
+  if (!modal) throw new Error("Assessment setup modal is not available.");
+  if (status) {
+    status.textContent = "";
+    status.className = "status";
+  }
+  modal.hidden = false;
+  document.body.style.overflow = "hidden";
+  renderAssessmentWizardModal();
+  suggestAssessmentWorkLabel(document.getElementById("assessment-setup-form"));
+}
+
+function closeAssessmentSetupModal() {
+  state.assessmentSetupClientId = null;
+  state.assessmentWizard = null;
+  resetAssessmentWizardUi();
+}
+
+async function createAssessmentFromClient(payload) {
+  const result = await apiPost("/api/assessment-quotes", {
+    action: "create_from_client",
+    ...payload
+  });
+  await loadApiData();
+  const created = findRecordByType("assessment", result.id || result.assessmentQuoteId);
+  if (!created) return result;
+  setView("assessments");
+  state.expandedWorkspaces.assessments = { id: created.id, tab: "details" };
+  state.workspaceDrawerMode.assessments = "collapsed";
+  rememberWorkspaceDrawerRecord("assessment", created);
+  renderAll();
+  return result;
+}
+
+async function submitAssessmentSetup() {
+  const form = document.getElementById("assessment-setup-form");
+  const wizard = state.assessmentWizard;
+  if (!form || !wizard) return;
+  captureAssessmentWizardForm(form);
+  const selectedReason = assessmentReasonOptions.find((option) => option.value === wizard.values.assessmentReason);
+  const payload = {
+    clientId: wizard.clientId,
+    clientName: wizard.values.clientName,
+    phone: wizard.values.phone,
+    email: wizard.values.email,
+    propertyMode: wizard.values.propertyMode,
+    propertyLabel: wizard.values.propertyLabel,
+    area: wizard.values.area,
+    address: wizard.values.address,
+    postcode: wizard.values.postcode,
+    propertyType: wizard.values.propertyType,
+    bedrooms: wizard.values.bedrooms,
+    bathrooms: wizard.values.bathrooms,
+    propertyCondition: wizard.values.propertyCondition,
+    parking: wizard.values.parking,
+    accessMethod: wizard.values.accessMethod,
+    accessNotes: wizard.values.accessNotes,
+    pets: wizard.values.pets,
+    productPreference: wizard.values.productPreference,
+    surfaceNotes: wizard.values.surfaceNotes,
+    assessmentReason: wizard.values.assessmentReason,
+    assessmentReasonLabel: selectedReason?.label || wizard.values.assessmentReason,
+    serviceType: wizard.values.serviceType,
+    frequency: wizard.values.frequency,
+    workLabel: wizard.values.workLabel,
+    initialScopeNotes: wizard.values.initialScopeNotes,
+    priorityTasks: wizard.values.priorityTasks,
+    includedAreas: wizard.values.includedAreas,
+    exclusions: wizard.values.exclusions,
+    specialRequirements: wizard.values.specialRequirements,
+    photosAvailable: wizard.values.photosAvailable,
+    internalNotes: wizard.values.internalNotes,
+    risksToCheck: wizard.values.risksToCheck,
+    prefill: {
+      accessParking: wizard.values.carryAccessParking,
+      petsProducts: wizard.values.carryPetsProducts,
+      previousAssessmentNotes: wizard.values.carryPreviousAssessmentNotes,
+      cleaningPlanNotes: wizard.values.carryCleaningPlanNotes
+    }
+  };
+  const status = document.getElementById("assessment-setup-status");
+  if (status) {
+    status.textContent = "Creating Assessment...";
+    status.className = "status";
+  }
+  try {
+    await createAssessmentFromClient(payload);
+    closeAssessmentSetupModal();
+  } catch (err) {
+    if (status) {
+      status.textContent = err.message;
+      status.className = "status error";
+    }
+  }
+}
+
+function moveAssessmentWizard(direction) {
+  const form = document.getElementById("assessment-setup-form");
+  const wizard = state.assessmentWizard;
+  if (!form || !wizard) return;
+  captureAssessmentWizardForm(form);
+  if (direction === "back") {
+    wizard.step = Math.max(1, wizard.step - 1);
+  } else {
+    wizard.step = Math.min(4, wizard.step + 1);
+  }
+  renderAssessmentWizardModal();
+}
+
+function openAssessmentFromClientContext(assessmentId, tab = "overview") {
+  const assessment = findRecordByType("assessment", assessmentId);
+  if (!assessment) return;
+  setView("assessments");
+  state.expandedWorkspaces.assessments = { id: assessment.id, tab };
+  state.workspaceDrawerMode.assessments = "collapsed";
+  rememberWorkspaceDrawerRecord("assessment", assessment);
+  renderAll();
+}
+
 function applyAssessmentLocalUpdate(recordId, payload) {
   const record = data.assessments.find((item) => String(item.id) === String(recordId));
   if (!record) return;
@@ -2115,7 +2963,7 @@ function renderAssessmentCloseout(record) {
 
   return `
     <section class="drawer-section">
-      <h3>Close Q&A</h3>
+      <h3>Close Assessment</h3>
       <form class="lead-action-form compact" data-assessment-close-form>
         <label>
           Reason
@@ -2127,7 +2975,7 @@ function renderAssessmentCloseout(record) {
         </label>
         <label>
           Note (optional)
-          <textarea name="closeNote" rows="3" placeholder="Optional internal note about why this Q&A is not proceeding."></textarea>
+          <textarea name="closeNote" rows="3" placeholder="Optional internal note about why this Assessment is not proceeding."></textarea>
         </label>
         <div class="drawer-actions">
           <button class="ghost" type="submit">Mark not proceeding</button>
@@ -2248,7 +3096,7 @@ function setLeadDetailStatus(message) {
 function openAssessmentQuoteFromLead(assessmentQuoteId) {
   const assessmentQuote = data.assessments.find((item) => String(item.id) === String(assessmentQuoteId));
   if (!assessmentQuote) {
-    setLeadActionStatus("Assessment / Quote is not available in the current D1 data.");
+    setLeadActionStatus("Assessment is not available in the current D1 data.");
     return false;
   }
   setView("assessments");
@@ -2346,14 +3194,14 @@ function setupLeadDrawerActions(record) {
 
   drawer.querySelector("[data-create-assessment-quote]")?.addEventListener("click", async () => {
     try {
-      setLeadActionStatus("Creating Assessment / Quote...");
+      setLeadActionStatus("Creating Assessment...");
       const result = await apiPost(`/api/leads/${record.id}/assessment-quote`, {});
       await loadApiData();
       const assessmentQuoteId = result.assessmentQuote?.id || result.id;
       if (openAssessmentQuoteFromLead(assessmentQuoteId)) return;
-      setLeadActionStatus("Assessment / Quote was created, but it was not returned by the current data load.");
+      setLeadActionStatus("Assessment was created, but it was not returned by the current data load.");
     } catch (err) {
-      setLeadActionStatus(`Could not create Assessment / Quote. ${err.message}`);
+      setLeadActionStatus(`Could not create Assessment. ${err.message}`);
     }
   });
 
@@ -2567,7 +3415,7 @@ function setupAssessmentDrawerActions(record) {
       if (openClientFromAssessment(result.id)) return;
       setAssessmentConversionStatus("Converted, but the Client & Home record was not returned by the current data load.");
     } catch (err) {
-      setAssessmentConversionStatus(`Could not convert Q&A. ${err.message}`);
+      setAssessmentConversionStatus(`Could not convert Assessment. ${err.message}`);
     }
   });
 
@@ -2583,7 +3431,7 @@ function setupAssessmentDrawerActions(record) {
     const closeNote = String(formData.get("closeNote") || "").trim();
 
     try {
-      setAssessmentCloseStatus("Marking Q&A as not proceeding...");
+      setAssessmentCloseStatus("Marking Assessment as not proceeding...");
       if (state.expandedWorkspaces.assessments && String(state.expandedWorkspaces.assessments.id) === String(record.id)) {
         state.expandedWorkspaces.assessments = null;
       }
@@ -2595,7 +3443,7 @@ function setupAssessmentDrawerActions(record) {
       await refreshAssessmentDrawer(record.id);
       setAssessmentCloseStatus("Marked as not proceeding.");
     } catch (err) {
-      setAssessmentCloseStatus(`Could not close Q&A. ${err.message}`);
+      setAssessmentCloseStatus(`Could not close Assessment. ${err.message}`);
     }
   });
 }
@@ -2648,8 +3496,8 @@ function openDrawer(type, record = {}) {
       actions: ["Mark done", "Reschedule", "Open linked record"]
     },
     assessment: {
-      title: record.customerName || record.client || "Assessment / quote",
-      subtitle: compactMeta([record.area, record.serviceLabel || record.serviceType, record.quoteStageLabel || record.quoteStage]),
+      title: assessmentTitle(record),
+      subtitle: compactMeta([assessmentPropertyContext(record), record.serviceLabel || record.serviceType, record.quoteStageLabel || record.quoteStage]),
       sections: [
         [
           "Contact",
@@ -2690,6 +3538,8 @@ function openDrawer(type, record = {}) {
           "Assessment",
           [
             ["Assessment type", record.assessmentType],
+            ["Source", assessmentSourceDisplay(record)],
+            ["Purpose", assessmentPurposeDisplay(record)],
             ["Estimated hours", record.estimate],
             ["Assessment notes", record.assessmentNotes]
           ]
@@ -2711,7 +3561,7 @@ function openDrawer(type, record = {}) {
           [
             ["Status", record.statusLabel || record.status],
             ["Quote stage", record.quoteStageLabel || record.quoteStage],
-            ["Converted client ID", record.convertedClientId],
+            ["Linked client ID", record.clientId || record.convertedClientId],
             ["Created", formatDateTime(record.createdAt)],
             ["Updated", formatDateTime(record.updatedAt)]
           ]
@@ -2781,7 +3631,7 @@ function openDrawer(type, record = {}) {
           "Notes",
           [
             ["Client notes", record.notes],
-            ["Q&A notes", record.qaNotes],
+            ["Assessment internal notes", record.qaNotes],
             ["Assessment notes", record.qaAssessmentNotes],
             ["Quote notes", record.qaQuoteNotes],
             ["Original lead summary", record.originalLeadNote]
@@ -2791,9 +3641,9 @@ function openDrawer(type, record = {}) {
           "Original lead",
           [
             ["Original lead ID", clientOriginalLeadId(record)],
-            ["Assessment / Quote ID", record.assessmentQuoteId],
-            ["Q&A stage", record.assessmentQuoteStage],
-            ["Q&A accepted", formatDateTime(record.qaQuoteAcceptedAt)],
+            ["Assessment ID", record.assessmentQuoteId],
+            ["Assessment stage", record.assessmentQuoteStage],
+            ["Assessment accepted", formatDateTime(record.qaQuoteAcceptedAt)],
             ["Lead status", record.originalLeadStatus],
             ["Lead source", record.originalLeadSourceLabel || record.originalLeadSource],
             ["Lead submitted", formatDateTime(record.originalLeadCreatedAt)],
@@ -2827,7 +3677,7 @@ function openDrawer(type, record = {}) {
 
   const template = templates[type];
   const compactType = type === "assessment"
-    ? "Q&A"
+    ? "Assessment"
     : type === "client"
       ? "Client"
       : type.charAt(0).toUpperCase() + type.slice(1);
@@ -2848,7 +3698,7 @@ function openDrawer(type, record = {}) {
         ])
       : "";
   const titlebar = renderDrawerTitlebar({
-    eyebrow: type === "assessment" ? "Q&A / Assessment" : compactType,
+    eyebrow: type === "assessment" ? "Assessment" : compactType,
     title: template.title,
     subtitle: detailSubtitle || template.subtitle,
     detailLine,
@@ -3167,7 +4017,7 @@ function renderLeadHistory() {
   if (!host) return;
   const leads = [...leadHistory()].sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""))).slice(0, 12);
   if (!leads.length) {
-    host.innerHTML = emptyState("No lead history yet", "Rejected, unsuitable, or moved-to-Q&A leads will remain visible here for traceability.");
+    host.innerHTML = emptyState("No lead history yet", "Rejected, unsuitable, or moved-to-Assessment leads will remain visible here for traceability.");
     if (countNode) countNode.textContent = "0 history leads";
     return;
   }
@@ -3417,7 +4267,7 @@ function workspaceTabs(view, recordId, tabs) {
 }
 
 function workspaceDrawerEyebrow(view = state.view) {
-  return view === "clients" ? "Client & Home" : "Q&A / Assessment";
+  return view === "clients" ? "Client & Home" : "Assessment";
 }
 
 function renderWorkspaceEmptyDrawerShell(view = state.view) {
@@ -3439,11 +4289,12 @@ function renderWorkspaceEmptyDrawerShell(view = state.view) {
   });
 }
 
-function renderExpandableWorkspace({ view, record, eyebrow, title, subtitle, status, meta, tabs, content }) {
+function renderExpandableWorkspace({ view, record, tabs, actions = "", content }) {
   return `
       <section class="expandable-workspace" data-workspace="${escapeHtml(view)}" data-workspace-id="${escapeHtml(record.id)}">
         <div class="workspace-shell">
           ${workspaceTabs(view, record.id, tabs)}
+          ${actions ? `<div class="workspace-toolbar">${actions}</div>` : ""}
           <div class="workspace-panel">
             ${content}
         </div>
@@ -3552,7 +4403,7 @@ async function handleGenerateQuoteFromBuilder(assessmentId) {
     // 6. recurringPrice
     const recurringTotalPence = Math.round(selectedModules.filter(m => m.is_recurring).reduce((sum, m) => sum + Number(m.amount || 0), 0) * 100);
     
-    const pricingNotes = `Generated from Q&A Quote Builder. Selected modules count: ${selectedModules.length}.`;
+    const pricingNotes = `Generated from Assessment Quote Builder. Selected modules count: ${selectedModules.length}.`;
     const clientNotes = "This quote is based on the information provided and may be adjusted if the agreed scope changes.";
 
     setBuilderStatus(assessmentId, "Saving work modules content to draft quote...");
@@ -3612,7 +4463,7 @@ function renderAssessmentQuoteBuilder(record) {
         id: "regular_clean",
         name: "Regular recurring clean",
         type: "regular_clean",
-        client_description: "Standard regular cleaning visit matching the Q&A specification.",
+        client_description: "Standard regular cleaning visit matching the Assessment specification.",
         internal_note: "Standard recurring cleaning plan.",
         hours: regularCleanHours,
         rate: rate,
@@ -3723,7 +4574,7 @@ function renderAssessmentQuoteBuilder(record) {
       <!-- 1. Source Context Panel -->
       <div class="builder-context-grid">
         <div class="builder-context-card font-small">
-          <h4 style="margin:0 0 8px; font-size:0.9rem; color:var(--forest); border-bottom:1px solid var(--line); padding-bottom:4px;">Q&A Source Context</h4>
+          <h4 style="margin:0 0 8px; font-size:0.9rem; color:var(--forest); border-bottom:1px solid var(--line); padding-bottom:4px;">Assessment Source Context</h4>
           <div class="context-details">
             <div><strong>Client:</strong> ${escapeHtml(record.customerName || record.client || "")}</div>
             <div><strong>Location:</strong> ${escapeHtml(compactMeta([record.area, record.postcode])) || "Not Specified"}</div>
@@ -3733,7 +4584,7 @@ function renderAssessmentQuoteBuilder(record) {
             <div><strong>Parking:</strong> ${escapeHtml(record.parking || "")}</div>
             <div><strong>Pets:</strong> ${escapeHtml(record.pets || "")}</div>
             <div><strong>Assessment Notes:</strong> <span class="notes-text">${escapeHtml(record.assessmentNotes || "")}</span></div>
-            <div><strong>Q&A Notes:</strong> <span class="notes-text">${escapeHtml(record.quoteNotes || "")}</span></div>
+            <div><strong>Assessment / Quote Notes:</strong> <span class="notes-text">${escapeHtml(record.quoteNotes || "")}</span></div>
           </div>
         </div>
         <div class="builder-context-card font-small">
@@ -3858,8 +4709,8 @@ function renderAssessmentWorkspaceTab(record, tab) {
     const isEditing = isEditingAssessmentDetails(record);
     const draft = isEditing ? assessmentDetailsEditState : assessmentDetailsDraft(record);
     const header = workspaceEditHeader({
-      title: "Q&A details",
-      helper: "These fields belong to this Q&A record only. Saving here does not sync back to Leads or forward to Client & Home.",
+      title: "Assessment details",
+      helper: "These fields belong to this Assessment only. Saving here does not sync back to Leads or forward to Client & Home.",
       editing: isEditing,
       editLabel: "Edit details",
       editAction: `data-edit-assessment-details="${escapeHtml(record.id)}"`,
@@ -3921,7 +4772,7 @@ function renderAssessmentWorkspaceTab(record, tab) {
           ["Positive flags", (assist.positiveFlags || []).join("; ")],
           ["Last run", formatDateTime(assist.updatedAt || assist.createdAt)]
         ])
-      : placeholderPanel("No Quote Assist result saved yet. Use the drawer action when this Q&A has enough detail.");
+      : placeholderPanel("No Quote Assist result saved yet. Use the drawer action when this Assessment has enough detail.");
   }
 
   if (tab === "quotes") {
@@ -3948,7 +4799,7 @@ function renderAssessmentWorkspaceTab(record, tab) {
           <p class="record-sub" data-quote-action-status="${escapeHtml(record.id)}"></p>
         </section>
         <section>
-          <div class="workspace-placeholder muted"><p>Document editor coming later. This workspace keeps quote records visible and commercially traceable until the dedicated quote editor exists.</p></div>
+          <div class="workspace-placeholder muted"><p>Use the linked quote cards to open the draft Quote Editor or Preview / Print the commercial document. This workspace keeps quote records visible and traceable alongside the Assessment.</p></div>
         </section>
       </div>
     `;
@@ -3961,7 +4812,7 @@ function renderAssessmentWorkspaceTab(record, tab) {
       <div class="workspace-stack">
         <section>
           <h4>Linked notes</h4>
-          ${noteSummary(notes, "No linked notes yet for this Q&A record.")}
+          ${noteSummary(notes, "No linked notes yet for this Assessment.")}
         </section>
         <section>
           <h4>Linked tasks</h4>
@@ -3982,16 +4833,20 @@ function renderAssessmentWorkspaceTab(record, tab) {
   }
 
   return workspaceSummaryRows([
+    ["Assessment", assessmentTitle(record)],
     ["Customer", record.customerName || record.client],
+    ["Property", assessmentPropertyContext(record)],
     ["Phone", record.phone],
     ["Email", record.email],
     ["Area / postcode", compactMeta([record.area, record.postcode])],
+    ["Source", assessmentSourceDisplay(record)],
+    ["Purpose", assessmentPurposeDisplay(record)],
     ["Service", record.serviceLabel || record.serviceType],
     ["Frequency", record.frequencyLabel || record.frequency],
     ["Status", record.statusLabel || record.status],
     ["Quote stage", record.quoteStageLabel || record.quoteStage],
     ["Linked lead", record.leadId ? `#${record.leadId}` : ""],
-    ["Linked client", record.convertedClientId ? `#${record.convertedClientId}` : ""],
+    ["Linked client", record.clientId ? `#${record.clientId}` : record.convertedClientId ? `#${record.convertedClientId}` : ""],
     ["Linked quote", record.accountingQuote?.displayReference],
     ["Updated", formatDateTime(record.updatedAt)]
   ]);
@@ -4003,12 +4858,12 @@ function renderAssessmentWorkspace(record) {
   return renderExpandableWorkspace({
     view: "assessments",
     record,
-    eyebrow: "Q&A / Assessment",
-    title: record.customerName || record.client || `Q&A #${record.id}`,
-    subtitle: compactMeta([record.serviceLabel || record.serviceType, record.area]),
-    status: assessmentStatusDisplay(record),
-    meta: record.accountingQuote?.displayReference,
     tabs,
+    actions: `
+      <div class="drawer-actions compact workspace-toolbar-actions">
+        <span class="record-sub">${escapeHtml(compactMeta([assessmentPropertyContext(record), assessmentSourceDisplay(record), assessmentPurposeDisplay(record), record.linkedClientName ? `Linked client: ${record.linkedClientName}` : ""]))}</span>
+      </div>
+    `,
     content: renderAssessmentWorkspaceTab(record, activeTab)
   });
 }
@@ -4025,6 +4880,7 @@ function linkedClientTasks(record) {
 function clientWorkspaceTabs() {
   return [
     { key: "overview", label: "Overview" },
+    { key: "assessments", label: "Assessments" },
     { key: "contact-access", label: "Contact / Access" },
     { key: "home-details", label: "Home details" },
     { key: "cleaning-plan", label: "Cleaning plan" },
@@ -4040,7 +4896,7 @@ function renderClientWorkspaceTab(record, tab) {
     const draft = isEditing ? clientWorkspaceEditState : clientContactAccessDraft(record);
     const header = workspaceEditHeader({
       title: "Contact / Access",
-      helper: "Updates stay on the Client & Home record only. They do not rewrite linked Lead or Q&A history.",
+      helper: "Updates stay on the Client & Home record only. They do not rewrite linked Lead or Assessment history.",
       editing: isEditing,
       editLabel: "Edit contact/access",
       editAction: `data-edit-client-workspace="${escapeHtml(record.id)}" data-client-workspace-tab="contact-access"`,
@@ -4123,7 +4979,7 @@ function renderClientWorkspaceTab(record, tab) {
     const header = workspaceEditHeader({
       title: "Cleaning plan",
       helper: record.cleaningPlanId
-        ? "This updates the active cleaning plan only. It does not sync back to Lead or Q&A."
+        ? "This updates the active cleaning plan only. It does not sync back to Lead or Assessment."
         : "A live cleaning plan has not been created yet, so this section remains read-only for now.",
       editing: isEditing,
       editLabel: "Edit cleaning plan",
@@ -4154,6 +5010,40 @@ function renderClientWorkspaceTab(record, tab) {
         ["Helper", record.helper],
         ["Priorities", record.priorities]
       ])}
+    `;
+  }
+
+  if (tab === "assessments") {
+    const linkedAssessments = assessmentsForClient(record);
+    return `
+      <div class="workspace-stack">
+        <section>
+          <div class="workspace-section-header">
+            <h4>Client Assessments</h4>
+            <span class="record-sub">${escapeHtml(compactMeta([`${linkedAssessments.length} linked`, "Accepted assessments stay visible here as client work history"]))}</span>
+          </div>
+          ${listSummary(
+            linkedAssessments,
+            "Create a new Assessment when this client requests new scoped work, extra work, or a new quoteable piece of work.",
+            (assessment) => `
+              <article class="workspace-list-item">
+                <strong>${escapeHtml(assessmentTitle(assessment))}</strong>
+                <p>${escapeHtml(assessmentPropertyContext(assessment) || compactMeta([assessment.area, assessment.postcode]))}</p>
+                <small>${escapeHtml(compactMeta([
+                  record.name,
+                  assessmentSourceDisplay(assessment),
+                  assessmentPurposeDisplay(assessment),
+                  assessmentStatusDisplay(assessment),
+                  assessment.accountingQuote?.displayReference
+                ]))}</small>
+                <div class="drawer-actions compact">
+                  <button class="ghost" type="button" data-open-linked-assessment="${escapeHtml(assessment.id)}">Open assessment</button>
+                </div>
+              </article>
+            `
+          )}
+        </section>
+      </div>
     `;
   }
 
@@ -4232,31 +5122,58 @@ function renderClientWorkspaceTab(record, tab) {
     `;
   }
 
-  return workspaceSummaryRows([
-    ["Client", record.name],
-    ["Phone", record.phone],
-    ["Email", record.email],
-    ["Area / address", compactMeta([record.area, record.address])],
-    ["Status", clientStatusDisplay(record)],
-    ["Linked lead", clientOriginalLeadId(record) ? `#${clientOriginalLeadId(record)}` : ""],
-    ["Linked Q&A", record.assessmentQuoteId ? `#${record.assessmentQuoteId}` : ""],
-    ["Linked quote", record.accountingQuote?.displayReference],
-    ["Converted", formatDateTime(record.convertedAt)]
-  ]);
+  const linkedAssessments = assessmentsForClient(record);
+  return `
+    <div class="workspace-stack">
+      ${workspaceSummaryRows([
+        ["Client", record.name],
+        ["Phone", record.phone],
+        ["Email", record.email],
+        ["Area / address", compactMeta([record.area, record.address])],
+        ["Status", clientStatusDisplay(record)],
+        ["Linked lead", clientOriginalLeadId(record) ? `#${clientOriginalLeadId(record)}` : ""],
+        ["Primary Assessment", record.assessmentQuoteId ? `#${record.assessmentQuoteId}` : ""],
+        ["Linked quote", record.accountingQuote?.displayReference],
+        ["Converted", formatDateTime(record.convertedAt)]
+      ])}
+      <section>
+        <h4>Linked Assessments</h4>
+        ${listSummary(
+          linkedAssessments,
+          "Create a new Assessment when this client requests new scoped work, extra work, or a new quoteable piece of work.",
+          (assessment) => `
+            <article class="workspace-list-item">
+              <strong>${escapeHtml(assessmentTitle(assessment))}</strong>
+              <p>${escapeHtml(compactMeta([assessmentPropertyContext(assessment), assessment.serviceLabel || assessment.serviceType, assessmentPurposeDisplay(assessment)]))}</p>
+              <small>${escapeHtml(compactMeta([assessmentStatusDisplay(assessment), assessment.accountingQuote?.displayReference, formatDateTime(assessment.updatedAt)]))}</small>
+              <div class="drawer-actions compact">
+                <button class="ghost" type="button" data-open-linked-assessment="${escapeHtml(assessment.id)}">Open assessment</button>
+              </div>
+            </article>
+          `
+        )}
+      </section>
+    </div>
+  `;
 }
 
 function renderClientWorkspace(record) {
   const tabs = clientWorkspaceTabs();
   const activeTab = expandedWorkspaceState("clients")?.tab || tabs[0].key;
+  const activeTabLabel = tabs.find((tab) => tab.key === activeTab)?.label || "Overview";
   return renderExpandableWorkspace({
     view: "clients",
     record,
-    eyebrow: "Client & Home",
-    title: record.name || `Client #${record.id}`,
-    subtitle: compactMeta([record.area, clientServiceLabel(record)]),
-    status: clientStatusDisplay(record),
-    meta: record.accountingQuote?.displayReference,
     tabs,
+    actions: `
+      <div class="drawer-actions compact workspace-toolbar-actions">
+        <div class="workspace-toolbar-copy">
+          <strong>${escapeHtml(activeTabLabel)}</strong>
+          <span class="record-sub">Client & Home stays the hub. New scoped work starts as a linked Assessment.</span>
+        </div>
+        <button class="primary" type="button" data-create-assessment-from-client="${escapeHtml(record.id)}">+ New Assessment</button>
+      </div>
+    `,
     content: renderClientWorkspaceTab(record, activeTab)
   });
 }
@@ -4294,15 +5211,15 @@ function renderTables() {
     view: "assessments",
     type: "assessment",
     defaultTab: "overview",
-    emptyTitle: "No active Q&A records",
-    emptyMessage: "Create one from a suitable lead when an enquiry is worth assessing further.",
+    emptyTitle: "No active Assessments",
+    emptyMessage: "Create one from a suitable lead or existing client when scoped work is worth assessing further.",
     countTarget: assessmentActiveCount,
     countLabel: "active",
     cells: (assessment) => [
-      `<div class="record-main">${escapeHtml(assessment.customerName || assessment.client || "")}</div><div class="record-sub">${escapeHtml(compactMeta([assessment.area, assessment.postcode]))}</div>`,
-      `${escapeHtml(assessment.serviceLabel || assessment.serviceType || "")}<div class="record-sub">${escapeHtml(assessment.frequencyLabel || assessment.frequency || "")}</div>`,
-      `${escapeHtml(assessment.estimate || "Estimate pending")}<div class="record-sub">${escapeHtml(compactMeta([assessment.quoteRange || "", assessment.accountingQuote?.displayReference || ""]))}</div>`,
-      `<span class="pill warn">${escapeHtml(assessment.quoteStageLabel || assessment.quoteStage || assessment.statusLabel || assessment.status || "Draft")}</span>`
+      `<div class="record-main">${escapeHtml(assessmentTitle(assessment))}</div><div class="record-sub">${escapeHtml(assessmentPropertyContext(assessment) || compactMeta([assessment.area, assessment.postcode]))}</div>`,
+      `${escapeHtml(assessment.serviceLabel || assessment.serviceType || "Service pending")}<div class="record-sub">${escapeHtml(assessmentDisplayMeta(assessment))}</div>`,
+      `${escapeHtml(assessment.accountingQuote?.displayReference || assessment.estimate || "Estimate pending")}<div class="record-sub">${escapeHtml(compactMeta([assessment.quoteRange || "", assessment.linkedClientName ? `Client: ${assessment.linkedClientName}` : "", formatDateTime(assessment.updatedAt)]))}</div>`,
+      `<span class="pill warn">${escapeHtml(assessmentStatusDisplay(assessment))}</span>`
     ],
     renderWorkspace: renderAssessmentWorkspace
   });
@@ -4312,15 +5229,15 @@ function renderTables() {
     view: "assessments",
     type: "assessment",
     defaultTab: "overview",
-    emptyTitle: "No Q&A history yet",
-    emptyMessage: "Converted and closed Q&A records will remain visible here for traceability.",
+    emptyTitle: "No Assessment history yet",
+    emptyMessage: "Converted and closed Assessments remain visible here for traceability.",
     countTarget: assessmentHistoryCount,
     countLabel: "records",
     cells: (assessment) => [
-      `<div class="record-main">${escapeHtml(assessment.customerName || assessment.client || "")}</div><div class="record-sub">${escapeHtml(compactMeta([assessment.area, assessment.postcode]))}</div>`,
-      `${escapeHtml(assessment.serviceLabel || assessment.serviceType || "")}<div class="record-sub">${escapeHtml(assessment.frequencyLabel || assessment.frequency || "")}</div>`,
-      `${escapeHtml(assessment.estimate || "Estimate pending")}<div class="record-sub">${escapeHtml(compactMeta([assessment.quoteRange || "", assessment.accountingQuote?.displayReference || ""]))}</div>`,
-      `<span class="pill blue">${escapeHtml(assessment.isConverted || assessment.convertedClientId ? "Converted" : assessment.quoteStageLabel || assessment.quoteStage || assessment.statusLabel || assessment.status || "Closed")}</span>`
+      `<div class="record-main">${escapeHtml(assessmentTitle(assessment))}</div><div class="record-sub">${escapeHtml(assessmentPropertyContext(assessment) || compactMeta([assessment.area, assessment.postcode]))}</div>`,
+      `${escapeHtml(assessment.serviceLabel || assessment.serviceType || "Service pending")}<div class="record-sub">${escapeHtml(assessmentDisplayMeta(assessment))}</div>`,
+      `${escapeHtml(assessment.accountingQuote?.displayReference || assessment.estimate || "Estimate pending")}<div class="record-sub">${escapeHtml(compactMeta([assessment.quoteRange || "", assessment.linkedClientName ? `Client: ${assessment.linkedClientName}` : "", formatDateTime(assessment.updatedAt)]))}</div>`,
+      `<span class="pill blue">${escapeHtml(assessment.isConverted || assessment.convertedClientId ? "Converted" : assessmentStatusDisplay(assessment))}</span>`
     ],
     renderWorkspace: renderAssessmentWorkspace
   });
@@ -4338,7 +5255,7 @@ function renderTables() {
     type: "client",
     defaultTab: "overview",
     emptyTitle: "No active Client & Home records yet",
-    emptyMessage: "Converted accepted Q&A records will appear here as active client records.",
+    emptyMessage: "Converted accepted Assessments will appear here as active client records.",
     countTarget: clientCount,
     countLabel: "active",
     cells: (client) => [
@@ -4742,6 +5659,28 @@ async function saveQuoteEditor(event) {
 }
 
 function bindEvents() {
+  document.getElementById("assessment-setup-form")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+  });
+  document.getElementById("assessment-setup-form")?.addEventListener("change", (event) => {
+    if (!state.assessmentWizard) return;
+    if (["propertyMode", "propertyLabel", "area", "address", "serviceType", "assessmentReason", "frequency"].includes(event.target?.name)) {
+      updateAssessmentWizardModeAndLabel(event.currentTarget);
+    } else {
+      captureAssessmentWizardForm(event.currentTarget);
+    }
+  });
+  document.getElementById("assessment-setup-form")?.addEventListener("input", (event) => {
+    if (!state.assessmentWizard) return;
+    if (event.target?.name === "workLabel") {
+      state.assessmentWizard.workLabelManual = Boolean(event.target.value.trim());
+    }
+    if (["propertyLabel", "area", "address", "serviceType"].includes(event.target?.name)) {
+      updateAssessmentWizardModeAndLabel(event.currentTarget);
+    } else {
+      captureAssessmentWizardForm(event.currentTarget);
+    }
+  });
   document.querySelectorAll("#quote-editor-modal [data-close-modal]").forEach((btn) => {
     btn.addEventListener("click", closeQuoteEditor);
   });
@@ -4833,6 +5772,43 @@ function bindEvents() {
   });
 
   document.addEventListener("click", async (event) => {
+    const closeAssessmentSetup = event.target.closest("[data-close-assessment-setup]");
+    if (closeAssessmentSetup) {
+      closeAssessmentSetupModal();
+      return;
+    }
+
+    const wizardNavButton = event.target.closest("[data-assessment-wizard-nav]");
+    if (wizardNavButton) {
+      const action = wizardNavButton.dataset.assessmentWizardNav;
+      if (action === "back") {
+        moveAssessmentWizard("back");
+      } else if (action === "next") {
+        moveAssessmentWizard("next");
+      } else if (action === "create") {
+        await submitAssessmentSetup();
+      }
+      return;
+    }
+
+    const propertyModeButton = event.target.closest("[data-set-property-mode]");
+    if (propertyModeButton) {
+      const form = document.getElementById("assessment-setup-form");
+      if (form && state.assessmentWizard) {
+        captureAssessmentWizardForm(form);
+        applyAssessmentWizardPropertyMode(state.assessmentWizard, assessmentWizardRecord(), propertyModeButton.dataset.setPropertyMode);
+        suggestAssessmentWorkLabel(form);
+        renderAssessmentWizardModal();
+      }
+      return;
+    }
+
+    const openLinkedAssessment = event.target.closest("[data-open-linked-assessment]");
+    if (openLinkedAssessment) {
+      openAssessmentFromClientContext(openLinkedAssessment.dataset.openLinkedAssessment, "overview");
+      return;
+    }
+
     const editAssessmentDetails = event.target.closest("[data-edit-assessment-details]");
     if (editAssessmentDetails) {
       const record = findRecordByType("assessment", editAssessmentDetails.dataset.editAssessmentDetails);
@@ -4866,6 +5842,17 @@ function bindEvents() {
     if (editDraftButton) {
       const quoteId = editDraftButton.dataset.editDraftQuote;
       openQuoteEditor(quoteId);
+      return;
+    }
+
+    const newAssessmentButton = event.target.closest("[data-create-assessment-from-client]");
+    if (newAssessmentButton) {
+      const clientId = newAssessmentButton.dataset.createAssessmentFromClient;
+      try {
+        openAssessmentSetupModal(clientId);
+      } catch (err) {
+        window.alert(`Could not create Assessment. ${err.message}`);
+      }
       return;
     }
 
@@ -4972,7 +5959,7 @@ function bindEvents() {
           }
         }
       } catch (err) {
-        window.alert(`Could not save Q&A details. ${err.message}`);
+        window.alert(`Could not save Assessment details. ${err.message}`);
       }
       return;
     }
@@ -5266,4 +6253,5 @@ async function boot() {
 }
 
 boot();
+
 

@@ -22,7 +22,7 @@
 
           <span class="side-nav-label">Enquiry / Client</span>
           <button type="button" data-view="leads">Leads</button>
-          <button type="button" data-view="assessments">Quotes & Assessments</button>
+          <button type="button" data-view="assessments">Assessments</button>
           <button type="button" data-view="clients">Clients & Homes</button>
 
           <span class="side-nav-label">Work Delivery</span>
@@ -138,7 +138,7 @@
           <section class="panel lead-priority-panel">
             <div class="panel-head">
               <h2>Lead history <span>Closed and moved on</span></h2>
-              <p>Rejected, unsuitable and moved-to-Q&A leads remain traceable here</p>
+              <p>Rejected, unsuitable and moved-to-Assessment leads remain traceable here</p>
             </div>
             <div class="priority-list" data-lead-history></div>
             <div class="list-footer" data-lead-history-count></div>
@@ -158,12 +158,12 @@
         <section class="view" data-view-panel="assessments">
           <div class="table-panel workspace-table-panel">
             <div class="table-toolbar">
-              <h2>Quotes & Assessments</h2>
-              <button class="ghost" type="button" disabled title="Open a lead drawer to create an Assessment / Quote.">Create from Lead drawer</button>
+              <h2>Assessments</h2>
+              <button class="ghost" type="button" disabled title="Open a lead drawer to create an Assessment.">Create from Lead drawer</button>
             </div>
             <section class="workspace-section-panel workspace-group">
               <div class="workspace-group-head workspace-section-head">
-                <h3>Active Q&A</h3>
+                <h3>Active Assessments</h3>
                 <p data-assessment-active-count></p>
               </div>
               <div class="records-table" data-assessment-active-table></div>
@@ -171,7 +171,7 @@
             <details class="workspace-history workspace-section-panel">
               <summary class="workspace-group-head workspace-history-summary">
                 <div>
-                  <h3>Q&A History</h3>
+                  <h3>Assessment History</h3>
                   <p>Converted and closed records stay here for traceability.</p>
                 </div>
                 <p data-assessment-history-count></p>
@@ -333,7 +333,7 @@
           <section class="panel lead-priority-panel">
             <div class="panel-head">
               <h2>Lead history <span>Closed and moved on</span></h2>
-              <p>Rejected, unsuitable and moved-to-Q&A leads remain traceable here</p>
+              <p>Rejected, unsuitable and moved-to-Assessment leads remain traceable here</p>
             </div>
             <div class="priority-list" data-lead-history></div>
             <div class="list-footer" data-lead-history-count></div>
@@ -353,12 +353,12 @@
         <section class="view" data-view-panel="assessments">
           <div class="table-panel workspace-table-panel">
             <div class="table-toolbar">
-              <h2>Quotes & Assessments</h2>
-              <button class="ghost" type="button" disabled title="Open a lead drawer to create an Assessment / Quote.">Create from Lead drawer</button>
+              <h2>Assessments</h2>
+              <button class="ghost" type="button" disabled title="Open a lead drawer to create an Assessment.">Create from Lead drawer</button>
             </div>
             <section class="workspace-section-panel workspace-group">
               <div class="workspace-group-head workspace-section-head">
-                <h3>Active Q&A</h3>
+                <h3>Active Assessments</h3>
                 <p data-assessment-active-count></p>
               </div>
               <div class="records-table" data-assessment-active-table></div>
@@ -366,7 +366,7 @@
             <details class="workspace-history workspace-section-panel">
               <summary class="workspace-group-head workspace-history-summary">
                 <div>
-                  <h3>Q&A History</h3>
+                  <h3>Assessment History</h3>
                   <p>Converted and closed records stay here for traceability.</p>
                 </div>
                 <p data-assessment-history-count></p>
@@ -503,6 +503,25 @@
         </div>
       </aside>
     </div>
+    <div class="modal-overlay" id="assessment-setup-modal" hidden>
+      <div class="modal-card modal-card-wide">
+        <header class="modal-header">
+          <div>
+            <h2>New Assessment</h2>
+            <p class="record-sub">Set up the client, property context, and initial scope before creating the Assessment.</p>
+            <p class="record-sub" id="assessment-setup-step-indicator">Step 1 of 4 - Setup</p>
+          </div>
+          <button class="close-button" type="button" data-close-assessment-setup aria-label="Close modal">&times;</button>
+        </header>
+        <form class="modal-form" id="assessment-setup-form">
+          <div class="modal-body" id="assessment-setup-body"></div>
+          <footer class="modal-footer">
+            <p class="status" id="assessment-setup-status"></p>
+            <div class="drawer-actions" id="assessment-setup-footer-actions"></div>
+          </footer>
+        </form>
+      </div>
+    </div>
     <!-- Quote Editor Modal -->
     <div class="modal-overlay" id="quote-editor-modal" hidden>
       <div class="modal-card">
@@ -519,7 +538,7 @@
           <div class="context-item"><strong>Frequency:</strong> <span id="ctx-frequency">--</span></div>
           <div class="context-item"><strong>Ref:</strong> <span id="ctx-ref">--</span></div>
           <div class="context-item"><strong>Status:</strong> <span id="ctx-status" class="status-badge">--</span></div>
-          <div class="context-item"><strong>Linked Q&A ID:</strong> <span id="ctx-qa-id">--</span></div>
+          <div class="context-item"><strong>Linked Assessment ID:</strong> <span id="ctx-qa-id">--</span></div>
         </div>
 
         <form class="modal-form" id="quote-editor-form">
@@ -579,7 +598,7 @@
                   <div class="help-value" id="help-suggested-range">--</div>
                 </div>
                 <div class="help-section">
-                  <div class="help-label">Q&A Quote Notes:</div>
+                  <div class="help-label">Assessment / Quote Notes:</div>
                   <div class="help-value notes-box" id="help-qa-notes">--</div>
                 </div>
                 <div class="help-section">

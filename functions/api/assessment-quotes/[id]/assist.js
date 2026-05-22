@@ -41,7 +41,7 @@ export async function onRequestPost({ env, params }) {
       .bind(params.id)
       .first();
 
-    if (!record) return error("Assessment / Quote not found.", 404);
+    if (!record) return error("Assessment not found.", 404);
 
     const assist = runAssessmentQuoteAssist(record);
     await db

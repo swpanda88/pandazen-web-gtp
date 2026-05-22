@@ -820,6 +820,40 @@ mark.rose {
   border-bottom: 1px solid var(--line);
 }
 
+.workspace-edit-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.workspace-edit-head h4,
+.workspace-edit-head p {
+  margin-bottom: 0;
+}
+
+.workspace-edit-head p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.workspace-edit-actions {
+  flex: 0 0 auto;
+}
+
+.workspace-edit-grid {
+  padding: 14px 16px 16px;
+}
+
+.workspace-edit-grid textarea {
+  min-height: 92px;
+}
+
+.workspace-edit-note {
+  margin: 10px 16px 0;
+}
+
 .workspace-group {
   display: grid;
   gap: 10px;

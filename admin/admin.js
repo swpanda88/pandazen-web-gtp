@@ -203,6 +203,10 @@ const state = {
   role: "admin",
   apiReady: false,
   options: {},
+  editingAssessmentId: null,
+  editingAssessmentTab: null,
+  editingClientId: null,
+  editingClientTab: null,
   scheduleMonth: null,
   activeDrawerType: null,
   expandedWorkspaces: {
@@ -313,6 +317,12 @@ function el(tag, className, html) {
 
 function setView(view) {
   const previousView = state.view;
+  if (previousView === "assessments" && view !== "assessments") {
+    clearAssessmentWorkspaceEditState();
+  }
+  if (previousView === "clients" && view !== "clients") {
+    clearClientWorkspaceEditState();
+  }
   state.view = view;
   viewTitle.textContent = titles[view];
   document.querySelectorAll("[data-view-panel]").forEach((panel) => {
@@ -785,7 +795,19 @@ function setExpandedWorkspace(view, recordId, tab = "overview") {
 
 function toggleExpandedWorkspace(view, recordId, defaultTab = "overview") {
   const current = expandedWorkspaceState(view);
+  if (view === "assessments" && assessmentDetailsEditState && String(state.editingAssessmentId || "") !== String(recordId)) {
+    clearAssessmentWorkspaceEditState();
+  }
+  if (view === "clients" && clientWorkspaceEditState && String(state.editingClientId || "") !== String(recordId)) {
+    clearClientWorkspaceEditState();
+  }
   if (current && String(current.id) === String(recordId)) {
+    if (view === "assessments" && String(state.editingAssessmentId || "") === String(recordId)) {
+      clearAssessmentWorkspaceEditState();
+    }
+    if (view === "clients" && String(state.editingClientId || "") === String(recordId)) {
+      clearClientWorkspaceEditState();
+    }
     state.expandedWorkspaces[view] = null;
   } else {
     state.expandedWorkspaces[view] = { id: recordId, tab: defaultTab };
@@ -800,6 +822,12 @@ function toggleExpandedWorkspace(view, recordId, defaultTab = "overview") {
 }
 
 function setWorkspaceTab(view, recordId, tab) {
+  if (view === "assessments" && assessmentDetailsEditState && tab !== "details") {
+    clearAssessmentWorkspaceEditState();
+  }
+  if (view === "clients" && clientWorkspaceEditState && tab !== state.editingClientTab) {
+    clearClientWorkspaceEditState();
+  }
   state.expandedWorkspaces[view] = { id: recordId, tab };
   renderTables();
   syncWorkspaceFirstLayout();
@@ -1051,9 +1079,11 @@ function noteSummary(notes, emptyMessage) {
   `;
 }
 
-function renderEditableSelect({ name, groupKey, currentValue, otherValue = "", staticOptions = null }) {
+function renderEditableSelect({ name, groupKey, currentValue, otherValue = "", staticOptions = null, allowOtherOverride = null }) {
   const group = groupKey ? state.options[groupKey] : null;
-  const allowOther = Boolean(group?.allowOther || staticOptions?.some((option) => option.value === "other"));
+  const allowOther = allowOtherOverride === null
+    ? Boolean(group?.allowOther || staticOptions?.some((option) => option.value === "other"))
+    : Boolean(allowOtherOverride);
   const rawOptions = group
     ? [{ value: "", label: "Select" }, ...group.options.map((option) => ({ value: option.value, label: option.label }))]
     : staticOptions || [];
@@ -1601,9 +1631,407 @@ function renderLeadEditIntakeFields(draft) {
 }
 
 let leadDetailsEditState = null;
+let assessmentDetailsEditState = null;
+let clientWorkspaceEditState = null;
 
 function isEditingLeadDetails(record) {
   return Boolean(leadDetailsEditState && String(leadDetailsEditState.id) === String(record.id));
+}
+
+function isEditingAssessmentDetails(record) {
+  return Boolean(
+    assessmentDetailsEditState
+    && String(state.editingAssessmentId || "") === String(record.id)
+    && state.editingAssessmentTab === "details"
+  );
+}
+
+function isEditingClientWorkspace(record, tab) {
+  return Boolean(
+    clientWorkspaceEditState
+    && String(state.editingClientId || "") === String(record.id)
+    && state.editingClientTab === tab
+  );
+}
+
+function clearAssessmentWorkspaceEditState() {
+  assessmentDetailsEditState = null;
+  state.editingAssessmentId = null;
+  state.editingAssessmentTab = null;
+}
+
+function clearClientWorkspaceEditState() {
+  clientWorkspaceEditState = null;
+  state.editingClientId = null;
+  state.editingClientTab = null;
+}
+
+function assessmentDetailsDraft(record) {
+  return {
+    id: record.id,
+    customerName: record.customerName || record.client || "",
+    phone: record.phone || "",
+    email: record.email || "",
+    area: record.area || "",
+    postcode: record.postcode || "",
+    serviceType: record.serviceType || "",
+    frequency: record.frequency || "",
+    propertyType: record.propertyType || "",
+    bedrooms: record.bedrooms || "",
+    bathrooms: record.bathrooms || "",
+    propertyCondition: record.propertyCondition || "",
+    pets: record.pets || "",
+    parking: record.parking || "",
+    priorities: record.priorities || "",
+    productPreferences: record.productPreferences || "",
+    notes: record.notes || "",
+    assessmentNotes: record.assessmentNotes || "",
+    quoteNotes: record.quoteNotes || ""
+  };
+}
+
+function clientContactAccessDraft(record) {
+  return {
+    id: record.id,
+    name: record.name || "",
+    phone: record.phone || "",
+    email: record.email || "",
+    preferredContact: record.preferredContact || "",
+    accessMethod: record.accessMethod || "",
+    accessOther: record.accessOther || "",
+    accessNotes: record.accessNotes || "",
+    parkingNotes: record.parkingNotes || "",
+    petType: record.petType || "",
+    petOther: record.petOther || "",
+    petNotes: record.petNotes || "",
+    productPreference: record.productPreference || "",
+    productOther: record.productOther || "",
+    surfaceNotes: record.surfaceNotes || "",
+    notes: record.notes || ""
+  };
+}
+
+function clientHomeDetailsDraft(record) {
+  return {
+    id: record.id,
+    area: record.area || "",
+    address: record.address || ""
+  };
+}
+
+function clientCleaningPlanDraft(record) {
+  return {
+    id: record.id,
+    cleaningPlanId: record.cleaningPlanId || "",
+    frequency: record.frequency || "",
+    manHours: record.manHours || "",
+    specialInstructions: record.specialInstructions || ""
+  };
+}
+
+function startAssessmentDetailsEdit(record) {
+  assessmentDetailsEditState = assessmentDetailsDraft(record);
+  state.editingAssessmentId = record.id;
+  state.editingAssessmentTab = "details";
+  setWorkspaceTab("assessments", record.id, "details");
+}
+
+function startClientWorkspaceEdit(record, tab) {
+  const draftFactory = {
+    "contact-access": clientContactAccessDraft,
+    "home-details": clientHomeDetailsDraft,
+    "cleaning-plan": clientCleaningPlanDraft
+  }[tab];
+
+  if (!draftFactory) return;
+  clientWorkspaceEditState = draftFactory(record);
+  state.editingClientId = record.id;
+  state.editingClientTab = tab;
+  setWorkspaceTab("clients", record.id, tab);
+}
+
+function workspaceEditHeader({ title, helper = "", editing = false, editLabel = "Edit details", saveLabel = "Save changes", editAction = "", cancelAction = "" }) {
+  return `
+    <div class="workspace-section-head workspace-edit-head">
+      <div>
+        <h4>${escapeHtml(title)}</h4>
+        ${helper ? `<p>${escapeHtml(helper)}</p>` : ""}
+      </div>
+      <div class="drawer-actions compact workspace-edit-actions">
+        ${
+          editing
+            ? `
+              <button class="ghost" type="button" ${cancelAction}>Cancel</button>
+              <button class="primary" type="submit">${escapeHtml(saveLabel)}</button>
+            `
+            : editAction
+              ? `<button class="ghost" type="button" ${editAction}>${escapeHtml(editLabel)}</button>`
+              : ""
+        }
+      </div>
+    </div>
+  `;
+}
+
+function renderAssessmentEditableFields(draft) {
+  return `
+    <div class="field-grid workspace-edit-grid">
+      ${renderEditableInput("Customer / prospect name", `<input name="customerName" value="${escapeHtml(draft.customerName)}">`)}
+      ${renderEditableInput("Phone", `<input name="phone" value="${escapeHtml(draft.phone)}">`)}
+      ${renderEditableInput("Email", `<input name="email" type="email" value="${escapeHtml(draft.email)}">`)}
+      ${renderEditableInput("Area", `<input name="area" value="${escapeHtml(draft.area)}">`)}
+      ${renderEditableInput("Postcode", `<input name="postcode" value="${escapeHtml(draft.postcode)}">`)}
+      ${renderEditableInput("Service type", renderEditableSelect({ name: "serviceType", groupKey: "service_type", currentValue: draft.serviceType, allowOtherOverride: false }))}
+      ${renderEditableInput("Frequency", renderEditableSelect({ name: "frequency", groupKey: "frequency", currentValue: draft.frequency }))}
+      ${renderEditableInput("Property type", renderEditableSelect({ name: "propertyType", currentValue: draft.propertyType, staticOptions: leadStaticOptions.propertyType, allowOtherOverride: false }))}
+      ${renderEditableInput("Bedrooms", renderEditableSelect({ name: "bedrooms", currentValue: draft.bedrooms, staticOptions: leadStaticOptions.bedrooms }))}
+      ${renderEditableInput("Bathrooms", renderEditableSelect({ name: "bathrooms", currentValue: draft.bathrooms, staticOptions: leadStaticOptions.bathrooms }))}
+      ${renderEditableInput("Property condition", renderEditableSelect({ name: "propertyCondition", groupKey: "condition_level", currentValue: draft.propertyCondition }))}
+      ${renderEditableInput("Pets", renderEditableSelect({ name: "pets", groupKey: "pet_type", currentValue: draft.pets, allowOtherOverride: false }))}
+      ${renderEditableInput("Parking", renderEditableSelect({ name: "parking", currentValue: draft.parking, staticOptions: leadStaticOptions.parking }))}
+      ${renderEditableInput("Product preferences", renderEditableSelect({ name: "productPreferences", groupKey: "product_preference", currentValue: draft.productPreferences, allowOtherOverride: false }))}
+      ${renderEditableInput("Priorities", `<textarea name="priorities" rows="3">${escapeHtml(draft.priorities)}</textarea>`, "field-span-2")}
+      ${renderEditableInput("Assessment notes", `<textarea name="assessmentNotes" rows="4">${escapeHtml(draft.assessmentNotes)}</textarea>`, "field-span-2")}
+      ${renderEditableInput("Quote notes", `<textarea name="quoteNotes" rows="4">${escapeHtml(draft.quoteNotes)}</textarea>`, "field-span-2")}
+      ${renderEditableInput("Internal notes", `<textarea name="notes" rows="4">${escapeHtml(draft.notes)}</textarea>`, "field-span-2")}
+    </div>
+  `;
+}
+
+function renderClientContactAccessEditableFields(draft) {
+  return `
+    <div class="field-grid workspace-edit-grid">
+      ${renderEditableInput("Client name", `<input name="name" value="${escapeHtml(draft.name)}">`)}
+      ${renderEditableInput("Phone", `<input name="phone" value="${escapeHtml(draft.phone)}">`)}
+      ${renderEditableInput("Email", `<input name="email" type="email" value="${escapeHtml(draft.email)}">`)}
+      ${renderEditableInput("Preferred contact", renderEditableSelect({ name: "preferredContact", groupKey: "preferred_contact", currentValue: draft.preferredContact }))}
+      ${renderEditableInput("Access method", renderEditableSelect({ name: "accessMethod", groupKey: "access_method", currentValue: draft.accessMethod, otherValue: draft.accessOther }))}
+      ${renderEditableInput("Pets", renderEditableSelect({ name: "petType", groupKey: "pet_type", currentValue: draft.petType, otherValue: draft.petOther }))}
+      ${renderEditableInput("Product preferences", renderEditableSelect({ name: "productPreference", groupKey: "product_preference", currentValue: draft.productPreference, otherValue: draft.productOther }))}
+      ${renderEditableInput("Access notes", `<textarea name="accessNotes" rows="3">${escapeHtml(draft.accessNotes)}</textarea>`, "field-span-2")}
+      ${renderEditableInput("Parking notes", `<textarea name="parkingNotes" rows="2">${escapeHtml(draft.parkingNotes)}</textarea>`, "field-span-2")}
+      ${renderEditableInput("Pet notes", `<textarea name="petNotes" rows="2">${escapeHtml(draft.petNotes)}</textarea>`, "field-span-2")}
+      ${renderEditableInput("Surface notes", `<textarea name="surfaceNotes" rows="3">${escapeHtml(draft.surfaceNotes)}</textarea>`, "field-span-2")}
+      ${renderEditableInput("Internal notes", `<textarea name="notes" rows="4">${escapeHtml(draft.notes)}</textarea>`, "field-span-2")}
+    </div>
+  `;
+}
+
+function renderClientHomeEditableFields(draft, record) {
+  return `
+    <div class="field-grid workspace-edit-grid">
+      ${renderEditableInput("Area", `<input name="area" value="${escapeHtml(draft.area)}">`)}
+      ${renderEditableInput("Address", `<input name="address" value="${escapeHtml(draft.address)}">`, "field-span-2")}
+    </div>
+    ${detailRows([
+      ["Postcode", record.postcode],
+      ["Property type", record.propertyType],
+      ["Bedrooms", record.bedrooms],
+      ["Bathrooms", record.bathrooms],
+      ["Reception rooms", record.receptionRooms],
+      ["Kitchen size", record.kitchenSize],
+      ["Property size", record.propertySize],
+      ["Condition", record.propertyCondition]
+    ])}
+    <p class="record-sub workspace-edit-note">Property structure fields remain read-only here until they have clear Client &amp; Home ownership.</p>
+  `;
+}
+
+function renderClientCleaningPlanEditableFields(draft, record) {
+  return `
+    <div class="field-grid workspace-edit-grid">
+      ${renderEditableInput("Frequency", renderEditableSelect({ name: "frequency", groupKey: "frequency", currentValue: draft.frequency }))}
+      ${renderEditableInput("Default man-hours", `<input name="manHours" type="number" step="0.25" min="0" value="${escapeHtml(draft.manHours)}">`)}
+      ${renderEditableInput("Special instructions", `<textarea name="specialInstructions" rows="4">${escapeHtml(draft.specialInstructions)}</textarea>`, "field-span-2")}
+    </div>
+    ${detailRows([
+      ["Service", clientServiceLabel(record)],
+      ["Requested frequency", record.requestedFrequencyLabel || record.requestedFrequency],
+      ["Preferred days", record.preferredDays],
+      ["Main cleaner", record.mainCleaner],
+      ["Helper", record.helper],
+      ["Priorities", record.priorities]
+    ])}
+  `;
+}
+
+function normaliseAssessmentDetailsPayload(formData) {
+  const raw = Object.fromEntries(formData.entries());
+  const trimmed = (value) => {
+    if (value === undefined || value === null) return null;
+    const text = String(value).trim();
+    return text ? text : null;
+  };
+
+  return {
+    action: "update_details",
+    customerName: trimmed(raw.customerName),
+    phone: trimmed(raw.phone),
+    email: trimmed(raw.email),
+    area: trimmed(raw.area),
+    postcode: trimmed(raw.postcode),
+    serviceType: trimmed(raw.serviceType),
+    frequency: trimmed(raw.frequency),
+    propertyType: trimmed(raw.propertyType),
+    bedrooms: trimmed(raw.bedrooms),
+    bathrooms: trimmed(raw.bathrooms),
+    propertyCondition: trimmed(raw.propertyCondition),
+    pets: trimmed(raw.pets),
+    parking: trimmed(raw.parking),
+    priorities: trimmed(raw.priorities),
+    productPreferences: trimmed(raw.productPreferences),
+    notes: trimmed(raw.notes),
+    assessmentNotes: trimmed(raw.assessmentNotes),
+    quoteNotes: trimmed(raw.quoteNotes)
+  };
+}
+
+function normaliseClientContactAccessPayload(formData) {
+  const raw = Object.fromEntries(formData.entries());
+  const trimmed = (value) => {
+    if (value === undefined || value === null) return null;
+    const text = String(value).trim();
+    return text ? text : null;
+  };
+
+  return {
+    action: "update_contact_access",
+    name: trimmed(raw.name),
+    phone: trimmed(raw.phone),
+    email: trimmed(raw.email),
+    preferredContact: trimmed(raw.preferredContact),
+    accessMethod: trimmed(raw.accessMethod),
+    accessOther: raw.accessMethod === "other" ? trimmed(raw.accessMethodOther) : null,
+    accessNotes: trimmed(raw.accessNotes),
+    parkingNotes: trimmed(raw.parkingNotes),
+    petType: trimmed(raw.petType),
+    petOther: raw.petType === "other" ? trimmed(raw.petTypeOther) : null,
+    petNotes: trimmed(raw.petNotes),
+    productPreference: trimmed(raw.productPreference),
+    productOther: raw.productPreference === "other" ? trimmed(raw.productPreferenceOther) : null,
+    surfaceNotes: trimmed(raw.surfaceNotes),
+    notes: trimmed(raw.notes)
+  };
+}
+
+function normaliseClientHomeDetailsPayload(formData) {
+  const raw = Object.fromEntries(formData.entries());
+  const trimmed = (value) => {
+    if (value === undefined || value === null) return null;
+    const text = String(value).trim();
+    return text ? text : null;
+  };
+
+  return {
+    action: "update_home_details",
+    area: trimmed(raw.area),
+    address: trimmed(raw.address)
+  };
+}
+
+function normaliseClientCleaningPlanPayload(formData, record) {
+  const raw = Object.fromEntries(formData.entries());
+  const trimmed = (value) => {
+    if (value === undefined || value === null) return null;
+    const text = String(value).trim();
+    return text ? text : null;
+  };
+
+  return {
+    action: "update_cleaning_plan",
+    cleaningPlanId: record.cleaningPlanId || null,
+    frequency: trimmed(raw.frequency),
+    manHours: trimmed(raw.manHours),
+    specialInstructions: trimmed(raw.specialInstructions)
+  };
+}
+
+function findRecordByType(type, recordId) {
+  return recordsForType(type).find((item) => String(item.id) === String(recordId)) || null;
+}
+
+async function refreshWorkspaceRecord(view, type, recordId, tab) {
+  if (tab) {
+    state.expandedWorkspaces[view] = { id: recordId, tab };
+  }
+  await loadApiData();
+  const updated = findRecordByType(type, recordId);
+  if (!updated) return;
+  if (state.activeDrawerType === type && workspaceDrawerMode(view) === "expanded") {
+    openDrawer(type, updated);
+  }
+}
+
+function applyAssessmentLocalUpdate(recordId, payload) {
+  const record = data.assessments.find((item) => String(item.id) === String(recordId));
+  if (!record) return;
+  Object.assign(record, {
+    customerName: payload.customerName,
+    phone: payload.phone,
+    email: payload.email,
+    area: payload.area,
+    postcode: payload.postcode,
+    serviceType: payload.serviceType,
+    frequency: payload.frequency,
+    propertyType: payload.propertyType,
+    bedrooms: payload.bedrooms,
+    bathrooms: payload.bathrooms,
+    propertyCondition: payload.propertyCondition,
+    pets: payload.pets,
+    parking: payload.parking,
+    priorities: payload.priorities,
+    productPreferences: payload.productPreferences,
+    notes: payload.notes,
+    assessmentNotes: payload.assessmentNotes,
+    quoteNotes: payload.quoteNotes,
+    serviceLabel: payload.serviceType ? optionLabel("service_type", payload.serviceType) : record.serviceLabel,
+    frequencyLabel: payload.frequency ? optionLabel("frequency", payload.frequency) : record.frequencyLabel,
+    updatedAt: new Date().toISOString()
+  });
+}
+
+function applyClientLocalUpdate(recordId, action, payload) {
+  const record = data.clients.find((item) => String(item.id) === String(recordId));
+  if (!record) return;
+
+  if (action === "update_contact_access") {
+    Object.assign(record, {
+      name: payload.name,
+      phone: payload.phone,
+      email: payload.email,
+      preferredContact: payload.preferredContact,
+      accessMethod: payload.accessMethod,
+      accessOther: payload.accessOther,
+      accessNotes: payload.accessNotes,
+      parkingNotes: payload.parkingNotes,
+      petType: payload.petType,
+      petOther: payload.petOther,
+      petNotes: payload.petNotes,
+      productPreference: payload.productPreference,
+      productOther: payload.productOther,
+      surfaceNotes: payload.surfaceNotes,
+      notes: payload.notes,
+      preferredContactLabel: payload.preferredContact ? optionLabel("preferred_contact", payload.preferredContact) : record.preferredContactLabel,
+      accessLabel: payload.accessMethod ? payload.accessMethod === "other" && payload.accessOther ? `${optionLabel("access_method", payload.accessMethod)}: ${payload.accessOther}` : optionLabel("access_method", payload.accessMethod) : record.accessLabel,
+      petLabel: payload.petType ? payload.petType === "other" && payload.petOther ? `${optionLabel("pet_type", payload.petType)}: ${payload.petOther}` : optionLabel("pet_type", payload.petType) : record.petLabel,
+      productLabel: payload.productPreference ? payload.productPreference === "other" && payload.productOther ? `${optionLabel("product_preference", payload.productPreference)}: ${payload.productOther}` : optionLabel("product_preference", payload.productPreference) : record.productLabel,
+      updatedAt: new Date().toISOString()
+    });
+  } else if (action === "update_home_details") {
+    Object.assign(record, {
+      area: payload.area,
+      address: payload.address,
+      updatedAt: new Date().toISOString()
+    });
+  } else if (action === "update_cleaning_plan") {
+    Object.assign(record, {
+      frequency: payload.frequency,
+      manHours: payload.manHours,
+      specialInstructions: payload.specialInstructions,
+      frequencyLabel: payload.frequency ? optionLabel("frequency", payload.frequency) : record.frequencyLabel,
+      updatedAt: new Date().toISOString()
+    });
+  }
 }
 
 function renderLeadDetailSections(record) {
@@ -3418,22 +3846,51 @@ function renderAssessmentWorkspaceTab(record, tab) {
   }
 
   if (tab === "details") {
-    return detailRows([
-      ["Property type", record.propertyType],
-      ["Bedrooms", record.bedrooms],
-      ["Bathrooms", record.bathrooms],
-      ["Reception rooms", record.receptionRooms],
-      ["Kitchen size", record.kitchenSize],
-      ["Property size", record.propertySize],
-      ["Condition", record.propertyCondition],
-      ["Pets", record.pets],
-      ["Parking", record.parking],
-      ["Priorities", record.priorities],
-      ["Products", record.productPreferences],
-      ["Assessment notes", record.assessmentNotes],
-      ["Quote notes", record.quoteNotes],
-      ["Internal notes", record.notes]
-    ]);
+    const isEditing = isEditingAssessmentDetails(record);
+    const draft = isEditing ? assessmentDetailsEditState : assessmentDetailsDraft(record);
+    const header = workspaceEditHeader({
+      title: "Q&A details",
+      helper: "These fields belong to this Q&A record only. Saving here does not sync back to Leads or forward to Client & Home.",
+      editing: isEditing,
+      editAction: `data-edit-assessment-details="${escapeHtml(record.id)}"`,
+      cancelAction: "data-cancel-assessment-details"
+    });
+
+    if (isEditing) {
+      return `
+        <form data-assessment-details-form data-assessment-id="${escapeHtml(record.id)}">
+          ${header}
+          ${renderAssessmentEditableFields(draft)}
+        </form>
+      `;
+    }
+
+    return `
+      ${header}
+      ${detailRows([
+        ["Customer / prospect", record.customerName || record.client],
+        ["Phone", record.phone],
+        ["Email", record.email],
+        ["Area", record.area],
+        ["Postcode", record.postcode],
+        ["Service type", record.serviceLabel || record.serviceType],
+        ["Frequency", record.frequencyLabel || record.frequency],
+        ["Property type", leadValueLabel("propertyType", record.propertyType)],
+        ["Bedrooms", record.bedrooms],
+        ["Bathrooms", record.bathrooms],
+        ["Reception rooms", record.receptionRooms],
+        ["Kitchen size", record.kitchenSize],
+        ["Property size", leadValueLabel("propertySize", record.propertySize)],
+        ["Condition", leadValueLabel("propertyCondition", record.propertyCondition)],
+        ["Pets", leadValueLabel("pets", record.pets)],
+        ["Parking", leadValueLabel("parking", record.parking)],
+        ["Priorities", record.priorities],
+        ["Products", leadValueLabel("productPreferences", record.productPreferences)],
+        ["Assessment notes", record.assessmentNotes],
+        ["Quote notes", record.quoteNotes],
+        ["Internal notes", record.notes]
+      ])}
+    `;
   }
 
   if (tab === "quote-assist") {
@@ -3569,52 +4026,122 @@ function clientWorkspaceTabs() {
 
 function renderClientWorkspaceTab(record, tab) {
   if (tab === "contact-access") {
-    return detailRows([
-      ["Preferred contact", record.preferredContactLabel || record.preferredContact],
-      ["Best contact time", record.bestContactTime],
-      ["Access method", record.accessLabel || record.accessMethod],
-      ["Access notes", record.accessNotes],
-      ["Parking notes", record.parkingNotes || record.leadParking],
-      ["Pets", record.petLabel || record.petType || record.leadPets],
-      ["Pet notes", record.petNotes],
-      ["Products", record.productLabel || record.productPreference || record.leadProductPreferences],
-      ["Surface notes", record.surfaceNotes],
-      ["Internal notes", record.notes]
-    ]);
+    const isEditing = isEditingClientWorkspace(record, "contact-access");
+    const draft = isEditing ? clientWorkspaceEditState : clientContactAccessDraft(record);
+    const header = workspaceEditHeader({
+      title: "Contact / Access",
+      helper: "Updates stay on the Client & Home record only. They do not rewrite linked Lead or Q&A history.",
+      editing: isEditing,
+      editAction: `data-edit-client-workspace="${escapeHtml(record.id)}" data-client-workspace-tab="contact-access"`,
+      cancelAction: "data-cancel-client-workspace"
+    });
+
+    if (isEditing) {
+      return `
+        <form data-client-contact-form data-client-id="${escapeHtml(record.id)}">
+          ${header}
+          ${renderClientContactAccessEditableFields(draft)}
+        </form>
+      `;
+    }
+
+    return `
+      ${header}
+      ${detailRows([
+        ["Client name", record.name],
+        ["Phone", record.phone],
+        ["Email", record.email],
+        ["Preferred contact", record.preferredContactLabel || record.preferredContact],
+        ["Best contact time", record.bestContactTime],
+        ["Access method", record.accessLabel || record.accessMethod],
+        ["Access notes", record.accessNotes],
+        ["Parking notes", record.parkingNotes || record.leadParking],
+        ["Pets", record.petLabel || record.petType || record.leadPets],
+        ["Pet notes", record.petNotes],
+        ["Products", record.productLabel || record.productPreference || record.leadProductPreferences],
+        ["Surface notes", record.surfaceNotes],
+        ["Internal notes", record.notes]
+      ])}
+    `;
   }
 
   if (tab === "home-details") {
+    const isEditing = isEditingClientWorkspace(record, "home-details");
+    const draft = isEditing ? clientWorkspaceEditState : clientHomeDetailsDraft(record);
     const hasHomeData = [record.propertyType, record.bedrooms, record.bathrooms, record.propertySize, record.propertyCondition].some(Boolean);
-    return hasHomeData
-      ? detailRows([
-          ["Area", record.area],
-          ["Address", record.address],
-          ["Postcode", record.postcode],
-          ["Property type", record.propertyType],
-          ["Bedrooms", record.bedrooms],
-          ["Bathrooms", record.bathrooms],
-          ["Reception rooms", record.receptionRooms],
-          ["Kitchen size", record.kitchenSize],
-          ["Property size", record.propertySize],
-          ["Condition", record.propertyCondition]
-        ])
-      : placeholderPanel("Home details module planned - this will hold property, rooms, surfaces, pets, products and access details.");
+    const header = workspaceEditHeader({
+      title: "Home details",
+      helper: "Area and address are editable here. Property structure stays read-only until it has clear Client & Home ownership.",
+      editing: isEditing,
+      editAction: `data-edit-client-workspace="${escapeHtml(record.id)}" data-client-workspace-tab="home-details"`,
+      cancelAction: "data-cancel-client-workspace"
+    });
+    if (!hasHomeData && !record.area && !record.address && !isEditing) {
+      return `${header}${placeholderPanel("Home details module planned - this will hold property, rooms, surfaces, pets, products and access details.")}`;
+    }
+    if (isEditing) {
+      return `
+        <form data-client-home-form data-client-id="${escapeHtml(record.id)}">
+          ${header}
+          ${renderClientHomeEditableFields(draft, record)}
+        </form>
+      `;
+    }
+    return `
+      ${header}
+      ${detailRows([
+        ["Area", record.area],
+        ["Address", record.address],
+        ["Postcode", record.postcode],
+        ["Property type", leadValueLabel("propertyType", record.propertyType)],
+        ["Bedrooms", record.bedrooms],
+        ["Bathrooms", record.bathrooms],
+        ["Reception rooms", record.receptionRooms],
+        ["Kitchen size", record.kitchenSize],
+        ["Property size", leadValueLabel("propertySize", record.propertySize)],
+        ["Condition", leadValueLabel("propertyCondition", record.propertyCondition)]
+      ])}
+    `;
   }
 
   if (tab === "cleaning-plan") {
+    const isEditing = isEditingClientWorkspace(record, "cleaning-plan");
+    const draft = isEditing ? clientWorkspaceEditState : clientCleaningPlanDraft(record);
     const hasPlan = [clientFrequencyLabel(record), record.manHours, record.mainCleaner, record.helper, record.priorities].some(Boolean);
-    return hasPlan
-      ? detailRows([
-          ["Service", clientServiceLabel(record)],
-          ["Frequency", clientFrequencyLabel(record)],
-          ["Requested frequency", record.requestedFrequencyLabel || record.requestedFrequency],
-          ["Preferred days", record.preferredDays],
-          ["Man-hours", record.manHours],
-          ["Main cleaner", record.mainCleaner],
-          ["Helper", record.helper],
-          ["Priorities", record.priorities]
-        ])
-      : placeholderPanel("Cleaning plan module planned - confirmed after assessment and early live service setup.");
+    const header = workspaceEditHeader({
+      title: "Cleaning plan",
+      helper: record.cleaningPlanId
+        ? "This updates the active cleaning plan only. It does not sync back to Lead or Q&A."
+        : "A live cleaning plan has not been created yet, so this section remains read-only for now.",
+      editing: isEditing,
+      editAction: record.cleaningPlanId ? `data-edit-client-workspace="${escapeHtml(record.id)}" data-client-workspace-tab="cleaning-plan"` : "",
+      cancelAction: "data-cancel-client-workspace"
+    });
+    if (!hasPlan && !isEditing) {
+      return `${header}${placeholderPanel("Cleaning plan module planned - confirmed after assessment and early live service setup.")}`;
+    }
+    if (isEditing) {
+      return `
+        <form data-client-plan-form data-client-id="${escapeHtml(record.id)}">
+          ${header}
+          ${renderClientCleaningPlanEditableFields(draft, record)}
+        </form>
+      `;
+    }
+    return `
+      ${header}
+      ${detailRows([
+        ["Service", clientServiceLabel(record)],
+        ["Frequency", clientFrequencyLabel(record)],
+        ["Requested frequency", record.requestedFrequencyLabel || record.requestedFrequency],
+        ["Preferred days", record.preferredDays],
+        ["Man-hours", record.manHours],
+        ["Special instructions", record.specialInstructions],
+        ["Main cleaner", record.mainCleaner],
+        ["Helper", record.helper],
+        ["Priorities", record.priorities]
+      ])}
+    `;
   }
 
   if (tab === "schedule-jobs") {
@@ -3826,6 +4353,16 @@ function renderTables() {
       `<span class="pill blue">${escapeHtml(clientStatusDisplay(client))}</span>`
     ],
     renderWorkspace: renderClientWorkspace
+  });
+
+  document.querySelectorAll(".expandable-workspace select[data-group]").forEach((select) => {
+    const other = select.parentElement.querySelector(".other-field");
+    if (!other) return;
+    const update = () => {
+      other.hidden = select.value !== "other";
+    };
+    select.addEventListener("change", update);
+    update();
   });
 
   const jobTable = document.querySelector("[data-job-table]");
@@ -4283,6 +4820,35 @@ function bindEvents() {
   });
 
   document.addEventListener("click", async (event) => {
+    const editAssessmentDetails = event.target.closest("[data-edit-assessment-details]");
+    if (editAssessmentDetails) {
+      const record = findRecordByType("assessment", editAssessmentDetails.dataset.editAssessmentDetails);
+      if (record) startAssessmentDetailsEdit(record);
+      return;
+    }
+
+    if (event.target.closest("[data-cancel-assessment-details]")) {
+      clearAssessmentWorkspaceEditState();
+      renderTables();
+      syncWorkspaceFirstLayout();
+      return;
+    }
+
+    const editClientWorkspace = event.target.closest("[data-edit-client-workspace]");
+    if (editClientWorkspace) {
+      const record = findRecordByType("client", editClientWorkspace.dataset.editClientWorkspace);
+      const tab = editClientWorkspace.dataset.clientWorkspaceTab;
+      if (record && tab) startClientWorkspaceEdit(record, tab);
+      return;
+    }
+
+    if (event.target.closest("[data-cancel-client-workspace]")) {
+      clearClientWorkspaceEditState();
+      renderTables();
+      syncWorkspaceFirstLayout();
+      return;
+    }
+
     const editDraftButton = event.target.closest("[data-edit-draft-quote]");
     if (editDraftButton) {
       const quoteId = editDraftButton.dataset.editDraftQuote;
@@ -4366,6 +4932,121 @@ function bindEvents() {
       const assessmentId = generateBtn.dataset.builderGenerateQuote;
       await handleGenerateQuoteFromBuilder(assessmentId);
       return;
+    }
+  });
+
+  document.addEventListener("submit", async (event) => {
+    const assessmentDetailsForm = event.target.closest("[data-assessment-details-form]");
+    if (assessmentDetailsForm) {
+      event.preventDefault();
+      const assessmentId = assessmentDetailsForm.dataset.assessmentId;
+      const payload = normaliseAssessmentDetailsPayload(new FormData(assessmentDetailsForm));
+      try {
+        if (state.apiReady) {
+          await apiPatch(`/api/assessment-quotes/${assessmentId}`, payload);
+        } else {
+          applyAssessmentLocalUpdate(assessmentId, payload);
+        }
+        clearAssessmentWorkspaceEditState();
+        if (state.apiReady) {
+          await refreshWorkspaceRecord("assessments", "assessment", assessmentId, "details");
+        } else {
+          renderTables();
+          syncWorkspaceFirstLayout();
+          const updated = findRecordByType("assessment", assessmentId);
+          if (updated && state.activeDrawerType === "assessment" && workspaceDrawerMode("assessments") === "expanded") {
+            openDrawer("assessment", updated);
+          }
+        }
+      } catch (err) {
+        window.alert(`Could not save Q&A details. ${err.message}`);
+      }
+      return;
+    }
+
+    const clientContactForm = event.target.closest("[data-client-contact-form]");
+    if (clientContactForm) {
+      event.preventDefault();
+      const clientId = clientContactForm.dataset.clientId;
+      const payload = normaliseClientContactAccessPayload(new FormData(clientContactForm));
+      try {
+        if (state.apiReady) {
+          await apiPatch(`/api/clients/${clientId}`, payload);
+        } else {
+          applyClientLocalUpdate(clientId, payload.action, payload);
+        }
+        clearClientWorkspaceEditState();
+        if (state.apiReady) {
+          await refreshWorkspaceRecord("clients", "client", clientId, "contact-access");
+        } else {
+          renderTables();
+          syncWorkspaceFirstLayout();
+          const updated = findRecordByType("client", clientId);
+          if (updated && state.activeDrawerType === "client" && workspaceDrawerMode("clients") === "expanded") {
+            openDrawer("client", updated);
+          }
+        }
+      } catch (err) {
+        window.alert(`Could not save Client & Home contact details. ${err.message}`);
+      }
+      return;
+    }
+
+    const clientHomeForm = event.target.closest("[data-client-home-form]");
+    if (clientHomeForm) {
+      event.preventDefault();
+      const clientId = clientHomeForm.dataset.clientId;
+      const payload = normaliseClientHomeDetailsPayload(new FormData(clientHomeForm));
+      try {
+        if (state.apiReady) {
+          await apiPatch(`/api/clients/${clientId}`, payload);
+        } else {
+          applyClientLocalUpdate(clientId, payload.action, payload);
+        }
+        clearClientWorkspaceEditState();
+        if (state.apiReady) {
+          await refreshWorkspaceRecord("clients", "client", clientId, "home-details");
+        } else {
+          renderTables();
+          syncWorkspaceFirstLayout();
+          const updated = findRecordByType("client", clientId);
+          if (updated && state.activeDrawerType === "client" && workspaceDrawerMode("clients") === "expanded") {
+            openDrawer("client", updated);
+          }
+        }
+      } catch (err) {
+        window.alert(`Could not save Client & Home home details. ${err.message}`);
+      }
+      return;
+    }
+
+    const clientPlanForm = event.target.closest("[data-client-plan-form]");
+    if (clientPlanForm) {
+      event.preventDefault();
+      const clientId = clientPlanForm.dataset.clientId;
+      const record = findRecordByType("client", clientId);
+      if (!record) return;
+      const payload = normaliseClientCleaningPlanPayload(new FormData(clientPlanForm), record);
+      try {
+        if (state.apiReady) {
+          await apiPatch(`/api/clients/${clientId}`, payload);
+        } else {
+          applyClientLocalUpdate(clientId, payload.action, payload);
+        }
+        clearClientWorkspaceEditState();
+        if (state.apiReady) {
+          await refreshWorkspaceRecord("clients", "client", clientId, "cleaning-plan");
+        } else {
+          renderTables();
+          syncWorkspaceFirstLayout();
+          const updated = findRecordByType("client", clientId);
+          if (updated && state.activeDrawerType === "client" && workspaceDrawerMode("clients") === "expanded") {
+            openDrawer("client", updated);
+          }
+        }
+      } catch (err) {
+        window.alert(`Could not save Client & Home cleaning plan. ${err.message}`);
+      }
     }
   });
 

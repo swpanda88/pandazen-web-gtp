@@ -1750,7 +1750,16 @@ function startClientWorkspaceEdit(record, tab) {
   setWorkspaceTab("clients", record.id, tab);
 }
 
-function workspaceEditHeader({ title, helper = "", editing = false, editLabel = "Edit details", saveLabel = "Save changes", editAction = "", cancelAction = "" }) {
+function workspaceEditHeader({
+  title,
+  helper = "",
+  editing = false,
+  editLabel = "Edit details",
+  saveLabel = "Save changes",
+  editAction = "",
+  cancelAction = "",
+  editButtonClass = "secondary workspace-edit-trigger"
+}) {
   return `
     <div class="workspace-section-head workspace-edit-head">
       <div>
@@ -1761,11 +1770,11 @@ function workspaceEditHeader({ title, helper = "", editing = false, editLabel = 
         ${
           editing
             ? `
-              <button class="ghost" type="button" ${cancelAction}>Cancel</button>
-              <button class="primary" type="submit">${escapeHtml(saveLabel)}</button>
+              <button class="ghost workspace-cancel-trigger" type="button" ${cancelAction}>Cancel</button>
+              <button class="primary workspace-save-trigger" type="submit">${escapeHtml(saveLabel)}</button>
             `
             : editAction
-              ? `<button class="ghost" type="button" ${editAction}>${escapeHtml(editLabel)}</button>`
+              ? `<button class="${escapeHtml(editButtonClass)}" type="button" ${editAction}>${escapeHtml(editLabel)}</button>`
               : ""
         }
       </div>
@@ -3852,6 +3861,7 @@ function renderAssessmentWorkspaceTab(record, tab) {
       title: "Q&A details",
       helper: "These fields belong to this Q&A record only. Saving here does not sync back to Leads or forward to Client & Home.",
       editing: isEditing,
+      editLabel: "Edit details",
       editAction: `data-edit-assessment-details="${escapeHtml(record.id)}"`,
       cancelAction: "data-cancel-assessment-details"
     });
@@ -4032,6 +4042,7 @@ function renderClientWorkspaceTab(record, tab) {
       title: "Contact / Access",
       helper: "Updates stay on the Client & Home record only. They do not rewrite linked Lead or Q&A history.",
       editing: isEditing,
+      editLabel: "Edit contact/access",
       editAction: `data-edit-client-workspace="${escapeHtml(record.id)}" data-client-workspace-tab="contact-access"`,
       cancelAction: "data-cancel-client-workspace"
     });
@@ -4073,6 +4084,7 @@ function renderClientWorkspaceTab(record, tab) {
       title: "Home details",
       helper: "Area and address are editable here. Property structure stays read-only until it has clear Client & Home ownership.",
       editing: isEditing,
+      editLabel: "Edit home details",
       editAction: `data-edit-client-workspace="${escapeHtml(record.id)}" data-client-workspace-tab="home-details"`,
       cancelAction: "data-cancel-client-workspace"
     });
@@ -4114,6 +4126,7 @@ function renderClientWorkspaceTab(record, tab) {
         ? "This updates the active cleaning plan only. It does not sync back to Lead or Q&A."
         : "A live cleaning plan has not been created yet, so this section remains read-only for now.",
       editing: isEditing,
+      editLabel: "Edit cleaning plan",
       editAction: record.cleaningPlanId ? `data-edit-client-workspace="${escapeHtml(record.id)}" data-client-workspace-tab="cleaning-plan"` : "",
       cancelAction: "data-cancel-client-workspace"
     });

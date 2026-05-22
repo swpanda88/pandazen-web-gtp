@@ -2233,6 +2233,24 @@ body.cleaner-mode .notice {
   gap: 18px;
 }
 
+.assessment-setup-hero,
+.assessment-setup-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px 18px;
+}
+
+.assessment-setup-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.assessment-identity-grid {
+  align-items: end;
+}
+
 .assessment-setup-section {
   display: flex;
   flex-direction: column;
@@ -2251,6 +2269,13 @@ body.cleaner-mode .notice {
 .assessment-choice-grid {
   display: grid;
   gap: 12px;
+}
+
+.assessment-mode-panel-box {
+  background: #f8faf7;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
 }
 
 .choice-card {
@@ -2301,6 +2326,11 @@ body.cleaner-mode .notice {
 @media (max-width: 480px) {
   .grid-2col {
     grid-template-columns: 1fr;
+  }
+
+  .modal-footer {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 

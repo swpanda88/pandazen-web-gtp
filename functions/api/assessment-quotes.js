@@ -74,6 +74,10 @@ const validAssessmentPurposes = new Set([
 ]);
 
 const purposeFallbackMap = {
+  existing_client_extra: "one_off_extra_work",
+  new_property_existing_client: "one_off_extra_work",
+  cleaner_follow_up: "follow_up",
+  complaint_review: "complaint_review",
   after_builders: "one_off_extra_work",
   after_party: "one_off_extra_work",
   spring_clean: "one_off_extra_work",
@@ -191,11 +195,15 @@ async function createAssessmentFromClient(db, body) {
     cleaningPlanNotes: boolFlag(body.prefill?.cleaningPlanNotes, false)
   };
 
-  const requestedPurpose = String(body.purpose || "one_off_extra_work").trim() || "one_off_extra_work";
+  const requestedPurpose = String(body.assessmentReason || body.purpose || "existing_client_extra").trim() || "existing_client_extra";
   const purpose = validAssessmentPurposes.has(requestedPurpose)
     ? requestedPurpose
     : (purposeFallbackMap[requestedPurpose] || "one_off_extra_work");
-  const assessmentType = purpose === "deep_clean" ? "client_follow_up" : "client_request";
+  const assessmentType = requestedPurpose === "cleaner_follow_up" || purpose === "follow_up"
+    ? "client_follow_up"
+    : requestedPurpose === "complaint_review" || purpose === "complaint_review"
+      ? "client_review"
+      : "client_request";
 
   const contactName = prefill.contact ? (normalizeText(body.clientName) || client.name) : (normalizeText(body.clientName) || client.name);
   const phone = prefill.contact ? (normalizeText(body.phone) || client.phone || null) : null;
@@ -220,7 +228,7 @@ async function createAssessmentFromClient(db, body) {
     ? (normalizeText(body.propertyLabel) || "Address TBC")
     : normalizeText(body.propertyLabel);
   const requestedWorkLabel = normalizeText(body.workLabel);
-  const purposeLabel = normalizeText(body.purposeLabel);
+  const purposeLabel = normalizeText(body.assessmentReasonLabel || body.purposeLabel);
   const workLabel = requestedWorkLabel || (requestedPurpose !== purpose ? purposeLabel : null);
   const serviceType = normalizeText(body.serviceType) || primaryAssessment?.serviceType || lead?.serviceType || null;
   const frequency = normalizeText(body.frequency) || "one_off";
@@ -269,13 +277,16 @@ async function createAssessmentFromClient(db, body) {
         property_type, bedrooms, bathrooms, property_condition, pets, parking,
         priorities, product_preferences, notes
       )
-      VALUES (?, ?, 'existing_client', ?, 'draft', ?, 'new', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       null,
       client.id,
+      "existing_client",
       purpose,
+      "draft",
       assessmentType,
+      "new",
       contactName,
       phone,
       email,

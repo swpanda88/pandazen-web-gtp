@@ -254,14 +254,10 @@ const assessmentCloseReasons = [
   { value: "test_or_error", label: "Test or error" },
   { value: "other", label: "Other" }
 ];
-const assessmentPurposeOptions = [
-  { value: "one_off_extra_work", label: "One-off / Extra Work" },
-  { value: "deep_clean", label: "Deep Clean" },
-  { value: "after_builders", label: "After-builders Clean" },
-  { value: "after_party", label: "After-party Clean" },
-  { value: "spring_clean", label: "Spring Clean" },
-  { value: "bnb_turnover", label: "B&B / Guest Turnover" },
-  { value: "follow_up", label: "Follow-up" },
+const assessmentReasonOptions = [
+  { value: "existing_client_extra", label: "Existing client extra work" },
+  { value: "new_property_existing_client", label: "New property for existing client" },
+  { value: "cleaner_follow_up", label: "Cleaner follow-up" },
   { value: "complaint_review", label: "Complaint / Review" },
   { value: "other", label: "Other" }
 ];
@@ -585,6 +581,32 @@ function assessmentTitle(record) {
 
 function assessmentPropertyContext(record) {
   return compactMeta([record?.propertyLabel, record?.propertyAddress, record?.area, record?.postcode]);
+}
+
+function setupServiceTypeOptions() {
+  const fromState = (state.options.service_type?.options || []).map((option) => ({
+    value: option.value,
+    label: option.label
+  }));
+  const preferred = [
+    { value: "", label: "Select service type" },
+    { value: "regular_cleaning", label: "Regular cleaning" },
+    { value: "one_off_cleaning", label: "One-off cleaning" },
+    { value: "deep_cleaning", label: "Deep clean" },
+    { value: "after_builders_cleaning", label: "After-builders clean" },
+    { value: "end_of_tenancy_cleaning", label: "End of tenancy clean" },
+    { value: "bnb_turnover", label: "B&B / Guest Turnover" },
+    { value: "other", label: "Other" }
+  ];
+  const merged = [];
+  const seen = new Set();
+  [...preferred, ...fromState].forEach((option) => {
+    const key = option.value;
+    if (seen.has(key)) return;
+    seen.add(key);
+    merged.push(option);
+  });
+  return merged;
 }
 
 function assessmentIdentityContext(record) {
@@ -2056,74 +2078,72 @@ function clientAssessmentFrequencyContext(record) {
 function clientAssessmentSetupBody(record) {
   const serviceType = clientAssessmentServiceSuggestion(record);
   const frequencyContext = clientAssessmentFrequencyContext(record);
+  const serviceOptions = setupServiceTypeOptions();
+  const currentAddress = compactMeta([record.address, record.area, record.postcode]) || "No current address is stored for this client yet.";
   return `
     <div class="modal-col-main assessment-setup-main">
-      <section class="assessment-setup-section">
-        <h3>Client confirmation</h3>
-        <div class="workspace-summary-grid">
-          <div class="workspace-summary-row"><span>Client</span><strong>${escapeHtml(record.name || "")}</strong></div>
-          <div class="workspace-summary-row"><span>Phone</span><strong>${escapeHtml(record.phone || "Not available")}</strong></div>
-          <div class="workspace-summary-row"><span>Email</span><strong>${escapeHtml(record.email || "Not available")}</strong></div>
-          <div class="workspace-summary-row"><span>Linked client ID</span><strong>#${escapeHtml(record.id || "")}</strong></div>
-        </div>
-        <input type="hidden" name="clientId" value="${escapeHtml(record.id)}">
-      </section>
-
-      <section class="assessment-setup-section">
-        <h3>Property / address</h3>
-        <div class="assessment-choice-grid">
-          <label class="choice-card">
-            <input type="radio" name="propertyMode" value="existing_home" checked>
-            <strong>Use existing client/home address</strong>
-            <span>${escapeHtml(compactMeta([record.address, record.area, record.postcode]) || "Use the current Client & Home address.")}</span>
-          </label>
-          <label class="choice-card">
-            <input type="radio" name="propertyMode" value="another_address">
-            <strong>Use another address for this client</strong>
-            <span>Set a different property label and address for this Assessment.</span>
-          </label>
-          <label class="choice-card">
-            <input type="radio" name="propertyMode" value="unknown_address">
-            <strong>Address not known yet</strong>
-            <span>Create the Assessment now and confirm the address later.</span>
-          </label>
-        </div>
-        <div class="assessment-mode-panel" data-assessment-mode-panel="existing_home">
-          <div class="workspace-placeholder muted">
-            <p>${escapeHtml(compactMeta([record.address, record.area, record.postcode]) || "No current address is stored for this client yet.")}</p>
+      <section class="assessment-setup-hero">
+        <div class="assessment-setup-client">
+          <h3>New scoped work opportunity</h3>
+          <div class="workspace-summary-grid">
+            <div class="workspace-summary-row"><span>Client</span><strong>${escapeHtml(record.name || "")}</strong></div>
+            <div class="workspace-summary-row"><span>Phone</span><strong>${escapeHtml(record.phone || "Not available")}</strong></div>
+            <div class="workspace-summary-row"><span>Email</span><strong>${escapeHtml(record.email || "Not available")}</strong></div>
+            <div class="workspace-summary-row"><span>Linked client ID</span><strong>#${escapeHtml(record.id || "")}</strong></div>
           </div>
         </div>
-        <div class="assessment-mode-panel" data-assessment-mode-panel="another_address" hidden>
+        <input type="hidden" name="clientId" value="${escapeHtml(record.id)}">
+        <div class="workspace-edit-grid assessment-identity-grid">
+          ${renderEditableInput("Assessment title / work label", '<input name="workLabel" data-assessment-work-label placeholder="e.g. After-builders clean - 22 Front Street">', "field-span-2")}
+          ${renderEditableInput("Reason for opening this assessment", renderEditableSelect({ name: "assessmentReason", groupKey: null, currentValue: "existing_client_extra", staticOptions: assessmentReasonOptions }), "")}
+          ${renderEditableInput("Service type", renderEditableSelect({ name: "serviceType", groupKey: null, currentValue: serviceType, staticOptions: serviceOptions, allowOtherOverride: false }), "")}
+          ${renderEditableInput("Frequency", renderEditableSelect({ name: "frequency", groupKey: "frequency", currentValue: "one_off" }), "")}
+        </div>
+        <p class="record-sub">Current cleaning plan frequency is ${escapeHtml(frequencyContext || "not set")} and is shown here as context only.</p>
+      </section>
+
+      <section class="assessment-setup-section assessment-setup-card">
+        <h3>Property / address</h3>
+        <div class="workspace-edit-grid">
+          ${renderEditableInput("Property setup", `
+            <select name="propertyMode" data-assessment-property-mode>
+              <option value="existing_home" selected>Use existing client/home address</option>
+              <option value="another_address">Use another address for this client</option>
+              <option value="unknown_address">Address not known yet</option>
+            </select>
+          `)}
+          ${renderEditableInput("Property label", '<input name="propertyLabel" data-assessment-property-label placeholder="e.g. Holiday let, Flat 2, Annex">')}
+        </div>
+        <div class="assessment-mode-panel assessment-mode-panel-box" data-assessment-mode-panel="existing_home">
+          <div class="workspace-summary-grid">
+            <div class="workspace-summary-row"><span>Using current address</span><strong>${escapeHtml(currentAddress)}</strong></div>
+          </div>
+        </div>
+        <div class="assessment-mode-panel assessment-mode-panel-box" data-assessment-mode-panel="another_address" hidden>
           <div class="workspace-edit-grid">
-            ${renderEditableInput("Property label", '<input name="propertyLabel" placeholder="e.g. Holiday let, Flat 2, Annex">')}
             ${renderEditableInput("Area", `<input name="area" value="${escapeHtml(record.area || "")}" placeholder="Area">`)}
             ${renderEditableInput("Postcode", `<input name="postcode" value="${escapeHtml(record.postcode || "")}" placeholder="Postcode">`)}
             ${renderEditableInput("Property type", renderEditableSelect({ name: "propertyType", groupKey: null, currentValue: "", staticOptions: leadStaticOptions.propertyType }), "")}
             ${renderEditableInput("Address", '<textarea name="address" rows="3" placeholder="Property address"></textarea>', "field-span-2")}
           </div>
         </div>
-        <div class="assessment-mode-panel" data-assessment-mode-panel="unknown_address" hidden>
+        <div class="assessment-mode-panel assessment-mode-panel-box" data-assessment-mode-panel="unknown_address" hidden>
           <div class="workspace-edit-grid">
-            ${renderEditableInput("Property label", '<input name="propertyLabel" value="Address TBC" placeholder="Address TBC">')}
             ${renderEditableInput("Area", `<input name="area" value="${escapeHtml(record.area || "")}" placeholder="Area if known">`)}
+            <div class="workspace-placeholder muted field-span-2"><p>Address can stay blank for now. The new Assessment will be created with enough context to continue scoping the work.</p></div>
           </div>
         </div>
       </section>
 
-      <section class="assessment-setup-section">
-        <h3>Assessment identity</h3>
+      <section class="assessment-setup-section assessment-setup-card">
+        <h3>Initial scope</h3>
         <div class="workspace-edit-grid">
-          ${renderEditableInput("Assessment title / work label", '<input name="workLabel" placeholder="e.g. Test extra clean, After-builders clean">', "field-span-2")}
-          ${renderEditableInput("Purpose / reason", renderEditableSelect({ name: "purpose", groupKey: null, currentValue: "one_off_extra_work", staticOptions: assessmentPurposeOptions }), "")}
-          ${renderEditableInput("Service type", renderEditableSelect({ name: "serviceType", groupKey: "service_type", currentValue: serviceType, allowOtherOverride: false }), "")}
-          ${renderEditableInput("Frequency", renderEditableSelect({ name: "frequency", groupKey: "frequency", currentValue: "one_off" }), "")}
           ${renderEditableInput("Initial scope notes", '<textarea name="initialNotes" rows="5" placeholder="Initial scope, customer request, commercial context, or anything admin should see first."></textarea>', "field-span-2")}
         </div>
-        <p class="record-sub">Current cleaning plan frequency is ${escapeHtml(frequencyContext || "not set")} and is shown here as context only.</p>
       </section>
     </div>
     <aside class="modal-col-side assessment-setup-side">
-      <section class="assessment-setup-section">
+      <section class="assessment-setup-section assessment-setup-card">
         <h3>Prefill options</h3>
         <div class="checkbox-stack">
           <label><input type="checkbox" name="prefillContact" checked> Pull contact details</label>
@@ -2134,10 +2154,18 @@ function clientAssessmentSetupBody(record) {
           <label><input type="checkbox" name="prefillCleaningPlanNotes"> Pull cleaning plan notes</label>
         </div>
       </section>
-      <section class="assessment-setup-section">
+      <section class="assessment-setup-section assessment-setup-card">
+        <h3>Current context</h3>
+        <div class="workspace-summary-grid">
+          <div class="workspace-summary-row"><span>Main service</span><strong>${escapeHtml(record.qaServiceLabel || record.originalServiceLabel || "Not set")}</strong></div>
+          <div class="workspace-summary-row"><span>Current frequency</span><strong>${escapeHtml(frequencyContext || "Not set")}</strong></div>
+          <div class="workspace-summary-row"><span>Address</span><strong>${escapeHtml(currentAddress)}</strong></div>
+        </div>
+      </section>
+      <section class="assessment-setup-section assessment-setup-card">
         <h3>What happens next</h3>
         <div class="workspace-placeholder muted">
-          <p>Create the Assessment first, then move straight into Details, Quote Assist, Quote Builder, and the linked Quote flow from the global Assessments queue.</p>
+          <p>Create the Assessment first, then move into Details, Quote Assist, Quote Builder, and the linked Quote flow from the global Assessments queue.</p>
         </div>
       </section>
     </aside>
@@ -2147,10 +2175,28 @@ function clientAssessmentSetupBody(record) {
 function updateAssessmentSetupMode() {
   const form = document.getElementById("assessment-setup-form");
   if (!form) return;
-  const selected = form.querySelector('input[name="propertyMode"]:checked')?.value || "existing_home";
+  const selected = form.querySelector('[name="propertyMode"]')?.value || "existing_home";
   form.querySelectorAll("[data-assessment-mode-panel]").forEach((panel) => {
     panel.hidden = panel.dataset.assessmentModePanel !== selected;
   });
+}
+
+function suggestAssessmentWorkLabel(form) {
+  if (!form) return;
+  const workLabelInput = form.querySelector('[name="workLabel"]');
+  if (!workLabelInput || workLabelInput.dataset.userEdited === "true") return;
+  const serviceValue = form.querySelector('[name="serviceType"]')?.value || "";
+  const serviceLabel = setupServiceTypeOptions().find((option) => option.value === serviceValue)?.label
+    || optionLabel("service_type", serviceValue)
+    || serviceValue;
+  const propertyLabel = form.querySelector('[name="propertyLabel"]')?.value?.trim() || "";
+  const propertyMode = form.querySelector('[name="propertyMode"]')?.value || "existing_home";
+  const address = propertyMode === "another_address"
+    ? (form.querySelector('[name="address"]')?.value?.trim() || form.querySelector('[name="area"]')?.value?.trim() || "")
+    : propertyMode === "unknown_address"
+      ? (propertyLabel || "Address TBC")
+      : (form.dataset.clientAddress || "");
+  workLabelInput.value = [serviceLabel, propertyLabel || address].filter(Boolean).join(" - ");
 }
 
 function openAssessmentSetupModal(clientId) {
@@ -2162,6 +2208,10 @@ function openAssessmentSetupModal(clientId) {
   const status = document.getElementById("assessment-setup-status");
   if (!modal || !body) throw new Error("Assessment setup modal is not available.");
   body.innerHTML = clientAssessmentSetupBody(client);
+  const form = document.getElementById("assessment-setup-form");
+  if (form) {
+    form.dataset.clientAddress = compactMeta([client.address, client.area, client.postcode]) || "";
+  }
   if (status) {
     status.textContent = "";
     status.className = "status";
@@ -2169,6 +2219,7 @@ function openAssessmentSetupModal(clientId) {
   modal.hidden = false;
   document.body.style.overflow = "hidden";
   updateAssessmentSetupMode();
+  suggestAssessmentWorkLabel(form);
 }
 
 function closeAssessmentSetupModal() {
@@ -2205,7 +2256,7 @@ async function submitAssessmentSetup(event) {
   event.preventDefault();
   const form = event.currentTarget;
   const raw = Object.fromEntries(new FormData(form).entries());
-  const selectedPurpose = assessmentPurposeOptions.find((option) => option.value === raw.purpose);
+  const selectedReason = assessmentReasonOptions.find((option) => option.value === raw.assessmentReason);
   const payload = {
     clientId: raw.clientId || state.assessmentSetupClientId,
     propertyMode: raw.propertyMode || "existing_home",
@@ -2214,8 +2265,8 @@ async function submitAssessmentSetup(event) {
     address: raw.address || "",
     postcode: raw.postcode || "",
     propertyType: raw.propertyType || "",
-    purpose: raw.purpose || "one_off_extra_work",
-    purposeLabel: selectedPurpose?.label || raw.purpose || "",
+    assessmentReason: raw.assessmentReason || "existing_client_extra",
+    assessmentReasonLabel: selectedReason?.label || raw.assessmentReason || "",
     serviceType: raw.serviceType || "",
     frequency: raw.frequency || "one_off",
     workLabel: raw.workLabel || "",
@@ -5050,6 +5101,17 @@ function bindEvents() {
   document.getElementById("assessment-setup-form")?.addEventListener("submit", submitAssessmentSetup);
   document.getElementById("assessment-setup-form")?.addEventListener("change", (event) => {
     if (event.target?.name === "propertyMode") updateAssessmentSetupMode();
+    if (["propertyMode", "propertyLabel", "area", "address", "serviceType"].includes(event.target?.name)) {
+      suggestAssessmentWorkLabel(event.currentTarget);
+    }
+  });
+  document.getElementById("assessment-setup-form")?.addEventListener("input", (event) => {
+    if (event.target?.name === "workLabel") {
+      event.target.dataset.userEdited = event.target.value.trim() ? "true" : "";
+    }
+    if (["propertyLabel", "area", "address"].includes(event.target?.name)) {
+      suggestAssessmentWorkLabel(event.currentTarget);
+    }
   });
   document.querySelectorAll("#quote-editor-modal [data-close-modal]").forEach((btn) => {
     btn.addEventListener("click", closeQuoteEditor);

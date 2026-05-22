@@ -39,6 +39,7 @@ function inferAssessmentPurpose(record) {
 
 function summarizeClientContext(client) {
   const parts = [
+    client.address ? `Known address: ${client.address}` : "",
     client.assessmentNotes ? `Primary assessment notes: ${client.assessmentNotes}` : "",
     client.accessNotes ? `Access notes: ${client.accessNotes}` : "",
     client.parkingNotes ? `Parking notes: ${client.parkingNotes}` : "",
@@ -59,38 +60,83 @@ const validAssessmentPurposes = new Set([
   "unknown"
 ]);
 
-async function createAssessmentFromClient(db, body) {
-  const clientId = Number(body.clientId || 0);
-  if (!clientId) return error("Client ID is required.");
-
+async function loadClientContext(db, clientId) {
   const client = await db
     .prepare(
-      `SELECT c.id, c.lead_id AS leadId, c.customer_name AS name, c.phone, c.email, c.area, c.address,
-              c.access_notes AS accessNotes, c.parking_notes AS parkingNotes,
-              c.pet_type AS petType, c.pet_other AS petOther, c.pet_notes AS petNotes,
-              c.product_preference AS productPreference, c.product_other AS productOther,
-              c.surface_notes AS surfaceNotes, c.internal_notes AS notes,
-              c.assessment_quote_id AS primaryAssessmentId,
-              cp.frequency, cp.default_man_hours AS manHours, cp.special_instructions AS specialInstructions,
-              l.postcode, l.property_type AS leadPropertyType, l.bedrooms AS leadBedrooms,
-              l.bathrooms AS leadBathrooms, l.priorities AS leadPriorities, l.property_condition AS leadPropertyCondition,
-              l.service_type AS leadServiceType, l.product_preferences AS leadProductPreferences,
-              aq.service_type AS assessmentServiceType, aq.frequency AS assessmentFrequency,
-              aq.property_type AS assessmentPropertyType, aq.bedrooms AS assessmentBedrooms,
-              aq.bathrooms AS assessmentBathrooms, aq.property_condition AS assessmentPropertyCondition,
-              aq.priorities AS assessmentPriorities, aq.pets AS assessmentPets, aq.parking AS assessmentParking,
-              aq.product_preferences AS assessmentProductPreferences, aq.notes AS assessmentNotes
-       FROM clients c
-       LEFT JOIN cleaning_plans cp ON cp.client_id = c.id AND cp.is_active = 1
-       LEFT JOIN leads l ON l.id = c.lead_id
-       LEFT JOIN assessment_quotes aq ON aq.id = c.assessment_quote_id
-       WHERE c.id = ?
+      `SELECT id, lead_id AS leadId, assessment_quote_id AS primaryAssessmentId,
+              customer_name AS name, phone, email, area, address,
+              access_notes AS accessNotes, parking_notes AS parkingNotes,
+              pet_type AS petType, pet_notes AS petNotes,
+              product_preference AS productPreference,
+              surface_notes AS surfaceNotes, internal_notes AS notes
+       FROM clients
+       WHERE id = ?
        LIMIT 1`
     )
     .bind(clientId)
     .first();
 
-  if (!client) return error("Client & Home record not found.", 404);
+  if (!client) return null;
+
+  let lead = null;
+  if (client.leadId) {
+    lead = await db
+      .prepare(
+        `SELECT postcode, property_type AS propertyType, bedrooms, bathrooms,
+                priorities, property_condition AS propertyCondition,
+                service_type AS serviceType, product_preferences AS productPreferences
+         FROM leads
+         WHERE id = ?
+         LIMIT 1`
+      )
+      .bind(client.leadId)
+      .first();
+  }
+
+  let primaryAssessment = null;
+  if (client.primaryAssessmentId) {
+    primaryAssessment = await db
+      .prepare(
+        `SELECT service_type AS serviceType, frequency, property_type AS propertyType,
+                bedrooms, bathrooms, property_condition AS propertyCondition,
+                priorities, pets, parking, product_preferences AS productPreferences,
+                notes AS assessmentNotes
+         FROM assessment_quotes
+         WHERE id = ?
+         LIMIT 1`
+      )
+      .bind(client.primaryAssessmentId)
+      .first();
+  }
+
+  let cleaningPlan = null;
+  try {
+    cleaningPlan = await db
+      .prepare(
+        `SELECT frequency, special_instructions AS specialInstructions
+         FROM cleaning_plans
+         WHERE client_id = ? AND is_active = 1
+         ORDER BY updated_at DESC, id DESC
+         LIMIT 1`
+      )
+      .bind(client.id)
+      .first();
+  } catch {
+    cleaningPlan = null;
+  }
+
+  return { client, lead, primaryAssessment, cleaningPlan };
+}
+
+async function createAssessmentFromClient(db, body) {
+  const clientId = Number(body.clientId || 0);
+  if (!clientId) return error("Client ID is required.");
+
+  const context = await loadClientContext(db, clientId);
+  if (!context?.client) return error("Client & Home record not found.", 404);
+  const { client, lead, primaryAssessment, cleaningPlan } = context;
+  client.assessmentNotes = primaryAssessment?.assessmentNotes || null;
+  client.specialInstructions = cleaningPlan?.specialInstructions || null;
 
   const requestedPurpose = String(body.purpose || "one_off_extra_work").trim() || "one_off_extra_work";
   const purpose = validAssessmentPurposes.has(requestedPurpose) ? requestedPurpose : "one_off_extra_work";
@@ -116,17 +162,17 @@ async function createAssessmentFromClient(db, body) {
       client.phone || null,
       client.email || null,
       client.area || null,
-      client.postcode || null,
-      client.assessmentServiceType || client.leadServiceType || null,
-      client.assessmentFrequency || client.frequency || null,
-      client.assessmentPropertyType || client.leadPropertyType || null,
-      client.assessmentBedrooms || client.leadBedrooms || null,
-      client.assessmentBathrooms || client.leadBathrooms || null,
-      client.assessmentPropertyCondition || client.leadPropertyCondition || null,
-      client.assessmentPets || client.petType || null,
-      client.assessmentParking || client.parkingNotes || null,
-      client.assessmentPriorities || client.leadPriorities || null,
-      client.assessmentProductPreferences || client.productPreference || client.leadProductPreferences || null,
+      lead?.postcode || null,
+      primaryAssessment?.serviceType || lead?.serviceType || null,
+      primaryAssessment?.frequency || cleaningPlan?.frequency || null,
+      primaryAssessment?.propertyType || lead?.propertyType || null,
+      primaryAssessment?.bedrooms || lead?.bedrooms || null,
+      primaryAssessment?.bathrooms || lead?.bathrooms || null,
+      primaryAssessment?.propertyCondition || lead?.propertyCondition || null,
+      primaryAssessment?.pets || client.petType || null,
+      primaryAssessment?.parking || client.parkingNotes || null,
+      primaryAssessment?.priorities || lead?.priorities || null,
+      primaryAssessment?.productPreferences || client.productPreference || lead?.productPreferences || null,
       notes
     )
     .run();

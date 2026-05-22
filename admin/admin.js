@@ -275,9 +275,18 @@ async function apiPost(path, body) {
   if (!response.ok) {
     let message = `API ${path} failed`;
     try {
-      const payload = await response.json();
-      if (payload?.error) {
-        message = payload.error;
+      const text = await response.text();
+      if (text) {
+        try {
+          const payload = JSON.parse(text);
+          if (payload?.error) {
+            message = payload.error;
+          } else {
+            message = text;
+          }
+        } catch {
+          message = text;
+        }
       }
     } catch {
       // Keep the generic fallback when the response has no JSON body.

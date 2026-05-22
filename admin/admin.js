@@ -203,6 +203,7 @@ const state = {
   role: "admin",
   apiReady: false,
   options: {},
+  assessmentSetupClientId: null,
   editingAssessmentId: null,
   editingAssessmentTab: null,
   editingClientId: null,
@@ -251,6 +252,17 @@ const assessmentCloseReasons = [
   { value: "quote_rejected", label: "Quote rejected" },
   { value: "duplicate", label: "Duplicate" },
   { value: "test_or_error", label: "Test or error" },
+  { value: "other", label: "Other" }
+];
+const assessmentPurposeOptions = [
+  { value: "one_off_extra_work", label: "One-off / Extra Work" },
+  { value: "deep_clean", label: "Deep Clean" },
+  { value: "after_builders", label: "After-builders Clean" },
+  { value: "after_party", label: "After-party Clean" },
+  { value: "spring_clean", label: "Spring Clean" },
+  { value: "bnb_turnover", label: "B&B / Guest Turnover" },
+  { value: "follow_up", label: "Follow-up" },
+  { value: "complaint_review", label: "Complaint / Review" },
   { value: "other", label: "Other" }
 ];
 
@@ -565,6 +577,23 @@ function assessmentPurposeDisplay(record) {
     unknown: "Unknown"
   };
   return labels[value] || humanizeToken(value);
+}
+
+function assessmentTitle(record) {
+  return record?.workLabel || record?.customerName || record?.client || `Assessment #${record?.id || ""}`;
+}
+
+function assessmentPropertyContext(record) {
+  return compactMeta([record?.propertyLabel, record?.propertyAddress, record?.area, record?.postcode]);
+}
+
+function assessmentIdentityContext(record) {
+  const titleDiffers = record?.workLabel && record?.customerName && record.workLabel !== record.customerName;
+  return compactMeta([
+    titleDiffers ? record.customerName : "",
+    assessmentPropertyContext(record),
+    assessmentSourceDisplay(record)
+  ]);
 }
 
 function quoteStatusDisplay(quote) {
@@ -2016,11 +2045,150 @@ async function refreshWorkspaceRecord(view, type, recordId, tab) {
   }
 }
 
-async function createAssessmentFromClient(clientId) {
+function clientAssessmentServiceSuggestion(record) {
+  return record.qaServiceType || record.originalServiceType || "";
+}
+
+function clientAssessmentFrequencyContext(record) {
+  return record.frequencyLabel || record.frequency || record.requestedFrequencyLabel || record.requestedFrequency || "";
+}
+
+function clientAssessmentSetupBody(record) {
+  const serviceType = clientAssessmentServiceSuggestion(record);
+  const frequencyContext = clientAssessmentFrequencyContext(record);
+  return `
+    <div class="modal-col-main assessment-setup-main">
+      <section class="assessment-setup-section">
+        <h3>Client confirmation</h3>
+        <div class="workspace-summary-grid">
+          <div class="workspace-summary-row"><span>Client</span><strong>${escapeHtml(record.name || "")}</strong></div>
+          <div class="workspace-summary-row"><span>Phone</span><strong>${escapeHtml(record.phone || "Not available")}</strong></div>
+          <div class="workspace-summary-row"><span>Email</span><strong>${escapeHtml(record.email || "Not available")}</strong></div>
+          <div class="workspace-summary-row"><span>Linked client ID</span><strong>#${escapeHtml(record.id || "")}</strong></div>
+        </div>
+        <input type="hidden" name="clientId" value="${escapeHtml(record.id)}">
+      </section>
+
+      <section class="assessment-setup-section">
+        <h3>Property / address</h3>
+        <div class="assessment-choice-grid">
+          <label class="choice-card">
+            <input type="radio" name="propertyMode" value="existing_home" checked>
+            <strong>Use existing client/home address</strong>
+            <span>${escapeHtml(compactMeta([record.address, record.area, record.postcode]) || "Use the current Client & Home address.")}</span>
+          </label>
+          <label class="choice-card">
+            <input type="radio" name="propertyMode" value="another_address">
+            <strong>Use another address for this client</strong>
+            <span>Set a different property label and address for this Assessment.</span>
+          </label>
+          <label class="choice-card">
+            <input type="radio" name="propertyMode" value="unknown_address">
+            <strong>Address not known yet</strong>
+            <span>Create the Assessment now and confirm the address later.</span>
+          </label>
+        </div>
+        <div class="assessment-mode-panel" data-assessment-mode-panel="existing_home">
+          <div class="workspace-placeholder muted">
+            <p>${escapeHtml(compactMeta([record.address, record.area, record.postcode]) || "No current address is stored for this client yet.")}</p>
+          </div>
+        </div>
+        <div class="assessment-mode-panel" data-assessment-mode-panel="another_address" hidden>
+          <div class="workspace-edit-grid">
+            ${renderEditableInput("Property label", '<input name="propertyLabel" placeholder="e.g. Holiday let, Flat 2, Annex">')}
+            ${renderEditableInput("Area", `<input name="area" value="${escapeHtml(record.area || "")}" placeholder="Area">`)}
+            ${renderEditableInput("Postcode", `<input name="postcode" value="${escapeHtml(record.postcode || "")}" placeholder="Postcode">`)}
+            ${renderEditableInput("Property type", renderEditableSelect({ name: "propertyType", groupKey: null, currentValue: "", staticOptions: leadStaticOptions.propertyType }), "")}
+            ${renderEditableInput("Address", '<textarea name="address" rows="3" placeholder="Property address"></textarea>', "field-span-2")}
+          </div>
+        </div>
+        <div class="assessment-mode-panel" data-assessment-mode-panel="unknown_address" hidden>
+          <div class="workspace-edit-grid">
+            ${renderEditableInput("Property label", '<input name="propertyLabel" value="Address TBC" placeholder="Address TBC">')}
+            ${renderEditableInput("Area", `<input name="area" value="${escapeHtml(record.area || "")}" placeholder="Area if known">`)}
+          </div>
+        </div>
+      </section>
+
+      <section class="assessment-setup-section">
+        <h3>Assessment identity</h3>
+        <div class="workspace-edit-grid">
+          ${renderEditableInput("Assessment title / work label", '<input name="workLabel" placeholder="e.g. Test extra clean, After-builders clean">', "field-span-2")}
+          ${renderEditableInput("Purpose / reason", renderEditableSelect({ name: "purpose", groupKey: null, currentValue: "one_off_extra_work", staticOptions: assessmentPurposeOptions }), "")}
+          ${renderEditableInput("Service type", renderEditableSelect({ name: "serviceType", groupKey: "service_type", currentValue: serviceType, allowOtherOverride: false }), "")}
+          ${renderEditableInput("Frequency", renderEditableSelect({ name: "frequency", groupKey: "frequency", currentValue: "one_off" }), "")}
+          ${renderEditableInput("Initial scope notes", '<textarea name="initialNotes" rows="5" placeholder="Initial scope, customer request, commercial context, or anything admin should see first."></textarea>', "field-span-2")}
+        </div>
+        <p class="record-sub">Current cleaning plan frequency is ${escapeHtml(frequencyContext || "not set")} and is shown here as context only.</p>
+      </section>
+    </div>
+    <aside class="modal-col-side assessment-setup-side">
+      <section class="assessment-setup-section">
+        <h3>Prefill options</h3>
+        <div class="checkbox-stack">
+          <label><input type="checkbox" name="prefillContact" checked> Pull contact details</label>
+          <label><input type="checkbox" name="prefillHomeContext" checked> Pull existing address/home context</label>
+          <label><input type="checkbox" name="prefillAccessParking" checked> Pull access/parking notes</label>
+          <label><input type="checkbox" name="prefillPetsProducts" checked> Pull pets/product preferences</label>
+          <label><input type="checkbox" name="prefillPreviousAssessmentNotes"> Pull previous assessment notes</label>
+          <label><input type="checkbox" name="prefillCleaningPlanNotes"> Pull cleaning plan notes</label>
+        </div>
+      </section>
+      <section class="assessment-setup-section">
+        <h3>What happens next</h3>
+        <div class="workspace-placeholder muted">
+          <p>Create the Assessment first, then move straight into Details, Quote Assist, Quote Builder, and the linked Quote flow from the global Assessments queue.</p>
+        </div>
+      </section>
+    </aside>
+  `;
+}
+
+function updateAssessmentSetupMode() {
+  const form = document.getElementById("assessment-setup-form");
+  if (!form) return;
+  const selected = form.querySelector('input[name="propertyMode"]:checked')?.value || "existing_home";
+  form.querySelectorAll("[data-assessment-mode-panel]").forEach((panel) => {
+    panel.hidden = panel.dataset.assessmentModePanel !== selected;
+  });
+}
+
+function openAssessmentSetupModal(clientId) {
+  const client = findRecordByType("client", clientId);
+  if (!client) throw new Error("Client & Home record not found.");
+  state.assessmentSetupClientId = client.id;
+  const modal = document.getElementById("assessment-setup-modal");
+  const body = document.getElementById("assessment-setup-body");
+  const status = document.getElementById("assessment-setup-status");
+  if (!modal || !body) throw new Error("Assessment setup modal is not available.");
+  body.innerHTML = clientAssessmentSetupBody(client);
+  if (status) {
+    status.textContent = "";
+    status.className = "status";
+  }
+  modal.hidden = false;
+  document.body.style.overflow = "hidden";
+  updateAssessmentSetupMode();
+}
+
+function closeAssessmentSetupModal() {
+  state.assessmentSetupClientId = null;
+  const modal = document.getElementById("assessment-setup-modal");
+  const body = document.getElementById("assessment-setup-body");
+  const status = document.getElementById("assessment-setup-status");
+  if (body) body.innerHTML = "";
+  if (status) {
+    status.textContent = "";
+    status.className = "status";
+  }
+  if (modal) modal.hidden = true;
+  document.body.style.overflow = "";
+}
+
+async function createAssessmentFromClient(payload) {
   const result = await apiPost("/api/assessment-quotes", {
     action: "create_from_client",
-    clientId,
-    purpose: "one_off_extra_work"
+    ...payload
   });
   await loadApiData();
   const created = findRecordByType("assessment", result.id || result.assessmentQuoteId);
@@ -2031,6 +2199,52 @@ async function createAssessmentFromClient(clientId) {
   rememberWorkspaceDrawerRecord("assessment", created);
   renderAll();
   return result;
+}
+
+async function submitAssessmentSetup(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const raw = Object.fromEntries(new FormData(form).entries());
+  const selectedPurpose = assessmentPurposeOptions.find((option) => option.value === raw.purpose);
+  const payload = {
+    clientId: raw.clientId || state.assessmentSetupClientId,
+    propertyMode: raw.propertyMode || "existing_home",
+    propertyLabel: raw.propertyLabel || "",
+    area: raw.area || "",
+    address: raw.address || "",
+    postcode: raw.postcode || "",
+    propertyType: raw.propertyType || "",
+    purpose: raw.purpose || "one_off_extra_work",
+    purposeLabel: selectedPurpose?.label || raw.purpose || "",
+    serviceType: raw.serviceType || "",
+    frequency: raw.frequency || "one_off",
+    workLabel: raw.workLabel || "",
+    initialNotes: raw.initialNotes || "",
+    prefill: {
+      contact: form.querySelector('[name="prefillContact"]')?.checked ?? true,
+      homeContext: form.querySelector('[name="prefillHomeContext"]')?.checked ?? true,
+      accessParking: form.querySelector('[name="prefillAccessParking"]')?.checked ?? true,
+      petsProducts: form.querySelector('[name="prefillPetsProducts"]')?.checked ?? true,
+      previousAssessmentNotes: form.querySelector('[name="prefillPreviousAssessmentNotes"]')?.checked ?? false,
+      cleaningPlanNotes: form.querySelector('[name="prefillCleaningPlanNotes"]')?.checked ?? false
+    }
+  };
+
+  const status = document.getElementById("assessment-setup-status");
+  if (status) {
+    status.textContent = "Creating Assessment...";
+    status.className = "status";
+  }
+
+  try {
+    await createAssessmentFromClient(payload);
+    closeAssessmentSetupModal();
+  } catch (err) {
+    if (status) {
+      status.textContent = err.message;
+      status.className = "status error";
+    }
+  }
 }
 
 function applyAssessmentLocalUpdate(recordId, payload) {
@@ -2710,8 +2924,8 @@ function openDrawer(type, record = {}) {
       actions: ["Mark done", "Reschedule", "Open linked record"]
     },
     assessment: {
-      title: record.customerName || record.client || "Assessment",
-      subtitle: compactMeta([record.area, record.serviceLabel || record.serviceType, record.quoteStageLabel || record.quoteStage]),
+      title: assessmentTitle(record),
+      subtitle: compactMeta([assessmentPropertyContext(record), record.serviceLabel || record.serviceType, record.quoteStageLabel || record.quoteStage]),
       sections: [
         [
           "Contact",
@@ -4047,7 +4261,9 @@ function renderAssessmentWorkspaceTab(record, tab) {
   }
 
   return workspaceSummaryRows([
+    ["Assessment", assessmentTitle(record)],
     ["Customer", record.customerName || record.client],
+    ["Property", assessmentPropertyContext(record)],
     ["Phone", record.phone],
     ["Email", record.email],
     ["Area / postcode", compactMeta([record.area, record.postcode])],
@@ -4073,7 +4289,7 @@ function renderAssessmentWorkspace(record) {
     tabs,
     actions: `
       <div class="drawer-actions compact workspace-toolbar-actions">
-        <span class="record-sub">${escapeHtml(compactMeta([assessmentSourceDisplay(record), assessmentPurposeDisplay(record), record.linkedClientName ? `Linked client: ${record.linkedClientName}` : ""]))}</span>
+        <span class="record-sub">${escapeHtml(compactMeta([assessmentPropertyContext(record), assessmentSourceDisplay(record), assessmentPurposeDisplay(record), record.linkedClientName ? `Linked client: ${record.linkedClientName}` : ""]))}</span>
       </div>
     `,
     content: renderAssessmentWorkspaceTab(record, activeTab)
@@ -4320,9 +4536,9 @@ function renderClientWorkspaceTab(record, tab) {
           "Create a new Assessment when this client requests new scoped work, extra work, or a new quoteable piece of work.",
           (assessment) => `
             <article class="workspace-list-item">
-              <strong>${escapeHtml(assessment.customerName || assessment.client || `Assessment #${assessment.id}`)}</strong>
-              <p>${escapeHtml(compactMeta([assessmentSourceDisplay(assessment), assessmentPurposeDisplay(assessment), assessment.serviceLabel || assessment.serviceType]))}</p>
-              <small>${escapeHtml(compactMeta([assessmentStatusDisplay(assessment), assessment.accountingQuote?.displayReference, formatDateTime(assessment.updatedAt)]))}</small>
+              <strong>${escapeHtml(assessmentTitle(assessment))}</strong>
+              <p>${escapeHtml(compactMeta([assessmentPropertyContext(assessment), assessmentPurposeDisplay(assessment), assessment.serviceLabel || assessment.serviceType]))}</p>
+              <small>${escapeHtml(compactMeta([assessmentSourceDisplay(assessment), assessmentStatusDisplay(assessment), assessment.accountingQuote?.displayReference, formatDateTime(assessment.updatedAt)]))}</small>
             </article>
           `
         )}
@@ -4385,8 +4601,8 @@ function renderTables() {
     countTarget: assessmentActiveCount,
     countLabel: "active",
     cells: (assessment) => [
-      `<div class="record-main">${escapeHtml(assessment.customerName || assessment.client || "")}</div><div class="record-sub">${escapeHtml(compactMeta([assessment.area, assessment.postcode, assessmentSourceDisplay(assessment)]))}</div>`,
-      `${escapeHtml(assessment.serviceLabel || assessment.serviceType || "")}<div class="record-sub">${escapeHtml(compactMeta([assessment.frequencyLabel || assessment.frequency || "", assessmentPurposeDisplay(assessment)]))}</div>`,
+      `<div class="record-main">${escapeHtml(assessmentTitle(assessment))}</div><div class="record-sub">${escapeHtml(assessmentIdentityContext(assessment))}</div>`,
+      `${escapeHtml(assessment.serviceLabel || assessment.serviceType || "")}<div class="record-sub">${escapeHtml(compactMeta([assessment.frequencyLabel || assessment.frequency || "", assessmentPurposeDisplay(assessment), assessment.linkedClientName ? `Client: ${assessment.linkedClientName}` : ""]))}</div>`,
       `${escapeHtml(assessment.estimate || "Estimate pending")}<div class="record-sub">${escapeHtml(compactMeta([assessment.quoteRange || "", assessment.accountingQuote?.displayReference || "", assessment.linkedClientName ? `Client: ${assessment.linkedClientName}` : ""]))}</div>`,
       `<span class="pill warn">${escapeHtml(assessment.quoteStageLabel || assessment.quoteStage || assessment.statusLabel || assessment.status || "Draft")}</span>`
     ],
@@ -4403,8 +4619,8 @@ function renderTables() {
     countTarget: assessmentHistoryCount,
     countLabel: "records",
     cells: (assessment) => [
-      `<div class="record-main">${escapeHtml(assessment.customerName || assessment.client || "")}</div><div class="record-sub">${escapeHtml(compactMeta([assessment.area, assessment.postcode, assessmentSourceDisplay(assessment)]))}</div>`,
-      `${escapeHtml(assessment.serviceLabel || assessment.serviceType || "")}<div class="record-sub">${escapeHtml(compactMeta([assessment.frequencyLabel || assessment.frequency || "", assessmentPurposeDisplay(assessment)]))}</div>`,
+      `<div class="record-main">${escapeHtml(assessmentTitle(assessment))}</div><div class="record-sub">${escapeHtml(assessmentIdentityContext(assessment))}</div>`,
+      `${escapeHtml(assessment.serviceLabel || assessment.serviceType || "")}<div class="record-sub">${escapeHtml(compactMeta([assessment.frequencyLabel || assessment.frequency || "", assessmentPurposeDisplay(assessment), assessment.linkedClientName ? `Client: ${assessment.linkedClientName}` : ""]))}</div>`,
       `${escapeHtml(assessment.estimate || "Estimate pending")}<div class="record-sub">${escapeHtml(compactMeta([assessment.quoteRange || "", assessment.accountingQuote?.displayReference || "", assessment.linkedClientName ? `Client: ${assessment.linkedClientName}` : ""]))}</div>`,
       `<span class="pill blue">${escapeHtml(assessment.isConverted || assessment.convertedClientId ? "Converted" : assessment.quoteStageLabel || assessment.quoteStage || assessment.statusLabel || assessment.status || "Closed")}</span>`
     ],
@@ -4828,6 +5044,13 @@ async function saveQuoteEditor(event) {
 }
 
 function bindEvents() {
+  document.querySelectorAll("#assessment-setup-modal [data-close-assessment-setup]").forEach((btn) => {
+    btn.addEventListener("click", closeAssessmentSetupModal);
+  });
+  document.getElementById("assessment-setup-form")?.addEventListener("submit", submitAssessmentSetup);
+  document.getElementById("assessment-setup-form")?.addEventListener("change", (event) => {
+    if (event.target?.name === "propertyMode") updateAssessmentSetupMode();
+  });
   document.querySelectorAll("#quote-editor-modal [data-close-modal]").forEach((btn) => {
     btn.addEventListener("click", closeQuoteEditor);
   });
@@ -4959,7 +5182,7 @@ function bindEvents() {
     if (newAssessmentButton) {
       const clientId = newAssessmentButton.dataset.createAssessmentFromClient;
       try {
-        await createAssessmentFromClient(clientId);
+        openAssessmentSetupModal(clientId);
       } catch (err) {
         window.alert(`Could not create Assessment. ${err.message}`);
       }

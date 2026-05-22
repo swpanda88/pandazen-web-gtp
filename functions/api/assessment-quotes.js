@@ -51,6 +51,19 @@ function summarizeClientContext(client) {
   return parts.join("\n\n") || null;
 }
 
+function normalizeText(value) {
+  if (value === undefined || value === null) return null;
+  const text = String(value).trim();
+  return text ? text : null;
+}
+
+function boolFlag(value, fallback = false) {
+  if (value === undefined || value === null) return fallback;
+  if (typeof value === "boolean") return value;
+  const text = String(value).toLowerCase();
+  return text === "true" || text === "1" || text === "on" || text === "yes";
+}
+
 const validAssessmentPurposes = new Set([
   "base_recurring",
   "one_off_extra_work",
@@ -59,6 +72,14 @@ const validAssessmentPurposes = new Set([
   "complaint_review",
   "unknown"
 ]);
+
+const purposeFallbackMap = {
+  after_builders: "one_off_extra_work",
+  after_party: "one_off_extra_work",
+  spring_clean: "one_off_extra_work",
+  bnb_turnover: "one_off_extra_work",
+  other: "one_off_extra_work"
+};
 
 async function safeFirst(db, sql, binds = []) {
   try {
@@ -160,41 +181,119 @@ async function createAssessmentFromClient(db, body) {
   client.assessmentNotes = primaryAssessment?.assessmentNotes || null;
   client.specialInstructions = cleaningPlan?.specialInstructions || null;
 
+  const propertyMode = normalizeText(body.propertyMode) || "existing_home";
+  const prefill = {
+    contact: boolFlag(body.prefill?.contact, true),
+    homeContext: boolFlag(body.prefill?.homeContext, true),
+    accessParking: boolFlag(body.prefill?.accessParking, true),
+    petsProducts: boolFlag(body.prefill?.petsProducts, true),
+    previousAssessmentNotes: boolFlag(body.prefill?.previousAssessmentNotes, false),
+    cleaningPlanNotes: boolFlag(body.prefill?.cleaningPlanNotes, false)
+  };
+
   const requestedPurpose = String(body.purpose || "one_off_extra_work").trim() || "one_off_extra_work";
-  const purpose = validAssessmentPurposes.has(requestedPurpose) ? requestedPurpose : "one_off_extra_work";
+  const purpose = validAssessmentPurposes.has(requestedPurpose)
+    ? requestedPurpose
+    : (purposeFallbackMap[requestedPurpose] || "one_off_extra_work");
   const assessmentType = purpose === "deep_clean" ? "client_follow_up" : "client_request";
-  const notes = summarizeClientContext(client);
+
+  const contactName = prefill.contact ? (normalizeText(body.clientName) || client.name) : (normalizeText(body.clientName) || client.name);
+  const phone = prefill.contact ? (normalizeText(body.phone) || client.phone || null) : null;
+  const email = prefill.contact ? (normalizeText(body.email) || client.email || null) : null;
+
+  const resolvedArea = propertyMode === "another_address"
+    ? normalizeText(body.area)
+    : propertyMode === "existing_home"
+      ? (normalizeText(body.area) || client.area || null)
+      : normalizeText(body.area);
+  const resolvedPostcode = propertyMode === "another_address"
+    ? normalizeText(body.postcode)
+    : propertyMode === "existing_home"
+      ? (normalizeText(body.postcode) || lead?.postcode || null)
+      : normalizeText(body.postcode);
+  const resolvedAddress = propertyMode === "another_address"
+    ? normalizeText(body.address)
+    : propertyMode === "existing_home"
+      ? (normalizeText(body.address) || client.address || null)
+      : normalizeText(body.address);
+  const propertyLabel = propertyMode === "unknown_address"
+    ? (normalizeText(body.propertyLabel) || "Address TBC")
+    : normalizeText(body.propertyLabel);
+  const requestedWorkLabel = normalizeText(body.workLabel);
+  const purposeLabel = normalizeText(body.purposeLabel);
+  const workLabel = requestedWorkLabel || (requestedPurpose !== purpose ? purposeLabel : null);
+  const serviceType = normalizeText(body.serviceType) || primaryAssessment?.serviceType || lead?.serviceType || null;
+  const frequency = normalizeText(body.frequency) || "one_off";
+  const useExistingHomeContext = prefill.homeContext && propertyMode === "existing_home";
+  const propertyType = propertyMode === "another_address"
+    ? normalizeText(body.propertyType)
+    : (useExistingHomeContext ? (primaryAssessment?.propertyType || lead?.propertyType || null) : null);
+  const bedrooms = useExistingHomeContext ? (primaryAssessment?.bedrooms || lead?.bedrooms || null) : null;
+  const bathrooms = useExistingHomeContext ? (primaryAssessment?.bathrooms || lead?.bathrooms || null) : null;
+  const propertyCondition = useExistingHomeContext ? (primaryAssessment?.propertyCondition || lead?.propertyCondition || null) : null;
+  const pets = prefill.petsProducts ? (primaryAssessment?.pets || client.petType || null) : null;
+  const parking = prefill.accessParking ? (primaryAssessment?.parking || client.parkingNotes || null) : null;
+  const priorities = useExistingHomeContext ? (primaryAssessment?.priorities || lead?.priorities || null) : null;
+  const productPreferences = prefill.petsProducts ? (primaryAssessment?.productPreferences || client.productPreference || lead?.productPreferences || null) : null;
+
+  const noteBlocks = [];
+  if (workLabel) noteBlocks.push(`Assessment title: ${workLabel}`);
+  if (purposeLabel && purposeLabel !== requestedPurpose) noteBlocks.push(`Requested purpose: ${purposeLabel}`);
+  if (propertyLabel) noteBlocks.push(`Property label: ${propertyLabel}`);
+  if (propertyMode === "another_address" && resolvedAddress) noteBlocks.push(`Assessment address: ${resolvedAddress}`);
+  if (propertyMode === "unknown_address") noteBlocks.push("Assessment address: Address not known yet.");
+  if (prefill.accessParking) {
+    if (client.accessNotes) noteBlocks.push(`Access notes: ${client.accessNotes}`);
+    if (client.parkingNotes) noteBlocks.push(`Parking notes: ${client.parkingNotes}`);
+  }
+  if (prefill.petsProducts) {
+    if (client.petNotes) noteBlocks.push(`Pet notes: ${client.petNotes}`);
+    if (client.surfaceNotes) noteBlocks.push(`Surface notes: ${client.surfaceNotes}`);
+  }
+  if (prefill.previousAssessmentNotes && client.assessmentNotes) {
+    noteBlocks.push(`Previous assessment notes: ${client.assessmentNotes}`);
+  }
+  if (prefill.cleaningPlanNotes && client.specialInstructions) {
+    noteBlocks.push(`Cleaning plan notes: ${client.specialInstructions}`);
+  }
+  if (normalizeText(body.initialNotes)) noteBlocks.push(`Initial scope notes: ${normalizeText(body.initialNotes)}`);
+
+  const notes = noteBlocks.join("\n\n") || null;
 
   const result = await db
     .prepare(
       `INSERT INTO assessment_quotes (
         lead_id, client_id, source_type, assessment_purpose, status, assessment_type, quote_stage,
         customer_name, phone, email, area, postcode, service_type, frequency,
+        work_label, property_label, property_address,
         property_type, bedrooms, bathrooms, property_condition, pets, parking,
         priorities, product_preferences, notes
       )
-      VALUES (?, ?, 'existing_client', ?, 'draft', ?, 'new', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      VALUES (?, ?, 'existing_client', ?, 'draft', ?, 'new', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       null,
       client.id,
       purpose,
       assessmentType,
-      client.name,
-      client.phone || null,
-      client.email || null,
-      client.area || null,
-      lead?.postcode || null,
-      primaryAssessment?.serviceType || lead?.serviceType || null,
-      primaryAssessment?.frequency || cleaningPlan?.frequency || null,
-      primaryAssessment?.propertyType || lead?.propertyType || null,
-      primaryAssessment?.bedrooms || lead?.bedrooms || null,
-      primaryAssessment?.bathrooms || lead?.bathrooms || null,
-      primaryAssessment?.propertyCondition || lead?.propertyCondition || null,
-      primaryAssessment?.pets || client.petType || null,
-      primaryAssessment?.parking || client.parkingNotes || null,
-      primaryAssessment?.priorities || lead?.priorities || null,
-      primaryAssessment?.productPreferences || client.productPreference || lead?.productPreferences || null,
+      contactName,
+      phone,
+      email,
+      resolvedArea,
+      resolvedPostcode,
+      serviceType,
+      frequency,
+      workLabel,
+      propertyLabel,
+      resolvedAddress,
+      propertyType,
+      bedrooms,
+      bathrooms,
+      propertyCondition,
+      pets,
+      parking,
+      priorities,
+      productPreferences,
       notes
     )
     .run();
@@ -217,6 +316,7 @@ export async function onRequestGet({ env }) {
                 aq.assessment_purpose AS assessmentPurpose, aq.status, aq.assessment_type AS assessmentType,
                 aq.quote_stage AS quoteStage, aq.customer_name AS customerName, aq.phone, aq.email,
                 aq.area, aq.postcode, aq.service_type AS serviceType, aq.frequency,
+                aq.work_label AS workLabel, aq.property_label AS propertyLabel, aq.property_address AS propertyAddress,
                 aq.property_type AS propertyType, aq.bedrooms, aq.bathrooms,
                 aq.property_condition AS propertyCondition, aq.pets, aq.parking, aq.priorities,
                 aq.product_preferences AS productPreferences, aq.notes,

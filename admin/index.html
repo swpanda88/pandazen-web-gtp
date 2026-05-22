@@ -503,6 +503,27 @@
         </div>
       </aside>
     </div>
+    <div class="modal-overlay" id="assessment-setup-modal" hidden>
+      <div class="modal-card modal-card-wide">
+        <header class="modal-header">
+          <div>
+            <h2>New Assessment</h2>
+            <p class="record-sub">Set up the client, property context, and initial scope before creating the Assessment.</p>
+          </div>
+          <button class="close-button" type="button" data-close-assessment-setup aria-label="Close modal">&times;</button>
+        </header>
+        <form class="modal-form" id="assessment-setup-form">
+          <div class="modal-body" id="assessment-setup-body"></div>
+          <footer class="modal-footer">
+            <p class="status" id="assessment-setup-status"></p>
+            <div class="drawer-actions">
+              <button class="ghost" type="button" data-close-assessment-setup>Cancel</button>
+              <button class="primary" type="submit">Create Assessment</button>
+            </div>
+          </footer>
+        </form>
+      </div>
+    </div>
     <!-- Quote Editor Modal -->
     <div class="modal-overlay" id="quote-editor-modal" hidden>
       <div class="modal-card">

@@ -60,15 +60,19 @@ const validAssessmentPurposes = new Set([
   "unknown"
 ]);
 
+async function safeFirst(db, sql, binds = []) {
+  try {
+    return await db.prepare(sql).bind(...binds).first();
+  } catch {
+    return null;
+  }
+}
+
 async function loadClientContext(db, clientId) {
   const client = await db
     .prepare(
       `SELECT id, lead_id AS leadId, assessment_quote_id AS primaryAssessmentId,
-              customer_name AS name, phone, email, area, address,
-              access_notes AS accessNotes, parking_notes AS parkingNotes,
-              pet_type AS petType, pet_notes AS petNotes,
-              product_preference AS productPreference,
-              surface_notes AS surfaceNotes, internal_notes AS notes
+              customer_name AS name, phone, email, area, address
        FROM clients
        WHERE id = ?
        LIMIT 1`
@@ -80,52 +84,70 @@ async function loadClientContext(db, clientId) {
 
   let lead = null;
   if (client.leadId) {
-    lead = await db
-      .prepare(
-        `SELECT postcode, property_type AS propertyType, bedrooms, bathrooms,
-                priorities, property_condition AS propertyCondition,
-                service_type AS serviceType, product_preferences AS productPreferences
-         FROM leads
-         WHERE id = ?
-         LIMIT 1`
-      )
-      .bind(client.leadId)
-      .first();
+    lead = await safeFirst(
+      db,
+      `SELECT postcode, property_type AS propertyType, bedrooms, bathrooms,
+              priorities, property_condition AS propertyCondition,
+              service_type AS serviceType, product_preferences AS productPreferences
+       FROM leads
+       WHERE id = ?
+       LIMIT 1`,
+      [client.leadId]
+    );
   }
 
   let primaryAssessment = null;
   if (client.primaryAssessmentId) {
-    primaryAssessment = await db
-      .prepare(
-        `SELECT service_type AS serviceType, frequency, property_type AS propertyType,
-                bedrooms, bathrooms, property_condition AS propertyCondition,
-                priorities, pets, parking, product_preferences AS productPreferences,
-                notes AS assessmentNotes
-         FROM assessment_quotes
-         WHERE id = ?
-         LIMIT 1`
-      )
-      .bind(client.primaryAssessmentId)
-      .first();
+    primaryAssessment = await safeFirst(
+      db,
+      `SELECT service_type AS serviceType, frequency, property_type AS propertyType,
+              bedrooms, bathrooms, property_condition AS propertyCondition,
+              priorities, pets, parking, product_preferences AS productPreferences,
+              notes AS assessmentNotes
+       FROM assessment_quotes
+       WHERE id = ?
+       LIMIT 1`,
+      [client.primaryAssessmentId]
+    );
   }
 
-  let cleaningPlan = null;
-  try {
-    cleaningPlan = await db
-      .prepare(
-        `SELECT frequency, special_instructions AS specialInstructions
-         FROM cleaning_plans
-         WHERE client_id = ? AND is_active = 1
-         ORDER BY updated_at DESC, id DESC
-         LIMIT 1`
-      )
-      .bind(client.id)
-      .first();
-  } catch {
-    cleaningPlan = null;
-  }
+  const clientDetail = await safeFirst(
+    db,
+    `SELECT access_notes AS accessNotes, parking_notes AS parkingNotes,
+            pet_type AS petType, pet_notes AS petNotes,
+            product_preference AS productPreference,
+            surface_notes AS surfaceNotes, internal_notes AS notes
+     FROM clients
+     WHERE id = ?
+     LIMIT 1`,
+    [client.id]
+  );
 
-  return { client, lead, primaryAssessment, cleaningPlan };
+  const cleaningPlan = await safeFirst(
+    db,
+    `SELECT frequency, special_instructions AS specialInstructions
+     FROM cleaning_plans
+     WHERE client_id = ? AND is_active = 1
+     ORDER BY updated_at DESC, id DESC
+     LIMIT 1`,
+    [client.id]
+  );
+
+  return {
+    client: {
+      ...client,
+      accessNotes: clientDetail?.accessNotes || null,
+      parkingNotes: clientDetail?.parkingNotes || null,
+      petType: clientDetail?.petType || null,
+      petNotes: clientDetail?.petNotes || null,
+      productPreference: clientDetail?.productPreference || null,
+      surfaceNotes: clientDetail?.surfaceNotes || null,
+      notes: clientDetail?.notes || null
+    },
+    lead,
+    primaryAssessment,
+    cleaningPlan
+  };
 }
 
 async function createAssessmentFromClient(db, body) {

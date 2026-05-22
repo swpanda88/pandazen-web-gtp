@@ -660,6 +660,26 @@ function assessmentsForClient(record) {
   return [...related].sort((left, right) => new Date(right.updatedAt || right.createdAt || 0) - new Date(left.updatedAt || left.createdAt || 0));
 }
 
+function assessmentDisplayMeta(record) {
+  return compactMeta([
+    assessmentSourceDisplay(record),
+    assessmentPurposeDisplay(record),
+    record.linkedClientName ? `Client: ${record.linkedClientName}` : ""
+  ]);
+}
+
+function renderPrefillOption(name, label, preview, checked) {
+  return `
+    <label class="prefill-option">
+      <input type="checkbox" name="${escapeHtml(name)}" ${checked ? "checked" : ""}>
+      <span>
+        <strong>${escapeHtml(label)}</strong>
+        <small>${escapeHtml(preview || "No current data to copy")}</small>
+      </span>
+    </label>
+  `;
+}
+
 function draftQuoteForAssessment(record) {
   return quotesForAssessment(record).find((quote) => String(quote.status || "").toLowerCase() === "draft") || null;
 }
@@ -860,6 +880,7 @@ function isActiveClient(record) {
 }
 
 function assessmentStatusDisplay(record) {
+  if (record?.accountingQuote?.status) return quoteStatusDisplay(record.accountingQuote);
   return record.quoteStageLabel || record.quoteStage || record.statusLabel || record.status || "Draft";
 }
 
@@ -2146,12 +2167,12 @@ function clientAssessmentSetupBody(record) {
       <section class="assessment-setup-section assessment-setup-card">
         <h3>Prefill options</h3>
         <div class="checkbox-stack">
-          <label><input type="checkbox" name="prefillContact" checked> Pull contact details</label>
-          <label><input type="checkbox" name="prefillHomeContext" checked> Pull existing address/home context</label>
-          <label><input type="checkbox" name="prefillAccessParking" checked> Pull access/parking notes</label>
-          <label><input type="checkbox" name="prefillPetsProducts" checked> Pull pets/product preferences</label>
-          <label><input type="checkbox" name="prefillPreviousAssessmentNotes"> Pull previous assessment notes</label>
-          <label><input type="checkbox" name="prefillCleaningPlanNotes"> Pull cleaning plan notes</label>
+          ${renderPrefillOption("prefillContact", "Pull contact details", compactMeta([record.name, record.phone, record.email]), true)}
+          ${renderPrefillOption("prefillHomeContext", "Pull existing address/home context", currentAddress, true)}
+          ${renderPrefillOption("prefillAccessParking", "Pull access/parking notes", compactMeta([record.accessLabel || record.accessMethod, record.parkingNotes || record.leadParking]), true)}
+          ${renderPrefillOption("prefillPetsProducts", "Pull pets/product preferences", compactMeta([record.petLabel || record.petType || record.leadPets, record.productLabel || record.productPreference || record.leadProductPreferences]), true)}
+          ${renderPrefillOption("prefillPreviousAssessmentNotes", "Pull previous assessment notes", record.qaAssessmentNotes || record.qaNotes || "", false)}
+          ${renderPrefillOption("prefillCleaningPlanNotes", "Pull cleaning plan notes", record.specialInstructions || "", false)}
         </div>
       </section>
       <section class="assessment-setup-section assessment-setup-card">
@@ -4359,6 +4380,7 @@ function linkedClientTasks(record) {
 function clientWorkspaceTabs() {
   return [
     { key: "overview", label: "Overview" },
+    { key: "assessments", label: "Assessments" },
     { key: "contact-access", label: "Contact / Access" },
     { key: "home-details", label: "Home details" },
     { key: "cleaning-plan", label: "Cleaning plan" },
@@ -4491,6 +4513,37 @@ function renderClientWorkspaceTab(record, tab) {
     `;
   }
 
+  if (tab === "assessments") {
+    const linkedAssessments = assessmentsForClient(record);
+    return `
+      <div class="workspace-stack">
+        <section>
+          <div class="workspace-section-header">
+            <h4>Client Assessments</h4>
+            <span class="record-sub">${escapeHtml(compactMeta([`${linkedAssessments.length} linked`, "Accepted assessments stay visible here as client work history"]))}</span>
+          </div>
+          ${listSummary(
+            linkedAssessments,
+            "Create a new Assessment when this client requests new scoped work, extra work, or a new quoteable piece of work.",
+            (assessment) => `
+              <article class="workspace-list-item">
+                <strong>${escapeHtml(assessmentTitle(assessment))}</strong>
+                <p>${escapeHtml(assessmentPropertyContext(assessment) || compactMeta([assessment.area, assessment.postcode]))}</p>
+                <small>${escapeHtml(compactMeta([
+                  record.name,
+                  assessmentSourceDisplay(assessment),
+                  assessmentPurposeDisplay(assessment),
+                  assessmentStatusDisplay(assessment),
+                  assessment.accountingQuote?.displayReference
+                ]))}</small>
+              </article>
+            `
+          )}
+        </section>
+      </div>
+    `;
+  }
+
   if (tab === "schedule-jobs") {
     const jobs = (data.jobs || []).filter((job) => String(job.clientId) === String(record.id));
     return listSummary(
@@ -4588,8 +4641,8 @@ function renderClientWorkspaceTab(record, tab) {
           (assessment) => `
             <article class="workspace-list-item">
               <strong>${escapeHtml(assessmentTitle(assessment))}</strong>
-              <p>${escapeHtml(compactMeta([assessmentPropertyContext(assessment), assessmentPurposeDisplay(assessment), assessment.serviceLabel || assessment.serviceType]))}</p>
-              <small>${escapeHtml(compactMeta([assessmentSourceDisplay(assessment), assessmentStatusDisplay(assessment), assessment.accountingQuote?.displayReference, formatDateTime(assessment.updatedAt)]))}</small>
+              <p>${escapeHtml(compactMeta([assessmentPropertyContext(assessment), assessment.serviceLabel || assessment.serviceType, assessmentPurposeDisplay(assessment)]))}</p>
+              <small>${escapeHtml(compactMeta([assessmentStatusDisplay(assessment), assessment.accountingQuote?.displayReference, formatDateTime(assessment.updatedAt)]))}</small>
             </article>
           `
         )}
@@ -4652,10 +4705,10 @@ function renderTables() {
     countTarget: assessmentActiveCount,
     countLabel: "active",
     cells: (assessment) => [
-      `<div class="record-main">${escapeHtml(assessmentTitle(assessment))}</div><div class="record-sub">${escapeHtml(assessmentIdentityContext(assessment))}</div>`,
-      `${escapeHtml(assessment.serviceLabel || assessment.serviceType || "")}<div class="record-sub">${escapeHtml(compactMeta([assessment.frequencyLabel || assessment.frequency || "", assessmentPurposeDisplay(assessment), assessment.linkedClientName ? `Client: ${assessment.linkedClientName}` : ""]))}</div>`,
-      `${escapeHtml(assessment.estimate || "Estimate pending")}<div class="record-sub">${escapeHtml(compactMeta([assessment.quoteRange || "", assessment.accountingQuote?.displayReference || "", assessment.linkedClientName ? `Client: ${assessment.linkedClientName}` : ""]))}</div>`,
-      `<span class="pill warn">${escapeHtml(assessment.quoteStageLabel || assessment.quoteStage || assessment.statusLabel || assessment.status || "Draft")}</span>`
+      `<div class="record-main">${escapeHtml(assessmentTitle(assessment))}</div><div class="record-sub">${escapeHtml(assessmentPropertyContext(assessment) || compactMeta([assessment.area, assessment.postcode]))}</div>`,
+      `${escapeHtml(assessment.serviceLabel || assessment.serviceType || "Service pending")}<div class="record-sub">${escapeHtml(assessmentDisplayMeta(assessment))}</div>`,
+      `${escapeHtml(assessment.accountingQuote?.displayReference || assessment.estimate || "Estimate pending")}<div class="record-sub">${escapeHtml(compactMeta([assessment.quoteRange || "", assessment.linkedClientName ? `Client: ${assessment.linkedClientName}` : "", formatDateTime(assessment.updatedAt)]))}</div>`,
+      `<span class="pill warn">${escapeHtml(assessmentStatusDisplay(assessment))}</span>`
     ],
     renderWorkspace: renderAssessmentWorkspace
   });
@@ -4670,10 +4723,10 @@ function renderTables() {
     countTarget: assessmentHistoryCount,
     countLabel: "records",
     cells: (assessment) => [
-      `<div class="record-main">${escapeHtml(assessmentTitle(assessment))}</div><div class="record-sub">${escapeHtml(assessmentIdentityContext(assessment))}</div>`,
-      `${escapeHtml(assessment.serviceLabel || assessment.serviceType || "")}<div class="record-sub">${escapeHtml(compactMeta([assessment.frequencyLabel || assessment.frequency || "", assessmentPurposeDisplay(assessment), assessment.linkedClientName ? `Client: ${assessment.linkedClientName}` : ""]))}</div>`,
-      `${escapeHtml(assessment.estimate || "Estimate pending")}<div class="record-sub">${escapeHtml(compactMeta([assessment.quoteRange || "", assessment.accountingQuote?.displayReference || "", assessment.linkedClientName ? `Client: ${assessment.linkedClientName}` : ""]))}</div>`,
-      `<span class="pill blue">${escapeHtml(assessment.isConverted || assessment.convertedClientId ? "Converted" : assessment.quoteStageLabel || assessment.quoteStage || assessment.statusLabel || assessment.status || "Closed")}</span>`
+      `<div class="record-main">${escapeHtml(assessmentTitle(assessment))}</div><div class="record-sub">${escapeHtml(assessmentPropertyContext(assessment) || compactMeta([assessment.area, assessment.postcode]))}</div>`,
+      `${escapeHtml(assessment.serviceLabel || assessment.serviceType || "Service pending")}<div class="record-sub">${escapeHtml(assessmentDisplayMeta(assessment))}</div>`,
+      `${escapeHtml(assessment.accountingQuote?.displayReference || assessment.estimate || "Estimate pending")}<div class="record-sub">${escapeHtml(compactMeta([assessment.quoteRange || "", assessment.linkedClientName ? `Client: ${assessment.linkedClientName}` : "", formatDateTime(assessment.updatedAt)]))}</div>`,
+      `<span class="pill blue">${escapeHtml(assessment.isConverted || assessment.convertedClientId ? "Converted" : assessmentStatusDisplay(assessment))}</span>`
     ],
     renderWorkspace: renderAssessmentWorkspace
   });

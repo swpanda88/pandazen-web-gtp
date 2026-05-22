@@ -2311,7 +2311,8 @@ body.cleaner-mode .notice {
   gap: 10px;
 }
 
-.checkbox-stack label {
+.checkbox-stack label,
+.prefill-option {
   display: flex;
   gap: 10px;
   align-items: flex-start;
@@ -2319,8 +2320,27 @@ body.cleaner-mode .notice {
   font-weight: 600;
 }
 
-.checkbox-stack input {
+.prefill-option span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.prefill-option small {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.checkbox-stack input,
+.prefill-option input {
   margin-top: 2px;
+}
+
+.workspace-section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 @media (max-width: 480px) {

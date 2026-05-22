@@ -3100,3 +3100,100 @@ body.cleaner-mode .notice {
   color: var(--muted);
 }
 
+/* Rebuilt table/row-style layout for wizard inputs */
+.wizard-table-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wizard-table-row {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line, #e2e8f0);
+}
+
+.wizard-table-row:last-child {
+  border-bottom: none;
+}
+
+.wizard-table-label {
+  font-weight: 600;
+  color: var(--ink-light, #4a5568);
+  font-size: 0.88rem;
+  padding-top: 6px;
+}
+
+.wizard-table-value {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.wizard-table-value input,
+.wizard-table-value select,
+.wizard-table-value textarea {
+  width: 100%;
+  border: 1px solid var(--line, #e2e8f0);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: var(--ink);
+  background: white;
+  box-sizing: border-box;
+  font-size: 0.9rem;
+}
+
+.wizard-table-value textarea {
+  resize: vertical;
+}
+
+
+.wizard-table-hint {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+/* Review layout enhancements */
+.wizard-review-row {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line, #e2e8f0);
+}
+
+.wizard-review-row:last-child {
+  border-bottom: none;
+}
+
+.wizard-review-label {
+  font-weight: 600;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.wizard-review-value {
+  font-size: 0.9rem;
+  color: var(--ink);
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.wizard-review-notes-box {
+  max-height: 120px;
+  overflow-y: auto;
+  border: 1px solid var(--line, #cbd5e0);
+  border-radius: 6px;
+  padding: 8px 12px;
+  background: #f7fafc;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

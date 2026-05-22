@@ -2256,6 +2256,32 @@ function wizardDisplayValue(value, emptyLabel = "Not provided") {
   return rendered || emptyLabel;
 }
 
+function renderWizardTableRow(label, inputHtml, hintHtml = "") {
+  return `
+    <div class="wizard-table-row">
+      <div class="wizard-table-label">${escapeHtml(label)}</div>
+      <div class="wizard-table-value">
+        ${inputHtml}
+        ${hintHtml ? `<div class="wizard-table-hint">${escapeHtml(hintHtml)}</div>` : ""}
+      </div>
+    </div>
+  `;
+}
+
+function renderWizardReviewRow(label, value, isNotes = false) {
+  const displayVal = wizardDisplayValue(value);
+  const content = (isNotes && value)
+    ? `<div class="wizard-review-notes-box">${escapeHtml(value)}</div>`
+    : escapeHtml(displayVal);
+  return `
+    <div class="wizard-review-row">
+      <div class="wizard-review-label">${escapeHtml(label)}</div>
+      <div class="wizard-review-value">${content}</div>
+    </div>
+  `;
+}
+
+
 function assessmentWizardStepTitle(step) {
   const labels = {
     1: "Step 1 of 4 - Setup",
@@ -2478,15 +2504,15 @@ function renderAssessmentWizardStep2(record, values) {
           <section class="assessment-wizard-card">
             <h3>Property details</h3>
             ${values.propertyMode === "unknown_address" ? `<div class="workspace-placeholder muted"><p>Address/property details can be completed later. Capture only what is known now so the assessment can move forward cleanly.</p></div>` : ""}
-            <div class="assessment-wizard-form-grid">
-              ${renderEditableInput("Property label", `<input name="propertyLabel" value="${escapeHtml(values.propertyLabel || "")}" placeholder="${escapeHtml(values.propertyMode === "unknown_address" ? "Address TBC" : "e.g. Holiday let, Flat 2, Annex")}">`, "field-span-2")}
-              ${renderEditableInput("Address", `<textarea name="address" rows="3" placeholder="${escapeHtml(values.propertyMode === "existing_home" ? "Current client/home address" : "Property address")}">${escapeHtml(values.address || "")}</textarea>`, "field-span-2")}
-              ${renderEditableInput("Area", `<input name="area" value="${escapeHtml(values.area || "")}" placeholder="${escapeHtml(values.propertyMode === "existing_home" ? "Current area" : "Area")}">`)}
-              ${renderEditableInput("Postcode", `<input name="postcode" value="${escapeHtml(values.postcode || "")}" placeholder="${escapeHtml(values.propertyMode === "existing_home" ? "Current postcode" : "Postcode")}">`)}
-              ${renderEditableInput("Property type", renderEditableSelect({ name: "propertyType", groupKey: null, currentValue: values.propertyType, staticOptions: propertyTypeOptions }))}
-              ${renderEditableInput("Property condition", `<input name="propertyCondition" value="${escapeHtml(values.propertyCondition || "")}" placeholder="Condition">`)}
-              ${renderEditableInput("Bedrooms", `<input name="bedrooms" value="${escapeHtml(values.bedrooms || "")}" placeholder="Bedrooms">`)}
-              ${renderEditableInput("Bathrooms", `<input name="bathrooms" value="${escapeHtml(values.bathrooms || "")}" placeholder="Bathrooms">`)}
+            <div class="wizard-table-section">
+              ${renderWizardTableRow("Property label", `<input name="propertyLabel" value="${escapeHtml(values.propertyLabel || "")}" placeholder="${escapeHtml(values.propertyMode === "unknown_address" ? "Address TBC" : "e.g. Holiday let, Flat 2, Annex")}">`)}
+              ${renderWizardTableRow("Address", `<textarea name="address" rows="3" placeholder="${escapeHtml(values.propertyMode === "existing_home" ? "Current client/home address" : "Property address")}">${escapeHtml(values.address || "")}</textarea>`)}
+              ${renderWizardTableRow("Area", `<input name="area" value="${escapeHtml(values.area || "")}" placeholder="${escapeHtml(values.propertyMode === "existing_home" ? "Current area" : "Area")}">`)}
+              ${renderWizardTableRow("Postcode", `<input name="postcode" value="${escapeHtml(values.postcode || "")}" placeholder="${escapeHtml(values.propertyMode === "existing_home" ? "Current postcode" : "Postcode")}">`)}
+              ${renderWizardTableRow("Property type", renderEditableSelect({ name: "propertyType", groupKey: null, currentValue: values.propertyType, staticOptions: propertyTypeOptions }))}
+              ${renderWizardTableRow("Bedrooms", `<input name="bedrooms" value="${escapeHtml(values.bedrooms || "")}" placeholder="Bedrooms">`)}
+              ${renderWizardTableRow("Bathrooms", `<input name="bathrooms" value="${escapeHtml(values.bathrooms || "")}" placeholder="Bathrooms">`)}
+              ${renderWizardTableRow("Property condition", `<input name="propertyCondition" value="${escapeHtml(values.propertyCondition || "")}" placeholder="Condition">`)}
             </div>
           </section>
         </div>
@@ -2495,19 +2521,19 @@ function renderAssessmentWizardStep2(record, values) {
         <div class="assessment-wizard-col-right">
           <section class="assessment-wizard-card">
             <h3>Access / parking</h3>
-            <div class="assessment-wizard-form-grid">
-              ${renderEditableInput("Access method", renderEditableSelect({ name: "accessMethod", groupKey: "access_method", currentValue: values.accessMethod, allowOtherOverride: false }))}
-              ${renderEditableInput("Parking", `<input name="parking" value="${escapeHtml(values.parking || "")}" placeholder="Parking / arrival note">`)}
-              ${renderEditableInput("Access notes", `<textarea name="accessNotes" rows="3" placeholder="Access details for this assessment only">${escapeHtml(values.accessNotes || "")}</textarea>`, "field-span-2")}
+            <div class="wizard-table-section">
+              ${renderWizardTableRow("Parking", `<input name="parking" value="${escapeHtml(values.parking || "")}" placeholder="Parking / arrival note">`)}
+              ${renderWizardTableRow("Access method", renderEditableSelect({ name: "accessMethod", groupKey: "access_method", currentValue: values.accessMethod, allowOtherOverride: false }))}
+              ${renderWizardTableRow("Access notes", `<textarea name="accessNotes" rows="3" placeholder="Access details for this assessment only">${escapeHtml(values.accessNotes || "")}</textarea>`)}
             </div>
           </section>
           
           <section class="assessment-wizard-card">
             <h3>Pets / products / surfaces</h3>
-            <div class="assessment-wizard-form-grid">
-              ${renderEditableInput("Pets", renderEditableSelect({ name: "pets", groupKey: "pet_type", currentValue: values.pets, allowOtherOverride: false }))}
-              ${renderEditableInput("Product preference", renderEditableSelect({ name: "productPreference", groupKey: "product_preference", currentValue: values.productPreference, allowOtherOverride: false }))}
-              ${renderEditableInput("Surface / material notes", `<textarea name="surfaceNotes" rows="3" placeholder="Materials, delicate surfaces, or cautions">${escapeHtml(values.surfaceNotes || "")}</textarea>`, "field-span-2")}
+            <div class="wizard-table-section">
+              ${renderWizardTableRow("Pets", renderEditableSelect({ name: "pets", groupKey: "pet_type", currentValue: values.pets, allowOtherOverride: false }))}
+              ${renderWizardTableRow("Product preference", renderEditableSelect({ name: "productPreference", groupKey: "product_preference", currentValue: values.productPreference, allowOtherOverride: false }))}
+              ${renderWizardTableRow("Surface / material notes", `<textarea name="surfaceNotes" rows="3" placeholder="Materials, delicate surfaces, or cautions">${escapeHtml(values.surfaceNotes || "")}</textarea>`)}
             </div>
           </section>
         </div>
@@ -2524,10 +2550,12 @@ function renderAssessmentWizardStep3(record, values) {
         <!-- Left Column -->
         <div class="assessment-wizard-col-left">
           <section class="assessment-wizard-card">
-            <h3>Priority tasks & included areas</h3>
-            <div class="assessment-wizard-form-grid">
-              ${renderEditableInput("Priority tasks", `<textarea name="priorityTasks" rows="3" placeholder="Priority areas or tasks to focus on first">${escapeHtml(values.priorityTasks || "")}</textarea>`, "field-span-2")}
-              ${renderEditableInput("Areas included", `<textarea name="includedAreas" rows="3" placeholder="Rooms, zones, or areas included">${escapeHtml(values.includedAreas || "")}</textarea>`, "field-span-2")}
+            <h3>Scope & priorities</h3>
+            <div class="wizard-table-section">
+              ${renderWizardTableRow("Customer request / initial scope", `<textarea name="initialScopeNotes" rows="4" placeholder="What is the client asking for? Any important context or early scope notes?">${escapeHtml(values.initialScopeNotes || "")}</textarea>`)}
+              ${renderWizardTableRow("Priority tasks", `<textarea name="priorityTasks" rows="4" placeholder="Priority areas or tasks to focus on first">${escapeHtml(values.priorityTasks || "")}</textarea>`)}
+              ${renderWizardTableRow("Areas included", `<textarea name="includedAreas" rows="4" placeholder="Rooms, zones, or areas included">${escapeHtml(values.includedAreas || "")}</textarea>`)}
+              ${renderWizardTableRow("Exclusions / not included", `<textarea name="exclusions" rows="4" placeholder="Anything not included or explicitly excluded">${escapeHtml(values.exclusions || "")}</textarea>`)}
             </div>
           </section>
         </div>
@@ -2535,13 +2563,12 @@ function renderAssessmentWizardStep3(record, values) {
         <!-- Right Column -->
         <div class="assessment-wizard-col-right">
           <section class="assessment-wizard-card">
-            <h3>Boundaries & checks</h3>
-            <div class="assessment-wizard-form-grid">
-              ${renderEditableInput("Exclusions / not included", `<textarea name="exclusions" rows="2" placeholder="Anything not included or explicitly excluded">${escapeHtml(values.exclusions || "")}</textarea>`, "field-span-2")}
-              ${renderEditableInput("Special requirements", `<textarea name="specialRequirements" rows="2" placeholder="Special handling, products, or timing">${escapeHtml(values.specialRequirements || "")}</textarea>`, "field-span-2")}
-              ${renderEditableInput("Photos available", renderEditableSelect({ name: "photosAvailable", groupKey: null, currentValue: values.photosAvailable, staticOptions: assessmentPhotoOptions }), "field-span-2")}
-              ${renderEditableInput("Risks / things to check", `<textarea name="risksToCheck" rows="2" placeholder="Risks, unknowns, or things to confirm">${escapeHtml(values.risksToCheck || "")}</textarea>`, "field-span-2")}
-              ${renderEditableInput("Internal / admin notes", `<textarea name="internalNotes" rows="3" placeholder="Internal-only notes for this assessment">${escapeHtml(values.internalNotes || "")}</textarea>`, "field-span-2")}
+            <h3>Boundaries & admin checks</h3>
+            <div class="wizard-table-section">
+              ${renderWizardTableRow("Special requirements", `<textarea name="specialRequirements" rows="4" placeholder="Special handling, products, or timing">${escapeHtml(values.specialRequirements || "")}</textarea>`)}
+              ${renderWizardTableRow("Photos available", renderEditableSelect({ name: "photosAvailable", groupKey: null, currentValue: values.photosAvailable, staticOptions: assessmentPhotoOptions }))}
+              ${renderWizardTableRow("Risks / things to check", `<textarea name="risksToCheck" rows="4" placeholder="Risks, unknowns, or things to confirm">${escapeHtml(values.risksToCheck || "")}</textarea>`)}
+              ${renderWizardTableRow("Internal / admin notes", `<textarea name="internalNotes" rows="4" placeholder="Internal-only notes for this assessment">${escapeHtml(values.internalNotes || "")}</textarea>`)}
             </div>
           </section>
         </div>
@@ -2565,64 +2592,70 @@ function renderAssessmentWizardStep4(record, values) {
         <!-- Left Column -->
         <div class="assessment-wizard-col-left">
           <section class="assessment-wizard-card">
-            <h3>Client & assessment setup</h3>
-            ${workspaceSummaryRows([
-              ["Client name", wizardDisplayValue(record.name, "Not provided")],
-              ["Linked client ID", `#${record.id}`],
-              ["Work label", wizardDisplayValue(values.workLabel)],
-              ["Reason for assessment", wizardDisplayValue(assessmentReasonOptions.find((option) => option.value === values.assessmentReason)?.label || values.assessmentReason)],
-              ["Service type", wizardDisplayValue(setupServiceTypeOptions().find((option) => option.value === values.serviceType)?.label || values.serviceType)],
-              ["Frequency", wizardDisplayValue(optionLabel("frequency", values.frequency) || values.frequency)],
-              ["Initial scope notes", wizardDisplayValue(values.initialScopeNotes)]
-            ])}
+            <h3>Client / identity</h3>
+            <div class="wizard-table-section">
+              ${renderWizardReviewRow("Client name", record.name)}
+              ${renderWizardReviewRow("Linked client ID", `#${record.id}`)}
+              ${renderWizardReviewRow("Work label", values.workLabel)}
+              ${renderWizardReviewRow("Reason for assessment", assessmentReasonOptions.find((option) => option.value === values.assessmentReason)?.label || values.assessmentReason)}
+              ${renderWizardReviewRow("Service type", setupServiceTypeOptions().find((option) => option.value === values.serviceType)?.label || values.serviceType)}
+              ${renderWizardReviewRow("Frequency", optionLabel("frequency", values.frequency) || values.frequency)}
+            </div>
           </section>
           
           <section class="assessment-wizard-card">
-            <h3>Property & access details</h3>
-            ${workspaceSummaryRows([
-              ["Property mode", values.propertyMode === "existing_home" ? "Existing property" : values.propertyMode === "another_address" ? "Another address" : "Address unknown"],
-              ["Property label", wizardDisplayValue(values.propertyLabel)],
-              ["Address", wizardDisplayValue(values.address)],
-              ["Area", wizardDisplayValue(values.area)],
-              ["Postcode", wizardDisplayValue(values.postcode)],
-              ["Property type", wizardDisplayValue(leadValueLabel("propertyType", values.propertyType) || values.propertyType)],
-              ["Bedrooms", wizardDisplayValue(values.bedrooms)],
-              ["Bathrooms", wizardDisplayValue(values.bathrooms)],
-              ["Property condition", wizardDisplayValue(values.propertyCondition)],
-              ["Parking notes", wizardDisplayValue(values.parking)],
-              ["Access method", wizardDisplayValue(values.accessMethod)],
-              ["Access notes", wizardDisplayValue(values.accessNotes)],
-              ["Pets context", wizardDisplayValue(values.pets)],
-              ["Product preference", wizardDisplayValue(values.productPreference)],
-              ["Surface notes", wizardDisplayValue(values.surfaceNotes)]
-            ])}
+            <h3>Property / access</h3>
+            <div class="wizard-table-section">
+              ${renderWizardReviewRow("Property mode", values.propertyMode === "existing_home" ? "Existing property" : values.propertyMode === "another_address" ? "Another address" : "Address unknown")}
+              ${renderWizardReviewRow("Property label", values.propertyLabel)}
+              ${renderWizardReviewRow("Address", values.address)}
+              ${renderWizardReviewRow("Area", values.area)}
+              ${renderWizardReviewRow("Postcode", values.postcode)}
+              ${renderWizardReviewRow("Property type", leadValueLabel("propertyType", values.propertyType) || values.propertyType)}
+              ${renderWizardReviewRow("Bedrooms", values.bedrooms)}
+              ${renderWizardReviewRow("Bathrooms", values.bathrooms)}
+              ${renderWizardReviewRow("Property condition", values.propertyCondition)}
+              ${renderWizardReviewRow("Parking", values.parking)}
+              ${renderWizardReviewRow("Access method", values.accessMethod)}
+              ${renderWizardReviewRow("Access notes", values.accessNotes)}
+            </div>
+          </section>
+
+          <section class="assessment-wizard-card">
+            <h3>Pets / products / surfaces</h3>
+            <div class="wizard-table-section">
+              ${renderWizardReviewRow("Pets", values.pets)}
+              ${renderWizardReviewRow("Product preference", values.productPreference)}
+              ${renderWizardReviewRow("Surface / material notes", values.surfaceNotes)}
+            </div>
           </section>
         </div>
         
         <!-- Right Column -->
         <div class="assessment-wizard-col-right">
           <section class="assessment-wizard-card">
-            <h3>Scope, priorities & admin</h3>
-            ${workspaceSummaryRows([
-              ["Priority tasks", wizardDisplayValue(values.priorityTasks)],
-              ["Areas included", wizardDisplayValue(values.includedAreas)],
-              ["Exclusions", wizardDisplayValue(values.exclusions)],
-              ["Special requirements", wizardDisplayValue(values.specialRequirements)],
-              ["Photos available", wizardDisplayValue(values.photosAvailable)],
-              ["Risks to check", wizardDisplayValue(values.risksToCheck)],
-              ["Internal notes", wizardDisplayValue(values.internalNotes)],
-              ["Carry-over options", carryItems || "None"]
-            ])}
+            <h3>Scope / priorities</h3>
+            <div class="wizard-table-section">
+              ${renderWizardReviewRow("Customer request / initial scope", values.initialScopeNotes)}
+              ${renderWizardReviewRow("Priority tasks", values.priorityTasks)}
+              ${renderWizardReviewRow("Areas included", values.includedAreas)}
+              ${renderWizardReviewRow("Exclusions / not included", values.exclusions)}
+              ${renderWizardReviewRow("Special requirements", values.specialRequirements)}
+              ${renderWizardReviewRow("Photos available", values.photosAvailable)}
+              ${renderWizardReviewRow("Risks / things to check", values.risksToCheck)}
+              ${renderWizardReviewRow("Internal / admin notes", values.internalNotes, true)}
+              ${renderWizardReviewRow("Carry-over options", carryItems || "None")}
+            </div>
           </section>
           
           <section class="assessment-wizard-card">
-            <h3>System linkages</h3>
-            ${workspaceSummaryRows([
-              ["Source type", "existing_client"],
-              ["lead_id", "NULL (no lead associated)"],
-              ["client_id", String(record.id)]
-            ])}
-            <div class="workspace-placeholder muted">
+            <h3>System links</h3>
+            <div class="wizard-table-section">
+              ${renderWizardReviewRow("Source type", "existing_client")}
+              ${renderWizardReviewRow("lead_id", "NULL (no lead associated)")}
+              ${renderWizardReviewRow("client_id", String(record.id))}
+            </div>
+            <div class="workspace-placeholder muted" style="margin-top: 14px;">
               <p>The Assessment record will only be created when you click Create Assessment. It will then open in the global Assessments queue.</p>
             </div>
           </section>

@@ -187,8 +187,8 @@ async function createAssessmentFromClient(db, body) {
 
   const propertyMode = normalizeText(body.propertyMode) || "existing_home";
   const prefill = {
-    contact: boolFlag(body.prefill?.contact, true),
-    homeContext: boolFlag(body.prefill?.homeContext, true),
+    contact: true,
+    homeContext: propertyMode === "existing_home",
     accessParking: boolFlag(body.prefill?.accessParking, true),
     petsProducts: boolFlag(body.prefill?.petsProducts, true),
     previousAssessmentNotes: boolFlag(body.prefill?.previousAssessmentNotes, false),
@@ -239,10 +239,21 @@ async function createAssessmentFromClient(db, body) {
   const bedrooms = useExistingHomeContext ? (primaryAssessment?.bedrooms || lead?.bedrooms || null) : null;
   const bathrooms = useExistingHomeContext ? (primaryAssessment?.bathrooms || lead?.bathrooms || null) : null;
   const propertyCondition = useExistingHomeContext ? (primaryAssessment?.propertyCondition || lead?.propertyCondition || null) : null;
-  const pets = prefill.petsProducts ? (primaryAssessment?.pets || client.petType || null) : null;
-  const parking = prefill.accessParking ? (primaryAssessment?.parking || client.parkingNotes || null) : null;
+  const pets = prefill.petsProducts ? (normalizeText(body.pets) || primaryAssessment?.pets || client.petType || null) : null;
+  const parking = prefill.accessParking ? (normalizeText(body.parking) || primaryAssessment?.parking || client.parkingNotes || null) : null;
   const priorities = useExistingHomeContext ? (primaryAssessment?.priorities || lead?.priorities || null) : null;
-  const productPreferences = prefill.petsProducts ? (primaryAssessment?.productPreferences || client.productPreference || lead?.productPreferences || null) : null;
+  const productPreferences = prefill.petsProducts ? (normalizeText(body.productPreference) || primaryAssessment?.productPreferences || client.productPreference || lead?.productPreferences || null) : null;
+  const accessMethod = normalizeText(body.accessMethod);
+  const accessNotes = normalizeText(body.accessNotes);
+  const surfaceNotes = normalizeText(body.surfaceNotes);
+  const initialScopeNotes = normalizeText(body.initialScopeNotes || body.initialNotes);
+  const priorityTasks = normalizeText(body.priorityTasks);
+  const includedAreas = normalizeText(body.includedAreas);
+  const exclusions = normalizeText(body.exclusions);
+  const specialRequirements = normalizeText(body.specialRequirements);
+  const photosAvailable = normalizeText(body.photosAvailable);
+  const internalNotes = normalizeText(body.internalNotes);
+  const risksToCheck = normalizeText(body.risksToCheck);
 
   const noteBlocks = [];
   if (workLabel) noteBlocks.push(`Assessment title: ${workLabel}`);
@@ -250,6 +261,9 @@ async function createAssessmentFromClient(db, body) {
   if (propertyLabel) noteBlocks.push(`Property label: ${propertyLabel}`);
   if (propertyMode === "another_address" && resolvedAddress) noteBlocks.push(`Assessment address: ${resolvedAddress}`);
   if (propertyMode === "unknown_address") noteBlocks.push("Assessment address: Address not known yet.");
+  if (accessMethod) noteBlocks.push(`Access method: ${accessMethod}`);
+  if (accessNotes) noteBlocks.push(`Access notes: ${accessNotes}`);
+  if (surfaceNotes) noteBlocks.push(`Surface notes: ${surfaceNotes}`);
   if (prefill.accessParking) {
     if (client.accessNotes) noteBlocks.push(`Access notes: ${client.accessNotes}`);
     if (client.parkingNotes) noteBlocks.push(`Parking notes: ${client.parkingNotes}`);
@@ -264,9 +278,25 @@ async function createAssessmentFromClient(db, body) {
   if (prefill.cleaningPlanNotes && client.specialInstructions) {
     noteBlocks.push(`Cleaning plan notes: ${client.specialInstructions}`);
   }
-  if (normalizeText(body.initialNotes)) noteBlocks.push(`Initial scope notes: ${normalizeText(body.initialNotes)}`);
+  if (internalNotes) noteBlocks.push(`Internal notes: ${internalNotes}`);
+
+  const assessmentNoteBlocks = [
+    initialScopeNotes ? `Initial scope notes: ${initialScopeNotes}` : "",
+    priorityTasks ? `Priority tasks: ${priorityTasks}` : "",
+    includedAreas ? `Areas included: ${includedAreas}` : "",
+    specialRequirements ? `Special requirements: ${specialRequirements}` : "",
+    risksToCheck ? `Risks / things to check: ${risksToCheck}` : "",
+    photosAvailable ? `Photos available: ${photosAvailable}` : ""
+  ].filter(Boolean);
+
+  const quoteNoteBlocks = [
+    exclusions ? `Exclusions / not included: ${exclusions}` : "",
+    specialRequirements ? `Customer-facing special requirements: ${specialRequirements}` : ""
+  ].filter(Boolean);
 
   const notes = noteBlocks.join("\n\n") || null;
+  const assessmentNotes = assessmentNoteBlocks.join("\n\n") || null;
+  const quoteNotes = quoteNoteBlocks.join("\n\n") || null;
 
   const result = await db
     .prepare(
@@ -275,9 +305,9 @@ async function createAssessmentFromClient(db, body) {
         customer_name, phone, email, area, postcode, service_type, frequency,
         work_label, property_label, property_address,
         property_type, bedrooms, bathrooms, property_condition, pets, parking,
-        priorities, product_preferences, notes
+        priorities, product_preferences, notes, assessment_notes, quote_notes
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       null,
@@ -305,7 +335,9 @@ async function createAssessmentFromClient(db, body) {
       parking,
       priorities,
       productPreferences,
-      notes
+      notes,
+      assessmentNotes,
+      quoteNotes
     )
     .run();
 

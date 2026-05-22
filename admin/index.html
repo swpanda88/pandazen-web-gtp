@@ -509,6 +509,7 @@
           <div>
             <h2>New Assessment</h2>
             <p class="record-sub">Set up the client, property context, and initial scope before creating the Assessment.</p>
+            <p class="record-sub" id="assessment-setup-step-indicator">Step 1 of 4 - Setup</p>
           </div>
           <button class="close-button" type="button" data-close-assessment-setup aria-label="Close modal">&times;</button>
         </header>
@@ -516,10 +517,7 @@
           <div class="modal-body" id="assessment-setup-body"></div>
           <footer class="modal-footer">
             <p class="status" id="assessment-setup-status"></p>
-            <div class="drawer-actions">
-              <button class="ghost" type="button" data-close-assessment-setup>Cancel</button>
-              <button class="primary" type="submit">Create Assessment</button>
-            </div>
+            <div class="drawer-actions" id="assessment-setup-footer-actions"></div>
           </footer>
         </form>
       </div>

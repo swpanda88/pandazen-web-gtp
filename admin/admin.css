@@ -1203,8 +1203,22 @@ mark.rose {
   align-items: center;
 }
 
+.workspace-toolbar-copy {
+  display: grid;
+  gap: 3px;
+}
+
+.workspace-toolbar-copy strong {
+  font-size: 0.92rem;
+}
+
 .workspace-toolbar-actions .record-sub {
   margin: 0;
+}
+
+.workspace-toolbar-actions .primary {
+  min-height: 34px;
+  padding-inline: 14px;
 }
 
 .workspace-tab {

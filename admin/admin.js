@@ -686,8 +686,9 @@ function assessmentDisplayMeta(record) {
 }
 
 function renderPrefillOption(name, label, preview, checked) {
+  const stateClass = checked ? "checked" : "unchecked";
   return `
-    <label class="prefill-option">
+    <label class="prefill-option ${stateClass}">
       <input type="checkbox" name="${escapeHtml(name)}" ${checked ? "checked" : ""}>
       <span>
         <strong>${escapeHtml(label)}</strong>
@@ -2173,12 +2174,10 @@ function applyAssessmentWizardPropertyMode(wizard, record, nextMode) {
     values.bedrooms = record.bedrooms || "";
     values.bathrooms = record.bathrooms || "";
     values.propertyCondition = record.propertyCondition || "";
-    values.parking = record.parkingNotes || record.leadParking || "";
-    values.accessMethod = record.accessMethod || "";
-    values.accessNotes = record.accessNotes || "";
-    values.pets = record.petType || record.leadPets || "";
-    values.productPreference = record.productPreference || record.leadProductPreferences || "";
-    values.surfaceNotes = record.surfaceNotes || "";
+    
+    // access / parking and pets/products are handled by applyCarryOverPrefills,
+    // but if carry-over checkbox is set we prefill, else clear.
+    applyCarryOverPrefills(wizard, record);
     return;
   }
 
@@ -2200,6 +2199,49 @@ function applyAssessmentWizardPropertyMode(wizard, record, nextMode) {
   }
 }
 
+function applyCarryOverPrefills(wizard, record) {
+  if (!wizard || !record) return;
+  const values = wizard.values;
+
+  // Access / parking prefill carry-over toggling
+  if (values.carryAccessParking) {
+    if (!values.parking) values.parking = record.parkingNotes || record.leadParking || "";
+    if (!values.accessMethod) values.accessMethod = record.accessMethod || "";
+    if (!values.accessNotes) values.accessNotes = record.accessNotes || "";
+  } else {
+    values.parking = "";
+    values.accessMethod = "";
+    values.accessNotes = "";
+  }
+
+  // Pets / products prefill carry-over toggling
+  if (values.carryPetsProducts) {
+    if (!values.pets) values.pets = record.petType || record.leadPets || "";
+    if (!values.productPreference) values.productPreference = record.productPreference || record.leadProductPreferences || "";
+    if (!values.surfaceNotes) values.surfaceNotes = record.surfaceNotes || "";
+  } else {
+    values.pets = "";
+    values.productPreference = "";
+    values.surfaceNotes = "";
+  }
+
+  // Previous assessment notes & Cleaning plan notes carry-over toggling
+  const prevNotes = record.qaAssessmentNotes || record.qaNotes || "";
+  const cleaningNotes = record.specialInstructions || "";
+  
+  let notesParts = [];
+  if (record.notes) {
+    notesParts.push(record.notes);
+  }
+  if (values.carryPreviousAssessmentNotes && prevNotes) {
+    notesParts.push(prevNotes);
+  }
+  if (values.carryCleaningPlanNotes && cleaningNotes) {
+    notesParts.push(cleaningNotes);
+  }
+  values.internalNotes = notesParts.join("\n\n");
+}
+
 function assessmentWizardRecord() {
   const clientId = state.assessmentWizard?.clientId || state.assessmentSetupClientId;
   return clientId ? findRecordByType("client", clientId) : null;
@@ -2217,8 +2259,8 @@ function wizardDisplayValue(value, emptyLabel = "Not provided") {
 function assessmentWizardStepTitle(step) {
   const labels = {
     1: "Step 1 of 4 - Setup",
-    2: "Step 2 of 4 - Property / Access",
-    3: "Step 3 of 4 - Scope / Priorities",
+    2: "Step 2 of 4 - Property & Access",
+    3: "Step 3 of 4 - Scope & Boundaries",
     4: "Step 4 of 4 - Review & Create"
   };
   return labels[step] || labels[1];
@@ -2250,7 +2292,7 @@ function carryPreviewText(record, values, key) {
 
 function assessmentWizardContextItems(record, values) {
   const items = [
-    { label: "Main service", value: record.qaServiceLabel || record.originalServiceLabel || "Not set" },
+    { label: "Main service", value: record.qaServiceType || record.originalServiceType || "Not set" },
     { label: "Current frequency", value: clientAssessmentFrequencyContext(record) || "Not set" },
     { label: "Current address", value: compactMeta([record.address, record.area, record.postcode]) || "Not set" }
   ];
@@ -2325,28 +2367,30 @@ function renderAssessmentWizardStep1(record, values) {
   const frequencyContext = clientAssessmentFrequencyContext(record);
   return `
     <div class="assessment-wizard-layout">
-      <div class="assessment-wizard-main">
-        <section class="assessment-wizard-card assessment-client-summary-card">
-          <div class="assessment-client-summary">
-            <div class="assessment-client-avatar">${escapeHtml(initialsLabel(record.name))}</div>
-            <div class="assessment-client-copy">
-              <h3>Client summary</h3>
-              <strong>${escapeHtml(record.name || "")}</strong>
-              <p>Creating a new scoped assessment for an existing client.</p>
-            </div>
-            <div class="assessment-client-meta">
-              <div><span>Phone</span><strong>${escapeHtml(record.phone || "Not available")}</strong></div>
-              <div><span>Email</span><strong>${escapeHtml(record.email || "Not available")}</strong></div>
-              <div><span>Linked client ID</span><strong>#${escapeHtml(record.id || "")}</strong></div>
-            </div>
+      <section class="assessment-wizard-card assessment-client-summary-card">
+        <div class="assessment-client-summary">
+          <div class="assessment-client-avatar">${escapeHtml(initialsLabel(record.name))}</div>
+          <div class="assessment-client-copy">
+            <h3>Client summary</h3>
+            <strong>${escapeHtml(record.name || "")}</strong>
+            <p>Creating a new scoped assessment for an existing client.</p>
           </div>
-          <div class="assessment-hero-summary">
-            <span class="summary-pill">${escapeHtml(assessmentReasonOptions.find((option) => option.value === values.assessmentReason)?.label || "Extra work")}</span>
-            <span class="summary-pill soft">${escapeHtml(setupServiceTypeOptions().find((option) => option.value === values.serviceType)?.label || "Service to confirm")}</span>
-            <span class="summary-pill soft">${escapeHtml(optionLabel("frequency", values.frequency) || values.frequency || "Frequency to confirm")}</span>
+          <div class="assessment-client-meta">
+            <div><span>Phone</span><strong>${escapeHtml(record.phone || "Not available")}</strong></div>
+            <div><span>Email</span><strong>${escapeHtml(record.email || "Not available")}</strong></div>
+            <div><span>Linked client ID</span><strong>#${escapeHtml(record.id || "")}</strong></div>
           </div>
-        </section>
-        <div class="assessment-wizard-grid">
+        </div>
+        <div class="assessment-hero-summary">
+          <span class="summary-pill">${escapeHtml(assessmentReasonOptions.find((option) => option.value === values.assessmentReason)?.label || "Extra work")}</span>
+          <span class="summary-pill soft">${escapeHtml(setupServiceTypeOptions().find((option) => option.value === values.serviceType)?.label || "Service to confirm")}</span>
+          <span class="summary-pill soft">${escapeHtml(optionLabel("frequency", values.frequency) || values.frequency || "Frequency to confirm")}</span>
+        </div>
+      </section>
+      
+      <div class="assessment-wizard-grid">
+        <!-- Left Column -->
+        <div class="assessment-wizard-col-left">
           <section class="assessment-wizard-card">
             <h3>A. Assessment setup</h3>
             <div class="assessment-wizard-form-grid">
@@ -2356,19 +2400,8 @@ function renderAssessmentWizardStep1(record, values) {
               ${renderEditableInput("Service type", renderEditableSelect({ name: "serviceType", groupKey: null, currentValue: values.serviceType, staticOptions: serviceOptions, allowOtherOverride: false }))}
               ${renderEditableInput("Frequency", renderEditableSelect({ name: "frequency", groupKey: "frequency", currentValue: values.frequency }))}
             </div>
-            <p class="record-sub">Current cleaning plan frequency is ${escapeHtml(frequencyContext || "not set")} and is shown here as context only.</p>
           </section>
-          <section class="assessment-wizard-card">
-            <h3>D. Current client context</h3>
-            <div class="assessment-context-list">
-              ${assessmentWizardContextItems(record, values).map((item) => `
-                <div><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(item.value || "Not set")}</strong></div>
-              `).join("")}
-            </div>
-            <div class="workspace-placeholder muted">
-              <p>Used as context only; this assessment can be for different work or a different property.</p>
-            </div>
-          </section>
+          
           <section class="assessment-wizard-card">
             <h3>B. Property context</h3>
             <div class="assessment-property-mode-control" data-property-mode-control>
@@ -2378,7 +2411,38 @@ function renderAssessmentWizardStep1(record, values) {
             </div>
             ${wizardPropertyContextCard(record, values)}
           </section>
+          
           <section class="assessment-wizard-card">
+            <h3>C. Initial scope / customer request</h3>
+            <div class="initial-scope-container">
+              <textarea name="initialScopeNotes" maxlength="1000" rows="5" placeholder="What is the client asking for? Any important context or early scope notes?">${escapeHtml(values.initialScopeNotes || "")}</textarea>
+              <div class="char-counter"><span id="initial-scope-counter">${(values.initialScopeNotes || "").length}</span> / 1000 characters</div>
+            </div>
+          </section>
+        </div>
+        
+        <!-- Right Column -->
+        <div class="assessment-wizard-col-right">
+          <section class="assessment-wizard-card client-context-card">
+            <h3>D. Current client context</h3>
+            <div class="client-context-badges-list">
+              <div class="context-badge-item">
+                <span class="badge-label">Main Service</span>
+                <span class="badge-value pill">${escapeHtml(record.qaServiceLabel || record.originalServiceLabel || "Not set")}</span>
+              </div>
+              <div class="context-badge-item">
+                <span class="badge-label">Current Frequency</span>
+                <span class="badge-value pill">${escapeHtml(frequencyContext || "Not set")}</span>
+              </div>
+              <div class="context-badge-item">
+                <span class="badge-label">Current Address</span>
+                <span class="badge-value address-value">${escapeHtml(compactMeta([record.address, record.area, record.postcode]) || "Not set")}</span>
+              </div>
+            </div>
+            <p class="context-note">Used as context only; this assessment can be for different work or a different property.</p>
+          </section>
+          
+          <section class="assessment-wizard-card carry-over-card">
             <h3>E. Optional carry-over</h3>
             <p class="record-sub">Only optional context is copied. Client identity and property choice are already set by the wizard.</p>
             <div class="checkbox-stack">
@@ -2388,7 +2452,8 @@ function renderAssessmentWizardStep1(record, values) {
               ${renderPrefillOption("carryCleaningPlanNotes", "Cleaning plan notes", carryPreviewText(record, values, "carryCleaningPlanNotes"), values.carryCleaningPlanNotes)}
             </div>
           </section>
-          <section class="assessment-wizard-card field-span-2">
+          
+          <section class="assessment-wizard-card next-steps-card">
             <h3>F. What happens next</h3>
             <ol class="assessment-next-steps">
               <li>Create the assessment</li>
@@ -2406,9 +2471,10 @@ function renderAssessmentWizardStep2(record, values) {
   const propertyTypeOptions = leadStaticOptions.propertyType;
   return `
     <div class="assessment-wizard-layout">
-      <div class="assessment-wizard-main">
-        ${renderAssessmentWizardHero(record, values)}
-        <div class="assessment-wizard-grid">
+      ${renderAssessmentWizardHero(record, values)}
+      <div class="assessment-wizard-grid">
+        <!-- Left Column -->
+        <div class="assessment-wizard-col-left">
           <section class="assessment-wizard-card">
             <h3>Property details</h3>
             ${values.propertyMode === "unknown_address" ? `<div class="workspace-placeholder muted"><p>Address/property details can be completed later. Capture only what is known now so the assessment can move forward cleanly.</p></div>` : ""}
@@ -2423,31 +2489,26 @@ function renderAssessmentWizardStep2(record, values) {
               ${renderEditableInput("Bathrooms", `<input name="bathrooms" value="${escapeHtml(values.bathrooms || "")}" placeholder="Bathrooms">`)}
             </div>
           </section>
+        </div>
+        
+        <!-- Right Column -->
+        <div class="assessment-wizard-col-right">
           <section class="assessment-wizard-card">
             <h3>Access / parking</h3>
             <div class="assessment-wizard-form-grid">
               ${renderEditableInput("Access method", renderEditableSelect({ name: "accessMethod", groupKey: "access_method", currentValue: values.accessMethod, allowOtherOverride: false }))}
               ${renderEditableInput("Parking", `<input name="parking" value="${escapeHtml(values.parking || "")}" placeholder="Parking / arrival note">`)}
-              ${renderEditableInput("Access notes", `<textarea name="accessNotes" rows="4" placeholder="Access details for this assessment only">${escapeHtml(values.accessNotes || "")}</textarea>`, "field-span-2")}
+              ${renderEditableInput("Access notes", `<textarea name="accessNotes" rows="3" placeholder="Access details for this assessment only">${escapeHtml(values.accessNotes || "")}</textarea>`, "field-span-2")}
             </div>
           </section>
+          
           <section class="assessment-wizard-card">
             <h3>Pets / products / surfaces</h3>
             <div class="assessment-wizard-form-grid">
               ${renderEditableInput("Pets", renderEditableSelect({ name: "pets", groupKey: "pet_type", currentValue: values.pets, allowOtherOverride: false }))}
               ${renderEditableInput("Product preference", renderEditableSelect({ name: "productPreference", groupKey: "product_preference", currentValue: values.productPreference, allowOtherOverride: false }))}
-              ${renderEditableInput("Surface / material notes", `<textarea name="surfaceNotes" rows="4" placeholder="Materials, finishes, delicate surfaces, or product cautions">${escapeHtml(values.surfaceNotes || "")}</textarea>`, "field-span-2")}
+              ${renderEditableInput("Surface / material notes", `<textarea name="surfaceNotes" rows="3" placeholder="Materials, delicate surfaces, or cautions">${escapeHtml(values.surfaceNotes || "")}</textarea>`, "field-span-2")}
             </div>
-          </section>
-          <section class="assessment-wizard-card">
-            <h3>Assessment identity / context</h3>
-            ${workspaceSummaryRows([
-              ["Work label", wizardDisplayValue(values.workLabel)],
-              ["Address mode", values.propertyMode === "existing_home" ? "Existing property" : values.propertyMode === "another_address" ? "Another address" : "Address unknown"],
-              ["Property / address", wizardDisplayValue(compactMeta([values.propertyLabel, values.address, values.area, values.postcode]))],
-              ["Service", wizardDisplayValue(setupServiceTypeOptions().find((option) => option.value === values.serviceType)?.label || values.serviceType)],
-              ["Frequency", wizardDisplayValue(optionLabel("frequency", values.frequency) || values.frequency)]
-            ])}
           </section>
         </div>
       </div>
@@ -2458,25 +2519,29 @@ function renderAssessmentWizardStep2(record, values) {
 function renderAssessmentWizardStep3(record, values) {
   return `
     <div class="assessment-wizard-layout">
-      <div class="assessment-wizard-main">
-        ${renderAssessmentWizardHero(record, values)}
-        <div class="assessment-wizard-grid">
+      ${renderAssessmentWizardHero(record, values)}
+      <div class="assessment-wizard-grid">
+        <!-- Left Column -->
+        <div class="assessment-wizard-col-left">
           <section class="assessment-wizard-card">
-            <h3>Customer request / initial scope</h3>
+            <h3>Priority tasks & included areas</h3>
             <div class="assessment-wizard-form-grid">
-              ${renderEditableInput("Initial scope notes", `<textarea name="initialScopeNotes" rows="6" placeholder="What is the client asking for? Any important context, special requirements, or early scope notes?">${escapeHtml(values.initialScopeNotes || "")}</textarea>`, "field-span-2")}
-              ${renderEditableInput("Priority tasks", `<textarea name="priorityTasks" rows="4" placeholder="Priority areas or tasks to focus on first">${escapeHtml(values.priorityTasks || "")}</textarea>`)}
-              ${renderEditableInput("Areas included", `<textarea name="includedAreas" rows="4" placeholder="Rooms, zones, or areas included">${escapeHtml(values.includedAreas || "")}</textarea>`)}
+              ${renderEditableInput("Priority tasks", `<textarea name="priorityTasks" rows="3" placeholder="Priority areas or tasks to focus on first">${escapeHtml(values.priorityTasks || "")}</textarea>`, "field-span-2")}
+              ${renderEditableInput("Areas included", `<textarea name="includedAreas" rows="3" placeholder="Rooms, zones, or areas included">${escapeHtml(values.includedAreas || "")}</textarea>`, "field-span-2")}
             </div>
           </section>
+        </div>
+        
+        <!-- Right Column -->
+        <div class="assessment-wizard-col-right">
           <section class="assessment-wizard-card">
             <h3>Boundaries & checks</h3>
             <div class="assessment-wizard-form-grid">
-              ${renderEditableInput("Exclusions / not included", `<textarea name="exclusions" rows="3" placeholder="Anything not included or explicitly excluded">${escapeHtml(values.exclusions || "")}</textarea>`, "field-span-2")}
-              ${renderEditableInput("Special requirements", `<textarea name="specialRequirements" rows="3" placeholder="Special handling, products, timing, or customer requirements">${escapeHtml(values.specialRequirements || "")}</textarea>`, "field-span-2")}
-              ${renderEditableInput("Photos available", renderEditableSelect({ name: "photosAvailable", groupKey: null, currentValue: values.photosAvailable, staticOptions: assessmentPhotoOptions }))}
-              ${renderEditableInput("Risks / things to check", `<textarea name="risksToCheck" rows="3" placeholder="Risks, unknowns, or things to confirm before quoting">${escapeHtml(values.risksToCheck || "")}</textarea>`, "field-span-2")}
-              ${renderEditableInput("Internal / admin notes", `<textarea name="internalNotes" rows="4" placeholder="Internal-only notes for this assessment">${escapeHtml(values.internalNotes || "")}</textarea>`, "field-span-2")}
+              ${renderEditableInput("Exclusions / not included", `<textarea name="exclusions" rows="2" placeholder="Anything not included or explicitly excluded">${escapeHtml(values.exclusions || "")}</textarea>`, "field-span-2")}
+              ${renderEditableInput("Special requirements", `<textarea name="specialRequirements" rows="2" placeholder="Special handling, products, or timing">${escapeHtml(values.specialRequirements || "")}</textarea>`, "field-span-2")}
+              ${renderEditableInput("Photos available", renderEditableSelect({ name: "photosAvailable", groupKey: null, currentValue: values.photosAvailable, staticOptions: assessmentPhotoOptions }), "field-span-2")}
+              ${renderEditableInput("Risks / things to check", `<textarea name="risksToCheck" rows="2" placeholder="Risks, unknowns, or things to confirm">${escapeHtml(values.risksToCheck || "")}</textarea>`, "field-span-2")}
+              ${renderEditableInput("Internal / admin notes", `<textarea name="internalNotes" rows="3" placeholder="Internal-only notes for this assessment">${escapeHtml(values.internalNotes || "")}</textarea>`, "field-span-2")}
             </div>
           </section>
         </div>
@@ -2492,24 +2557,28 @@ function renderAssessmentWizardStep4(record, values) {
     values.carryPreviousAssessmentNotes ? "Previous assessment notes" : "",
     values.carryCleaningPlanNotes ? "Cleaning plan notes" : ""
   ].filter(Boolean).join(", ");
+  
   return `
     <div class="assessment-wizard-layout">
-      <div class="assessment-wizard-main">
-        ${renderAssessmentWizardHero(record, values)}
-        <div class="assessment-wizard-grid">
+      ${renderAssessmentWizardHero(record, values)}
+      <div class="assessment-wizard-grid">
+        <!-- Left Column -->
+        <div class="assessment-wizard-col-left">
           <section class="assessment-wizard-card">
-            <h3>Client / identity</h3>
+            <h3>Client & assessment setup</h3>
             ${workspaceSummaryRows([
-              ["Client", wizardDisplayValue(record.name, "Not available")],
+              ["Client name", wizardDisplayValue(record.name, "Not provided")],
               ["Linked client ID", `#${record.id}`],
               ["Work label", wizardDisplayValue(values.workLabel)],
-              ["Reason", wizardDisplayValue(assessmentReasonOptions.find((option) => option.value === values.assessmentReason)?.label || values.assessmentReason)],
+              ["Reason for assessment", wizardDisplayValue(assessmentReasonOptions.find((option) => option.value === values.assessmentReason)?.label || values.assessmentReason)],
               ["Service type", wizardDisplayValue(setupServiceTypeOptions().find((option) => option.value === values.serviceType)?.label || values.serviceType)],
-              ["Frequency", wizardDisplayValue(optionLabel("frequency", values.frequency) || values.frequency)]
+              ["Frequency", wizardDisplayValue(optionLabel("frequency", values.frequency) || values.frequency)],
+              ["Initial scope notes", wizardDisplayValue(values.initialScopeNotes)]
             ])}
           </section>
+          
           <section class="assessment-wizard-card">
-            <h3>Property / access</h3>
+            <h3>Property & access details</h3>
             ${workspaceSummaryRows([
               ["Property mode", values.propertyMode === "existing_home" ? "Existing property" : values.propertyMode === "another_address" ? "Another address" : "Address unknown"],
               ["Property label", wizardDisplayValue(values.propertyLabel)],
@@ -2520,33 +2589,37 @@ function renderAssessmentWizardStep4(record, values) {
               ["Bedrooms", wizardDisplayValue(values.bedrooms)],
               ["Bathrooms", wizardDisplayValue(values.bathrooms)],
               ["Property condition", wizardDisplayValue(values.propertyCondition)],
-              ["Parking", wizardDisplayValue(values.parking)],
+              ["Parking notes", wizardDisplayValue(values.parking)],
               ["Access method", wizardDisplayValue(values.accessMethod)],
               ["Access notes", wizardDisplayValue(values.accessNotes)],
-              ["Pets", wizardDisplayValue(values.pets)],
+              ["Pets context", wizardDisplayValue(values.pets)],
               ["Product preference", wizardDisplayValue(values.productPreference)],
-              ["Surface / material notes", wizardDisplayValue(values.surfaceNotes)]
+              ["Surface notes", wizardDisplayValue(values.surfaceNotes)]
             ])}
           </section>
+        </div>
+        
+        <!-- Right Column -->
+        <div class="assessment-wizard-col-right">
           <section class="assessment-wizard-card">
-            <h3>Scope / priorities</h3>
+            <h3>Scope, priorities & admin</h3>
             ${workspaceSummaryRows([
-              ["Initial scope notes", wizardDisplayValue(values.initialScopeNotes)],
               ["Priority tasks", wizardDisplayValue(values.priorityTasks)],
               ["Areas included", wizardDisplayValue(values.includedAreas)],
-              ["Exclusions / not included", wizardDisplayValue(values.exclusions)],
+              ["Exclusions", wizardDisplayValue(values.exclusions)],
               ["Special requirements", wizardDisplayValue(values.specialRequirements)],
               ["Photos available", wizardDisplayValue(values.photosAvailable)],
-              ["Risks / things to check", wizardDisplayValue(values.risksToCheck)],
-              ["Internal / admin notes", wizardDisplayValue(values.internalNotes)],
-              ["Optional carry-over", carryItems || "None"]
+              ["Risks to check", wizardDisplayValue(values.risksToCheck)],
+              ["Internal notes", wizardDisplayValue(values.internalNotes)],
+              ["Carry-over options", carryItems || "None"]
             ])}
           </section>
+          
           <section class="assessment-wizard-card">
-            <h3>System links</h3>
+            <h3>System linkages</h3>
             ${workspaceSummaryRows([
-              ["Source", "Existing Client"],
-              ["lead_id", "NULL"],
+              ["Source type", "existing_client"],
+              ["lead_id", "NULL (no lead associated)"],
               ["client_id", String(record.id)]
             ])}
             <div class="workspace-placeholder muted">
@@ -2600,38 +2673,30 @@ function captureAssessmentWizardForm(form) {
   if (!wizard) return;
   const values = wizard.values;
   const raw = Object.fromEntries(new FormData(form).entries());
-  Object.assign(values, {
-    workLabel: raw.workLabel || "",
-    assessmentReason: raw.assessmentReason || values.assessmentReason,
-    serviceType: raw.serviceType || values.serviceType,
-    frequency: raw.frequency || values.frequency,
-    propertyMode: raw.propertyMode || values.propertyMode,
-    propertyLabel: raw.propertyLabel || "",
-    area: raw.area || "",
-    address: raw.address || "",
-    postcode: raw.postcode || "",
-    propertyType: raw.propertyType || "",
-    bedrooms: raw.bedrooms || "",
-    bathrooms: raw.bathrooms || "",
-    propertyCondition: raw.propertyCondition || "",
-    parking: raw.parking || "",
-    accessMethod: raw.accessMethod || "",
-    accessNotes: raw.accessNotes || "",
-    pets: raw.pets || "",
-    productPreference: raw.productPreference || "",
-    surfaceNotes: raw.surfaceNotes || "",
-    initialScopeNotes: raw.initialScopeNotes || "",
-    priorityTasks: raw.priorityTasks || "",
-    includedAreas: raw.includedAreas || "",
-    exclusions: raw.exclusions || "",
-    specialRequirements: raw.specialRequirements || "",
-    photosAvailable: raw.photosAvailable || "",
-    internalNotes: raw.internalNotes || "",
-    risksToCheck: raw.risksToCheck || "",
-    carryAccessParking: form.querySelector('[name="carryAccessParking"]')?.checked ?? values.carryAccessParking,
-    carryPetsProducts: form.querySelector('[name="carryPetsProducts"]')?.checked ?? values.carryPetsProducts,
-    carryPreviousAssessmentNotes: form.querySelector('[name="carryPreviousAssessmentNotes"]')?.checked ?? values.carryPreviousAssessmentNotes,
-    carryCleaningPlanNotes: form.querySelector('[name="carryCleaningPlanNotes"]')?.checked ?? values.carryCleaningPlanNotes
+  const fields = [
+    "workLabel", "assessmentReason", "serviceType", "frequency", "propertyMode",
+    "propertyLabel", "area", "address", "postcode", "propertyType", "bedrooms",
+    "bathrooms", "propertyCondition", "parking", "accessMethod", "accessNotes",
+    "pets", "productPreference", "surfaceNotes", "initialScopeNotes", "priorityTasks",
+    "includedAreas", "exclusions", "specialRequirements", "photosAvailable",
+    "internalNotes", "risksToCheck"
+  ];
+  fields.forEach((field) => {
+    if (raw[field] !== undefined) {
+      values[field] = raw[field];
+    }
+  });
+  const checkboxes = [
+    "carryAccessParking",
+    "carryPetsProducts",
+    "carryPreviousAssessmentNotes",
+    "carryCleaningPlanNotes"
+  ];
+  checkboxes.forEach((cb) => {
+    const el = form.querySelector(`[name="${cb}"]`);
+    if (el) {
+      values[cb] = el.checked;
+    }
   });
 }
 
@@ -2640,6 +2705,11 @@ function updateAssessmentWizardModeAndLabel(form) {
   const wizard = state.assessmentWizard;
   if (!wizard) return;
   captureAssessmentWizardForm(form);
+  
+  // Apply carry-over rules based on active check states
+  const record = assessmentWizardRecord();
+  applyCarryOverPrefills(wizard, record);
+  
   suggestAssessmentWorkLabel(form);
   renderAssessmentWizardModal();
 }
@@ -5664,7 +5734,19 @@ function bindEvents() {
   });
   document.getElementById("assessment-setup-form")?.addEventListener("change", (event) => {
     if (!state.assessmentWizard) return;
-    if (["propertyMode", "propertyLabel", "area", "address", "serviceType", "assessmentReason", "frequency"].includes(event.target?.name)) {
+    if ([
+      "propertyMode",
+      "propertyLabel",
+      "area",
+      "address",
+      "serviceType",
+      "assessmentReason",
+      "frequency",
+      "carryAccessParking",
+      "carryPetsProducts",
+      "carryPreviousAssessmentNotes",
+      "carryCleaningPlanNotes"
+    ].includes(event.target?.name)) {
       updateAssessmentWizardModeAndLabel(event.currentTarget);
     } else {
       captureAssessmentWizardForm(event.currentTarget);
@@ -5674,6 +5756,10 @@ function bindEvents() {
     if (!state.assessmentWizard) return;
     if (event.target?.name === "workLabel") {
       state.assessmentWizard.workLabelManual = Boolean(event.target.value.trim());
+    }
+    if (event.target?.name === "initialScopeNotes") {
+      const counter = document.getElementById("initial-scope-counter");
+      if (counter) counter.textContent = event.target.value.length;
     }
     if (["propertyLabel", "area", "address", "serviceType"].includes(event.target?.name)) {
       updateAssessmentWizardModeAndLabel(event.currentTarget);

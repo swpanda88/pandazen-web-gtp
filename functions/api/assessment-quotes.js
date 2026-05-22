@@ -176,7 +176,7 @@ async function createAssessmentFromClient(db, body) {
       VALUES (?, ?, 'existing_client', ?, 'draft', ?, 'new', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
-      client.leadId || null,
+      null,
       client.id,
       purpose,
       assessmentType,

@@ -1152,6 +1152,10 @@ mark.rose {
   min-width: 0;
 }
 
+.workspace-row[data-workspace-view="clients"] > .record-open {
+  grid-template-columns: minmax(150px, 1.3fr) minmax(120px, 0.8fr) minmax(90px, 0.55fr);
+}
+
 .workspace-row.is-expanded > .record-open {
   display: flex;
   flex-wrap: wrap;

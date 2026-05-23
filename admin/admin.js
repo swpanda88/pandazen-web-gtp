@@ -735,9 +735,7 @@ function cleanWorkLabel(record) {
 }
 
 function globalAssessmentSecondary(record) {
-  const cleanedLabel = (record?.workLabel && record.workLabel !== (record.customerName || record.client)) ? cleanWorkLabel(record) : "";
-  const propCtx = assessmentPropertyContext(record) || compactMeta([record?.area, record?.postcode]);
-  return [cleanedLabel, propCtx].filter(Boolean).join(" · ");
+  return assessmentPropertyContext(record) || compactMeta([record?.area, record?.postcode]) || "";
 }
 
 function globalAssessmentColumn2Secondary(record) {
@@ -4511,6 +4509,7 @@ function renderWorkspaceActionPanel(view, record, activeTab) {
 function workspaceRow(view, type, record, cells, defaultTab = "overview") {
   const expanded = isWorkspaceExpanded(view, record);
   const row = el("article", `record-row workspace-row ${expanded ? "is-expanded" : ""}`.trim());
+  row.setAttribute("data-workspace-view", view);
   
   let actionPanelHtml = "";
   if (expanded) {
@@ -5501,7 +5500,7 @@ function renderTables() {
     cells: (assessment) => [
       `<div class="record-main">${escapeHtml(assessmentCustomerName(assessment))}</div><div class="record-sub">${escapeHtml(globalAssessmentSecondary(assessment))}</div>`,
       `${escapeHtml(assessment.serviceLabel || assessment.serviceType || "Service pending")}<div class="record-sub">${escapeHtml(globalAssessmentColumn2Secondary(assessment))}</div>`,
-      `${escapeHtml(assessment.accountingQuote?.displayReference || assessment.estimate || "Estimate pending")}<div class="record-sub">${escapeHtml(compactMeta([assessment.quoteRange || "", assessment.linkedClientName ? `Client: ${assessment.linkedClientName}` : "", formatDateTime(assessment.updatedAt)]))}</div>`,
+      `${escapeHtml(assessment.accountingQuote?.displayReference || assessment.estimate || "Estimate pending")}<div class="record-sub">${escapeHtml(compactMeta([assessment.quoteRange || "", formatDateTime(assessment.updatedAt)]))}</div>`,
       `<span class="pill warn">${escapeHtml(assessmentStatusDisplay(assessment))}</span>`
     ],
     renderWorkspace: renderAssessmentWorkspace
@@ -5519,7 +5518,7 @@ function renderTables() {
     cells: (assessment) => [
       `<div class="record-main">${escapeHtml(assessmentCustomerName(assessment))}</div><div class="record-sub">${escapeHtml(globalAssessmentSecondary(assessment))}</div>`,
       `${escapeHtml(assessment.serviceLabel || assessment.serviceType || "Service pending")}<div class="record-sub">${escapeHtml(globalAssessmentColumn2Secondary(assessment))}</div>`,
-      `${escapeHtml(assessment.accountingQuote?.displayReference || assessment.estimate || "Estimate pending")}<div class="record-sub">${escapeHtml(compactMeta([assessment.quoteRange || "", assessment.linkedClientName ? `Client: ${assessment.linkedClientName}` : "", formatDateTime(assessment.updatedAt)]))}</div>`,
+      `${escapeHtml(assessment.accountingQuote?.displayReference || assessment.estimate || "Estimate pending")}<div class="record-sub">${escapeHtml(compactMeta([assessment.quoteRange || "", formatDateTime(assessment.updatedAt)]))}</div>`,
       `<span class="pill blue">${escapeHtml(assessment.isConverted || assessment.convertedClientId ? "Converted" : assessmentStatusDisplay(assessment))}</span>`
     ],
     renderWorkspace: renderAssessmentWorkspace
@@ -5543,7 +5542,6 @@ function renderTables() {
     countLabel: "active",
     cells: (client) => [
       `<div class="record-main">${escapeHtml(client.name || "")}</div><div class="record-sub">${escapeHtml(compactMeta([client.area, client.address]))}</div>`,
-      `${escapeHtml(clientServiceLabel(client) || "Service pending")}<div class="record-sub">${escapeHtml(clientFrequencyLabel(client) || "")}</div>`,
       `${escapeHtml(client.manHours ? `${client.manHours} man-hours` : "Plan pending")}<div class="record-sub">${escapeHtml(compactMeta([client.mainCleaner, client.helper]))}</div>`,
       `<span class="pill">${escapeHtml(clientStatusDisplay(client))}</span>`
     ],
@@ -5561,7 +5559,6 @@ function renderTables() {
     countLabel: "records",
     cells: (client) => [
       `<div class="record-main">${escapeHtml(client.name || "")}</div><div class="record-sub">${escapeHtml(compactMeta([client.area, client.address]))}</div>`,
-      `${escapeHtml(clientServiceLabel(client) || "Service pending")}<div class="record-sub">${escapeHtml(clientFrequencyLabel(client) || "")}</div>`,
       `${escapeHtml(client.manHours ? `${client.manHours} man-hours` : "Plan pending")}<div class="record-sub">${escapeHtml(compactMeta([client.mainCleaner, client.helper]))}</div>`,
       `<span class="pill blue">${escapeHtml(clientStatusDisplay(client))}</span>`
     ],

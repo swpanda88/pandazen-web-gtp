@@ -2422,14 +2422,12 @@ function renderAssessmentWizardStep1(record, values) {
         <div class="assessment-wizard-col-left">
           <section class="assessment-wizard-card">
             <h3>A. Assessment setup</h3>
-            <div class="wizard-three-col-grid">
+            <div class="wizard-table-section">
               <input type="hidden" name="propertyMode" value="${escapeHtml(values.propertyMode || "existing_home")}">
-              <div class="wizard-span-three">
-                ${renderEditableInput("Work label", `<input name="workLabel" value="${escapeHtml(values.workLabel || "")}" placeholder="e.g. One-off cleaning - 5 Garden Lane">`)}
-              </div>
-              ${renderEditableInput("Reason for opening assessment", renderEditableSelect({ name: "assessmentReason", groupKey: null, currentValue: values.assessmentReason, staticOptions: assessmentReasonOptions }))}
-              ${renderEditableInput("Service type", renderEditableSelect({ name: "serviceType", groupKey: null, currentValue: values.serviceType, staticOptions: serviceOptions, allowOtherOverride: false }))}
-              ${renderEditableInput("Frequency", renderEditableSelect({ name: "frequency", groupKey: "frequency", currentValue: values.frequency }))}
+              ${renderWizardTableRow("Work label", `<input name="workLabel" value="${escapeHtml(values.workLabel || "")}" placeholder="e.g. One-off cleaning - 5 Garden Lane">`)}
+              ${renderWizardTableRow("Reason for opening assessment", renderEditableSelect({ name: "assessmentReason", groupKey: null, currentValue: values.assessmentReason, staticOptions: assessmentReasonOptions }))}
+              ${renderWizardTableRow("Service type", renderEditableSelect({ name: "serviceType", groupKey: null, currentValue: values.serviceType, staticOptions: serviceOptions, allowOtherOverride: false }))}
+              ${renderWizardTableRow("Frequency", renderEditableSelect({ name: "frequency", groupKey: "frequency", currentValue: values.frequency }))}
             </div>
           </section>
           

@@ -4,8 +4,22 @@ This glossary is the stable naming layer between product discussions, implementa
 
 Use it together with:
 
-- [pandazen-functional-architecture.md](C:/Users/sewer/Documents/Codex/2026-05-05/how-do-i-work-with-you/github-worktree/docs/pandazen-functional-architecture.md)
-- [admin-operations-blueprint.md](C:/Users/sewer/Documents/Codex/2026-05-05/how-do-i-work-with-you/github-worktree/docs/admin-operations-blueprint.md)
+- `docs/pandazen-functional-architecture.md`
+- `docs/admin-operations-blueprint.md`
+- `docs/pandazen-product-scope-and-principles.md`
+
+## Locked object chain
+
+```text
+Client / Customer
+  -> Property / Home / Location
+    -> Assessment / Scoped Work
+      -> Quote
+        -> Job / Work Order
+          -> Visit / Appointment
+            -> Billable Event
+              -> Invoice / Payment
+```
 
 ## Lead
 
@@ -31,50 +45,49 @@ Use it together with:
 - may produce the first Assessment
 - may later become or link to Client + Property
 
-## Client
+## Client / Customer
 
 **Purpose**
 - Relationship, payer, main contact, and long-term customer record.
-
-**Created when**
-- PandaZen accepts or converts work into an active customer relationship.
 
 **Owns**
 - customer identity
 - main contact details
 - relationship status
 - linked Properties
-- linked Assessments, Quotes, Jobs, Visits, Invoices, Tasks, and Notes
+- billing address if different from service address
+- linked Assessments, Quotes, Jobs, Visits, Billable Events, Invoices, Tasks, and Notes
 
 **Must not own**
 - all scoped-work detail in one undifferentiated block
 - one-off assessment-specific scope notes
+- duplicate work locations just because billing address is different
 
 **Key relationships**
 - can have multiple Properties
 - can have multiple Assessments over time
+- invoices belong to Client
 
 ## Property / Home / Location
 
 **Purpose**
 - Where work happens.
 
-**Created when**
-- A service location is known well enough to be stored operationally.
-
 **Owns**
-- address and area
+- service address and area
 - property-specific cleaning context
-- access and logistics details
+- access/logistics details
+- home-specific notes
 
 **Must not own**
 - the entire customer relationship
 - quote lifecycle
-- invoice history
+- invoice/payment lifecycle
 
 **Key relationships**
 - belongs to one Client
 - can have multiple Assessments and Jobs over time
+- Visits happen at a Property
 
 ## Assessment / Scoped Work
 
@@ -88,7 +101,7 @@ Use it together with:
 
 **Owns**
 - scope and service context for this piece of work
-- property/access details for this assessment
+- property/access details relevant to this assessment
 - internal assessment notes
 - quote-prep data
 
@@ -114,6 +127,7 @@ Use it together with:
 **Owns**
 - commercial reference/version
 - commercial scope presentation
+- pricing/validity terms
 - sent / accepted / rejected / expired lifecycle
 
 **Must not own**
@@ -124,7 +138,7 @@ Use it together with:
 **Key relationships**
 - belongs to one Assessment
 - may link to one Client
-- accepted Quote should eventually trigger Job / Work Order
+- accepted Quote creates or enables Job / Work Order shell
 
 ## Job / Work Order
 
@@ -135,18 +149,44 @@ Use it together with:
 - After accepted Quote, or later from a recurring service plan.
 
 **Owns**
+- operational job spec
 - work to be delivered
 - operational status
-- assignment and scheduling linkage
+- assignment/scheduling context
 
 **Must not own**
 - raw lead qualification data
 - quote version history
-- invoice payment history
+- invoice/payment history
 
 **Key relationships**
 - derived from accepted work
 - can have one or more Visits
+- recurring cleaning can be represented as a Recurring Job / Cleaning Plan
+
+## Recurring Job / Cleaning Plan
+
+**Purpose**
+- Repeating delivery pattern for recurring cleaning.
+
+**Created when**
+- Accepted Quote confirms recurring cleaning.
+
+**Owns**
+- recurrence pattern
+- default duration
+- preferred service window
+- default cleaner/team if known
+- plan-level operational notes
+
+**Must not own**
+- invoice/payment state
+- every generated visit as a separate job definition
+
+**Key relationships**
+- belongs to Client + Property
+- generates Visits for a selected horizon, e.g. 1w / 2w / 4w
+- generated schedule items are Visits, not Jobs
 
 ## Visit / Appointment
 
@@ -155,40 +195,97 @@ Use it together with:
 
 **Created when**
 - Work is assigned to a date/time/window.
+- A recurring plan generates upcoming schedule items.
+- An unscheduled Visit is dragged into the scheduler.
 
 **Owns**
 - timing
+- cleaner/team assignment
+- duration
 - visit status
 - visit-specific completion or issue notes
 
 **Must not own**
 - the whole job definition
 - quote lifecycle
+- invoice/payment lifecycle
 
 **Key relationships**
-- belongs to one Job / Work Order
+- belongs to one Job / Work Order or Recurring Job / Cleaning Plan
+- completed Visit creates a Billable Event
+
+## Billable Event
+
+**Purpose**
+- Chargeable work item created from completed work or another approved chargeable action.
+
+**Created when**
+- Visit is completed
+- no-access/cancellation charge is confirmed
+- extra approved charge is recorded
+
+**Owns**
+- billable date
+- source object reference, usually Visit
+- billable description
+- quantity/rate/amount where applicable
+- billed/unbilled state
+
+**Must not own**
+- the full invoice document
+- the full job or visit history
+- payment state beyond whether it has been invoiced/voided
+
+**Key relationships**
+- belongs to Client
+- usually links to Property and Visit
+- selected by Invoice Builder when unbilled
+- becomes invoice line/source when invoiced
 
 ## Invoice
 
 **Purpose**
-- Payment request for billable work.
+- Payment request for one or more Billable Events.
 
 **Created when**
-- Completed work is ready to charge.
+- Invoice Builder selects unbilled Billable Events and generates the invoice.
 
 **Owns**
 - invoice number
-- amount due
 - invoice lines
-- issue / due / paid status
+- amount due
+- issue / due / paid / void status
+- billing address snapshot
 
 **Must not own**
 - raw scoping notes
 - job planning state
+- customer relationship notes unrelated to billing
 
 **Key relationships**
 - belongs to one Client
-- later may include multiple billable work items
+- may include one or more Billable Events
+- payment tracking follows the Invoice/Payment layer
+
+## Payment
+
+**Purpose**
+- Records money received or payment status against an Invoice.
+
+**Created when**
+- Payment is logged or synced later from a payment/accounting flow.
+
+**Owns**
+- amount received
+- date received
+- method/reference if needed
+
+**Must not own**
+- delivery status
+- quote acceptance status
+
+**Key relationships**
+- belongs to one Invoice
 
 ## Task
 
@@ -206,9 +303,10 @@ Use it together with:
 
 **Must not own**
 - the full business record it points to
+- hidden workflow status that belongs on the real object
 
 **Key relationships**
-- may link to Lead, Client, Property, Assessment, Quote, Job, or Invoice
+- may link to Lead, Client, Property, Assessment, Quote, Job, Visit, Billable Event, or Invoice
 
 ## Note
 
@@ -227,4 +325,4 @@ Use it together with:
 - key identity data that should live in dedicated fields
 
 **Key relationships**
-- may attach to Lead, Client, Assessment, Quote, Job, or Invoice
+- may attach to Lead, Client, Property, Assessment, Quote, Job, Visit, Billable Event, or Invoice

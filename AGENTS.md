@@ -1,4 +1,4 @@
-# AGENTS.md — PandaZen Web/Admin Build Rules
+# AGENTS.md - PandaZen Web/Admin Build Rules
 
 ## Project
 
@@ -6,7 +6,7 @@ PandaZen is a trust-led domestic cleaning business system.
 
 The current priority is:
 
-Lead Capture + Admin Review + Quote Assist
+Assessment + Quote workflow on top of the Client -> Property -> Assessment hierarchy
 
 Do not build future modules unless explicitly requested.
 
@@ -15,6 +15,8 @@ Do not build future modules unless explicitly requested.
 Use:
 
 - `docs/admin-operations-blueprint.md` as the product/build blueprint.
+- `docs/pandazen-functional-architecture.md` as the core hierarchy and object model.
+- `docs/pandazen-object-glossary.md` as the stable naming and definition guide.
 - This `AGENTS.md` for stable coding and project rules.
 
 If there is a conflict, ask for clarification or follow the blueprint for product behaviour and this file for coding discipline.
@@ -25,9 +27,9 @@ Work module by module.
 
 Current workflow target:
 
-Public enquiry form → Lead record → Admin task → Admin review → Quote Assist → Next action
+Public enquiry form -> Lead -> Assessment -> Quote -> Client & Home -> future Job / Visit / Invoice
 
-Do not implement clients, jobs, invoices, staff, file uploads, scheduling, cleaner app, or accounting unless specifically requested.
+Lead capture, Quote Assist, Assessments, Quote workflow, and Client & Home are now part of the accepted core architecture. Do not jump ahead into Jobs, Visits, Invoices, cleaner app, or broader accounting workflows unless specifically requested.
 
 Keep changes small and modular.
 
@@ -42,6 +44,15 @@ Prefer:
 Avoid mixing unrelated work.
 
 Use Codex for focused implementation, bug fixes, testable docs updates and specific PR review fixes. Use chat/planning outside Codex for vague brainstorming, business logic debates and issue drafting. Every Codex task should reference one clear issue/PR with purpose, scope, exclusions, required behaviour and acceptance criteria.
+
+Future implementation must follow `docs/pandazen-functional-architecture.md`. In particular:
+
+- Client / Customer is the top relationship object.
+- Property / Home / Location sits below Client.
+- Assessment is the internal scoped-work record.
+- Quote is the commercial offer.
+- Accepted Quote is the long-term trigger for Job / Work Order creation.
+- Existing-client extra work must create a new Assessment under the same Client, not a duplicate Client or Lead.
 
 ## Data and Security
 

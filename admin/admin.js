@@ -687,6 +687,33 @@ function compactMeta(items) {
   return items.filter(Boolean).join(" - ");
 }
 
+function formatAddressContext(parts) {
+  const cleanParts = [];
+  for (let p of parts) {
+    if (!p) continue;
+    const str = String(p).trim();
+    if (!str) continue;
+    let handled = false;
+    for (let i = 0; i < cleanParts.length; i++) {
+      if (cleanParts[i].toLowerCase().includes(str.toLowerCase())) {
+        handled = true;
+        break;
+      }
+      if (str.toLowerCase().includes(cleanParts[i].toLowerCase())) {
+        cleanParts[i] = str;
+        handled = true;
+        break;
+      }
+    }
+    if (!handled) cleanParts.push(str);
+  }
+  const finalParts = [];
+  for (let p of cleanParts) {
+    if (!finalParts.includes(p)) finalParts.push(p);
+  }
+  return finalParts.join(", ");
+}
+
 function humanizeToken(value) {
   return String(value || "")
     .replace(/_/g, " ")
@@ -722,7 +749,7 @@ function assessmentCustomerName(record) {
 }
 
 function globalAssessmentSecondary(record) {
-  return assessmentPropertyContext(record) || compactMeta([record?.area, record?.postcode]) || "";
+  return assessmentPropertyContext(record);
 }
 
 function globalAssessmentColumn2Secondary(record) {
@@ -734,7 +761,7 @@ function assessmentTitle(record) {
 }
 
 function assessmentPropertyContext(record) {
-  return compactMeta([record?.propertyLabel, record?.propertyAddress || record?.address, record?.area, record?.postcode]);
+  return formatAddressContext([record?.propertyLabel, record?.propertyAddress || record?.address, record?.area, record?.postcode]);
 }
 
 function initialsLabel(value) {
@@ -2430,10 +2457,10 @@ function assessmentWizardContextItems(record, values) {
   const items = [
     { label: "Main service", value: record.qaServiceType || record.originalServiceType || "Not set" },
     { label: "Current frequency", value: clientAssessmentFrequencyContext(record) || "Not set" },
-    { label: "Current address", value: compactMeta([record.address, record.area, record.postcode]) || "Not set" }
+    { label: "Current address", value: formatAddressContext([record.address, record.area, record.postcode]) || "Not set" }
   ];
   if (values.propertyMode === "another_address") {
-    items.push({ label: "Assessment address", value: compactMeta([values.propertyLabel, values.address, values.area, values.postcode]) || "Will be entered next" });
+    items.push({ label: "Assessment address", value: formatAddressContext([values.propertyLabel, values.address, values.area, values.postcode]) || "Will be entered next" });
   } else if (values.propertyMode === "unknown_address") {
     items.push({ label: "Assessment address", value: values.propertyLabel || "Address TBC" });
   }
@@ -2467,7 +2494,7 @@ function renderAssessmentWizardHero(record, values) {
 
 function wizardPropertyContextCard(record, values) {
   if (values.propertyMode === "another_address") {
-    const propertySummary = compactMeta([
+    const propertySummary = formatAddressContext([
       values.address,
       values.area,
       values.postcode
@@ -2489,7 +2516,7 @@ function wizardPropertyContextCard(record, values) {
       </div>
     `;
   }
-  const propertySummary = compactMeta([
+  const propertySummary = formatAddressContext([
     record.address,
     record.area,
     record.postcode
@@ -2573,8 +2600,8 @@ function renderAssessmentWizardStep1(record, values) {
                 <span class="badge-value pill">${escapeHtml(frequencyContext || "Not set")}</span>
               </div>
               <div class="context-badge-item">
-                <span class="badge-label">Current Address</span>
-                <span class="badge-value address-value">${escapeHtml(compactMeta([record.address, record.area, record.postcode]) || "Not set")}</span>
+                <span class="badge-label">Linked property:</span>
+                <span class="badge-value address-value">${escapeHtml(formatAddressContext([record.address, record.area, record.postcode]) || "Not set")}</span>
               </div>
             </div>
             <p class="context-note">Used as context only; this assessment can be for different work or a different property.</p>
@@ -2862,7 +2889,7 @@ function renderAssessmentWizardModal() {
   const form = document.getElementById("assessment-setup-form");
   if (!record || !body || !form) return;
   body.innerHTML = renderAssessmentWizardBody(record);
-  form.dataset.clientAddress = compactMeta([record.address, record.area, record.postcode]) || "";
+  form.dataset.clientAddress = formatAddressContext([record.address, record.area, record.postcode]) || "";
   syncAssessmentWizardChrome();
 }
 
@@ -4810,7 +4837,7 @@ function renderAssessmentQuoteBuilder(record) {
           <h4 style="margin:0 0 8px; font-size:0.9rem; color:var(--forest); border-bottom:1px solid var(--line); padding-bottom:4px;">Assessment Source Context</h4>
           <div class="context-details">
             <div><strong>Client:</strong> ${escapeHtml(record.customerName || record.client || "")}</div>
-            <div><strong>Location:</strong> ${escapeHtml(compactMeta([record.area, record.postcode])) || "Not Specified"}</div>
+            <div><strong>Location:</strong> ${escapeHtml(formatAddressContext([record.area, record.postcode])) || "Not Specified"}</div>
             <div><strong>Service Type:</strong> ${escapeHtml(record.serviceLabel || record.serviceType || "")}</div>
             <div><strong>Frequency:</strong> ${escapeHtml(record.frequencyLabel || record.frequency || "")}</div>
             <div><strong>Property Details:</strong> ${escapeHtml(compactMeta([record.propertyType, record.bedrooms ? `${record.bedrooms} Bedrooms` : "", record.bathrooms ? `${record.bathrooms} Bathrooms` : ""]))}</div>
@@ -5061,7 +5088,7 @@ function renderAssessmentWorkspaceTab(record, tab) {
     ["Property", assessmentPropertyContext(record)],
     ["Phone", record.phone],
     ["Email", record.email],
-    ["Area / postcode", compactMeta([record.area, record.postcode])],
+    ["Area / postcode", formatAddressContext([record.area, record.postcode])],
     ["Source", assessmentSourceDisplay(record)],
     ["Purpose", assessmentPurposeDisplay(record)],
     ["Service", record.serviceLabel || record.serviceType],
@@ -5260,7 +5287,7 @@ function renderClientWorkspaceTab(record, tab) {
             (assessment) => `
               <article class="workspace-list-item">
                 <strong>${escapeHtml(compactMeta([assessment.serviceLabel || assessment.serviceType, assessmentPurposeDisplay(assessment)]) || assessmentCustomerName(assessment))}</strong>
-                <p>${escapeHtml(assessmentPropertyContext(assessment) || compactMeta([assessment.area, assessment.postcode]))}</p>
+                <p>${escapeHtml(assessmentPropertyContext(assessment))}</p>
                 <small>${escapeHtml(compactMeta([
                   record.name,
                   assessmentSourceDisplay(assessment),
@@ -5361,7 +5388,7 @@ function renderClientWorkspaceTab(record, tab) {
         ["Client", record.name],
         ["Phone", record.phone],
         ["Email", record.email],
-        ["Area / address", compactMeta([record.area, record.address])],
+        ["Area / address", formatAddressContext([record.area, record.address])],
         ["Status", clientStatusDisplay(record)],
         ["Linked lead", clientOriginalLeadId(record) ? `#${clientOriginalLeadId(record)}` : ""],
         ["Primary Assessment", record.assessmentQuoteId ? `#${record.assessmentQuoteId}` : ""],
@@ -5376,7 +5403,7 @@ function renderClientWorkspaceTab(record, tab) {
           (assessment) => `
             <article class="workspace-list-item">
               <strong>${escapeHtml(compactMeta([assessment.serviceLabel || assessment.serviceType, assessmentPurposeDisplay(assessment)]) || assessmentCustomerName(assessment))}</strong>
-              <p>${escapeHtml(compactMeta([assessmentPropertyContext(assessment), assessment.area, assessment.postcode]))}</p>
+              <p>${escapeHtml(assessmentPropertyContext(assessment))}</p>
               <small>${escapeHtml(compactMeta([assessmentStatusDisplay(assessment), assessment.accountingQuote?.displayReference, formatDateTime(assessment.updatedAt)]))}</small>
               <div class="drawer-actions compact">
                 <button class="ghost" type="button" data-open-linked-assessment="${escapeHtml(assessment.id)}">Open assessment</button>
@@ -5482,7 +5509,7 @@ function renderTables() {
     countTarget: clientCount,
     countLabel: "active",
     cells: (client) => [
-      `<div class="record-main">${escapeHtml(client.name || "")}</div><div class="record-sub">${escapeHtml(compactMeta([client.area, client.address]))}</div>`,
+      `<div class="record-main">${escapeHtml(client.name || "")}</div><div class="record-sub">${escapeHtml(formatAddressContext([client.address, client.area]))}</div>`,
       `${escapeHtml(client.manHours ? `${client.manHours} man-hours` : "Plan pending")}<div class="record-sub">${escapeHtml(compactMeta([client.mainCleaner, client.helper]))}</div>`,
       `<span class="pill">${escapeHtml(clientStatusDisplay(client))}</span>`
     ],
@@ -5499,7 +5526,7 @@ function renderTables() {
     countTarget: clientHistoryCount,
     countLabel: "records",
     cells: (client) => [
-      `<div class="record-main">${escapeHtml(client.name || "")}</div><div class="record-sub">${escapeHtml(compactMeta([client.area, client.address]))}</div>`,
+      `<div class="record-main">${escapeHtml(client.name || "")}</div><div class="record-sub">${escapeHtml(formatAddressContext([client.address, client.area]))}</div>`,
       `${escapeHtml(client.manHours ? `${client.manHours} man-hours` : "Plan pending")}<div class="record-sub">${escapeHtml(compactMeta([client.mainCleaner, client.helper]))}</div>`,
       `<span class="pill blue">${escapeHtml(clientStatusDisplay(client))}</span>`
     ],

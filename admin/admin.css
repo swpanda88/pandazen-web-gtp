@@ -1139,6 +1139,8 @@ mark.rose {
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
   background: #fcfdfb;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
 }
 
 .workspace-row > .record-open {
@@ -1150,6 +1152,44 @@ mark.rose {
   min-width: 0;
 }
 
+.workspace-row.is-expanded > .record-open {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  width: auto;
+}
+
+.workspace-row.is-expanded > .record-open > div {
+  width: auto;
+  min-width: 0;
+}
+
+.workspace-row.is-expanded > .workspace-action-panel {
+  grid-column: 2 / 3;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
+
+.workspace-action-panel button {
+  font-size: 0.8rem;
+  padding: 4px 8px;
+  min-height: 28px;
+  border-radius: 4px;
+  white-space: nowrap;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.workspace-action-panel .status-msg {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-right: 8px;
+}
+
 .workspace-row-slot {
   margin-top: -1px;
 }
@@ -1159,6 +1199,16 @@ mark.rose {
   width: 100%;
   min-height: 36px;
   align-self: center;
+}
+
+.workspace-row.is-expanded > .row-expand-button {
+  grid-column: 3 / 4;
+  width: auto;
+  min-width: 60px;
+  padding: 4px 8px;
+  min-height: 28px;
+  font-size: 0.8rem;
+  border-radius: 4px;
 }
 
 .expandable-workspace {

@@ -1901,18 +1901,6 @@ function workspaceEditHeader({
         <h4>${escapeHtml(title)}</h4>
         ${helper ? `<p>${escapeHtml(helper)}</p>` : ""}
       </div>
-      <div class="drawer-actions compact workspace-edit-actions">
-        ${
-          editing
-            ? `
-              <button class="ghost workspace-cancel-trigger" type="button" ${cancelAction}>Cancel</button>
-              <button class="primary workspace-save-trigger" type="submit">${escapeHtml(saveLabel)}</button>
-            `
-            : editAction
-              ? `<button class="${escapeHtml(editButtonClass)}" type="button" ${editAction}>${escapeHtml(editLabel)}</button>`
-              : ""
-        }
-      </div>
     </div>
   `;
 }
@@ -3467,8 +3455,9 @@ async function refreshQuoteLinkedViews(assessmentQuoteId, clientId = null) {
 }
 
 function setAssessmentActionStatus(message) {
-  const status = drawer.querySelector("[data-assessment-action-status]");
-  if (status) status.textContent = message;
+  document.querySelectorAll("[data-assessment-action-status]").forEach((node) => {
+    node.textContent = message;
+  });
 }
 
 function setQuoteActionStatus(assessmentQuoteId, message) {
@@ -3480,14 +3469,16 @@ function setQuoteActionStatus(assessmentQuoteId, message) {
 }
 
 function setAssessmentConversionStatus(message) {
-  const status = drawer.querySelector("[data-assessment-conversion-status]");
-  if (status) status.textContent = message;
+  document.querySelectorAll("[data-assessment-conversion-status]").forEach((node) => {
+    node.textContent = message;
+  });
 }
 
 function setAssessmentCloseStatus(message) {
   const status = drawer.querySelector("[data-assessment-close-status]");
   if (status) status.textContent = message;
 }
+
 
 function openClientFromAssessment(clientId) {
   const client = data.clients.find((item) => String(item.id) === String(clientId));
@@ -4330,15 +4321,106 @@ function recordRow(type, record, cells) {
   return row;
 }
 
+function renderWorkspaceActionPanel(view, record, activeTab) {
+  const isEditingClient = view === "clients" && clientWorkspaceEditState && String(state.editingClientId || "") === String(record.id);
+  const isEditingAssessment = view === "assessments" && assessmentDetailsEditState && String(state.editingAssessmentId || "") === String(record.id);
+
+  if (view === "clients") {
+    if (activeTab === "assessments") {
+      return `<button class="primary" type="button" data-create-assessment-from-client="${escapeHtml(record.id)}">+ New Assessment</button>`;
+    }
+    if (activeTab === "contact-access") {
+      if (isEditingClient && state.editingClientTab === "contact-access") {
+        return `
+          <button class="ghost" type="button" data-cancel-client-workspace>Cancel</button>
+          <button class="primary" type="submit" form="client-contact-form-${record.id}">Save</button>
+        `;
+      } else {
+        return `<button class="secondary" type="button" data-edit-client-workspace="${escapeHtml(record.id)}" data-client-workspace-tab="contact-access">Edit</button>`;
+      }
+    }
+    if (activeTab === "home-details") {
+      if (isEditingClient && state.editingClientTab === "home-details") {
+        return `
+          <button class="ghost" type="button" data-cancel-client-workspace>Cancel</button>
+          <button class="primary" type="submit" form="client-home-form-${record.id}">Save</button>
+        `;
+      } else {
+        return `<button class="secondary" type="button" data-edit-client-workspace="${escapeHtml(record.id)}" data-client-workspace-tab="home-details">Edit</button>`;
+      }
+    }
+    if (activeTab === "cleaning-plan") {
+      if (isEditingClient && state.editingClientTab === "cleaning-plan") {
+        return `
+          <button class="ghost" type="button" data-cancel-client-workspace>Cancel</button>
+          <button class="primary" type="submit" form="client-plan-form-${record.id}">Save</button>
+        `;
+      } else if (record.cleaningPlanId) {
+        return `<button class="secondary" type="button" data-edit-client-workspace="${escapeHtml(record.id)}" data-client-workspace-tab="cleaning-plan">Edit</button>`;
+      }
+    }
+  }
+
+  if (view === "assessments") {
+    if (activeTab === "overview") {
+      const client = clientForAssessmentQuote(record);
+      const btn = client
+        ? `<button class="primary" type="button" data-open-qa-client="${escapeHtml(client.id)}">Open Client</button>`
+        : `<button class="primary" type="button" data-convert-assessment-quote="${escapeHtml(record.id)}">Accept & Convert</button>`;
+      return `
+        <span class="record-sub status-msg" data-assessment-conversion-status></span>
+        ${btn}
+      `;
+    }
+    if (activeTab === "details") {
+      if (isEditingAssessment) {
+        return `
+          <button class="ghost" type="button" data-cancel-assessment-details>Cancel</button>
+          <button class="primary" type="submit" form="assessment-details-form-${record.id}">Save</button>
+        `;
+      } else {
+        return `<button class="secondary" type="button" data-edit-assessment-details="${escapeHtml(record.id)}">Edit</button>`;
+      }
+    }
+    if (activeTab === "quote-assist") {
+      return `
+        <span class="record-sub status-msg" data-assessment-action-status></span>
+        <button class="primary" type="button" data-run-quote-assist="${escapeHtml(record.id)}">Run Quote Assist</button>
+      `;
+    }
+    if (activeTab === "quotes") {
+      const quotes = quotesForAssessment(record);
+      const draftQuote = draftQuoteForAssessment(record);
+      const btn = draftQuote
+        ? `<button class="ghost" type="button" disabled aria-disabled="true">Draft quote linked</button>`
+        : `<button class="primary" type="button" data-create-quote-for-assessment="${escapeHtml(record.id)}">${quotes.length ? "Create Revised Draft" : "Create Draft Quote"}</button>`;
+      return `
+        <span class="record-sub status-msg" data-quote-action-status="${escapeHtml(record.id)}"></span>
+        ${btn}
+      `;
+    }
+  }
+
+  return "";
+}
+
 function workspaceRow(view, type, record, cells, defaultTab = "overview") {
   const expanded = isWorkspaceExpanded(view, record);
   const row = el("article", `record-row workspace-row ${expanded ? "is-expanded" : ""}`.trim());
+  
+  let actionPanelHtml = "";
+  if (expanded) {
+    const activeTab = expandedWorkspaceState(view)?.tab || defaultTab;
+    actionPanelHtml = renderWorkspaceActionPanel(view, record, activeTab);
+  }
+
   row.innerHTML = `
     <button class="record-open" type="button">
       ${cells.map((cell) => `<div>${cell}</div>`).join("")}
     </button>
+    ${expanded ? `<div class="workspace-action-panel">${actionPanelHtml}</div>` : ""}
     <button class="ghost row-expand-button" type="button" aria-expanded="${expanded ? "true" : "false"}">
-      ${expanded ? "Collapse" : "Expand"}
+      ${expanded ? "Close" : "Open"}
     </button>
   `;
   row.querySelector(".record-open").addEventListener("click", () => selectWorkspaceDrawerContext(view, type, record));
@@ -4825,7 +4907,7 @@ function renderAssessmentWorkspaceTab(record, tab) {
 
     if (isEditing) {
       return `
-        <form data-assessment-details-form data-assessment-id="${escapeHtml(record.id)}">
+        <form id="assessment-details-form-${record.id}" data-assessment-details-form data-assessment-id="${escapeHtml(record.id)}">
           ${header}
           ${renderAssessmentEditableFields(draft)}
         </form>
@@ -4883,7 +4965,6 @@ function renderAssessmentWorkspaceTab(record, tab) {
 
   if (tab === "quotes") {
     const quotes = quotesForAssessment(record);
-    const draftQuote = draftQuoteForAssessment(record);
     return `
       <div class="workspace-stack">
         <section>
@@ -4895,14 +4976,6 @@ function renderAssessmentWorkspaceTab(record, tab) {
                 </div>`
               : placeholderPanel("No linked accounting quote yet. Create Draft Quote when the commercial record is ready.")
           }
-          <div class="drawer-actions">
-            ${
-              draftQuote
-                ? `<button class="ghost" type="button" disabled aria-disabled="true">Draft quote linked</button>`
-                : `<button class="primary" type="button" data-create-quote-for-assessment="${escapeHtml(record.id)}">${quotes.length ? "Create Revised Draft" : "Create Draft Quote"}</button>`
-            }
-          </div>
-          <p class="record-sub" data-quote-action-status="${escapeHtml(record.id)}"></p>
         </section>
         <section>
           <div class="workspace-placeholder muted"><p>Use the linked quote cards to open the draft Quote Editor or Preview / Print the commercial document. This workspace keeps quote records visible and traceable alongside the Assessment.</p></div>
@@ -5011,7 +5084,7 @@ function renderClientWorkspaceTab(record, tab) {
 
     if (isEditing) {
       return `
-        <form data-client-contact-form data-client-id="${escapeHtml(record.id)}">
+        <form id="client-contact-form-${record.id}" data-client-contact-form data-client-id="${escapeHtml(record.id)}">
           ${header}
           ${renderClientContactAccessEditableFields(draft)}
         </form>
@@ -5055,7 +5128,7 @@ function renderClientWorkspaceTab(record, tab) {
     }
     if (isEditing) {
       return `
-        <form data-client-home-form data-client-id="${escapeHtml(record.id)}">
+        <form id="client-home-form-${record.id}" data-client-home-form data-client-id="${escapeHtml(record.id)}">
           ${header}
           ${renderClientHomeEditableFields(draft, record)}
         </form>
@@ -5097,7 +5170,7 @@ function renderClientWorkspaceTab(record, tab) {
     }
     if (isEditing) {
       return `
-        <form data-client-plan-form data-client-id="${escapeHtml(record.id)}">
+        <form id="client-plan-form-${record.id}" data-client-plan-form data-client-id="${escapeHtml(record.id)}">
           ${header}
           ${renderClientCleaningPlanEditableFields(draft, record)}
         </form>
@@ -5277,7 +5350,6 @@ function renderClientWorkspace(record) {
           <strong>${escapeHtml(activeTabLabel)}</strong>
           <span class="record-sub">Client & Home stays the hub. New scoped work starts as a linked Assessment.</span>
         </div>
-        <button class="primary" type="button" data-create-assessment-from-client="${escapeHtml(record.id)}">+ New Assessment</button>
       </div>
     `,
     content: renderClientWorkspaceTab(record, activeTab)

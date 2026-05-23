@@ -721,19 +721,6 @@ function assessmentCustomerName(record) {
   return record?.customerName || record?.client || record?.linkedClientName || `Assessment #${record?.id || ""}`;
 }
 
-function cleanWorkLabel(record) {
-  if (!record?.workLabel) return "";
-  const label = record.workLabel.trim();
-  const dashIndex = label.indexOf(" - ");
-  if (dashIndex > 0) {
-    return label.substring(0, dashIndex).trim();
-  }
-  if (label.length > 40) {
-    return label.substring(0, 37) + "...";
-  }
-  return label;
-}
-
 function globalAssessmentSecondary(record) {
   return assessmentPropertyContext(record) || compactMeta([record?.area, record?.postcode]) || "";
 }
@@ -743,22 +730,7 @@ function globalAssessmentColumn2Secondary(record) {
 }
 
 function assessmentTitle(record) {
-  if (!record?.workLabel) {
-    return record?.customerName || record?.client || `Assessment #${record?.id || ""}`;
-  }
-  const label = record.workLabel.trim();
-  const dashIndex = label.indexOf(" - ");
-  if (dashIndex > 0) {
-    const prefix = label.substring(0, dashIndex).trim();
-    const suffix = label.substring(dashIndex + 3).trim();
-    const firstComma = suffix.indexOf(",");
-    const shortSuffix = firstComma > 0 ? suffix.substring(0, firstComma).trim() : suffix;
-    return `${prefix} · ${shortSuffix}`;
-  }
-  if (label.length > 50) {
-    return label.substring(0, 47) + "...";
-  }
-  return label;
+  return record?.customerName || record?.client || record?.linkedClientName || `Assessment #${record?.id || ""}`;
 }
 
 function assessmentPropertyContext(record) {
@@ -802,9 +774,8 @@ function setupServiceTypeOptions() {
 }
 
 function assessmentIdentityContext(record) {
-  const titleDiffers = record?.workLabel && record?.customerName && record.workLabel !== record.customerName;
   return compactMeta([
-    titleDiffers ? record.customerName : "",
+    record?.customerName || record?.client || "",
     assessmentPropertyContext(record),
     assessmentSourceDisplay(record)
   ]);
@@ -2259,12 +2230,10 @@ function defaultAssessmentWizard(record) {
   return {
     clientId: record.id,
     step: 1,
-    workLabelManual: false,
     values: {
       clientName: record.name || "",
       phone: record.phone || "",
       email: record.email || "",
-      workLabel: "",
       assessmentReason: "existing_client_extra",
       serviceType: clientAssessmentServiceSuggestion(record) || "",
       frequency: "one_off",
@@ -2565,7 +2534,6 @@ function renderAssessmentWizardStep1(record, values) {
             <h3>A. Assessment setup</h3>
             <div class="wizard-table-section">
               <input type="hidden" name="propertyMode" value="${escapeHtml(values.propertyMode || "existing_home")}">
-              ${renderWizardTableRow("Work label", `<input name="workLabel" value="${escapeHtml(values.workLabel || "")}" placeholder="e.g. One-off cleaning - 5 Garden Lane">`)}
               ${renderWizardTableRow("Reason for opening assessment", renderEditableSelect({ name: "assessmentReason", groupKey: null, currentValue: values.assessmentReason, staticOptions: assessmentReasonOptions }))}
               ${renderWizardTableRow("Service type", renderEditableSelect({ name: "serviceType", groupKey: null, currentValue: values.serviceType, staticOptions: serviceOptions, allowOtherOverride: false }))}
               ${renderWizardTableRow("Frequency", renderEditableSelect({ name: "frequency", groupKey: "frequency", currentValue: values.frequency }))}
@@ -2739,7 +2707,6 @@ function renderAssessmentWizardStep4(record, values) {
             <div class="wizard-table-section">
               ${renderWizardReviewRow("Client name", record.name)}
               ${renderWizardReviewRow("Linked client ID", `#${record.id}`)}
-              ${renderWizardReviewRow("Work label", values.workLabel)}
               ${renderWizardReviewRow("Reason for assessment", assessmentReasonOptions.find((option) => option.value === values.assessmentReason)?.label || values.assessmentReason)}
               ${renderWizardReviewRow("Service type", setupServiceTypeOptions().find((option) => option.value === values.serviceType)?.label || values.serviceType)}
               ${renderWizardReviewRow("Frequency", optionLabel("frequency", values.frequency) || values.frequency)}
@@ -2850,7 +2817,7 @@ function captureAssessmentWizardForm(form) {
   const values = wizard.values;
   const raw = Object.fromEntries(new FormData(form).entries());
   const fields = [
-    "workLabel", "assessmentReason", "serviceType", "frequency", "propertyMode",
+    "assessmentReason", "serviceType", "frequency", "propertyMode",
     "propertyLabel", "area", "address", "postcode", "propertyType", "bedrooms",
     "bathrooms", "propertyCondition", "parking", "accessMethod", "accessNotes",
     "pets", "productPreference", "surfaceNotes", "initialScopeNotes", "priorityTasks",
@@ -2886,30 +2853,7 @@ function updateAssessmentWizardModeAndLabel(form) {
   const record = assessmentWizardRecord();
   applyCarryOverPrefills(wizard, record);
   
-  suggestAssessmentWorkLabel(form);
   renderAssessmentWizardModal();
-}
-
-function suggestAssessmentWorkLabel(form) {
-  if (!form) return;
-  const wizard = state.assessmentWizard;
-  if (!wizard) return;
-  const values = wizard.values;
-  if (wizard.workLabelManual) return;
-  const serviceValue = values.serviceType || form.querySelector('[name="serviceType"]')?.value || "";
-  const serviceLabel = setupServiceTypeOptions().find((option) => option.value === serviceValue)?.label
-    || optionLabel("service_type", serviceValue)
-    || serviceValue;
-  const propertyLabel = values.propertyLabel || form.querySelector('[name="propertyLabel"]')?.value?.trim() || "";
-  const propertyMode = values.propertyMode || form.querySelector('[name="propertyMode"]')?.value || "existing_home";
-  const address = propertyMode === "another_address"
-    ? (values.address || values.area || form.querySelector('[name="address"]')?.value?.trim() || form.querySelector('[name="area"]')?.value?.trim() || "")
-    : propertyMode === "unknown_address"
-      ? (propertyLabel || "Address TBC")
-      : (form.dataset.clientAddress || "");
-  values.workLabel = [serviceLabel, propertyLabel || address].filter(Boolean).join(" - ");
-  const workLabelInput = form.querySelector('[name="workLabel"]');
-  if (workLabelInput) workLabelInput.value = values.workLabel;
 }
 
 function renderAssessmentWizardModal() {
@@ -2955,7 +2899,6 @@ function openAssessmentSetupModal(clientId) {
   modal.hidden = false;
   document.body.style.overflow = "hidden";
   renderAssessmentWizardModal();
-  suggestAssessmentWorkLabel(document.getElementById("assessment-setup-form"));
 }
 
 function closeAssessmentSetupModal() {
@@ -3010,7 +2953,6 @@ async function submitAssessmentSetup() {
     assessmentReasonLabel: selectedReason?.label || wizard.values.assessmentReason,
     serviceType: wizard.values.serviceType,
     frequency: wizard.values.frequency,
-    workLabel: wizard.values.workLabel,
     initialScopeNotes: wizard.values.initialScopeNotes,
     priorityTasks: wizard.values.priorityTasks,
     includedAreas: wizard.values.includedAreas,
@@ -3696,7 +3638,7 @@ function openDrawer(type, record = {}) {
       actions: ["Mark done", "Reschedule", "Open linked record"]
     },
     assessment: {
-      title: assessmentTitle(record),
+      title: assessmentCustomerName(record),
       subtitle: compactMeta([assessmentPropertyContext(record), record.serviceLabel || record.serviceType, record.quoteStageLabel || record.quoteStage]),
       sections: [
         [
@@ -5115,7 +5057,6 @@ function renderAssessmentWorkspaceTab(record, tab) {
   }
 
   const summaryHtml = workspaceSummaryRows([
-    ["Assessment", assessmentTitle(record)],
     ["Customer", record.customerName || record.client],
     ["Property", assessmentPropertyContext(record)],
     ["Phone", record.phone],
@@ -5318,7 +5259,7 @@ function renderClientWorkspaceTab(record, tab) {
             "Create a new Assessment when this client requests new scoped work, extra work, or a new quoteable piece of work.",
             (assessment) => `
               <article class="workspace-list-item">
-                <strong>${escapeHtml(assessmentTitle(assessment))}</strong>
+                <strong>${escapeHtml(compactMeta([assessment.serviceLabel || assessment.serviceType, assessmentPurposeDisplay(assessment)]) || assessmentCustomerName(assessment))}</strong>
                 <p>${escapeHtml(assessmentPropertyContext(assessment) || compactMeta([assessment.area, assessment.postcode]))}</p>
                 <small>${escapeHtml(compactMeta([
                   record.name,
@@ -5434,8 +5375,8 @@ function renderClientWorkspaceTab(record, tab) {
           "Create a new Assessment when this client requests new scoped work, extra work, or a new quoteable piece of work.",
           (assessment) => `
             <article class="workspace-list-item">
-              <strong>${escapeHtml(assessmentTitle(assessment))}</strong>
-              <p>${escapeHtml(compactMeta([assessmentPropertyContext(assessment), assessment.serviceLabel || assessment.serviceType, assessmentPurposeDisplay(assessment)]))}</p>
+              <strong>${escapeHtml(compactMeta([assessment.serviceLabel || assessment.serviceType, assessmentPurposeDisplay(assessment)]) || assessmentCustomerName(assessment))}</strong>
+              <p>${escapeHtml(compactMeta([assessmentPropertyContext(assessment), assessment.area, assessment.postcode]))}</p>
               <small>${escapeHtml(compactMeta([assessmentStatusDisplay(assessment), assessment.accountingQuote?.displayReference, formatDateTime(assessment.updatedAt)]))}</small>
               <div class="drawer-actions compact">
                 <button class="ghost" type="button" data-open-linked-assessment="${escapeHtml(assessment.id)}">Open assessment</button>
@@ -5964,9 +5905,6 @@ function bindEvents() {
   });
   document.getElementById("assessment-setup-form")?.addEventListener("input", (event) => {
     if (!state.assessmentWizard) return;
-    if (event.target?.name === "workLabel") {
-      state.assessmentWizard.workLabelManual = Boolean(event.target.value.trim());
-    }
     if (event.target?.name === "initialScopeNotes") {
       const counter = document.getElementById("initial-scope-counter");
       if (counter) counter.textContent = event.target.value.length;
@@ -6093,7 +6031,6 @@ function bindEvents() {
       if (form && state.assessmentWizard) {
         captureAssessmentWizardForm(form);
         applyAssessmentWizardPropertyMode(state.assessmentWizard, assessmentWizardRecord(), propertyModeButton.dataset.setPropertyMode);
-        suggestAssessmentWorkLabel(form);
         renderAssessmentWizardModal();
       }
       return;

@@ -2356,12 +2356,12 @@ function renderAssessmentWizardHero(record, values) {
 }
 
 function wizardPropertyContextCard(record, values) {
-  const propertySummary = compactMeta([
-    values.address || record.address,
-    values.area || record.area,
-    values.postcode || record.postcode
-  ]) || "No address confirmed yet.";
   if (values.propertyMode === "another_address") {
+    const propertySummary = compactMeta([
+      values.address,
+      values.area,
+      values.postcode
+    ]) || "Details will be captured on Step 2.";
     return `
       <div class="assessment-property-preview">
         <strong>${escapeHtml(values.propertyLabel || "Another address")}</strong>
@@ -2379,10 +2379,15 @@ function wizardPropertyContextCard(record, values) {
       </div>
     `;
   }
+  const propertySummary = compactMeta([
+    record.address,
+    record.area,
+    record.postcode
+  ]) || "No current address is stored for this client yet.";
   return `
     <div class="assessment-property-preview">
       <strong>${escapeHtml(values.propertyLabel || record.address || "Existing property")}</strong>
-      <p>${escapeHtml(compactMeta([record.address, record.area, record.postcode]) || "No current address is stored for this client yet.")}</p>
+      <p>${escapeHtml(propertySummary)}</p>
       <small>${escapeHtml(compactMeta([leadValueLabel("propertyType", record.propertyType), record.bedrooms ? `${record.bedrooms} bedrooms` : "", record.bathrooms ? `${record.bathrooms} bathrooms` : "", record.updatedAt ? `Updated ${formatDate(record.updatedAt)}` : ""]))}</small>
     </div>
   `;
@@ -2393,24 +2398,22 @@ function renderAssessmentWizardStep1(record, values) {
   const frequencyContext = clientAssessmentFrequencyContext(record);
   return `
     <div class="assessment-wizard-layout">
-      <section class="assessment-wizard-card assessment-client-summary-card">
+      <section class="assessment-wizard-card assessment-client-summary-card" style="padding: 10px 14px;">
         <div class="assessment-client-summary">
           <div class="assessment-client-avatar">${escapeHtml(initialsLabel(record.name))}</div>
           <div class="assessment-client-copy">
-            <h3>Client summary</h3>
             <strong>${escapeHtml(record.name || "")}</strong>
-            <p>Creating a new scoped assessment for an existing client.</p>
+            <div class="assessment-hero-summary" style="margin-top: 4px;">
+              <span class="summary-pill">${escapeHtml(assessmentReasonOptions.find((option) => option.value === values.assessmentReason)?.label || "Extra work")}</span>
+              <span class="summary-pill soft">${escapeHtml(setupServiceTypeOptions().find((option) => option.value === values.serviceType)?.label || "Service to confirm")}</span>
+              <span class="summary-pill soft">${escapeHtml(optionLabel("frequency", values.frequency) || values.frequency || "Frequency to confirm")}</span>
+            </div>
           </div>
           <div class="assessment-client-meta">
             <div><span>Phone</span><strong>${escapeHtml(record.phone || "Not available")}</strong></div>
             <div><span>Email</span><strong>${escapeHtml(record.email || "Not available")}</strong></div>
             <div><span>Linked client ID</span><strong>#${escapeHtml(record.id || "")}</strong></div>
           </div>
-        </div>
-        <div class="assessment-hero-summary">
-          <span class="summary-pill">${escapeHtml(assessmentReasonOptions.find((option) => option.value === values.assessmentReason)?.label || "Extra work")}</span>
-          <span class="summary-pill soft">${escapeHtml(setupServiceTypeOptions().find((option) => option.value === values.serviceType)?.label || "Service to confirm")}</span>
-          <span class="summary-pill soft">${escapeHtml(optionLabel("frequency", values.frequency) || values.frequency || "Frequency to confirm")}</span>
         </div>
       </section>
       
@@ -2419,9 +2422,11 @@ function renderAssessmentWizardStep1(record, values) {
         <div class="assessment-wizard-col-left">
           <section class="assessment-wizard-card">
             <h3>A. Assessment setup</h3>
-            <div class="assessment-wizard-form-grid">
+            <div class="wizard-three-col-grid">
               <input type="hidden" name="propertyMode" value="${escapeHtml(values.propertyMode || "existing_home")}">
-              ${renderEditableInput("Work label", `<input name="workLabel" value="${escapeHtml(values.workLabel || "")}" placeholder="e.g. One-off cleaning - 5 Garden Lane">`, "field-span-2")}
+              <div class="wizard-span-three">
+                ${renderEditableInput("Work label", `<input name="workLabel" value="${escapeHtml(values.workLabel || "")}" placeholder="e.g. One-off cleaning - 5 Garden Lane">`)}
+              </div>
               ${renderEditableInput("Reason for opening assessment", renderEditableSelect({ name: "assessmentReason", groupKey: null, currentValue: values.assessmentReason, staticOptions: assessmentReasonOptions }))}
               ${renderEditableInput("Service type", renderEditableSelect({ name: "serviceType", groupKey: null, currentValue: values.serviceType, staticOptions: serviceOptions, allowOtherOverride: false }))}
               ${renderEditableInput("Frequency", renderEditableSelect({ name: "frequency", groupKey: "frequency", currentValue: values.frequency }))}
@@ -2441,7 +2446,7 @@ function renderAssessmentWizardStep1(record, values) {
           <section class="assessment-wizard-card">
             <h3>C. Initial scope / customer request</h3>
             <div class="initial-scope-container">
-              <textarea name="initialScopeNotes" maxlength="1000" rows="5" placeholder="What is the client asking for? Any important context or early scope notes?">${escapeHtml(values.initialScopeNotes || "")}</textarea>
+              <textarea name="initialScopeNotes" maxlength="1000" rows="3" placeholder="What is the client asking for? Any important context or early scope notes?">${escapeHtml(values.initialScopeNotes || "")}</textarea>
               <div class="char-counter"><span id="initial-scope-counter">${(values.initialScopeNotes || "").length}</span> / 1000 characters</div>
             </div>
           </section>

@@ -2264,22 +2264,22 @@ body.cleaner-mode .notice {
 .assessment-wizard-layout,
 .assessment-wizard-main {
   display: grid;
-  gap: 18px;
+  gap: 12px;
 }
 
 .assessment-wizard-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.6fr) minmax(280px, 0.9fr);
-  gap: 18px;
+  gap: 12px;
 }
 
 .assessment-wizard-card {
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 12px;
-  padding: 18px;
+  padding: 12px 16px;
   display: grid;
-  gap: 14px;
+  gap: 10px;
 }
 
 .assessment-wizard-card h3 {
@@ -2297,24 +2297,24 @@ body.cleaner-mode .notice {
 .assessment-client-summary {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 18px;
-  align-items: start;
+  gap: 12px;
+  align-items: center;
 }
 
 .assessment-client-avatar {
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
   border-radius: 999px;
   background: #edf3ea;
   display: grid;
   place-items: center;
-  font-size: 1.35rem;
+  font-size: 1.1rem;
 }
 
 .assessment-client-copy strong {
   display: block;
-  margin-bottom: 6px;
-  font-size: 1.2rem;
+  margin-bottom: 2px;
+  font-size: 1.1rem;
 }
 
 .assessment-client-copy p,
@@ -3197,3 +3197,15 @@ body.cleaner-mode .notice {
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+/* Step 1 Compact layout grid controls */
+.wizard-three-col-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px 16px;
+}
+
+.wizard-span-three {
+  grid-column: span 3;
+}
+

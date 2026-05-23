@@ -1157,6 +1157,7 @@ mark.rose {
   flex-wrap: wrap;
   gap: 16px;
   width: auto;
+  max-width: 65%;
 }
 
 .workspace-row.is-expanded > .record-open > div {
@@ -2115,6 +2116,10 @@ body.cleaner-mode .notice {
   .workspace-row > .record-open {
     grid-template-columns: 1fr;
     gap: 5px;
+  }
+
+  .workspace-row.is-expanded > .record-open {
+    max-width: 100%;
   }
 
   .row-expand-button {

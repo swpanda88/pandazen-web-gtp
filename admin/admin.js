@@ -266,7 +266,96 @@ const assessmentPhotoOptions = [
   { value: "", label: "Not set" },
   { value: "yes", label: "Yes" },
   { value: "no", label: "No" },
-  { value: "to_request", label: "Need to request" }
+  { value: "requested", label: "Requested" },
+  { value: "not_needed", label: "Not needed" }
+];
+
+const bedroomsOptions = [
+  { value: "", label: "Not provided" },
+  { value: "0", label: "Studio / 0" },
+  { value: "1", label: "1" },
+  { value: "2", label: "2" },
+  { value: "3", label: "3" },
+  { value: "4", label: "4" },
+  { value: "5", label: "5+" },
+  { value: "commercial", label: "Not applicable / commercial" }
+];
+
+const bathroomsOptions = [
+  { value: "", label: "Not provided" },
+  { value: "0", label: "0" },
+  { value: "1", label: "1" },
+  { value: "2", label: "2" },
+  { value: "3", label: "3" },
+  { value: "4", label: "4+" },
+  { value: "commercial", label: "Not applicable / commercial" }
+];
+
+const propertyTypeOptions = [
+  { value: "", label: "Not provided" },
+  { value: "house", label: "House" },
+  { value: "bungalow", label: "Bungalow" },
+  { value: "flat", label: "Flat / apartment" },
+  { value: "cottage", label: "Cottage" },
+  { value: "maisonette", label: "Maisonette" },
+  { value: "office", label: "Office / commercial" },
+  { value: "holiday_let", label: "Holiday let / B&B" },
+  { value: "other", label: "Other" }
+];
+
+const propertyConditionOptions = [
+  { value: "", label: "Not provided" },
+  { value: "light", label: "Light / generally tidy" },
+  { value: "average", label: "Average / normal" },
+  { value: "heavy", label: "Heavy / needs more time" },
+  { value: "after_builders", label: "After-builders / dusty" },
+  { value: "unknown", label: "Unknown" }
+];
+
+const accessMethodOptions = [
+  { value: "", label: "Not provided" },
+  { value: "client_home", label: "Client home" },
+  { value: "key_safe", label: "Key safe" },
+  { value: "key_holder", label: "Key holder" },
+  { value: "cleaner_key", label: "Cleaner has key" },
+  { value: "reception", label: "Reception / concierge" },
+  { value: "other", label: "Other" }
+];
+
+const parkingOptions = [
+  { value: "", label: "Not provided" },
+  { value: "driveway", label: "Driveway" },
+  { value: "street", label: "Street parking" },
+  { value: "permit", label: "Permit parking" },
+  { value: "paid", label: "Paid parking" },
+  { value: "no_parking", label: "No nearby parking" },
+  { value: "to_confirm", label: "To confirm" }
+];
+
+const petsOptions = [
+  { value: "", label: "Not provided" },
+  { value: "no_pets", label: "No pets" },
+  { value: "cat", label: "Cat" },
+  { value: "dog", label: "Dog" },
+  { value: "multiple", label: "Multiple pets" },
+  { value: "other", label: "Other" }
+];
+
+const productPreferenceOptions = [
+  { value: "", label: "Not provided" },
+  { value: "pandazen_supplied", label: "PandaZen supplied products" },
+  { value: "client_products", label: "Client’s own products" },
+  { value: "eco_preferred", label: "Eco products preferred" },
+  { value: "fragrance_free", label: "Fragrance-free / sensitive" },
+  { value: "to_confirm", label: "To confirm" }
+];
+
+const photoAvailableOptions = [
+  { value: "", label: "Not set" },
+  { value: "yes", label: "Yes" },
+  { value: "no", label: "No" },
+  { value: "requested", label: "Requested" },
+  { value: "not_needed", label: "Not needed" }
 ];
 
 const viewTitle = document.querySelector("[data-view-title]");
@@ -513,6 +602,52 @@ function leadValueLabel(key, value) {
   };
   const groupKey = mappedGroups[key];
   return groupKey ? optionLabel(groupKey, value) : staticOptionLabel(key, value) || value;
+}
+
+function friendlyDisplayLabel(key, value) {
+  if (value === null || value === undefined || String(value).trim() === "") {
+    return "Not provided";
+  }
+
+  const valStr = String(value).trim();
+
+  // Handle specific manual overrides or legacy values
+  if (key === "photosAvailable") {
+    if (valStr === "to_request") return "Need to request";
+    if (valStr === "requested") return "Requested";
+    if (valStr === "not_needed") return "Not needed";
+    if (valStr === "yes") return "Yes";
+    if (valStr === "no") return "No";
+  }
+
+  // Mapping configurations
+  const staticMappings = {
+    bedrooms: bedroomsOptions,
+    bathrooms: bathroomsOptions,
+    propertyType: propertyTypeOptions,
+    propertyCondition: propertyConditionOptions,
+    condition: propertyConditionOptions,
+    accessMethod: accessMethodOptions,
+    access: accessMethodOptions,
+    parking: parkingOptions,
+    pets: petsOptions,
+    productPreferences: productPreferenceOptions,
+    productPreference: productPreferenceOptions,
+    productLabel: productPreferenceOptions,
+    products: productPreferenceOptions,
+    photosAvailable: assessmentPhotoOptions
+  };
+
+  const optionsList = staticMappings[key];
+  if (optionsList) {
+    const match = optionsList.find(opt => opt.value === valStr);
+    if (match) {
+      return match.label || "Not provided";
+    }
+  }
+
+  const mapped = leadValueLabel(key, value);
+  return mapped || valStr;
 }
 
 function renderSelect(name, groupKey, currentValue) {
@@ -1893,13 +2028,13 @@ function renderAssessmentEditableFields(draft) {
       ${renderEditableInput("Postcode", `<input name="postcode" value="${escapeHtml(draft.postcode)}">`)}
       ${renderEditableInput("Service type", renderEditableSelect({ name: "serviceType", groupKey: "service_type", currentValue: draft.serviceType, allowOtherOverride: false }))}
       ${renderEditableInput("Frequency", renderEditableSelect({ name: "frequency", groupKey: "frequency", currentValue: draft.frequency }))}
-      ${renderEditableInput("Property type", renderEditableSelect({ name: "propertyType", currentValue: draft.propertyType, staticOptions: leadStaticOptions.propertyType, allowOtherOverride: false }))}
-      ${renderEditableInput("Bedrooms", renderEditableSelect({ name: "bedrooms", currentValue: draft.bedrooms, staticOptions: leadStaticOptions.bedrooms }))}
-      ${renderEditableInput("Bathrooms", renderEditableSelect({ name: "bathrooms", currentValue: draft.bathrooms, staticOptions: leadStaticOptions.bathrooms }))}
-      ${renderEditableInput("Property condition", renderEditableSelect({ name: "propertyCondition", groupKey: "condition_level", currentValue: draft.propertyCondition }))}
-      ${renderEditableInput("Pets", renderEditableSelect({ name: "pets", groupKey: "pet_type", currentValue: draft.pets, allowOtherOverride: false }))}
-      ${renderEditableInput("Parking", renderEditableSelect({ name: "parking", currentValue: draft.parking, staticOptions: leadStaticOptions.parking }))}
-      ${renderEditableInput("Product preferences", renderEditableSelect({ name: "productPreferences", groupKey: "product_preference", currentValue: draft.productPreferences, allowOtherOverride: false }))}
+      ${renderEditableInput("Property type", renderEditableSelect({ name: "propertyType", currentValue: draft.propertyType, staticOptions: propertyTypeOptions, allowOtherOverride: false }))}
+      ${renderEditableInput("Bedrooms", renderEditableSelect({ name: "bedrooms", currentValue: draft.bedrooms, staticOptions: bedroomsOptions }))}
+      ${renderEditableInput("Bathrooms", renderEditableSelect({ name: "bathrooms", currentValue: draft.bathrooms, staticOptions: bathroomsOptions }))}
+      ${renderEditableInput("Property condition", renderEditableSelect({ name: "propertyCondition", currentValue: draft.propertyCondition, staticOptions: propertyConditionOptions }))}
+      ${renderEditableInput("Pets", renderEditableSelect({ name: "pets", currentValue: draft.pets, staticOptions: petsOptions }))}
+      ${renderEditableInput("Parking", renderEditableSelect({ name: "parking", currentValue: draft.parking, staticOptions: parkingOptions }))}
+      ${renderEditableInput("Product preferences", renderEditableSelect({ name: "productPreferences", currentValue: draft.productPreferences, staticOptions: productPreferenceOptions }))}
       ${renderEditableInput("Priorities", `<textarea name="priorities" rows="3">${escapeHtml(draft.priorities)}</textarea>`, "field-span-2")}
       ${renderEditableInput("Assessment notes", `<textarea name="assessmentNotes" rows="4">${escapeHtml(draft.assessmentNotes)}</textarea>`, "field-span-2")}
       ${renderEditableInput("Quote notes", `<textarea name="quoteNotes" rows="4">${escapeHtml(draft.quoteNotes)}</textarea>`, "field-span-2")}
@@ -2463,7 +2598,6 @@ function renderAssessmentWizardStep1(record, values) {
 }
 
 function renderAssessmentWizardStep2(record, values) {
-  const propertyTypeOptions = leadStaticOptions.propertyType;
   return `
     <div class="assessment-wizard-layout">
       ${renderAssessmentWizardHero(record, values)}
@@ -2478,10 +2612,10 @@ function renderAssessmentWizardStep2(record, values) {
               ${renderWizardTableRow("Address", `<textarea name="address" rows="3" placeholder="${escapeHtml(values.propertyMode === "existing_home" ? "Current client/home address" : "Property address")}">${escapeHtml(values.address || "")}</textarea>`)}
               ${renderWizardTableRow("Area", `<input name="area" value="${escapeHtml(values.area || "")}" placeholder="${escapeHtml(values.propertyMode === "existing_home" ? "Current area" : "Area")}">`)}
               ${renderWizardTableRow("Postcode", `<input name="postcode" value="${escapeHtml(values.postcode || "")}" placeholder="${escapeHtml(values.propertyMode === "existing_home" ? "Current postcode" : "Postcode")}">`)}
-              ${renderWizardTableRow("Property type", renderEditableSelect({ name: "propertyType", groupKey: null, currentValue: values.propertyType, staticOptions: propertyTypeOptions }))}
-              ${renderWizardTableRow("Bedrooms", `<input name="bedrooms" value="${escapeHtml(values.bedrooms || "")}" placeholder="Bedrooms">`)}
-              ${renderWizardTableRow("Bathrooms", `<input name="bathrooms" value="${escapeHtml(values.bathrooms || "")}" placeholder="Bathrooms">`)}
-              ${renderWizardTableRow("Property condition", `<input name="propertyCondition" value="${escapeHtml(values.propertyCondition || "")}" placeholder="Condition">`)}
+              ${renderWizardTableRow("Property type", renderEditableSelect({ name: "propertyType", currentValue: values.propertyType, staticOptions: propertyTypeOptions }))}
+              ${renderWizardTableRow("Bedrooms", renderEditableSelect({ name: "bedrooms", currentValue: values.bedrooms, staticOptions: bedroomsOptions }))}
+              ${renderWizardTableRow("Bathrooms", renderEditableSelect({ name: "bathrooms", currentValue: values.bathrooms, staticOptions: bathroomsOptions }))}
+              ${renderWizardTableRow("Property condition", renderEditableSelect({ name: "propertyCondition", currentValue: values.propertyCondition, staticOptions: propertyConditionOptions }))}
             </div>
           </section>
         </div>
@@ -2491,8 +2625,8 @@ function renderAssessmentWizardStep2(record, values) {
           <section class="assessment-wizard-card">
             <h3>Access / parking</h3>
             <div class="wizard-table-section">
-              ${renderWizardTableRow("Parking", `<input name="parking" value="${escapeHtml(values.parking || "")}" placeholder="Parking / arrival note">`)}
-              ${renderWizardTableRow("Access method", renderEditableSelect({ name: "accessMethod", groupKey: "access_method", currentValue: values.accessMethod, allowOtherOverride: false }))}
+              ${renderWizardTableRow("Parking", renderEditableSelect({ name: "parking", currentValue: values.parking, staticOptions: parkingOptions }))}
+              ${renderWizardTableRow("Access method", renderEditableSelect({ name: "accessMethod", currentValue: values.accessMethod, staticOptions: accessMethodOptions }))}
               ${renderWizardTableRow("Access notes", `<textarea name="accessNotes" rows="3" placeholder="Access details for this assessment only">${escapeHtml(values.accessNotes || "")}</textarea>`)}
             </div>
           </section>
@@ -2500,8 +2634,8 @@ function renderAssessmentWizardStep2(record, values) {
           <section class="assessment-wizard-card">
             <h3>Pets / products / surfaces</h3>
             <div class="wizard-table-section">
-              ${renderWizardTableRow("Pets", renderEditableSelect({ name: "pets", groupKey: "pet_type", currentValue: values.pets, allowOtherOverride: false }))}
-              ${renderWizardTableRow("Product preference", renderEditableSelect({ name: "productPreference", groupKey: "product_preference", currentValue: values.productPreference, allowOtherOverride: false }))}
+              ${renderWizardTableRow("Pets", renderEditableSelect({ name: "pets", currentValue: values.pets, staticOptions: petsOptions }))}
+              ${renderWizardTableRow("Product preference", renderEditableSelect({ name: "productPreference", currentValue: values.productPreference, staticOptions: productPreferenceOptions }))}
               ${renderWizardTableRow("Surface / material notes", `<textarea name="surfaceNotes" rows="3" placeholder="Materials, delicate surfaces, or cautions">${escapeHtml(values.surfaceNotes || "")}</textarea>`)}
             </div>
           </section>
@@ -2580,12 +2714,12 @@ function renderAssessmentWizardStep4(record, values) {
               ${renderWizardReviewRow("Address", values.address)}
               ${renderWizardReviewRow("Area", values.area)}
               ${renderWizardReviewRow("Postcode", values.postcode)}
-              ${renderWizardReviewRow("Property type", leadValueLabel("propertyType", values.propertyType) || values.propertyType)}
-              ${renderWizardReviewRow("Bedrooms", values.bedrooms)}
-              ${renderWizardReviewRow("Bathrooms", values.bathrooms)}
-              ${renderWizardReviewRow("Property condition", values.propertyCondition)}
-              ${renderWizardReviewRow("Parking", values.parking)}
-              ${renderWizardReviewRow("Access method", values.accessMethod)}
+              ${renderWizardReviewRow("Property type", friendlyDisplayLabel("propertyType", values.propertyType))}
+              ${renderWizardReviewRow("Bedrooms", friendlyDisplayLabel("bedrooms", values.bedrooms))}
+              ${renderWizardReviewRow("Bathrooms", friendlyDisplayLabel("bathrooms", values.bathrooms))}
+              ${renderWizardReviewRow("Property condition", friendlyDisplayLabel("propertyCondition", values.propertyCondition))}
+              ${renderWizardReviewRow("Parking", friendlyDisplayLabel("parking", values.parking))}
+              ${renderWizardReviewRow("Access method", friendlyDisplayLabel("accessMethod", values.accessMethod))}
               ${renderWizardReviewRow("Access notes", values.accessNotes)}
             </div>
           </section>
@@ -2593,8 +2727,8 @@ function renderAssessmentWizardStep4(record, values) {
           <section class="assessment-wizard-card">
             <h3>Pets / products / surfaces</h3>
             <div class="wizard-table-section">
-              ${renderWizardReviewRow("Pets", values.pets)}
-              ${renderWizardReviewRow("Product preference", values.productPreference)}
+              ${renderWizardReviewRow("Pets", friendlyDisplayLabel("pets", values.pets))}
+              ${renderWizardReviewRow("Product preference", friendlyDisplayLabel("productPreferences", values.productPreference))}
               ${renderWizardReviewRow("Surface / material notes", values.surfaceNotes)}
             </div>
           </section>
@@ -2610,7 +2744,7 @@ function renderAssessmentWizardStep4(record, values) {
               ${renderWizardReviewRow("Areas included", values.includedAreas)}
               ${renderWizardReviewRow("Exclusions / not included", values.exclusions)}
               ${renderWizardReviewRow("Special requirements", values.specialRequirements)}
-              ${renderWizardReviewRow("Photos available", values.photosAvailable)}
+              ${renderWizardReviewRow("Photos available", friendlyDisplayLabel("photosAvailable", values.photosAvailable))}
               ${renderWizardReviewRow("Risks / things to check", values.risksToCheck)}
               ${renderWizardReviewRow("Internal / admin notes", values.internalNotes, true)}
               ${renderWizardReviewRow("Carry-over options", carryItems || "None")}
@@ -4852,17 +4986,17 @@ function renderAssessmentWorkspaceTab(record, tab) {
         ["Postcode", record.postcode],
         ["Service type", record.serviceLabel || record.serviceType],
         ["Frequency", record.frequencyLabel || record.frequency],
-        ["Property type", leadValueLabel("propertyType", record.propertyType)],
-        ["Bedrooms", record.bedrooms],
-        ["Bathrooms", record.bathrooms],
+        ["Property type", friendlyDisplayLabel("propertyType", record.propertyType)],
+        ["Bedrooms", friendlyDisplayLabel("bedrooms", record.bedrooms)],
+        ["Bathrooms", friendlyDisplayLabel("bathrooms", record.bathrooms)],
         ["Reception rooms", record.receptionRooms],
         ["Kitchen size", record.kitchenSize],
         ["Property size", leadValueLabel("propertySize", record.propertySize)],
-        ["Condition", leadValueLabel("propertyCondition", record.propertyCondition)],
-        ["Pets", leadValueLabel("pets", record.pets)],
-        ["Parking", leadValueLabel("parking", record.parking)],
+        ["Condition", friendlyDisplayLabel("propertyCondition", record.propertyCondition)],
+        ["Pets", friendlyDisplayLabel("pets", record.pets)],
+        ["Parking", friendlyDisplayLabel("parking", record.parking)],
         ["Priorities", record.priorities],
-        ["Products", leadValueLabel("productPreferences", record.productPreferences)],
+        ["Products", friendlyDisplayLabel("productPreferences", record.productPreferences)],
         ["Assessment notes", record.assessmentNotes],
         ["Quote notes", record.quoteNotes],
         ["Internal notes", record.notes]
@@ -4979,11 +5113,7 @@ function renderAssessmentWorkspace(record) {
     view: "assessments",
     record,
     tabs,
-    actions: `
-      <div class="drawer-actions compact workspace-toolbar-actions">
-        <span class="record-sub">${escapeHtml(compactMeta([assessmentPropertyContext(record), assessmentSourceDisplay(record), assessmentPurposeDisplay(record), record.linkedClientName ? `Linked client: ${record.linkedClientName}` : ""]))}</span>
-      </div>
-    `,
+    actions: "",
     content: renderAssessmentWorkspaceTab(record, activeTab)
   });
 }

@@ -1492,20 +1492,14 @@ function renderAssessmentQuoteAssist(record) {
               ["Rule version", assist.ruleVersion],
               ["Last run", formatDateTime(assist.updatedAt || assist.createdAt)]
             ])
-          : `<p class="record-sub">No Quote Assist result yet. Run it from this Assessment when the available detail is ready.</p>`
+          : `<p class="record-sub">No Quote Assist result yet. Run it from the Quote Assist tab in the expanded workspace.</p>`
       }
-      <div class="drawer-actions">
-        <button class="primary" type="button" data-run-quote-assist="${escapeHtml(record.id)}">Run Quote Assist</button>
-      </div>
-      <p class="record-sub" data-assessment-action-status></p>
     </section>
   `;
 }
 
 function renderAssessmentAccountingQuote(record) {
   const quotes = quotesForAssessment(record);
-  const quote = latestQuote(quotes);
-  const draftQuote = draftQuoteForAssessment(record);
   return `
     <section class="drawer-section">
       <h3>Quotes</h3>
@@ -1514,16 +1508,8 @@ function renderAssessmentAccountingQuote(record) {
           ? `<div class="workspace-list compact">
               ${quotes.map((item) => renderQuoteRecordCard(item, record.id)).join("")}
             </div>`
-          : `<p class="record-sub">No draft Accounting quote has been created from this Assessment yet.</p>`
+          : `<p class="record-sub">No draft Accounting quote has been created from this Assessment yet. Use the Quotes tab in the expanded workspace.</p>`
       }
-      <div class="drawer-actions">
-        ${
-          draftQuote
-            ? `<button class="ghost" type="button" disabled aria-disabled="true">Draft quote linked</button>`
-            : `<button class="primary" type="button" data-create-quote-for-assessment="${escapeHtml(record.id)}">${quotes.length ? "Create Revised Draft" : "Create Draft Quote"}</button>`
-        }
-      </div>
-      <p class="record-sub" data-quote-action-status="${escapeHtml(record.id)}"></p>
     </section>
   `;
 }
@@ -1539,21 +1525,13 @@ function renderAssessmentQuoteConversion(record) {
   return `
     <section class="drawer-section">
       <h3>Client & Home</h3>
-      <div class="drawer-actions">
-        ${
-          client
-            ? `<button class="primary" type="button" data-open-qa-client="${escapeHtml(client.id)}">Open Client & Home</button>`
-            : `<button class="primary" type="button" data-convert-assessment-quote="${escapeHtml(record.id)}">Accept & Convert to Client & Home</button>`
-        }
-      </div>
       <p class="record-sub">${
         client
           ? `Converted to Client & Home #${escapeHtml(client.id)}`
           : record.clientId
-            ? "Marks this Assessment as accepted and keeps it linked to the existing Client & Home record."
-            : "Marks this Assessment as accepted and creates a linked Client & Home record."
+            ? "Linked to existing Client & Home record."
+            : "Requires conversion to a Client & Home record. Use the Overview tab in the expanded workspace."
       }</p>
-      <p class="record-sub" data-assessment-conversion-status></p>
     </section>
   `;
 }
@@ -3058,7 +3036,7 @@ function renderAssessmentCloseout(record) {
   return `
     <section class="drawer-section">
       <h3>Close Assessment</h3>
-      <form class="lead-action-form compact" data-assessment-close-form>
+      <form class="lead-action-form compact" data-assessment-close-form data-assessment-id="${escapeHtml(record.id)}">
         <label>
           Reason
           <select name="closeReason" required>
@@ -3475,8 +3453,9 @@ function setAssessmentConversionStatus(message) {
 }
 
 function setAssessmentCloseStatus(message) {
-  const status = drawer.querySelector("[data-assessment-close-status]");
-  if (status) status.textContent = message;
+  document.querySelectorAll("[data-assessment-close-status]").forEach((node) => {
+    node.textContent = message;
+  });
 }
 
 
@@ -3492,57 +3471,7 @@ function openClientFromAssessment(clientId) {
 }
 
 function setupAssessmentDrawerActions(record) {
-  if (!state.apiReady || !record.id) return;
-
-  drawer.querySelector("[data-run-quote-assist]")?.addEventListener("click", async () => {
-    try {
-      setAssessmentActionStatus("Running Quote Assist...");
-      await apiPost(`/api/assessment-quotes/${record.id}/assist`, {});
-      await refreshAssessmentDrawer(record.id);
-    } catch (err) {
-      setAssessmentActionStatus(`Could not run Quote Assist. ${err.message}`);
-    }
-  });
-
-  drawer.querySelector("[data-convert-assessment-quote]")?.addEventListener("click", async () => {
-    try {
-      setAssessmentConversionStatus("Converting to Client & Home...");
-      const result = await apiPost(`/api/assessment-quotes/${record.id}/convert`, { convertedBy: "admin" });
-      await loadApiData();
-      if (openClientFromAssessment(result.id)) return;
-      setAssessmentConversionStatus("Converted, but the Client & Home record was not returned by the current data load.");
-    } catch (err) {
-      setAssessmentConversionStatus(`Could not convert Assessment. ${err.message}`);
-    }
-  });
-
-  drawer.querySelector("[data-open-qa-client]")?.addEventListener("click", (event) => {
-    openClientFromAssessment(event.currentTarget.dataset.openQaClient);
-  });
-
-  drawer.querySelector("[data-assessment-close-form]")?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const formData = new FormData(form);
-    const lostReason = String(formData.get("closeReason") || "");
-    const closeNote = String(formData.get("closeNote") || "").trim();
-
-    try {
-      setAssessmentCloseStatus("Marking Assessment as not proceeding...");
-      if (state.expandedWorkspaces.assessments && String(state.expandedWorkspaces.assessments.id) === String(record.id)) {
-        state.expandedWorkspaces.assessments = null;
-      }
-      await apiPatch(`/api/assessment-quotes/${record.id}`, {
-        status: "not_proceeding",
-        lostReason,
-        closeNote
-      });
-      await refreshAssessmentDrawer(record.id);
-      setAssessmentCloseStatus("Marked as not proceeding.");
-    } catch (err) {
-      setAssessmentCloseStatus(`Could not close Assessment. ${err.message}`);
-    }
-  });
+  // Actions are handled globally via delegated click and submit listeners
 }
 
 function resetDrawer() {
@@ -3833,7 +3762,6 @@ function openDrawer(type, record = {}) {
       ${type === "assessment" ? renderAssessmentQuoteAssist(record) : ""}
       ${type === "assessment" ? renderAssessmentAccountingQuote(record) : ""}
       ${type === "assessment" ? renderAssessmentQuoteConversion(record) : ""}
-      ${type === "assessment" ? renderAssessmentCloseout(record) : ""}
       ${type === "assessment" ? renderLinkedLeadNotes(record) : ""}
       ${type === "client" ? renderClientAccountingQuote(record) : ""}
       ${type === "client" ? renderOriginalLeadNotes(record) : ""}
@@ -5011,7 +4939,7 @@ function renderAssessmentWorkspaceTab(record, tab) {
     `;
   }
 
-  return workspaceSummaryRows([
+  const summaryHtml = workspaceSummaryRows([
     ["Assessment", assessmentTitle(record)],
     ["Customer", record.customerName || record.client],
     ["Property", assessmentPropertyContext(record)],
@@ -5029,6 +4957,19 @@ function renderAssessmentWorkspaceTab(record, tab) {
     ["Linked quote", record.accountingQuote?.displayReference],
     ["Updated", formatDateTime(record.updatedAt)]
   ]);
+
+  const closeoutHtml = renderAssessmentCloseout(record);
+  if (closeoutHtml) {
+    return `
+      <div class="workspace-stack">
+        ${summaryHtml}
+        <section class="workspace-section" style="margin-top: 24px; border-top: 1px solid var(--line); padding-top: 16px;">
+          ${closeoutHtml}
+        </section>
+      </div>
+    `;
+  }
+  return summaryHtml;
 }
 
 function renderAssessmentWorkspace(record) {
@@ -5339,19 +5280,11 @@ function renderClientWorkspaceTab(record, tab) {
 function renderClientWorkspace(record) {
   const tabs = clientWorkspaceTabs();
   const activeTab = expandedWorkspaceState("clients")?.tab || tabs[0].key;
-  const activeTabLabel = tabs.find((tab) => tab.key === activeTab)?.label || "Overview";
   return renderExpandableWorkspace({
     view: "clients",
     record,
     tabs,
-    actions: `
-      <div class="drawer-actions compact workspace-toolbar-actions">
-        <div class="workspace-toolbar-copy">
-          <strong>${escapeHtml(activeTabLabel)}</strong>
-          <span class="record-sub">Client & Home stays the hub. New scoped work starts as a linked Assessment.</span>
-        </div>
-      </div>
-    `,
+    actions: "",
     content: renderClientWorkspaceTab(record, activeTab)
   });
 }
@@ -6127,6 +6060,48 @@ function bindEvents() {
       await handleGenerateQuoteFromBuilder(assessmentId);
       return;
     }
+
+    const runQuoteAssistButton = event.target.closest("[data-run-quote-assist]");
+    if (runQuoteAssistButton) {
+      const assessmentId = runQuoteAssistButton.dataset.runQuoteAssist;
+      try {
+        setAssessmentActionStatus("Running Quote Assist...");
+        await apiPost(`/api/assessment-quotes/${assessmentId}/assist`, {});
+        await loadApiData();
+        renderTables();
+        syncWorkspaceFirstLayout();
+        if (state.activeDrawerType === "assessment") {
+          const updated = data.assessments.find(a => String(a.id) === String(assessmentId));
+          if (updated) openDrawer("assessment", updated);
+        }
+      } catch (err) {
+        setAssessmentActionStatus(`Could not run Quote Assist. ${err.message}`);
+      }
+      return;
+    }
+
+    const convertAssessmentButton = event.target.closest("[data-convert-assessment-quote]");
+    if (convertAssessmentButton) {
+      const assessmentId = convertAssessmentButton.dataset.convertAssessmentQuote;
+      try {
+        setAssessmentConversionStatus("Converting to Client & Home...");
+        const result = await apiPost(`/api/assessment-quotes/${assessmentId}/convert`, { convertedBy: "admin" });
+        await loadApiData();
+        renderTables();
+        syncWorkspaceFirstLayout();
+        if (openClientFromAssessment(result.id)) return;
+        setAssessmentConversionStatus("Converted, but the Client & Home record was not returned by the current data load.");
+      } catch (err) {
+        setAssessmentConversionStatus(`Could not convert Assessment. ${err.message}`);
+      }
+      return;
+    }
+
+    const openQaClientButton = event.target.closest("[data-open-qa-client]");
+    if (openQaClientButton) {
+      openClientFromAssessment(openQaClientButton.dataset.openQaClient);
+      return;
+    }
   });
 
   document.addEventListener("submit", async (event) => {
@@ -6154,6 +6129,38 @@ function bindEvents() {
         }
       } catch (err) {
         window.alert(`Could not save Assessment details. ${err.message}`);
+      }
+      return;
+    }
+
+    const assessmentCloseForm = event.target.closest("[data-assessment-close-form]");
+    if (assessmentCloseForm) {
+      event.preventDefault();
+      const assessmentId = assessmentCloseForm.dataset.assessmentId;
+      const formData = new FormData(assessmentCloseForm);
+      const lostReason = String(formData.get("closeReason") || "");
+      const closeNote = String(formData.get("closeNote") || "").trim();
+
+      try {
+        setAssessmentCloseStatus("Marking Assessment as not proceeding...");
+        if (state.expandedWorkspaces.assessments && String(state.expandedWorkspaces.assessments.id) === String(assessmentId)) {
+          state.expandedWorkspaces.assessments = null;
+        }
+        await apiPatch(`/api/assessment-quotes/${assessmentId}`, {
+          status: "not_proceeding",
+          lostReason,
+          closeNote
+        });
+        await loadApiData();
+        renderTables();
+        syncWorkspaceFirstLayout();
+        if (state.activeDrawerType === "assessment") {
+          const updated = data.assessments.find(a => String(a.id) === String(assessmentId));
+          if (updated) openDrawer("assessment", updated);
+        }
+        setAssessmentCloseStatus("Marked as not proceeding.");
+      } catch (err) {
+        setAssessmentCloseStatus(`Could not close Assessment. ${err.message}`);
       }
       return;
     }

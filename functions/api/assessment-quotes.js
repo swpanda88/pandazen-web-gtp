@@ -227,9 +227,8 @@ async function createAssessmentFromClient(db, body) {
   const propertyLabel = propertyMode === "unknown_address"
     ? (normalizeText(body.propertyLabel) || "Address TBC")
     : normalizeText(body.propertyLabel);
-  const requestedWorkLabel = normalizeText(body.workLabel);
+  const workLabel = null;
   const purposeLabel = normalizeText(body.assessmentReasonLabel || body.purposeLabel);
-  const workLabel = requestedWorkLabel || (requestedPurpose !== purpose ? purposeLabel : null);
   const serviceType = normalizeText(body.serviceType) || primaryAssessment?.serviceType || lead?.serviceType || null;
   const frequency = normalizeText(body.frequency) || "one_off";
   const useExistingHomeContext = prefill.homeContext && propertyMode === "existing_home";
@@ -256,7 +255,6 @@ async function createAssessmentFromClient(db, body) {
   const risksToCheck = normalizeText(body.risksToCheck);
 
   const noteBlocks = [];
-  if (workLabel) noteBlocks.push(`Assessment title: ${workLabel}`);
   if (purposeLabel && purposeLabel !== requestedPurpose) noteBlocks.push(`Requested purpose: ${purposeLabel}`);
   if (propertyLabel) noteBlocks.push(`Property label: ${propertyLabel}`);
   if (propertyMode === "another_address" && resolvedAddress) noteBlocks.push(`Assessment address: ${resolvedAddress}`);

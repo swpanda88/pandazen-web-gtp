@@ -717,12 +717,54 @@ function assessmentPurposeDisplay(record) {
   return labels[value] || humanizeToken(value);
 }
 
+function assessmentCustomerName(record) {
+  return record?.customerName || record?.client || record?.linkedClientName || `Assessment #${record?.id || ""}`;
+}
+
+function cleanWorkLabel(record) {
+  if (!record?.workLabel) return "";
+  const label = record.workLabel.trim();
+  const dashIndex = label.indexOf(" - ");
+  if (dashIndex > 0) {
+    return label.substring(0, dashIndex).trim();
+  }
+  if (label.length > 40) {
+    return label.substring(0, 37) + "...";
+  }
+  return label;
+}
+
+function globalAssessmentSecondary(record) {
+  const cleanedLabel = (record?.workLabel && record.workLabel !== (record.customerName || record.client)) ? cleanWorkLabel(record) : "";
+  const propCtx = assessmentPropertyContext(record) || compactMeta([record?.area, record?.postcode]);
+  return [cleanedLabel, propCtx].filter(Boolean).join(" · ");
+}
+
+function globalAssessmentColumn2Secondary(record) {
+  return [assessmentSourceDisplay(record), assessmentPurposeDisplay(record)].filter(Boolean).join(" · ");
+}
+
 function assessmentTitle(record) {
-  return record?.workLabel || record?.customerName || record?.client || `Assessment #${record?.id || ""}`;
+  if (!record?.workLabel) {
+    return record?.customerName || record?.client || `Assessment #${record?.id || ""}`;
+  }
+  const label = record.workLabel.trim();
+  const dashIndex = label.indexOf(" - ");
+  if (dashIndex > 0) {
+    const prefix = label.substring(0, dashIndex).trim();
+    const suffix = label.substring(dashIndex + 3).trim();
+    const firstComma = suffix.indexOf(",");
+    const shortSuffix = firstComma > 0 ? suffix.substring(0, firstComma).trim() : suffix;
+    return `${prefix} · ${shortSuffix}`;
+  }
+  if (label.length > 50) {
+    return label.substring(0, 47) + "...";
+  }
+  return label;
 }
 
 function assessmentPropertyContext(record) {
-  return compactMeta([record?.propertyLabel, record?.propertyAddress, record?.area, record?.postcode]);
+  return compactMeta([record?.propertyLabel, record?.propertyAddress || record?.address, record?.area, record?.postcode]);
 }
 
 function initialsLabel(value) {
@@ -5457,8 +5499,8 @@ function renderTables() {
     countTarget: assessmentActiveCount,
     countLabel: "active",
     cells: (assessment) => [
-      `<div class="record-main">${escapeHtml(assessmentTitle(assessment))}</div><div class="record-sub">${escapeHtml(assessmentPropertyContext(assessment) || compactMeta([assessment.area, assessment.postcode]))}</div>`,
-      `${escapeHtml(assessment.serviceLabel || assessment.serviceType || "Service pending")}<div class="record-sub">${escapeHtml(assessmentDisplayMeta(assessment))}</div>`,
+      `<div class="record-main">${escapeHtml(assessmentCustomerName(assessment))}</div><div class="record-sub">${escapeHtml(globalAssessmentSecondary(assessment))}</div>`,
+      `${escapeHtml(assessment.serviceLabel || assessment.serviceType || "Service pending")}<div class="record-sub">${escapeHtml(globalAssessmentColumn2Secondary(assessment))}</div>`,
       `${escapeHtml(assessment.accountingQuote?.displayReference || assessment.estimate || "Estimate pending")}<div class="record-sub">${escapeHtml(compactMeta([assessment.quoteRange || "", assessment.linkedClientName ? `Client: ${assessment.linkedClientName}` : "", formatDateTime(assessment.updatedAt)]))}</div>`,
       `<span class="pill warn">${escapeHtml(assessmentStatusDisplay(assessment))}</span>`
     ],
@@ -5475,8 +5517,8 @@ function renderTables() {
     countTarget: assessmentHistoryCount,
     countLabel: "records",
     cells: (assessment) => [
-      `<div class="record-main">${escapeHtml(assessmentTitle(assessment))}</div><div class="record-sub">${escapeHtml(assessmentPropertyContext(assessment) || compactMeta([assessment.area, assessment.postcode]))}</div>`,
-      `${escapeHtml(assessment.serviceLabel || assessment.serviceType || "Service pending")}<div class="record-sub">${escapeHtml(assessmentDisplayMeta(assessment))}</div>`,
+      `<div class="record-main">${escapeHtml(assessmentCustomerName(assessment))}</div><div class="record-sub">${escapeHtml(globalAssessmentSecondary(assessment))}</div>`,
+      `${escapeHtml(assessment.serviceLabel || assessment.serviceType || "Service pending")}<div class="record-sub">${escapeHtml(globalAssessmentColumn2Secondary(assessment))}</div>`,
       `${escapeHtml(assessment.accountingQuote?.displayReference || assessment.estimate || "Estimate pending")}<div class="record-sub">${escapeHtml(compactMeta([assessment.quoteRange || "", assessment.linkedClientName ? `Client: ${assessment.linkedClientName}` : "", formatDateTime(assessment.updatedAt)]))}</div>`,
       `<span class="pill blue">${escapeHtml(assessment.isConverted || assessment.convertedClientId ? "Converted" : assessmentStatusDisplay(assessment))}</span>`
     ],

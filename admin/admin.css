@@ -1139,7 +1139,7 @@ mark.rose {
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
   background: #fcfdfb;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 12px;
 }
 

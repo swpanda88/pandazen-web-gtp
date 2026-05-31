@@ -78,6 +78,7 @@ Note
 **What it owns**
 - customer identity
 - main contact details
+- billing context
 - relationship status
 - linked properties
 - linked assessments, quotes, jobs, visits, invoices, tasks, and notes
@@ -90,6 +91,7 @@ Note
 **Key relationships**
 - one Client can have multiple Properties
 - one Client can have multiple Assessments across one or more Properties
+- invoice address defaults to the service address unless separate billing details are stored under the Client billing context
 
 ### Property / Home / Location
 
@@ -114,6 +116,7 @@ Note
 - belongs to one Client
 - can have multiple Assessments
 - can have multiple Jobs and Visits over time
+- service address is normally the default invoice address unless Client billing details override it
 
 ### Assessment / Scoped Work
 
@@ -137,6 +140,7 @@ Note
 - the permanent property master record
 - job execution checklist history
 - invoice history
+- separate invoice-address workflow
 
 **Key relationships**
 - belongs to one Client and one Property context logically, even if current storage is transitional
@@ -166,7 +170,7 @@ Note
 **Key relationships**
 - belongs to one Assessment
 - may link to one Client
-- accepted Quote should eventually trigger Job / Work Order creation
+- accepted Quote creates the first Job / Work Order shell in the delivery chain
 
 ### Job / Work Order
 
@@ -174,11 +178,12 @@ Note
 - Delivery container for accepted work.
 
 **When created**
-- After a Quote is accepted, or later from an already-agreed recurring plan.
+- Immediately after a Quote is accepted as the first delivery shell, or later extended from an agreed recurring plan.
 
 **What it owns**
 - the operational instruction set for the work being delivered
 - work status
+- build-ready delivery specification created from Quote + Assessment + Client/Property data
 - assignment and scheduling linkage
 - follow-up operational notes
 
@@ -189,6 +194,8 @@ Note
 
 **Key relationships**
 - derived from accepted work
+- recurring cleaning in v0 is represented as a Recurring Job / Cleaning Plan under one Client + Property
+- recurring Job / Cleaning Plan generates Visits for a selected planning horizon such as 1 week, 2 weeks, or 4 weeks
 - can have one or more Visits
 - can generate billable events later
 
@@ -198,7 +205,7 @@ Note
 - Scheduled occurrence of a Job or recurring service.
 
 **When created**
-- When work is scheduled on a specific date/time/window.
+- When a Job or recurring plan produces a scheduled occurrence on a specific date/time/window.
 
 **What it owns**
 - planned or completed occurrence data
@@ -213,7 +220,8 @@ Note
 
 **Key relationships**
 - belongs to one Job / Work Order
-- may feed invoiceable work later
+- generated Visits are the scheduled occurrences that appear in the Scheduler
+- completed Visit creates the Billable Event that later feeds invoicing
 
 ### Invoice
 
@@ -228,6 +236,7 @@ Note
 - invoice lines
 - amount due
 - issue/due/paid status
+- invoice address, which defaults from the service address unless separate Client billing details override it
 
 **What it must not own**
 - raw scoping notes
@@ -236,7 +245,75 @@ Note
 
 **Key relationships**
 - belongs to one Client
-- may include work from one or more Visits or billable events later
+- is generated from selected unbilled Billable Events, not directly from the Quote
+- may include work from one or more Visits or Billable Events
+
+## 3.1 Data readiness model
+
+PandaZen should keep required fields minimal and separate readiness from hard creation rules.
+
+Use four readiness levels:
+
+- **Required to create record**
+- **Recommended / required to quote accurately**
+- **Required to schedule**
+- **Required to invoice**
+
+Rules:
+
+- Do not make all Assessment fields required.
+- Missing critical fields should show readiness warnings rather than blocking the whole workflow.
+- Empty required/invalid fields should use a thin red border until valid data is entered.
+- Once valid data is entered, the border should disappear.
+
+Examples:
+
+- Assessment can be created with minimal data.
+- Assessment is not quote-ready until it has enough pricing or scope detail.
+- Visit is not schedule-ready until service address, duration, and cleaner/time are defined.
+- Invoice is not invoice-ready until completed unbilled Billable Events exist.
+
+This keeps data entry practical without allowing half-defined records to masquerade as quote-ready, schedule-ready, or invoice-ready.
+
+## 3.2 Module build principle
+
+PandaZen should build modules as coherent v0 units, not one-field micro-patches. This is a mandatory build rule.
+
+Before building a module, define:
+
+- purpose
+- object ownership
+- required data
+- statuses
+- screens / tabs
+- actions
+- upstream / downstream links
+- acceptance tests
+- existing PandaZen structure to reuse
+
+The module spec must explicitly answer:
+
+- Can this reuse Quote Builder structure?
+- Can this reuse Quote Preview structure?
+- Can this reuse Assessment Wizard table/grid structure?
+- Can this reuse Workspace Action Panel structure?
+- What genuinely needs a new pattern because the object purpose is different?
+
+Then implement the smallest complete version that satisfies those rules.
+
+Before creating a new module pattern, first identify:
+
+- which existing PandaZen structure it should reuse
+- what must be different because the object purpose is different
+- what must not be rebuilt from scratch
+
+Reuse-first principle:
+
+- Quote Builder should inform Job Builder, Invoice Builder, and future structured document builders.
+- Quote Preview should inform invoice preview, job/work-order summary, and client-facing confirmations where sensible.
+- Quote lifecycle/versioning patterns should inform invoice lifecycle and job-spec revision handling where needed.
+- Assessment Wizard and compact table/grid layouts should inform Job Builder intake/spec screens and Visit readiness screens.
+- Workspace action panel patterns should be reused across Jobs, Visits, Invoices, and client-local tabs unless a different interaction is clearly necessary.
 
 ### Task
 
@@ -333,7 +410,8 @@ Assessment
 -> Quote accepted
 -> create or link Client
 -> create or link Property
--> create Job / Work Order later
+-> create Job / Work Order shell
+-> later schedule Visit(s)
 ```
 
 For existing clients:
@@ -357,8 +435,10 @@ Lead or Assessment
 Assessment
 -> Quote
 -> accepted Quote
--> recurring Job / Work Order pattern
+-> Recurring Job / Cleaning Plan
 -> repeated Visits
+-> completed Visits create Billable Events
+-> Invoice Builder selects unbilled Billable Events
 -> periodic Invoices later
 ```
 
@@ -368,8 +448,10 @@ Assessment
 Assessment
 -> Quote
 -> accepted Quote
--> one Job / Work Order
+-> one Job / Work Order shell
 -> one or a few Visits
+-> completed Visits create Billable Events
+-> Invoice Builder selects unbilled Billable Events
 -> Invoice later
 ```
 
@@ -379,8 +461,38 @@ Assessment
 Existing Client / Property
 -> Assessment
 -> may or may not produce Quote
--> follow-up Job / Work Order if needed
+-> accepted Quote or approved follow-up
+-> Job / Work Order shell if needed
 ```
+
+### Job / Visit / Billing v0 chain
+
+```text
+Accepted Quote
+-> Job / Work Order shell
+-> Job Builder builds the operational job specification from Quote + Assessment + Client/Property data
+-> recurring work is represented as a Recurring Job / Cleaning Plan under Client + Property
+-> recurring Job / Cleaning Plan generates Visits for a selected planning horizon
+-> Scheduler shows Visits globally with cleaner / duration / location emphasis
+-> completed Visit creates Billable Event
+-> Invoice Builder selects unbilled Billable Events
+-> Invoice is generated from selected Billable Events
+```
+
+### Scheduler v0 principle
+
+- Scheduler is global and Visit-oriented.
+- It should generate or show unscheduled Visits for a selected horizon.
+- Existing scheduled work should appear as compact coloured bars or boxes.
+- Calendar views should show compact practical information only:
+  - postcode / location
+  - duration
+  - cleaner / cleaners
+  - status
+- User should be able to drag unscheduled Visits onto a day.
+- After dropping or selecting a day, a day/hour view should help fit the Visit into free cleaner time.
+- Scheduler should stay location, duration, and cleaner oriented.
+- Avoid extra clutter unless testing proves it is needed.
 
 ## 5. Global vs client-local views
 
@@ -408,6 +520,7 @@ Client-local views should show the work history and active work for one customer
 - linked Jobs / Visits later
 - linked Tasks and Notes
 - linked Invoices later
+- billing context, including separate invoice address only if different from service address
 
 ### What must not be duplicated
 
@@ -415,6 +528,7 @@ Client-local views should show the work history and active work for one customer
 - do not store separate shadow versions of Assessment details inside Client & Home
 - do not treat work labels as the main identity when structured client/property/service data already exists
 - do not create a second lead or client just because a current client requests extra work
+- do not create separate Assessment or workflow objects just because invoice address differs from service address
 
 ## 6. Naming/display rules
 
@@ -532,12 +646,15 @@ Recommended lean statuses:
 ## 9. Open questions
 
 - Should Property become its own first-class table and UI module sooner rather than later?
-- When exactly should accepted Quote create Client versus link to an existing Client?
-- How should recurring cleaning plans sit between Quote and Job?
-- When should Job and Visit split visibly in the UI?
-- What is the minimum billable-event model needed before invoicing?
-- Which Assessment fields are truly operationally essential versus nice-to-have?
+- Define the exact readiness checklist for:
+  - assessment created
+  - quote-ready
+  - schedule-ready
+  - invoice-ready
+- What is the minimum Job Builder specification for v0?
+- What is the minimum Billable Event model needed before invoicing?
 - Which quote acceptance actions should be manual versus automated?
+- How lightweight should the invoice-address override UI be under Client billing context?
 - How much of address/access detail should cleaners see, and when?
 
 ## 10. Implementation guardrails
@@ -553,7 +670,13 @@ Future AG and Codex prompts should follow these rules:
 - Do not create duplicate Clients for extra work requested by an existing client.
 - Do not create duplicate Leads for existing-client extra work unless a separate explicit lead workflow is requested.
 - Assessment is an internal scoped-work record, not the commercial Quote and not the delivery Job.
-- Accepted Quote should become the future trigger for Job / Work Order.
+- Accepted Quote creates or enables the Job / Work Order shell.
+- Recurring cleaning in v0 is represented as a Recurring Job / Cleaning Plan that generates Visits for a selected horizon.
+- Generated schedule items should be called Visits, not Jobs.
+- Scheduler should stay global, compact, Visit-oriented, and cleaner/duration/location focused.
+- Invoicing should be built from completed Billable Events, not directly from the Quote.
+- Keep required fields minimal and use readiness warnings plus thin red-border validation before hard blocks.
+- Before building a module, define the v0 spec and identify which existing PandaZen structures it must reuse.
 - Do not silently sync Assessment edits back into Client & Home.
 - Do not silently sync Client & Home edits back into historical Lead or Assessment records.
 - Keep global queue views and client-local history views aligned to the same underlying objects, not duplicated shadow records.

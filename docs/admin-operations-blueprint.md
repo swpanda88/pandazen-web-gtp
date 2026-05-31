@@ -6,7 +6,7 @@ Single source of truth for the PandaZen admin/operations system. Replaces separa
 
 Current build priority:
 
-> **Quote Workflow MVP**
+> **Architecture and scope lock for the next delivery modules**
 
 Do not build future modules unless specifically selected. The next selected slice is:
 
@@ -60,7 +60,8 @@ Client / Customer
       -> Quote
         -> Job / Work Order
           -> Visit / Appointment
-            -> Invoice / Payment
+            -> Billable Event
+              -> Invoice / Payment
 ```
 
 Supporting entry object:
@@ -76,9 +77,10 @@ Relationship rules:
 - Property / Home / Location sits below Client and identifies where work happens.
 - Assessment is the internal scoped-work record.
 - Quote is the commercial offer.
-- Accepted Quote should eventually trigger Job / Work Order.
+- Accepted Quote creates or enables the Job / Work Order shell.
 - Visit / Appointment is the scheduled occurrence under a Job or recurring plan.
-- Invoice is the future payment request.
+- Billable Event is the chargeable completed work item that feeds invoicing.
+- Invoice is the payment request generated from selected Billable Events.
 - Use structured customer, property, service, purpose, status, and quote data for display rather than relying on `work_label` as the normal workflow identity.
 
 Implementation guardrails:
@@ -88,6 +90,9 @@ Implementation guardrails:
 - Do not duplicate address components across multiple summary strings unless there is a clear operational reason.
 - Use dropdowns/selects for finite fields such as service type, frequency, status, and purpose.
 - Avoid optional data pollution and duplicated summary fields.
+- Keep required fields minimal; use thin red-border validation and readiness warnings rather than blocking every stage.
+- Reuse proven PandaZen patterns before inventing new module patterns.
+- Do not start Job, Visit, Billable Event, or Invoice implementation until the v0 module spec for that module is documented and accepted.
 - Do not overbuild Jobs, Visits, Invoices, or accounting behaviour until their object boundaries are ready.
 
 ---
@@ -981,7 +986,7 @@ Current Assessment behaviour:
 - Active Assessments can be marked not proceeding with a reason and optional note.
 - Closed/not proceeding Assessments stay traceable and may still be converted later if the customer changes their mind.
 - Existing-client extra work should create a new Assessment linked to the same Client.
-- Current Assessment -> Client & Home conversion is only a temporary bridge until accepted Quote becomes the proper trigger for the next delivery stage.
+- Current Assessment -> Client & Home conversion is only a temporary bridge until accepted Quote creates or enables the next Job / Work Order stage.
 
 ### Schedule / Work Orders
 
@@ -1033,7 +1038,7 @@ Quote architecture rules:
 - Quote Assist is internal guidance only.
 - Quote is a separate Accounting/commercial record.
 - Quote PDF/download is generated from the Quote record, not directly from Assessment or Quote Assist.
-- Accepted Quote should become the proper trigger for Job / Work Order creation.
+- Accepted Quote creates or enables the Job / Work Order shell.
 - Current accepted assessment/quote -> Client & Home link is a temporary bridge until the Quote-to-Job model replaces it.
 - Sent quotes must not be silently overwritten.
 - Revised sent quotes should create a new version.
@@ -1060,8 +1065,9 @@ Lead
 -> Quote sent
 -> Quote accepted / rejected / expired
 -> accepted Quote links or creates Client & Home as needed
--> future Job / Work Order
+-> Job / Work Order shell
 -> future Visit / Appointment
+-> Billable Event
 -> future Invoice
 ```
 
@@ -1130,7 +1136,7 @@ Future quote PDF template requirements:
 
 Future invoice relationship:
 
-- Accepted Quote should later feed jobs, billable events and invoices, while admin can still add extras or manual adjustments.
+- Accepted Quote feeds the Job / Work Order shell. Completed Visits then create Billable Events, while admin can still add approved extras or manual adjustments before invoicing.
 - The quote is the commercial promise; jobs/reports may add approved extras or adjustments before invoicing.
 
 Billable Events architecture:
@@ -1411,7 +1417,7 @@ Lead
 -> Payment tracking later
 ```
 
-The older direct Assessment -> Client & Home conversion is only a temporary bridge. The long-term model is Client at the top, Property below Client, accepted Quote as the commercial trigger, then Job / Work Order and Visit as the delivery path.
+The older direct Assessment -> Client & Home conversion is only a temporary bridge. The long-term model is Client at the top, Property below Client, accepted Quote as the commercial trigger, then Job / Work Order, Visit, Billable Event, and Invoice as the delivery and billing path.
 
 Future modules:
 
@@ -1444,7 +1450,7 @@ Next selected phase:
 - quote versioning, for example `Q-00023/01`
 - `draft / sent / accepted / rejected / expired / void / superseded` status flow
 - linked quote summary shown in Assessments and Client & Home
-- accepted quote becomes the future trigger for Job / Work Order creation
+- accepted Quote creates or enables the Job / Work Order shell
 - keep current accepted assessment/quote -> Client & Home link as a temporary bridge
 - do not build full PDF/document editor yet
 
@@ -1512,7 +1518,7 @@ Later:
 - quote versioning, for example `Q-00023/01`
 - draft / sent / accepted / rejected / expired / void / superseded status flow
 - linked quote summary shown in Assessments and Client & Home
-- accepted Quote becomes the future trigger for Job / Work Order creation
+- accepted Quote creates or enables the Job / Work Order shell
 - keep current accepted assessment/quote -> Client & Home link as a temporary bridge until this layer is replaced by the full Quote -> Job model
 - do not build full PDF/document editor yet
 
@@ -1530,7 +1536,9 @@ Later:
 
 ### Phase 8 - Schedule + Jobs
 
-- manual/generate jobs
+- recurring Job / Cleaning Plan generates Visits for selected planning horizon
+- Scheduler is global, compact, and Visit-oriented
+- unscheduled Visits can be placed into day/hour view
 - reschedule/cancel
 - assign cleaner/helper
 - status flow
@@ -1698,8 +1706,8 @@ Future:
 14. Hide full address/access until job day?
 15. Photo upload limits and retention?
 16. Auto-created task rules?
-17. Essential assessment fields?
-18. Minimum invoice/accounting fields?
+17. Exact readiness checklist for assessment created / quote-ready / schedule-ready / invoice-ready?
+18. Minimum Job Builder and Billable Event field sets?
 19. Staff/HR scope in year one?
 20. Google Calendar integration timing?
 
@@ -1763,6 +1771,14 @@ Efficient flow:
 6. Merge only when accepted
 ```
 
+Resource/model rules for future architecture work:
+
+- use Opus or Gemini Pro High for architecture and product-boundary decisions
+- use Sonnet for careful implementation and refactors
+- use Flash or GPT-OSS for tiny wording, CSS, or simple docs edits
+- stop after 1-2 bad passes and reassess instead of patching endlessly
+- do not start new delivery/billing dev work until the docs and scope for that module are locked
+
 ---
 
 ## 23. Codex Instruction Block for Next Build
@@ -1778,7 +1794,7 @@ Build:
 - quote versioning, for example Q-00023/01
 - quote status flow: draft / sent / accepted / rejected / expired / void / superseded
 - linked quote summary shown in Assessments and Client & Home
-- accepted Quote becomes the future trigger for Job / Work Order creation
+- accepted Quote creates or enables the Job / Work Order shell
 - keep current accepted assessment/quote -> Client & Home link as a temporary bridge until that trigger is replaced
 - no full quote/PDF editor yet
 - no invoice generation yet

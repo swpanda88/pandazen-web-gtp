@@ -4,13 +4,17 @@ This file lists decisions the owner should make before future implementation wor
 
 ## Must decide before next major dev PR
 
-- **Exact point where Quote becomes Job**
-  - Should accepted Quote always be the trigger for creating a Job / Work Order?
-  - Recommendation: yes, unless the business wants a deliberate manual hold step.
+- **Job Builder scope**
+  - Accepted Quote now creates the Job / Work Order shell.
+  - The next decision is what minimum operational specification Job Builder must assemble from Quote + Assessment + Client/Property data.
 
-- **Manual or automatic Job creation after quote accepted**
-  - Build now decision needed for future delivery architecture.
-  - Recommendation: start with manual confirmation, automate later if truly helpful.
+- **Minimum required Assessment fields**
+  - Define the exact readiness checklist for:
+    - assessment created
+    - quote-ready
+    - schedule-ready
+    - invoice-ready
+  - Recommendation: keep creation requirements minimal and use readiness warnings for the later stages.
 
 - **Accepted existing-client extra work wording**
   - Should the UI say:
@@ -30,10 +34,6 @@ This file lists decisions the owner should make before future implementation wor
     - superseded
   - Recommendation: keep this lean set and avoid adding extra statuses without workflow value.
 
-- **Minimum required Assessment fields**
-  - Which fields are mandatory before a Quote can be created?
-  - Recommendation: decide the minimum operational set explicitly, then enforce it consistently.
-
 - **What global queues are needed for v1**
   - Recommended v1 queues:
     - Leads
@@ -45,10 +45,12 @@ This file lists decisions the owner should make before future implementation wor
 ## Can decide during Jobs/Visits phase
 
 - **Recurring cleaning model**
-  - Is recurring work:
-    - one Job with many Visits
-    - or a Plan with generated Visits?
-  - Recommendation: treat recurring work as a plan that generates Visits, with Job/Work Order as the delivery container.
+  - Working v0 decision:
+    - recurring cleaning is represented as a Recurring Job / Cleaning Plan under Client + Property
+    - it generates Visits for a selected planning horizon
+    - generated schedule items are called Visits, not Jobs
+  - Remaining implementation decision:
+    - exact table naming and whether Plan is a Job subtype or adjacent object
 
 - **Whether Property needs its own table soon**
   - Can Property remain partly inside Client & Home for now, or should it become first-class before delivery work expands?
@@ -57,16 +59,36 @@ This file lists decisions the owner should make before future implementation wor
 - **How to handle multiple properties under one client**
   - Recommendation: support it architecturally now, even if the UI stays simple until there is real operational need.
 
+- **Visit generation rules**
+  - Lock the operational rule:
+    - Scheduler is global and Visit-oriented
+    - it should generate/show unscheduled Visits for a selected horizon
+    - admin should place Visits into the calendar/day view
+  - Remaining implementation decision:
+    - what the first practical horizon options should be, such as 1 week, 2 weeks, or 4 weeks
+
 - **What fields are dropdowns vs free text**
   - Recommendation: finite workflow-driving values should be dropdowns; narrative-only context should be free text.
 
 - **Invoice trigger rules**
-  - Recommendation: define after Job / Visit architecture is stable, not before.
+  - Working v0 decision:
+    - completed Visit creates Billable Event
+    - Invoice Builder selects unbilled Billable Events
+    - Invoice is generated from selected Billable Events
+  - Remaining implementation decision:
+    - minimum Billable Event fields needed for first Invoice Builder release
+
+- **Job shell creation behaviour**
+  - Working architecture decision:
+    - accepted Quote creates or enables the Job / Work Order shell
+  - Remaining implementation decisions:
+    - whether the first release is manual-confirmed or fully automatic
+    - exact action/button wording in admin
 
 ## Can decide later
 
 - **Whether invoices are per visit, per job, monthly, or mixed**
-  - Recommendation: mixed model is probably most practical, but only worth defining after the billable-work model is ready.
+  - Recommendation: mixed model is probably most practical, but only worth finalising after the billable-work model is ready.
 
 - **How detailed reporting needs to become**
   - Recommendation: defer until the core objects stop shifting.
@@ -76,6 +98,16 @@ This file lists decisions the owner should make before future implementation wor
 
 - **Cleaner mobile scope**
   - Recommendation: decide after Job and Visit boundaries are finished.
+
+- **Invoice address override UI**
+  - Architecture is fixed: invoice address defaults to service address and can be overridden under Client billing context.
+  - The remaining question is how lightweight the admin UI should be for that override.
+
+- **Reuse-first module rules in practice**
+  - The rule is fixed:
+    - new modules should reuse proven PandaZen structures first
+  - The remaining question is implementation discipline:
+    - which exact existing patterns Job Builder, Invoice Builder, and Scheduler will reuse first
 
 ## Avoid unless business changes
 

@@ -13,6 +13,7 @@ Lead / Request
 -> Estimate / Quote
 -> Job / Work Order
 -> Visit / Appointment
+-> Billable Event
 -> Invoice
 -> Payment
 ```
@@ -30,7 +31,8 @@ The main structural risk is that Assessment can still drift into doing too many 
 - Client and Property = accepted relationship and service location
 - Job / Work Order = delivery container
 - Visit / Appointment = scheduled occurrence
-- Invoice = payment request
+- Billable Event = chargeable completed work item
+- Invoice = payment request built from selected Billable Events
 
 That keeps PandaZen lean without dragging it into enterprise complexity too early.
 
@@ -44,8 +46,9 @@ Across Jobber, Housecall Pro, ServiceTitan, and lighter cleaning tools such as Z
 4. Estimate / quote is created
 5. Accepted work becomes a job / work order
 6. One or more visits / appointments are scheduled
-7. Invoice is issued
-8. Payment is tracked
+7. Completed visits create billable work items
+8. Invoice is issued from billable work
+9. Payment is tracked
 
 Common structural patterns:
 
@@ -54,6 +57,7 @@ Common structural patterns:
 - existing customers can create new estimates or jobs without creating a new lead
 - one job is not always one invoice
 - recurring work usually separates the job/work container from scheduled visits
+- invoicing should come from completed billable work, not directly from the quote
 
 ## Object model comparison
 
@@ -64,10 +68,11 @@ Common structural patterns:
 | Property / Service Address / Site | Home inside Client & Home | Under-modelled | Treat Property as its own concept even if not fully separated in UI yet. |
 | Opportunity / Scoped work / Survey | Assessment | Strong direction but overloaded | Keep Assessment as the internal scoped-work record; do not let it become the delivery object. |
 | Estimate / Quote | Quote | Good direction | Keep Quote as the separate commercial record with status and versioning. |
-| Sold estimate / accepted scope | Accepted Quote + Assessment | Transitional | Make accepted Quote the future trigger for Job / Work Order. |
-| Job / Work Order | Future Jobs | Not yet firm | Define Job as the delivery container created after accepted work. |
-| Visit / Appointment | Future Schedule / Visits | Not yet separate | Split Visit from Job before schedule complexity grows. |
-| Invoice | Planned accounting / invoices | Correctly postponed | Build later from billable work, not from one job = one invoice. |
+| Sold estimate / accepted scope | Accepted Quote + Assessment | Transitional | Accepted Quote creates or enables the Job / Work Order shell. |
+| Job / Work Order | Future Jobs | Direction locked | Job is the delivery container created after accepted work. |
+| Visit / Appointment | Future Schedule / Visits | Direction locked | Recurring Job / Cleaning Plan generates Visits for the selected planning horizon. |
+| Billable Event | Future billing source layer | Direction locked | Completed Visit creates Billable Event used by Invoice Builder. |
+| Invoice | Planned accounting / invoices | Correctly postponed | Build later from selected Billable Events, not from one job = one invoice. |
 | Payment | Later | Not started | Fine to postpone. |
 | Task / Activity / Reminder | Tasks + Notes | Good enough | Keep light and operational rather than building a heavy CRM activity feed. |
 
@@ -87,7 +92,7 @@ Common structural patterns:
 - Client and Property are still visually and conceptually bundled too tightly.
 - Older documentation still uses Q&A language and some legacy workflow framing.
 - The temporary Assessment -> Client & Home bridge can blur the long-term accepted-quote boundary.
-- Job versus Visit is not yet explicit, which becomes risky in recurring cleaning.
+- Job versus Visit is now conceptually explicit, but still needs careful implementation and display consistency.
 - Too much identity can drift into ad hoc labels instead of structured client, property, service, and status data.
 
 ## Recommended object model
@@ -120,8 +125,11 @@ Job / Work Order
 Visit / Appointment
   Scheduled occurrence under a job or recurring plan
 
+Billable Event
+  Chargeable completed work item that feeds invoicing
+
 Invoice
-  Payment request for completed billable work
+  Payment request built from selected Billable Events
 
 Payment
   Money received and reconciled later
@@ -185,7 +193,7 @@ Avoid overbuilding:
 
 ### Must fix before merge / go-live
 
-- Keep accepted Quote as the intended future trigger for delivery objects.
+- Keep accepted Quote as the trigger that creates or enables the Job / Work Order shell.
 - Keep existing-client extra work globally visible, not hidden only inside Client & Home.
 - Tighten the conceptual split between Client and Property.
 - Keep Quote lifecycle non-destructive and traceable.
@@ -195,15 +203,17 @@ Avoid overbuilding:
 
 - clarify customer-versus-property display everywhere
 - strengthen Client & Home -> Assessments as linked work history
-- define accepted-quote -> Job / Work Order transition more explicitly
+- define the first Job Builder v0 spec explicitly
 - tighten naming around assessment status versus quote status
 - improve structured identity on assessment rows and cards
+- define the first Visit card/scheduler layout explicitly
+- define the first Billable Event / Invoice Builder v0 spec explicitly
 
 ### Later
 
-- explicit Job / Work Order object
-- explicit Visit / Appointment object
-- invoice generation from billable work
+- explicit Job / Work Order implementation
+- explicit Visit / Appointment implementation
+- invoice generation from Billable Events
 - payment tracking
 - deeper property normalization only if multi-property usage grows
 

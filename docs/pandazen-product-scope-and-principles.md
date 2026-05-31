@@ -27,9 +27,18 @@ Keep object boundaries clear.
 Build only the next operational layer that the business can actually use.
 ```
 
+Additional owner decisions now locked in:
+
+- invoice address defaults to the service address
+- if invoice address is different, it belongs under Client billing context
+- accepted Quote creates the Job / Work Order shell
+- generated schedule items should be called Visits, not Jobs
+- recurring cleaning in v0 is represented as a Recurring Job / Cleaning Plan that generates Visits for a selected planning horizon
+- Invoice Builder must use unbilled Billable Events as its source items, not the Quote directly
+
 ## 2. Product scope statement
 
-PandaZen is a lean cleaning-operations system for managing enquiries, scoped assessments, quotes, accepted clients and properties, future jobs and visits, and later invoices, with just enough structure to support real admin work without dragging the product into enterprise CRM or field-service complexity too early.
+PandaZen is a lean cleaning-operations system for managing enquiries, scoped assessments, quotes, accepted clients and properties, future jobs and visits, Billable Events, and invoices, with just enough structure to support real admin work without dragging the product into enterprise CRM or field-service complexity too early.
 
 ## 3. In-scope for PandaZen v1
 
@@ -59,6 +68,7 @@ PandaZen is a lean cleaning-operations system for managing enquiries, scoped ass
 - linked Assessments
 - linked Quotes
 - editable core client/property fields
+- billing context, including separate invoice address only when different from service address
 
 #### Cleaning plan
 - light/default planning context only
@@ -73,6 +83,14 @@ PandaZen is a lean cleaning-operations system for managing enquiries, scoped ass
 #### Basic schedule visibility
 - enough schedule visibility to understand future delivery direction
 - no full delivery architecture assumed yet
+- generated schedule items should be called Visits, not Jobs
+- readiness warnings should tell admin when work is not yet schedule-ready
+
+#### Required-field readiness
+- minimal fields required to create records
+- separate readiness rules for quoting, scheduling, and invoicing
+- warning-led data completion rather than blocking everything
+- thin red borders should mark required/invalid fields until valid data is entered
 
 #### Exports / backups
 - data export and backup awareness
@@ -107,16 +125,31 @@ These are not "nice if easy." They are explicitly outside v1 scope.
 ### Build later
 
 #### Job / Work Order layer
-- worth building when accepted Quote is ready to become the real delivery trigger
-- do not mix this into quote/assessment cleanup work
+- accepted Quote creates the Job / Work Order shell
+- Job Builder then builds the operational job specification from Quote + Assessment + Client/Property data
+- this is valid v0 architecture, but not part of the current branch unless explicitly selected
+- recurring cleaning in v0 should be represented as a Recurring Job / Cleaning Plan under Client + Property
 
 #### Visit / Appointment layer
 - worth building when scheduling needs to represent recurring versus one-off work properly
 - especially important once recurring clients are being managed operationally in-app
+- generated schedule items should be called Visits, not Jobs
+- Recurring Job / Cleaning Plan should generate Visits for a selected planning horizon such as 1 week, 2 weeks, or 4 weeks
+- generated Visits are what appear in the Scheduler
+- Scheduler should stay global, Visit-oriented, compact, and cleaner/duration/location focused
+- no Visit module build should start until the Visit v0 spec is documented and accepted
 
 #### Invoice / billable-events layer
 - worth building once completed work or chargeable items need to turn into payment requests
 - do not assume one job = one invoice
+- completed Visit should create Billable Event
+- Invoice Builder should select unbilled Billable Events
+- Invoice Builder should work in the same architectural spirit as Quote Builder:
+  - select source items
+  - build invoice
+  - preview
+  - send / record
+- no invoice or Billable Event module build should start until the billing v0 spec is documented and accepted
 
 #### Payment tracking
 - worth building only after invoices exist in a usable form
@@ -202,6 +235,10 @@ Do not borrow enterprise weight.
 - property context
 - logistics/access baseline
 
+**Billing rule**
+- service address is the default invoice address
+- if billing address differs, store it under Client billing context rather than creating another work object
+
 **Must not own**
 - customer relationship itself
 - quote lifecycle
@@ -234,6 +271,9 @@ Do not borrow enterprise weight.
 - full operational delivery state
 - payment tracking
 
+**Delivery rule**
+- accepted Quote creates the Job / Work Order shell
+
 ### Job
 
 **Owns**
@@ -252,6 +292,9 @@ Do not borrow enterprise weight.
 - one scheduled occurrence
 - timing
 - visit completion/outcome
+
+**Billing rule**
+- completed Visit creates the Billable Event used later by Invoice Builder
 
 **Must not own**
 - the whole job definition
@@ -302,6 +345,12 @@ Do not borrow enterprise weight.
 - finite values should use dropdowns/selects
 - free text only where narrative context is genuinely needed
 - workspace surfaces should be clearer than drawers for heavier operations
+- required fields should stay minimal
+- readiness warnings should be clearer than blanket blocking
+- empty required/invalid fields should use a thin red border until valid
+- Scheduler should be global and Visit-oriented, not a disguised Job list
+- Scheduler should emphasise postcode/location, duration, cleaner/cleaners, and status
+- Scheduler should show unscheduled Visits for the selected planning horizon and let admin place them into a day/hour view
 
 ### Avoid
 
@@ -331,6 +380,7 @@ Fields are allowed only if they help:
 - manually entered summaries that can be derived
 - AI-friendly data points that are not operationally useful
 - duplicate address fragments repeated across summary fields
+- making every Assessment field required just because it exists
 
 ## 10. Naming principles
 
@@ -340,6 +390,7 @@ Fields are allowed only if they help:
 - **Visit** = scheduled occurrence
 - **Client** = relationship / payer
 - **Property** = work location
+- **Invoice address** = billing detail under Client when different from service address
 - avoid `Q&A` in user-facing admin
 - avoid `Convert` where no new client is created
 - avoid `work_label` as the normal workflow identity
@@ -357,6 +408,7 @@ Before merging the current Assessment / Client & Home cleanup branch, only finis
 - verify Client & Home linked assessments
 - verify Quote Assist / Quote Builder
 - verify row display consistency
+- verify required-vs-readiness logic stays minimal and warning-led
 
 ### Avoid
 
@@ -374,6 +426,46 @@ Before merging the current Assessment / Client & Home cleanup branch, only finis
 5. Build Visit scheduling
 6. Build invoice / billable-event model
 
+For each module PR, define before implementation:
+
+- purpose
+- object ownership
+- required data
+- statuses
+- screens / tabs
+- actions
+- upstream / downstream links
+- acceptance tests
+- existing PandaZen structure to reuse
+
+The spec must explicitly answer:
+
+- Can this reuse Quote Builder structure?
+- Can this reuse Quote Preview structure?
+- Can this reuse Assessment Wizard table/grid structure?
+- Can this reuse Workspace Action Panel structure?
+- What genuinely needs a new pattern?
+
+Module-build rule:
+
+- build the smallest complete working module
+- reuse proven PandaZen structures first
+- do not rebuild a new pattern from scratch unless the object purpose truly requires it
+- do not start Job, Visit, Invoice, or Billable Event implementation until that module's v0 docs/scope are locked
+
+Reuse-first examples:
+
+- Invoice Builder should be architecturally based on Quote Builder:
+  - select source items
+  - build lines
+  - preview
+  - send / record
+- Job Builder should be architecturally based on Quote Builder plus Assessment structure:
+  - pull source data
+  - select / confirm operational scope
+  - generate job spec
+- Scheduler should reuse compact workspace/action patterns, but needs its own calendar and Visit-planning view.
+
 ## 13. Anti-scope-creep rules
 
 Future prompts must pass this checklist:
@@ -384,6 +476,9 @@ Future prompts must pass this checklist:
 - Can it be derived?
 - Does it belong to a future module?
 - Is this one PR or multiple?
+- Is this a coherent module v0 or just a micro-patch pretending to be architecture?
+- Which existing PandaZen structure should this reuse?
+- What genuinely has to be different because the object purpose is different?
 
 If the answer points to "future module," stop and narrow scope.
 
@@ -403,8 +498,14 @@ If the answer points to "future module," stop and narrow scope.
 | notes/tasks | Build now | Operationally useful and lightweight | None |
 | quote versioning | Build now | Commercial traceability is essential | Quote layer |
 | recurring cleaning plan | Build now, lightly | Needed as context, not full automation | Client + Property + future Job |
+| recurring Job / Cleaning Plan generating Visits | Build later as defined v0 chain | Concept is locked; implementation comes with Job/Visit module work | Job + Visit model |
 | property model | Build now conceptually, later structurally | Critical boundary, but can stay partly bundled in UI for now | Owner decision on storage timing |
 | client multi-property support | Needs owner decision, but likely later structurally | Architecture should allow it, UI/data model can mature later | Property model |
+| invoice address override | Build now, lightly | Billing address differs sometimes, but should stay under Client billing context | Client billing context |
+| required-field red-border warnings | Build now | Minimal friction with clear readiness signal | Form validation patterns |
+| automatic Job shell on accepted Quote | Build later as next delivery step | Owner has decided the trigger, but delivery module is still pending | Job model PR |
+| Billable Event creation from completed Visit | Build later | Billing chain depends on Visit model existing | Visit + invoice model |
+| Invoice Builder based on Billable Events | Build later | Needed for practical invoicing; should reuse Quote Builder pattern | Billable Event model |
 
 ## 15. Final principles
 
@@ -416,5 +517,9 @@ If the answer points to "future module," stop and narrow scope.
 6. Accepted Quote should become Job.
 7. Visit is a scheduled occurrence, not a synonym for Job.
 8. Use structured data for identity; avoid `work_label` as the main label.
-9. Build only the next operational layer the business can really use.
-10. If a feature adds complexity without changing workflow value, do not build it.
+9. Keep required fields minimal and use readiness warnings before hard blocks.
+10. Recurring cleaning should be represented as a Recurring Job / Cleaning Plan that generates Visits.
+11. Invoice sources should be completed Billable Events, not the Quote itself.
+12. Before building a new module, identify what existing PandaZen pattern it should reuse.
+13. Build only the next operational layer the business can really use.
+14. If a feature adds complexity without changing workflow value, do not build it.

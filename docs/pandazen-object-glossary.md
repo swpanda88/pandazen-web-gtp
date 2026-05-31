@@ -42,6 +42,7 @@ Use it together with:
 **Owns**
 - customer identity
 - main contact details
+- billing context
 - relationship status
 - linked Properties
 - linked Assessments, Quotes, Jobs, Visits, Invoices, Tasks, and Notes
@@ -53,6 +54,8 @@ Use it together with:
 **Key relationships**
 - can have multiple Properties
 - can have multiple Assessments over time
+- invoice address defaults to the service address unless separate billing details are stored under the Client billing context
+- invoice address override is a billing detail, not a separate Assessment or work object
 
 ## Property / Home / Location
 
@@ -75,6 +78,7 @@ Use it together with:
 **Key relationships**
 - belongs to one Client
 - can have multiple Assessments and Jobs over time
+- service address normally acts as the default invoice address
 
 ## Assessment / Scoped Work
 
@@ -97,6 +101,7 @@ Use it together with:
 - the permanent property master record
 - delivery execution history
 - invoice history
+- separate invoice-address workflow
 
 **Key relationships**
 - may originate from one Lead
@@ -124,7 +129,7 @@ Use it together with:
 **Key relationships**
 - belongs to one Assessment
 - may link to one Client
-- accepted Quote should eventually trigger Job / Work Order
+- accepted Quote creates the first Job / Work Order shell in the delivery chain
 
 ## Job / Work Order
 
@@ -132,12 +137,13 @@ Use it together with:
 - Delivery container for accepted work.
 
 **Created when**
-- After accepted Quote, or later from a recurring service plan.
+- After accepted Quote creates the first delivery shell, or later from a recurring service plan.
 
 **Owns**
 - work to be delivered
 - operational status
 - assignment and scheduling linkage
+- operational specification built from Quote + Assessment + Client/Property data
 
 **Must not own**
 - raw lead qualification data
@@ -146,6 +152,8 @@ Use it together with:
 
 **Key relationships**
 - derived from accepted work
+- recurring cleaning in v0 is represented as a Recurring Job / Cleaning Plan under one Client + Property
+- recurring Job / Cleaning Plan generates Visits for a selected planning horizon such as 1 week, 2 weeks, or 4 weeks
 - can have one or more Visits
 
 ## Visit / Appointment
@@ -154,7 +162,7 @@ Use it together with:
 - Scheduled occurrence of a Job or recurring service.
 
 **Created when**
-- Work is assigned to a date/time/window.
+- A Job or recurring plan produces a scheduled occurrence.
 
 **Owns**
 - timing
@@ -167,6 +175,8 @@ Use it together with:
 
 **Key relationships**
 - belongs to one Job / Work Order
+- generated Visits are the scheduled occurrences that appear in the Scheduler
+- completed Visit creates the Billable Event that later feeds invoicing
 
 ## Invoice
 
@@ -181,6 +191,10 @@ Use it together with:
 - amount due
 - invoice lines
 - issue / due / paid status
+- invoice address, defaulting from the service address unless separate Client billing details override it
+
+**Billing rule**
+- invoice address is billing context only; it must not create extra workflow objects
 
 **Must not own**
 - raw scoping notes
@@ -188,6 +202,7 @@ Use it together with:
 
 **Key relationships**
 - belongs to one Client
+- is generated from selected unbilled Billable Events, not directly from the Quote
 - later may include multiple billable work items
 
 ## Task

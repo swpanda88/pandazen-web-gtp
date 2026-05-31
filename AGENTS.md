@@ -54,6 +54,21 @@ Future implementation must follow `docs/pandazen-functional-architecture.md`. In
 - Accepted Quote is the long-term trigger for Job / Work Order creation.
 - Existing-client extra work must create a new Assessment under the same Client, not a duplicate Client or Lead.
 
+Future implementation must also follow `docs/pandazen-product-scope-and-principles.md`. In particular:
+
+- do not start Job, Visit, Billable Event, or Invoice implementation until the v0 docs/scope for that module are locked
+- recurring cleaning is represented as a Recurring Job / Cleaning Plan that generates Visits
+- completed Visit creates Billable Event
+- Invoice Builder must be based on unbilled Billable Events, not the Quote directly
+- reuse proven PandaZen structures before inventing a new module pattern
+
+Resource/model rules:
+
+- use Opus or Gemini Pro High for architecture and product-boundary decisions
+- use Sonnet for careful implementation and refactors
+- use Flash or GPT-OSS for tiny wording, CSS, or simple docs edits
+- stop after 1-2 bad passes and reassess rather than patching endlessly
+
 ## Data and Security
 
 Do not store real customer data until admin/API protection is in place.

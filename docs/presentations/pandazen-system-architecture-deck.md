@@ -43,14 +43,16 @@ flowchart TD
     Q["Quote"]
     J["Job / Work Order"]
     V["Visit / Appointment"]
+    BE["Billable Event"]
     I["Invoice / Payment"]
 
-    C --> P --> A --> Q --> J --> V --> I
+    C --> P --> A --> Q --> J --> V --> BE --> I
 ```
 
 **Rule**
 - Client is the top relationship object
 - Property sits below Client
+- invoice address defaults to service address unless Client billing details override it
 
 ---
 
@@ -63,16 +65,17 @@ flowchart LR
     Q["Quote"]
     AQ["Accepted Quote"]
     CH["Client & Home"]
-    J["Future Job"]
+    J["Job shell"]
     V["Visit"]
+    BE["Billable Event"]
     I["Invoice"]
 
-    L --> A --> Q --> AQ --> CH --> J --> V --> I
+    L --> A --> Q --> AQ --> CH --> J --> V --> BE --> I
 ```
 
 **Current app note**
 - The app still uses a temporary accepted Assessment/Quote -> Client & Home bridge
-- The full Job / Work Order layer is not built yet
+- The future v0 chain is now clearer: accepted Quote -> Job shell -> Visit -> Billable Event -> Invoice
 
 ---
 
@@ -87,6 +90,7 @@ flowchart LR
 | Quote | Commercial offer | Built |
 | Job | Delivery container | Planned |
 | Visit | Scheduled occurrence | Planned |
+| Billable Event | Chargeable completed work item | Planned |
 | Invoice | Payment request | Planned |
 | Task | Operational reminder | Built |
 | Note | Human context/history | Built |
@@ -172,6 +176,7 @@ flowchart LR
 - Quote is the commercial promise
 - Assessment is the internal scoped-work record
 - Quote is not the delivery record
+- accepted Quote creates the first Job / Work Order shell in the delivery chain
 
 ---
 
@@ -184,6 +189,7 @@ flowchart LR
 **Should show**
 - customer identity
 - property context
+- billing context if invoice address differs
 - linked assessments
 - linked quotes
 - future jobs / visits
@@ -206,23 +212,36 @@ not the hidden sales queue
 ```mermaid
 flowchart LR
     AQ["Accepted Quote"] --> J["Job / Work Order"]
-    J --> V1["Visit 1"]
-    J --> V2["Visit 2"]
-    J --> V3["Visit 3"]
-    V1 --> I["Invoice"]
-    V2 --> I
-    V3 --> I
+    J --> JB["Job Builder"]
+    JB --> V1["Visit 1"]
+    JB --> V2["Visit 2"]
+    JB --> V3["Visit 3"]
+    V1 --> BE1["Billable Event 1"]
+    V2 --> BE2["Billable Event 2"]
+    V3 --> BE3["Billable Event 3"]
+    BE1 --> IB["Invoice Builder"]
+    BE2 --> IB
+    BE3 --> IB
+    IB --> I["Invoice"]
 ```
 
 **Supports**
 - recurring cleaning
 - one-off extra work
 - batched invoicing across multiple visits later
+- recurring cleaning in v0 is represented as a Recurring Job / Cleaning Plan that generates Visits for a selected planning horizon
 
 **Key distinction**
 - Job = delivery container
 - Visit = one scheduled occurrence
-- Invoice = payment request, potentially grouped
+- Billable Event = completed chargeable work item
+- Invoice = payment request built from selected Billable Events
+
+**Scheduler principle**
+- Scheduler is global and Visit-oriented
+- show unscheduled Visits for the selected horizon
+- show scheduled work as compact coloured bars/boxes
+- calendar should prioritise postcode/location, duration, cleaner/cleaners, and status
 
 ---
 
@@ -277,7 +296,9 @@ flowchart TD
 - Lead may create first Assessment
 - Existing-client Assessment links by `client_id`
 - Existing-client Assessment uses `lead_id = NULL`
-- Accepted Quote should eventually create Job
+- accepted Quote creates Job shell
+- completed Visit creates Billable Event
+- Invoice Builder selects unbilled Billable Events
 
 ---
 
@@ -341,6 +362,17 @@ One-off cleaning | Existing client extra work | Draft | Q-00021/01
 - duplicate summary fields
 - optional junk data
 - free text where dropdowns are better
+- turning every field into a blocker
+
+**Readiness rule**
+- keep required fields minimal
+- separate:
+  - required to create
+  - required to quote accurately
+  - required to schedule
+  - required to invoice
+- use warnings before hard blocks
+- required/invalid fields use a thin red border until valid
 
 ```text
 If a field does not help contact, identify, price,
@@ -367,6 +399,7 @@ it probably does not belong yet.
 - display consistency
 - naming consistency
 - client-local vs global surfacing
+- required-versus-readiness validation polish
 
 **Not built yet**
 - full Job / Work Order layer
@@ -378,12 +411,11 @@ it probably does not belong yet.
 
 ## Slide 17 - Outstanding architecture questions
 
-- When should accepted Quote create Job versus just link to Client & Home?
 - How soon should Property become a more explicit first-class object in storage and UI?
-- Where should recurring cleaning plan sit between Quote and Job?
-- When should Job and Visit become visibly separate modules?
+- What is the exact readiness checklist for create, quote-ready, schedule-ready, and invoice-ready?
+- What is the minimum Job Builder specification for v0?
 - What is the minimum billable-event model needed before invoicing?
-- Which Assessment fields are truly operationally essential versus just nice to have?
+- How lightweight should the invoice-address override UI be?
 
 ---
 
@@ -398,7 +430,15 @@ it probably does not belong yet.
 **Suggested principle**
 
 ```text
+Reuse proven PandaZen patterns before inventing new module patterns.
 Finish object boundaries before adding more workflow layers.
+```
+
+**Module gate**
+
+```text
+Do not start Job / Visit / Invoice implementation
+until the v0 module spec is documented and accepted.
 ```
 
 ---

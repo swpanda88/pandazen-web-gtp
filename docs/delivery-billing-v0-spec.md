@@ -17,63 +17,107 @@ Key Rules:
 - **Reuse-first principle applies.**
 
 ## 1. Readiness Checklist
-Before proceeding down the pipeline, the following minimums must be met. 
-- **assessment-created minimum:** Client details, Property details, Service type.
-- **quote-ready minimum:** Estimated hours, Estimated price, Assessment status.
-- **job-ready minimum:** Accepted Quote, Assigned resources/requirements.
-- **schedule-ready minimum:** Target date/time, Recurring frequency (if applicable).
-- **invoice-ready minimum:** Billable Event marked complete, Billed amount confirmed.
 
-**Validation Rules:**
-- **Hard-required fields:** Must be filled to proceed to the next stage (e.g., Client Name for Assessment).
-- **Warnings only:** Fields that trigger a thin red-border validation rule but do not block progression (e.g., missing access notes).
+Before proceeding down the pipeline, the following minimums must be met. 
+
+**Validation Rule:** A thin red border is **only** used for hard-required or strictly invalid fields. Readiness warnings are separate advisory messages and must not trigger red-border validation.
+
+| Stage | Hard-Required Fields | Warning-Only Fields | Action Allowed | Action Blocked | Example Warning Message |
+| --- | --- | --- | --- | --- | --- |
+| **assessment-created** | Client Name, Property Address/Location, Service Type | Phone, Email, Access Notes | Create Assessment, Edit Assessment | Finalise Quote (if contact info missing) | "Warning: No phone or email provided. Quote delivery may be difficult." |
+| **quote-ready** | Estimated hours, Estimated price | Parking/Pet Notes, Internal Notes | Generate Quote Preview, Send Quote | Accept Quote (if price missing) | "Advisory: No access or parking notes provided for this property." |
+| **job-ready** | Linked Quote ID, Service Type | Excluded tasks, Specific cleaner requests | Create Job shell, Edit Job | Schedule Job (if requirements unclear) | "Check: No included/excluded tasks defined. Cleaners may need guidance." |
+| **schedule-ready** | Target Date/Time, Duration | Assigned Staff (can be unassigned) | Place Visit on Calendar | Complete Visit (if unassigned) | "Unassigned: This visit is scheduled but has no allocated cleaner." |
+| **invoice-ready** | Client, Billable Amount, Description | Linked Visit ID (for manual extras) | Create Draft Invoice, Issue Invoice | - | "Manual Event: This billable event has no linked visit." |
 
 ## 2. Job Builder v0
-- **Purpose:** To convert an accepted quote into an actionable work order (Job shell).
-- **Source Data:** Inherits directly from Quote, Assessment, and Client/Property. Must not duplicate data (reference only).
-- **Minimum Field Set:** Job ID, Client ID, Property ID, Linked Quote ID, Service Type, Status.
-- **Statuses:** Pending, Scheduled, In Progress, Completed, Cancelled.
-- **Actions:** Schedule, Cancel, Edit Details. (Wording: "Schedule Job", "Cancel Work Order").
-- **Creation:** Recommends automatic Job shell creation upon Quote acceptance, with a manual confirmation step.
-- **Reuse:** Should reuse UI patterns from Quote Builder, specifically the side-by-side context view.
 
-## 3. Recurring Job / Cleaning Plan v0
-- **Structure:** Handled as an adjacent plan object (Cleaning Plan) attached to a base Job for v0.
-- **Recurrence Fields:** Frequency (e.g., Weekly, Fortnightly, Monthly), Start Date, Preferred Day/Time.
-- **Horizon Defaults:** Generates Visits up to a 4w horizon by default.
-- **Generated Visits Rules:** Visits are instantiated from the plan. If the plan changes (e.g., frequency update), future uncompleted Visits in the horizon are regenerated; past or in-progress Visits remain untouched.
+- **Purpose:** To convert an accepted quote into an actionable work order (Job shell).
+- **Recommendation:** An accepted Quote creates/enables a Job shell using a manual confirmation step first. The button wording should be: **“Accept quote & create job”**. Full automation can come later.
+- **Source Data & Duplication Rules:** 
+  - **Referenced Live:** Client, Property, source Quote reference (do not duplicate ownership logic).
+  - **Copied as Snapshot:** Access/parking/pets/product notes are copied from Assessment/Property to allow Job-specific overrides without mutating the original assessment.
+- **Minimum Field Set:** 
+  - Source Quote Reference
+  - Client Reference
+  - Property Reference
+  - Service Type
+  - Job Type (one-off / recurring plan)
+  - Scope Summary
+  - Included/Excluded Tasks
+  - Estimated/Default Duration
+  - Access/Parking/Pets/Product Notes (copied snapshot)
+  - Internal Operational Notes
+  - Readiness State
+  - Status
+- **Status Set:** Pending, Scheduled, In Progress, Completed, Cancelled.
+- **Actions:** Schedule Job, Cancel Work Order, Edit Job Details.
+
+## 3. Recurring Cleaning Plan v0
+
+- **Structure:** Handled as an adjacent plan object (Cleaning Plan) attached to a base Job. Generated instances are **Visits**, not Jobs.
+- **Selectable Horizon:** 1w, 2w, or 4w horizon options. **Default recommendation: 4w horizon.**
+- **Plan Modifications:** When a plan changes (e.g., frequency update):
+  - Past/completed Visits remain untouched.
+  - In-progress Visits remain untouched.
+  - Manually moved/edited Visits within the horizon should **not** be silently overwritten.
+  - Future unmodified generated Visits may be regenerated after manual confirmation.
 
 ## 4. Visit / Scheduler v0
-- **Visit Card Fields:** Visit ID, Linked Job/Plan, Date/Time, Assigned Staff, Status.
-- **Unscheduled Visit Rail/List:** A holding area for Visits generated by plans or manual jobs that lack a confirmed date/time.
-- **Placement Model:** Day/Hour placement with a compact global scheduler view.
-- **Status Set:** Unscheduled, Scheduled, En Route, In Progress, Completed, Cancelled/No Access.
-- **Drag/Drop Rules:** v0 supports simple drag-and-drop from the unscheduled rail to a day/time slot, and between days.
-- **Reuse:** Should reuse the Workspace Action Panel pattern for quick Visit actions (Assign, Reschedule, Mark Done).
+
+- **Visit Card Fields:** Customer, Postcode/Location, Service Type or Short Scope, Duration, Cleaner/Team, Status.
+- **Layout & Model:**
+  - **Unscheduled Visit Rail/List:** A holding area for Visits generated by plans or manual jobs that lack a confirmed date/time.
+  - **Placement Model:** Day/Hour placement.
+  - **Compact Global Scheduler:** A unified view to visualize all scheduled visits.
+- **Status Set (Lean):** `unscheduled`, `scheduled`, `in_progress`, `completed`, `no_access`, `cancelled`, `rescheduled`. *(Note: "En Route" is excluded for v0).*
+- **Rules & Warnings:**
+  - **Drag/Drop:** Supports moving visits from the unscheduled rail to a day/time slot, and between days.
+  - **Conflict Warning:** Highlights double-booking or unrealistic travel times without hard-blocking the action.
+  - **Schedule-Readiness:** Separate advisory messages for missing requirements (e.g., unassigned staff).
 
 ## 5. Billable Event v0
-- **When Created:** Automatically generated when a Visit is marked as "Completed" (or manually created for exceptions).
-- **Minimum Field Set:** Event ID, Linked Visit ID, Client ID, Amount, Description, Status.
-- **Status Set:** Unbilled, Invoiced, Void.
-- **Source Link:** Must strictly link back to the originating Visit.
-- **Editable/Void Rules:** Can be voided if a mistake was made before invoicing.
-- **Manual Extras/No-Access:** For v0, handle these by manually adding a one-off Billable Event or editing the amount on the auto-generated event, rather than overbuilding complex line-item generation logic.
+
+- **Source Model & Rules:** 
+  - A completed Visit normally creates a Billable Event automatically.
+  - Exceptions like manual extras, no-access fees, or cancellation fees create **manual** Billable Events. Do not overbuild complex line-item automation for these in v0.
+  - **Immutability:** Invoiced Billable Events cannot be edited directly. (Use void/credit-adjustments later, but do not build credit notes in v0).
+- **Minimum Fields:**
+  - `id`
+  - `client_id`
+  - `property_id` (optional but preferred)
+  - `source_type`: `visit` | `manual_extra` | `cancellation` | `no_access`
+  - `source_id` (nullable for manual extras)
+  - `visit_id` (where applicable)
+  - `description`
+  - `quantity_or_hours`
+  - `rate`
+  - `amount`
+  - `status`: `unbilled` | `invoiced` | `void`
+  - `invoice_id` (populated once invoiced)
+  - `created_at`
 
 ## 6. Invoice Builder v0
-- **Source:** Pulls from unbilled Billable Events.
-- **Grouping Options:**
-  - Per visit
-  - Per job
-  - Monthly/periodic
-  - Mixed/manual selection
-- **Recommended v0 Grouping:** Per Visit (simplest to trace and implement initially) or Monthly/Periodic (batching all unbilled events for a client into one invoice).
-- **Invoice Preview:** Must reuse the Invoice Preview component heavily from the Quote Preview pattern.
-- **Invoice Status Set:** Draft, Sent, Paid, Overdue, Void.
-- **Exclusions for v0:** Do not build payment reconciliation, accounting software export, or customer portal yet.
+
+- **Decisive Recommendation:** 
+  - The Invoice Builder filters unbilled Billable Events by Client. 
+  - Admin manually selects one or more Billable Events to invoice.
+- **Quick-Select Helpers:** "This visit", "This job", "This month / date range", "All unbilled for client".
+- **Invoice Lifecycle:** Generated invoice starts as a Draft.
+- **Preview:** Must reuse the Invoice Preview component heavily from the Quote Preview pattern.
+- **Invoice Status Set:** `draft`, `issued`, `part_paid`, `paid`, `overdue`, `void`.
+- **Explicit Exclusions for v0 (Do Not Build Yet):**
+  - Payment reconciliation
+  - Accounting software export
+  - Customer portal
+  - Credit notes
+  - VAT/tax complexity (unless already strictly required by business settings)
 
 ## 7. Property Table Timing
-- **Assessment/Recommendation:** The current structure relies on Client & Home data holding the property. Building a scheduler and invoicing on this temporary structure risks significant refactoring when clients have multiple properties or move.
-- **Recommendation:** Property should become a first-class entity (distinct from Client) *before* Job/Visit implementation begins. This ensures scheduling is tied to a physical location rather than just a person. (Note: No migration or code for this is included in this PR).
+
+- **Actionable Recommendation:** First-class Property should be implemented **before** Job/Visit/Scheduler coding. 
+- **Disclaimer:** This PR does not implement it. 
+- **Next Step:** The first implementation issue following these docs should be the Property storage/model migration and spec, not the Scheduler.
 
 ## 8. Cleaner-Facing Detail Boundary
 - **Privacy Principle:** Minimum v0 privacy/access principle applies. Cleaners only see what is necessary to complete the Visit.

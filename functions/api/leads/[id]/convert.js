@@ -1,4 +1,5 @@
 import { error, json, readJson, requireDb } from "../../_util.js";
+import { ensurePrimaryProperty } from "../../admin/clients/[clientId]/properties.js";
 
 const CONVERTIBLE_STATUSES = new Set(["accepted", "booked", "quote_accepted", "converted"]);
 
@@ -8,8 +9,10 @@ export async function onRequestPost({ request, env, params }) {
     const body = await readJson(request);
     const lead = await db
       .prepare(
-        `SELECT id, customer_name AS name, phone, email, area, address, preferred_contact AS preferredContact,
-                service_type AS serviceType, status, notes
+        `SELECT id, customer_name AS name, phone, email, area, address, postcode, preferred_contact AS preferredContact,
+                service_type AS serviceType, status, notes,
+                property_type AS propertyType, bedrooms, bathrooms,
+                property_condition AS propertyCondition, pets, parking
          FROM leads
          WHERE id = ?`
       )
@@ -56,6 +59,18 @@ export async function onRequestPost({ request, env, params }) {
       .prepare("UPDATE leads SET status = 'converted', updated_at = CURRENT_TIMESTAMP WHERE id = ?")
       .bind(lead.id)
       .run();
+
+    await ensurePrimaryProperty(db, result.meta.last_row_id, {
+      address: lead.address || lead.postcode || null,
+      area: lead.area || null,
+      postcode: lead.postcode || null,
+      propertyType: lead.propertyType || null,
+      bedrooms: lead.bedrooms || null,
+      bathrooms: lead.bathrooms || null,
+      propertyCondition: lead.propertyCondition || null,
+      parkingNotes: lead.parking || null,
+      petNotes: lead.pets && lead.pets !== "none" ? lead.pets : null
+    });
 
     return json({ ok: true, id: result.meta.last_row_id, alreadyConverted: false }, { status: 201 });
   } catch (err) {

@@ -1,4 +1,4 @@
-import { error, json, readJson, requireDb } from "../../../../_util.js";
+import { error, json, readJson, requireDb } from "../../../_util.js";
 
 // ---------------------------------------------------------------------------
 // Property display label helper

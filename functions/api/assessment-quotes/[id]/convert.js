@@ -1,5 +1,5 @@
 import { error, json, readJson, requireDb } from "../../_util.js";
-import { ensurePrimaryProperty } from "../../admin/clients/[clientId]/properties.js";
+import { ensurePrimaryProperty } from "../../../admin/clients/[clientId]/properties.js";
 
 async function findClientForQuote(db, quoteId) {
   return db

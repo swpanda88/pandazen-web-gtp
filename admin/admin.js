@@ -5940,9 +5940,6 @@ function bindEvents() {
     if (!state.assessmentWizard) return;
     if ([
       "propertyMode",
-      "propertyLabel",
-      "area",
-      "address",
       "serviceType",
       "assessmentReason",
       "frequency",
@@ -5962,7 +5959,7 @@ function bindEvents() {
       const counter = document.getElementById("initial-scope-counter");
       if (counter) counter.textContent = event.target.value.length;
     }
-    if (["propertyLabel", "area", "address", "serviceType"].includes(event.target?.name)) {
+    if (["serviceType"].includes(event.target?.name)) {
       updateAssessmentWizardModeAndLabel(event.currentTarget);
     } else {
       captureAssessmentWizardForm(event.currentTarget);

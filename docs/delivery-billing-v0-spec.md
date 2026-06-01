@@ -27,8 +27,11 @@ Before proceeding down the pipeline, the following minimums must be met.
 | **assessment-created** | Client Name, Property Address/Location, Service Type | Phone, Email, Access Notes | Create Assessment, Edit Assessment | Finalise Quote (if contact info missing) | "Warning: No phone or email provided. Quote delivery may be difficult." |
 | **quote-ready** | Estimated hours, Estimated price | Parking/Pet Notes, Internal Notes | Generate Quote Preview, Send Quote | Accept Quote (if price missing) | "Advisory: No access or parking notes provided for this property." |
 | **job-ready** | Linked Quote ID, Service Type | Excluded tasks, Specific cleaner requests | Create Job shell, Edit Job | Schedule Job (if requirements unclear) | "Check: No included/excluded tasks defined. Cleaners may need guidance." |
-| **schedule-ready** | Target Date/Time, Duration | Assigned Staff (can be unassigned) | Place Visit on Calendar | Complete Visit (if unassigned) | "Unassigned: This visit is scheduled but has no allocated cleaner." |
+| **visit-created** (unscheduled) | Client, Property/Location, Service Type or Short Scope, Estimated/Default Duration | - | Create Unscheduled Visit | - | - |
+| **calendar-placement** (scheduled) | Date/Time or Time Window, Duration | Cleaner/Team | Place Visit on Calendar | Complete Visit (if required completion data is missing) | "Unassigned: This visit is scheduled but has no allocated cleaner." |
 | **invoice-ready** | Client, Billable Amount, Description | Linked Visit ID (for manual extras) | Create Draft Invoice, Issue Invoice | - | "Manual Event: This billable event has no linked visit." |
+
+*Note on Visit Placement:* A Visit may exist without a date/time as an unscheduled Visit. A date/time is strictly required to place it on the calendar. A missing cleaner/team creates an advisory readiness warning unless v0 rules explicitly decide an assigned cleaner is mandatory before placement. Completion of the visit should only be blocked if required completion data is missing, not simply because it was originally unassigned.
 
 ## 2. Job Builder v0
 
@@ -86,7 +89,7 @@ Before proceeding down the pipeline, the following minimums must be met.
   - `id`
   - `client_id`
   - `property_id` (optional but preferred)
-  - `source_type`: `visit` | `manual_extra` | `cancellation` | `no_access`
+  - `source_type`: `visit` | `manual_extra` | `cancellation` | `no_access` | `product_sale` | `manual_service` | `other`
   - `source_id` (nullable for manual extras)
   - `visit_id` (where applicable)
   - `description`
@@ -120,6 +123,38 @@ Before proceeding down the pipeline, the following minimums must be met.
 - **Next Step:** The first implementation issue following these docs should be the Property storage/model migration and spec, not the Scheduler.
 
 ## 8. Cleaner-Facing Detail Boundary
+
 - **Privacy Principle:** Minimum v0 privacy/access principle applies. Cleaners only see what is necessary to complete the Visit.
 - **Decided Later:** Advanced cleaner app views and location tracking.
 - **v0 Exclusions:** Do not expose billing details, client email/phone (unless necessary for entry), or full customer history to the cleaner view.
+
+## 9. Manual Commercial Documents (Non-Cleaning Sales)
+
+PandaZen is primarily a cleaning operations app, but the business may occasionally sell or charge for something outside normal cleaning scope. We need a tidy accounting path with correct quote/invoice addresses without forcing fake cleaning Assessments, Jobs, or Visits.
+
+**Manual Quote / Manual Invoice rules:**
+- Manual commercial work must still sit under Client.
+- Property / service location is optional unless the sale/service relates to a specific property.
+- Billing address comes from Client billing context.
+- If no separate billing address exists, invoice address defaults to service address where available, otherwise Client billing/contact address.
+- **Do not create dummy cleaning Assessments, Jobs, or Visits just to invoice something.**
+
+**Manual Quote v0:**
+- Allow future quote type/category such as: `cleaning`, `manual_service`, `product_sale`, `other`.
+- A manual quote can use simple editable line items.
+- If accepted:
+  - Create a Job/Visit **only** if operational delivery/scheduling is needed.
+  - Otherwise, create Manual Billable Event(s) directly.
+
+**Manual Billable Event v0:**
+- Allow `source_type` values: `visit`, `manual_extra`, `cancellation`, `no_access`, `product_sale`, `manual_service`, `other`.
+- `source_id` can be null for manual commercial events.
+- `visit_id` is required **only** when `source_type = visit`.
+- `property_id` is optional but preferred when the charge relates to a specific service address.
+- Manual events still go through the Invoice Builder as unbilled Billable Events.
+
+**Clarifications:**
+- Invoice Builder source remains unbilled Billable Events.
+- Manual invoices should be created by selecting or creating Manual Billable Events, not by bypassing the billing model.
+- This is not a full product catalogue, stock system, or accounting suite in v0.
+- This keeps occasional non-cleaning sales possible without polluting the cleaning workflow.

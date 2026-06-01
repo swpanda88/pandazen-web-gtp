@@ -1,4 +1,5 @@
 import { error, json, labelFor, optionMap, readJson, requireDb } from "./_util.js";
+import { propertyDisplayLabel } from "./admin/clients/[clientId]/properties.js";
 
 function labelWithOther(labels, group, value, otherValue) {
   const label = labelFor(labels, group, value);
@@ -45,7 +46,14 @@ export async function onRequestGet({ env }) {
                 q.display_reference AS accountingQuoteDisplayReference,
                 q.status AS accountingQuoteStatus, q.total_price AS accountingQuoteTotalPrice,
                 q.recurring_price AS accountingQuoteRecurringPrice,
-                q.created_at AS accountingQuoteCreatedAt, q.updated_at AS accountingQuoteUpdatedAt
+                q.created_at AS accountingQuoteCreatedAt, q.updated_at AS accountingQuoteUpdatedAt,
+                pp.id AS primaryPropertyId, pp.label AS primaryPropertyLabel,
+                pp.address AS primaryPropertyAddress, pp.area AS primaryPropertyArea,
+                pp.postcode AS primaryPropertyPostcode, pp.property_type AS primaryPropertyType,
+                pp.bedrooms AS primaryPropertyBedrooms, pp.bathrooms AS primaryPropertyBathrooms,
+                pp.property_condition AS primaryPropertyCondition,
+                pp.access_notes AS primaryPropertyAccessNotes,
+                pp.parking_notes AS primaryPropertyParkingNotes
          FROM clients c
          LEFT JOIN cleaning_plans cp ON cp.client_id = c.id AND cp.is_active = 1
          LEFT JOIN staff s ON s.id = cp.main_cleaner_id
@@ -53,6 +61,7 @@ export async function onRequestGet({ env }) {
          LEFT JOIN leads l ON l.id = c.lead_id
          LEFT JOIN assessment_quotes aq ON aq.id = c.assessment_quote_id
          LEFT JOIN accounting_quotes q ON q.assessment_quote_id = c.assessment_quote_id AND q.version_number = 1
+         LEFT JOIN properties pp ON pp.client_id = c.id AND pp.is_primary = 1 AND pp.is_active = 1
          ORDER BY c.customer_name`
       )
       .all();
@@ -114,7 +123,30 @@ export async function onRequestGet({ env }) {
         leadPets: client.qaPets || client.leadPets,
         leadParking: client.qaParking || client.leadParking,
         leadProductPreferences: client.qaProductPreferences || client.leadProductPreferences,
-        helper: client.helper || "Optional"
+        helper: client.helper || "Optional",
+        // Primary property — present when a properties row exists, null for legacy records.
+        // UI should fall back to flat client.address / client.area when null.
+        primaryProperty: client.primaryPropertyId
+          ? {
+              id: client.primaryPropertyId,
+              label: client.primaryPropertyLabel || null,
+              displayLabel: propertyDisplayLabel({
+                label: client.primaryPropertyLabel,
+                address: client.primaryPropertyAddress,
+                area: client.primaryPropertyArea,
+                postcode: client.primaryPropertyPostcode
+              }),
+              address: client.primaryPropertyAddress || null,
+              area: client.primaryPropertyArea || null,
+              postcode: client.primaryPropertyPostcode || null,
+              propertyType: client.primaryPropertyType || null,
+              bedrooms: client.primaryPropertyBedrooms || null,
+              bathrooms: client.primaryPropertyBathrooms || null,
+              propertyCondition: client.primaryPropertyCondition || null,
+              accessNotes: client.primaryPropertyAccessNotes || null,
+              parkingNotes: client.primaryPropertyParkingNotes || null
+            }
+          : null
       }))
     });
   } catch (err) {

@@ -1,4 +1,5 @@
 import { error, json, labelFor, optionMap, readJson, requireDb } from "./_util.js";
+import { ensurePrimaryProperty } from "./admin/clients/[clientId]/properties.js";
 
 function moneyLabel(amountPence) {
   if (amountPence === null || amountPence === undefined || amountPence === "") return "";
@@ -339,11 +340,36 @@ async function createAssessmentFromClient(db, body) {
     )
     .run();
 
+  // Ensure the client has a primary Property record. This is idempotent;
+  // if one already exists this is a no-op returning the existing id.
+  // Only called here (Assessment creation from existing client) — not on reads.
+  const propertyId = await ensurePrimaryProperty(db, client.id, {
+    address: resolvedAddress,
+    area: resolvedArea,
+    postcode: resolvedPostcode,
+    propertyType,
+    bedrooms,
+    bathrooms,
+    propertyCondition,
+    parkingNotes: parking,
+    petNotes: pets ? String(pets) : null,
+    accessNotes: accessNotes || null
+  });
+
+  // Backfill property_id onto the newly created assessment row
+  if (propertyId) {
+    await db
+      .prepare(`UPDATE assessment_quotes SET property_id = ? WHERE id = ?`)
+      .bind(propertyId, result.meta.last_row_id)
+      .run();
+  }
+
   return json({
     ok: true,
     id: result.meta.last_row_id,
     assessmentQuoteId: result.meta.last_row_id,
-    clientId: client.id
+    clientId: client.id,
+    propertyId: propertyId || null
   }, { status: 201 });
 }
 
@@ -353,7 +379,8 @@ export async function onRequestGet({ env }) {
     const labels = await optionMap(db);
     const { results } = await db
       .prepare(
-        `SELECT aq.id, aq.lead_id AS leadId, aq.client_id AS clientId, aq.source_type AS sourceType,
+        `SELECT aq.id, aq.lead_id AS leadId, aq.client_id AS clientId, aq.property_id AS propertyId,
+                aq.source_type AS sourceType,
                 aq.assessment_purpose AS assessmentPurpose, aq.status, aq.assessment_type AS assessmentType,
                 aq.quote_stage AS quoteStage, aq.customer_name AS customerName, aq.phone, aq.email,
                 aq.area, aq.postcode, aq.service_type AS serviceType, aq.frequency,

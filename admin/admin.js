@@ -5382,19 +5382,44 @@ function renderClientWorkspaceTab(record, tab) {
   }
 
   const linkedAssessments = assessmentsForClient(record);
+
+  // Build property summary: use first-class Property row if available, else fall back to flat client fields
+  const pp = record.primaryProperty;
+  const propertyRows = pp
+    ? [
+        ["Property address", pp.address || formatAddressContext([pp.area, pp.postcode]) || ""],
+        ["Property area", pp.area || ""],
+        ["Postcode", pp.postcode || ""],
+        ["Property type", pp.propertyType || ""],
+        ["Bedrooms", pp.bedrooms || ""],
+        ["Bathrooms", pp.bathrooms || ""],
+        ["Condition", pp.propertyCondition || ""],
+        ["Access notes", pp.accessNotes || ""],
+        ["Parking", pp.parkingNotes || ""]
+      ]
+    : [
+        ["Area / address", formatAddressContext([record.area, record.address])]
+      ];
+
   return `
     <div class="workspace-stack">
       ${workspaceSummaryRows([
         ["Client", record.name],
         ["Phone", record.phone],
         ["Email", record.email],
-        ["Area / address", formatAddressContext([record.area, record.address])],
         ["Status", clientStatusDisplay(record)],
         ["Linked lead", clientOriginalLeadId(record) ? `#${clientOriginalLeadId(record)}` : ""],
         ["Primary Assessment", record.assessmentQuoteId ? `#${record.assessmentQuoteId}` : ""],
         ["Linked quote", record.accountingQuote?.displayReference],
         ["Converted", formatDateTime(record.convertedAt)]
       ])}
+      <section>
+        <div class="workspace-section-header">
+          <h4>Service Property</h4>
+          ${pp ? `<span class="pill" title="First-class property record">Property #${pp.id}</span>` : `<span class="record-sub">Using client address fields — property record not yet created</span>`}
+        </div>
+        ${workspaceSummaryRows(propertyRows)}
+      </section>
       <section>
         <h4>Linked Assessments</h4>
         ${listSummary(
@@ -5415,6 +5440,7 @@ function renderClientWorkspaceTab(record, tab) {
     </div>
   `;
 }
+
 
 function renderClientWorkspace(record) {
   const tabs = clientWorkspaceTabs();

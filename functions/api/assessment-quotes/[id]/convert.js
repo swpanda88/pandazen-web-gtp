@@ -1,4 +1,5 @@
 import { error, json, readJson, requireDb } from "../../_util.js";
+import { ensurePrimaryProperty } from "../../admin/clients/[clientId]/properties.js";
 
 async function findClientForQuote(db, quoteId) {
   return db
@@ -124,6 +125,25 @@ export async function onRequestPost({ request, env, params }) {
     const clientId = result.meta.last_row_id;
     await linkAccountingQuotesToClient(db, quote.id, clientId);
     await markQuoteConverted(db, quote.id, clientId);
+
+    const propertyId = await ensurePrimaryProperty(db, clientId, {
+      address: quote.leadAddress || quote.postcode || null,
+      area: quote.area || quote.leadArea || null,
+      postcode: quote.postcode || null,
+      propertyType: quote.propertyType || null,
+      bedrooms: quote.bedrooms || null,
+      bathrooms: quote.bathrooms || null,
+      propertyCondition: quote.propertyCondition || null,
+      parkingNotes: quote.parking || null,
+      petNotes: quote.pets && quote.pets !== "none" ? quote.pets : null
+    });
+
+    if (propertyId) {
+      await db
+        .prepare("UPDATE assessment_quotes SET property_id = COALESCE(property_id, ?) WHERE id = ?")
+        .bind(propertyId, quote.id)
+        .run();
+    }
 
     return json({ ok: true, id: clientId, alreadyConverted: false }, { status: 201 });
   } catch (err) {

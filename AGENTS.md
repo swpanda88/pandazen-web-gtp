@@ -14,9 +14,10 @@ Do not build future modules unless explicitly requested.
 
 Use:
 
-- `docs/admin-operations-blueprint.md` as the product/build blueprint.
+- `docs/admin-operations-blueprint.md` as the product/build blueprint for lead capture and quoting.
 - `docs/pandazen-functional-architecture.md` as the core hierarchy and object model.
 - `docs/pandazen-object-glossary.md` as the stable naming and definition guide.
+- `docs/delivery-billing-v0-spec.md` as the blueprint for Jobs, Visits, Billable Events, and Invoices.
 - This `AGENTS.md` for stable coding and project rules.
 
 If there is a conflict, ask for clarification or follow the blueprint for product behaviour and this file for coding discipline.

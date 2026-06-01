@@ -1,0 +1,160 @@
+# PandaZen Delivery & Billing v0 Spec
+
+This document defines the implementation specification needed before any Job, Visit, Billable Event, or Invoice coding starts. 
+
+## Locked Architecture
+The fundamental data model flows sequentially:
+Client/Customer -> Property/Home/Location -> Assessment/Scoped Work -> Quote -> Job/Work Order -> Visit/Appointment -> Billable Event -> Invoice/Payment.
+
+Key Rules:
+- Client is top-level. Property sits under Client.
+- Assessment is internal scoped work. Quote is the commercial offer.
+- Accepted Quote creates/enables a Job/Work Order shell.
+- Recurring cleaning involves a Recurring Job/Cleaning Plan that generates Visits.
+- Scheduler is global, compact, and Visit-oriented.
+- Completed Visit creates a Billable Event.
+- Invoice Builder selects unbilled Billable Events.
+- **Reuse-first principle applies.**
+
+## 1. Readiness Checklist
+
+Before proceeding down the pipeline, the following minimums must be met. 
+
+**Validation Rule:** A thin red border is **only** used for hard-required or strictly invalid fields. Readiness warnings are separate advisory messages and must not trigger red-border validation.
+
+| Stage | Hard-Required Fields | Warning-Only Fields | Action Allowed | Action Blocked | Example Warning Message |
+| --- | --- | --- | --- | --- | --- |
+| **assessment-created** | Client Name, Property Address/Location, Service Type | Phone, Email, Access Notes | Create Assessment, Edit Assessment | Finalise Quote (if contact info missing) | "Warning: No phone or email provided. Quote delivery may be difficult." |
+| **quote-ready** | Estimated hours, Estimated price | Parking/Pet Notes, Internal Notes | Generate Quote Preview, Send Quote | Accept Quote (if price missing) | "Advisory: No access or parking notes provided for this property." |
+| **job-ready** | Linked Quote ID, Service Type | Excluded tasks, Specific cleaner requests | Create Job shell, Edit Job | Schedule Job (if requirements unclear) | "Check: No included/excluded tasks defined. Cleaners may need guidance." |
+| **visit-created** (unscheduled) | Client, Property/Location, Service Type or Short Scope, Estimated/Default Duration | - | Create Unscheduled Visit | - | - |
+| **calendar-placement** (scheduled) | Date/Time or Time Window, Duration | Cleaner/Team | Place Visit on Calendar | Complete Visit (if required completion data is missing) | "Unassigned: This visit is scheduled but has no allocated cleaner." |
+| **invoice-ready** | Client, Billable Amount, Description | Linked Visit ID (for manual extras) | Create Draft Invoice, Issue Invoice | - | "Manual Event: This billable event has no linked visit." |
+
+*Note on Visit Placement:* A Visit may exist without a date/time as an unscheduled Visit. A date/time is strictly required to place it on the calendar. A missing cleaner/team creates an advisory readiness warning unless v0 rules explicitly decide an assigned cleaner is mandatory before placement. Completion of the visit should only be blocked if required completion data is missing, not simply because it was originally unassigned.
+
+## 2. Job Builder v0
+
+- **Purpose:** To convert an accepted quote into an actionable work order (Job shell).
+- **Recommendation:** An accepted Quote creates/enables a Job shell using a manual confirmation step first. The button wording should be: **“Accept quote & create job”**. Full automation can come later.
+- **Source Data & Duplication Rules:** 
+  - **Referenced Live:** Client, Property, source Quote reference (do not duplicate ownership logic).
+  - **Copied as Snapshot:** Access/parking/pets/product notes are copied from Assessment/Property to allow Job-specific overrides without mutating the original assessment.
+- **Minimum Field Set:** 
+  - Source Quote Reference
+  - Client Reference
+  - Property Reference
+  - Service Type
+  - Job Type (one-off / recurring plan)
+  - Scope Summary
+  - Included/Excluded Tasks
+  - Estimated/Default Duration
+  - Access/Parking/Pets/Product Notes (copied snapshot)
+  - Internal Operational Notes
+  - Readiness State
+  - Status
+- **Status Set:** Pending, Scheduled, In Progress, Completed, Cancelled.
+- **Actions:** Schedule Job, Cancel Work Order, Edit Job Details.
+
+## 3. Recurring Cleaning Plan v0
+
+- **Structure:** Handled as an adjacent plan object (Cleaning Plan) attached to a base Job. Generated instances are **Visits**, not Jobs.
+- **Selectable Horizon:** 1w, 2w, or 4w horizon options. **Default recommendation: 4w horizon.**
+- **Plan Modifications:** When a plan changes (e.g., frequency update):
+  - Past/completed Visits remain untouched.
+  - In-progress Visits remain untouched.
+  - Manually moved/edited Visits within the horizon should **not** be silently overwritten.
+  - Future unmodified generated Visits may be regenerated after manual confirmation.
+
+## 4. Visit / Scheduler v0
+
+- **Visit Card Fields:** Customer, Postcode/Location, Service Type or Short Scope, Duration, Cleaner/Team, Status.
+- **Layout & Model:**
+  - **Unscheduled Visit Rail/List:** A holding area for Visits generated by plans or manual jobs that lack a confirmed date/time.
+  - **Placement Model:** Day/Hour placement.
+  - **Compact Global Scheduler:** A unified view to visualize all scheduled visits.
+- **Status Set (Lean):** `unscheduled`, `scheduled`, `in_progress`, `completed`, `no_access`, `cancelled`, `rescheduled`. *(Note: "En Route" is excluded for v0).*
+- **Rules & Warnings:**
+  - **Drag/Drop:** Supports moving visits from the unscheduled rail to a day/time slot, and between days.
+  - **Conflict Warning:** Highlights double-booking or unrealistic travel times without hard-blocking the action.
+  - **Schedule-Readiness:** Separate advisory messages for missing requirements (e.g., unassigned staff).
+
+## 5. Billable Event v0
+
+- **Source Model & Rules:** 
+  - A completed Visit normally creates a Billable Event automatically.
+  - Exceptions like manual extras, no-access fees, or cancellation fees create **manual** Billable Events. Do not overbuild complex line-item automation for these in v0.
+  - **Immutability:** Invoiced Billable Events cannot be edited directly. (Use void/credit-adjustments later, but do not build credit notes in v0).
+- **Minimum Fields:**
+  - `id`
+  - `client_id`
+  - `property_id` (optional but preferred)
+  - `source_type`: `visit` | `manual_extra` | `cancellation` | `no_access` | `product_sale` | `manual_service` | `other`
+  - `source_id` (nullable for manual extras)
+  - `visit_id` (where applicable)
+  - `description`
+  - `quantity_or_hours`
+  - `rate`
+  - `amount`
+  - `status`: `unbilled` | `invoiced` | `void`
+  - `invoice_id` (populated once invoiced)
+  - `created_at`
+
+## 6. Invoice Builder v0
+
+- **Decisive Recommendation:** 
+  - The Invoice Builder filters unbilled Billable Events by Client. 
+  - Admin manually selects one or more Billable Events to invoice.
+- **Quick-Select Helpers:** "This visit", "This job", "This month / date range", "All unbilled for client".
+- **Invoice Lifecycle:** Generated invoice starts as a Draft.
+- **Preview:** Must reuse the Invoice Preview component heavily from the Quote Preview pattern.
+- **Invoice Status Set:** `draft`, `issued`, `part_paid`, `paid`, `overdue`, `void`.
+- **Explicit Exclusions for v0 (Do Not Build Yet):**
+  - Payment reconciliation
+  - Accounting software export
+  - Customer portal
+  - Credit notes
+  - VAT/tax complexity (unless already strictly required by business settings)
+
+## 7. Property Table Timing
+
+- **Actionable Recommendation:** First-class Property should be implemented **before** Job/Visit/Scheduler coding. 
+- **Disclaimer:** This PR does not implement it. 
+- **Next Step:** The first implementation issue following these docs should be the Property storage/model migration and spec, not the Scheduler.
+
+## 8. Cleaner-Facing Detail Boundary
+
+- **Privacy Principle:** Minimum v0 privacy/access principle applies. Cleaners only see what is necessary to complete the Visit.
+- **Decided Later:** Advanced cleaner app views and location tracking.
+- **v0 Exclusions:** Do not expose billing details, client email/phone (unless necessary for entry), or full customer history to the cleaner view.
+
+## 9. Manual Commercial Documents (Non-Cleaning Sales)
+
+PandaZen is primarily a cleaning operations app, but the business may occasionally sell or charge for something outside normal cleaning scope. We need a tidy accounting path with correct quote/invoice addresses without forcing fake cleaning Assessments, Jobs, or Visits.
+
+**Manual Quote / Manual Invoice rules:**
+- Manual commercial work must still sit under Client.
+- Property / service location is optional unless the sale/service relates to a specific property.
+- Billing address comes from Client billing context.
+- If no separate billing address exists, invoice address defaults to service address where available, otherwise Client billing/contact address.
+- **Do not create dummy cleaning Assessments, Jobs, or Visits just to invoice something.**
+
+**Manual Quote v0:**
+- Allow future quote type/category such as: `cleaning`, `manual_service`, `product_sale`, `other`.
+- A manual quote can use simple editable line items.
+- If accepted:
+  - Create a Job/Visit **only** if operational delivery/scheduling is needed.
+  - Otherwise, create Manual Billable Event(s) directly.
+
+**Manual Billable Event v0:**
+- Allow `source_type` values: `visit`, `manual_extra`, `cancellation`, `no_access`, `product_sale`, `manual_service`, `other`.
+- `source_id` can be null for manual commercial events.
+- `visit_id` is required **only** when `source_type = visit`.
+- `property_id` is optional but preferred when the charge relates to a specific service address.
+- Manual events still go through the Invoice Builder as unbilled Billable Events.
+
+**Clarifications:**
+- Invoice Builder source remains unbilled Billable Events.
+- Manual invoices should be created by selecting or creating Manual Billable Events, not by bypassing the billing model.
+- This is not a full product catalogue, stock system, or accounting suite in v0.
+- This keeps occasional non-cleaning sales possible without polluting the cleaning workflow.

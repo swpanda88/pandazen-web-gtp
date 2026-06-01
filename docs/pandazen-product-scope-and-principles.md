@@ -63,7 +63,8 @@ PandaZen is a lean cleaning-operations system for managing enquiries, scoped ass
 - quote editor / preview / print
 - link Quote to Assessment and, where applicable, Client
 
-#### Clients & Homes
+#### Client & Property Workspace
+*See docs/client-property-workspace-v0-spec.md for boundary rules.*
 - operational accepted customer/property hub
 - linked Assessments
 - linked Quotes

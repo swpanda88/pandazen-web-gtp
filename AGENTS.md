@@ -18,6 +18,7 @@ Use:
 - `docs/pandazen-functional-architecture.md` as the core hierarchy and object model.
 - `docs/pandazen-object-glossary.md` as the stable naming and definition guide.
 - `docs/delivery-billing-v0-spec.md` as the blueprint for Jobs, Visits, Billable Events, and Invoices.
+- `docs/client-property-workspace-v0-spec.md` as the UX and product spec for Client & Property operational boundaries.
 - This `AGENTS.md` for stable coding and project rules.
 
 If there is a conflict, ask for clarification or follow the blueprint for product behaviour and this file for coding discipline.

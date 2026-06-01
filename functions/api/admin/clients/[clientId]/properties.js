@@ -3,7 +3,7 @@ import { error, json, readJson, requireDb } from "../../../../_util.js";
 // ---------------------------------------------------------------------------
 // Property display label helper
 // Returns label if set; otherwise computes a clean display string from
-// address/area/postcode fields. Never auto-populates the stored label column.
+// address/area/postcode. Never auto-populates the stored label column.
 // ---------------------------------------------------------------------------
 export function propertyDisplayLabel(property) {
   if (!property) return "";
@@ -13,9 +13,14 @@ export function propertyDisplayLabel(property) {
     property.area,
     property.postcode
   ].filter(Boolean);
-  // Deduplicate parts that are substrings of others (same logic as formatAddressContext in UI)
+  // Deduplicate parts that are substrings of others
   const deduped = parts.filter((part, i) =>
-    !parts.some((other, j) => i !== j && other.toLowerCase().includes(part.toLowerCase()) && other.length > part.length)
+    !parts.some(
+      (other, j) =>
+        i !== j &&
+        other.toLowerCase().includes(part.toLowerCase()) &&
+        other.length > part.length
+    )
   );
   return deduped.join(", ") || "Property";
 }
@@ -23,10 +28,10 @@ export function propertyDisplayLabel(property) {
 // ---------------------------------------------------------------------------
 // ensurePrimaryProperty
 // Idempotent: returns existing primary property_id if one already exists.
-// If none exists, creates one from the best available data on the client record
-// (plus optional override fields from a source assessment row).
+// If none exists, creates one from the best available data on the client
+// record (plus optional override fields from a source assessment row).
 //
-// IMPORTANT: This must only be called at safe creation/conversion points
+// IMPORTANT: Must only be called at safe creation/conversion points
 // (e.g., when creating a new Assessment from an existing client, or on
 // quote acceptance). Do NOT call on every read — it is a write operation.
 // ---------------------------------------------------------------------------
@@ -49,16 +54,14 @@ export async function ensurePrimaryProperty(db, clientId, sourceData = {}) {
 
   // Load client for fallback address data
   const client = await db
-    .prepare(
-      `SELECT address, area FROM clients WHERE id = ? LIMIT 1`
-    )
+    .prepare(`SELECT address, area FROM clients WHERE id = ? LIMIT 1`)
     .bind(clientIdNum)
     .first();
 
   if (!client) return null;
 
   // Build property row from best available data.
-  // Priority order: sourceData override > assessment fields > client flat fields.
+  // Priority order: sourceData > client flat fields.
   const address = sourceData.address || sourceData.propertyAddress || client.address || null;
   const area = sourceData.area || client.area || null;
   const postcode = sourceData.postcode || null;
@@ -129,8 +132,8 @@ function propertyToResponse(row) {
 }
 
 // ---------------------------------------------------------------------------
-// GET /api/admin/clients/:clientId/properties
-// List all active properties for a client
+// GET /api/admin/clients/[clientId]/properties
+// List all active properties for a client.
 // ---------------------------------------------------------------------------
 async function handleList(db, clientId) {
   const { results } = await db
@@ -153,8 +156,16 @@ async function handleList(db, clientId) {
 }
 
 // ---------------------------------------------------------------------------
-// POST /api/admin/clients/:clientId/properties
-// Create a new property for a client
+// POST /api/admin/clients/[clientId]/properties
+// Create a new property for a client.
+//
+// Primary logic:
+//  - If body.isPrimary === true  → create as primary, demote existing primary.
+//  - Else if client has no active properties → create as primary (first property).
+//  - Else → create as non-primary.
+//
+// This avoids silently demoting the existing primary when a second property is
+// added without the caller explicitly requesting it.
 // ---------------------------------------------------------------------------
 async function handleCreate(db, clientId, body) {
   const clientIdNum = Number(clientId);
@@ -167,16 +178,30 @@ async function handleCreate(db, clientId, body) {
     .first();
   if (!client) return error("Client not found.", 404);
 
-  // If this new property is flagged as primary, demote any existing primary
-  const isPrimary = body.isPrimary !== false ? 1 : 0;
-  if (isPrimary) {
+  // Determine whether this property should be primary
+  let isPrimary;
+
+  if (body.isPrimary === true) {
+    // Caller explicitly requested primary: demote any existing primary first
     await db
       .prepare(
         `UPDATE properties SET is_primary = 0, updated_at = CURRENT_TIMESTAMP
-         WHERE client_id = ? AND is_primary = 1`
+         WHERE client_id = ? AND is_primary = 1 AND is_active = 1`
       )
       .bind(clientIdNum)
       .run();
+    isPrimary = 1;
+  } else {
+    // No explicit primary request: check if the client has any active properties
+    const existingCount = await db
+      .prepare(
+        `SELECT COUNT(*) AS cnt FROM properties
+         WHERE client_id = ? AND is_active = 1`
+      )
+      .bind(clientIdNum)
+      .first();
+    // If no existing properties, this becomes primary automatically
+    isPrimary = (existingCount?.cnt ?? 0) === 0 ? 1 : 0;
   }
 
   const result = await db
@@ -206,86 +231,13 @@ async function handleCreate(db, clientId, body) {
     )
     .run();
 
-  return json({ ok: true, id: result.meta.last_row_id }, { status: 201 });
-}
-
-// ---------------------------------------------------------------------------
-// PATCH /api/admin/properties/:id
-// Update an existing property
-// ---------------------------------------------------------------------------
-async function handlePatch(db, propertyId, body) {
-  const propIdNum = Number(propertyId);
-  if (!propIdNum) return error("Property ID is required.");
-
-  const existing = await db
-    .prepare(`SELECT id, client_id FROM properties WHERE id = ? LIMIT 1`)
-    .bind(propIdNum)
-    .first();
-  if (!existing) return error("Property not found.", 404);
-
-  // If marking as primary, demote existing primary for same client
-  if (body.isPrimary === true || body.isPrimary === 1) {
-    await db
-      .prepare(
-        `UPDATE properties SET is_primary = 0, updated_at = CURRENT_TIMESTAMP
-         WHERE client_id = ? AND is_primary = 1 AND id != ?`
-      )
-      .bind(existing.client_id, propIdNum)
-      .run();
-  }
-
-  // Build SET clause from whichever fields are present in the body
-  const updatableFields = [
-    ["label", "label"],
-    ["address", "address"],
-    ["area", "area"],
-    ["postcode", "postcode"],
-    ["propertyType", "property_type"],
-    ["bedrooms", "bedrooms"],
-    ["bathrooms", "bathrooms"],
-    ["propertyCondition", "property_condition"],
-    ["accessNotes", "access_notes"],
-    ["parkingNotes", "parking_notes"],
-    ["petNotes", "pet_notes"],
-    ["surfaceNotes", "surface_notes"],
-    ["notes", "notes"],
-    ["isPrimary", "is_primary"],
-    ["isActive", "is_active"]
-  ];
-
-  const setClauses = [];
-  const binds = [];
-
-  for (const [bodyKey, dbCol] of updatableFields) {
-    if (bodyKey in body) {
-      setClauses.push(`${dbCol} = ?`);
-      let val = body[bodyKey];
-      // Coerce booleans for SQLite integer columns
-      if (bodyKey === "isPrimary" || bodyKey === "isActive") {
-        val = val ? 1 : 0;
-      } else if (val === "") {
-        val = null;
-      }
-      binds.push(val ?? null);
-    }
-  }
-
-  if (!setClauses.length) return json({ ok: true, unchanged: true });
-
-  setClauses.push("updated_at = CURRENT_TIMESTAMP");
-  binds.push(propIdNum);
-
-  await db
-    .prepare(`UPDATE properties SET ${setClauses.join(", ")} WHERE id = ?`)
-    .bind(...binds)
-    .run();
-
-  return json({ ok: true });
+  return json({ ok: true, id: result.meta.last_row_id, isPrimary: Boolean(isPrimary) }, { status: 201 });
 }
 
 // ---------------------------------------------------------------------------
 // Route handlers — Cloudflare Pages Functions pattern
 // Route: /api/admin/clients/[clientId]/properties
+// PATCH lives in /api/admin/properties/[id].js — not duplicated here.
 // ---------------------------------------------------------------------------
 export async function onRequestGet({ env, params }) {
   try {

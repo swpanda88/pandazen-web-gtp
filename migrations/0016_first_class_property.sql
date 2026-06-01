@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS properties (
   pet_notes          TEXT,
   surface_notes      TEXT,
   notes              TEXT,    -- internal operational notes
-  is_primary         INTEGER  NOT NULL DEFAULT 1,  -- 1 = primary/main property for this client
+  is_primary         INTEGER  NOT NULL DEFAULT 0,  -- 1 = primary/main property for this client; set explicitly
   is_active          INTEGER  NOT NULL DEFAULT 1,
   created_at         TEXT     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at         TEXT     NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -42,6 +42,11 @@ ON properties(client_id, is_primary, is_active);
 
 CREATE INDEX IF NOT EXISTS idx_properties_postcode
 ON properties(postcode);
+
+-- Enforce at DB level: only one active primary property allowed per client.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_properties_one_active_primary_per_client
+ON properties(client_id)
+WHERE is_primary = 1 AND is_active = 1;
 
 -- Forward-compat column: assessment_quotes.property_id
 -- Nullable; existing assessment rows are unaffected.

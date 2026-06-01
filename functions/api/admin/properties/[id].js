@@ -24,7 +24,7 @@ export async function onRequestPatch({ request, env, params }) {
       await db
         .prepare(
           `UPDATE properties SET is_primary = 0, updated_at = CURRENT_TIMESTAMP
-           WHERE client_id = ? AND is_primary = 1 AND id != ?`
+           WHERE client_id = ? AND is_primary = 1 AND is_active = 1 AND id != ?`
         )
         .bind(existing.client_id, propIdNum)
         .run();

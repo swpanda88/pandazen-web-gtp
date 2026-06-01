@@ -509,7 +509,9 @@ Global views should show cross-customer working queues:
 
 Global lists should optimize for queue management and next action.
 
-### What appears under Client & Home
+### What appears under Client & Property Workspace
+
+See `docs/client-property-workspace-v0-spec.md` for full UX and boundary definitions.
 
 Client-local views should show the work history and active work for one customer/property context:
 

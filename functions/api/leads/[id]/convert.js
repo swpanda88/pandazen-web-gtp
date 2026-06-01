@@ -1,5 +1,5 @@
 import { error, json, readJson, requireDb } from "../../_util.js";
-import { ensurePrimaryProperty } from "../../../admin/clients/[clientId]/properties.js";
+import { ensurePrimaryProperty } from "../../admin/clients/[clientId]/properties.js";
 
 const CONVERTIBLE_STATUSES = new Set(["accepted", "booked", "quote_accepted", "converted"]);
 

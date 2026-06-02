@@ -36,12 +36,18 @@ window.CLEANOPS_DATA = {
   ],
 
   selectedClient: {
+    id: "client-john-smith",
+    initials: "JS",
     name: "John Smith",
     status: "Lead",
+    statusTone: "info",
     source: "Website enquiry",
     email: "john.smith@example.test",
     phone: "07700 900123",
     balance: "GBP 0.00",
+    mainProperty: "24 Hill Road",
+    area: "London SW12",
+    activeSummary: "Quote required",
     lastCommunication: "No client communications sent yet",
     tags: ["Domestic", "SW12", "Weekly potential"],
     internalNote: "Interested in weekly cleaning after initial deep clean. Prefers Friday mornings.",
@@ -54,6 +60,7 @@ window.CLEANOPS_DATA = {
         layout: "3 bedrooms, 2 bathrooms",
         access: "Client home during first visit",
         risk: "Dog in property, friendly but excitable",
+        parking: "Resident bay nearby, confirm permit",
         service: "Regular domestic clean",
         cadence: "Weekly, Friday morning preferred",
         nextAction: "Create quote for first deep clean"
@@ -66,6 +73,7 @@ window.CLEANOPS_DATA = {
         layout: "1 room, 1 shower room",
         access: "Side gate, code not collected",
         risk: "Separate alarm zone",
+        parking: "Street parking",
         service: "Ad hoc deep clean",
         cadence: "As requested",
         nextAction: "Confirm access before quoting"
@@ -80,6 +88,293 @@ window.CLEANOPS_DATA = {
       { invoice: "No billing history", detail: "This client has not been billed yet", amount: "GBP 0.00" }
     ]
   },
+
+  clients: [
+    {
+      id: "client-john-smith",
+      initials: "JS",
+      display_name: "John Smith",
+      name: "John Smith",
+      company: "",
+      client_type: "individual",
+      company_name: "",
+      first_name: "John",
+      last_name: "Smith",
+      status: "lead",
+      statusTone: "info",
+      lead_source: "website_enquiry",
+      email: "john.smith@example.test",
+      phone: "07700 900123",
+      balance: "GBP 0.00",
+      mainProperty: "24 Hill Road",
+      area: "London SW12",
+      activeSummary: "Quote required",
+      lastCommunication: "No contact yet",
+      internalNote: "Interested in weekly cleaning after initial deep clean. Prefers Friday mornings.",
+      internal_notes: "Interested in weekly cleaning after initial deep clean. Prefers Friday mornings.",
+      billingAddress: "24 Hill Road, London SW12",
+      properties: [
+        {
+          id: "PROP-1007",
+          client_id: "client-john-smith",
+          label: "24 Hill Road",
+          name: "24 Hill Road",
+          address: "24 Hill Road, London SW12",
+          area: "London",
+          postcode: "SW12",
+          property_type: "domestic_house",
+          bedrooms: "3",
+          bathrooms: "2",
+          default_service_type: "regular_domestic_clean",
+          default_cadence: "weekly",
+          preferred_day: "friday",
+          preferred_time_window: "morning",
+          access_method: "client_home",
+          parking: "permit_required",
+          pets_present: "dog",
+          cleaning_products: "pandazen_provides",
+          vacuum_hoover: "client_provides",
+          mop: "pandazen_brings",
+          property_notes: "Client usually home for first visit. Dog present, friendly but excitable.",
+          cleaning_notes: "Prefers attention on kitchen and bathrooms.",
+          next_action: "Create quote for first deep clean"
+        },
+        {
+          id: "PROP-1011",
+          client_id: "client-john-smith",
+          label: "Garden Studio",
+          name: "Garden Studio",
+          address: "Rear studio, 24 Hill Road, London SW12",
+          area: "London",
+          postcode: "SW12",
+          property_type: "studio_annexe",
+          bedrooms: "studio",
+          bathrooms: "1",
+          default_service_type: "deep_clean",
+          default_cadence: "as_requested",
+          preferred_day: "flexible",
+          preferred_time_window: "flexible",
+          access_method: "to_arrange",
+          parking: "street_parking",
+          pets_present: "unknown",
+          cleaning_products: "to_confirm",
+          vacuum_hoover: "to_confirm",
+          mop: "to_confirm",
+          property_notes: "Side gate access. Code not collected yet.",
+          cleaning_notes: "Studio clean only when requested.",
+          next_action: "Confirm access before quoting"
+        }
+      ],
+      activeWork: [
+        { type: "Request", title: "Weekly domestic clean", status: "Quote required", tone: "warning" },
+        { type: "Quote", title: "Initial deep clean", status: "Draft", tone: "info" },
+        { type: "Task", title: "Call to confirm products", status: "Today", tone: "success" }
+      ],
+      requests: [
+        { number: "REQ-1044", title: "Weekly domestic clean", status: "Quote required", tone: "warning", propertyId: "PROP-1007" }
+      ],
+      quotes: [
+        { number: "Q-2091", title: "Initial deep clean", total: "GBP 260", status: "Draft", tone: "info", propertyId: "PROP-1007" }
+      ],
+      jobs: [],
+      invoices: [],
+      billingHistory: [
+        { invoice: "No billing history", detail: "This client has not been billed yet", amount: "GBP 0.00" }
+      ]
+    },
+    {
+      id: "client-olivia-carter",
+      initials: "OC",
+      display_name: "Olivia Carter",
+      name: "Olivia Carter",
+      company: "",
+      client_type: "individual",
+      company_name: "",
+      first_name: "Olivia",
+      last_name: "Carter",
+      status: "active_client",
+      statusTone: "success",
+      lead_source: "referral",
+      email: "olivia.carter@example.test",
+      phone: "07700 900214",
+      balance: "GBP 0.00",
+      mainProperty: "Family home, Durham",
+      area: "Durham",
+      activeSummary: "Weekly clean",
+      lastCommunication: "2 days ago",
+      internalNote: "Prefers eco products. Friday clean normally works best.",
+      internal_notes: "Prefers eco products. Friday clean normally works best.",
+      billingAddress: "Family home, Durham",
+      properties: [
+        {
+          id: "PROP-2001",
+          client_id: "client-olivia-carter",
+          label: "Family home",
+          name: "Family home",
+          address: "Family home, Durham",
+          area: "Durham",
+          postcode: "Durham",
+          property_type: "domestic_house",
+          bedrooms: "4",
+          bathrooms: "2",
+          default_service_type: "regular_domestic_clean",
+          default_cadence: "weekly",
+          preferred_day: "friday",
+          preferred_time_window: "morning",
+          access_method: "client_home",
+          parking: "driveway",
+          pets_present: "cat",
+          cleaning_products: "mixed_specific_products_required",
+          vacuum_hoover: "client_provides",
+          mop: "client_provides",
+          property_notes: "Client usually home. Cat indoors, keep front door closed.",
+          cleaning_notes: "Eco products preferred.",
+          next_action: "Confirm next Friday visit"
+        }
+      ],
+      activeWork: [
+        { type: "Job", title: "Weekly domestic clean", status: "Active", tone: "success" }
+      ],
+      requests: [],
+      quotes: [],
+      jobs: [
+        { number: "JOB-1442", title: "Weekly domestic clean", status: "Active", tone: "success", propertyId: "PROP-2001" }
+      ],
+      invoices: [],
+      billingHistory: [
+        { invoice: "No open balance", detail: "Latest invoice paid", amount: "GBP 0.00" }
+      ]
+    },
+    {
+      id: "client-abc-offices",
+      initials: "AO",
+      display_name: "ABC Offices",
+      name: "ABC Offices",
+      company: "ABC Offices Ltd",
+      client_type: "company",
+      company_name: "ABC Offices Ltd",
+      first_name: "",
+      last_name: "",
+      status: "commercial",
+      statusTone: "info",
+      lead_source: "manual",
+      email: "ops@abcoffices.example.test",
+      phone: "020 7946 0123",
+      balance: "GBP 125.00",
+      mainProperty: "Unit 4",
+      area: "M1 business park",
+      activeSummary: "Active job",
+      lastCommunication: "Today",
+      internalNote: "Evening access through building manager. Monthly washroom consumables review.",
+      internal_notes: "Evening access through building manager. Monthly washroom consumables review.",
+      billingAddress: "Unit 4, M1 business park",
+      properties: [
+        {
+          id: "PROP-3001",
+          client_id: "client-abc-offices",
+          label: "Unit 4",
+          name: "Unit 4",
+          address: "Unit 4, M1 business park",
+          area: "M1 business park",
+          postcode: "M1",
+          property_type: "commercial_office",
+          bedrooms: "not_applicable",
+          bathrooms: "not_applicable",
+          default_service_type: "commercial_clean",
+          default_cadence: "weekly",
+          preferred_day: "flexible",
+          preferred_time_window: "evening",
+          access_method: "key_held",
+          parking: "staff_bays",
+          pets_present: "not_applicable",
+          cleaning_products: "pandazen_provides",
+          vacuum_hoover: "pandazen_brings",
+          mop: "pandazen_brings",
+          property_notes: "Key held in lockbox. Building manager confirms evening access.",
+          cleaning_notes: "Washrooms and common areas. Consumables reviewed monthly.",
+          next_action: "Invoice consumables top-up"
+        }
+      ],
+      activeWork: [
+        { type: "Job", title: "Commercial contract", status: "Recurring", tone: "info" },
+        { type: "Invoice", title: "Consumables top-up", status: "Due", tone: "warning" }
+      ],
+      requests: [],
+      quotes: [],
+      jobs: [
+        { number: "JOB-1204", title: "Commercial contract", status: "Recurring", tone: "info", propertyId: "PROP-3001" }
+      ],
+      invoices: [
+        { number: "INV-3048", title: "Consumables top-up", amount: "GBP 125.00", status: "Sent", tone: "info" }
+      ],
+      billingHistory: [
+        { invoice: "INV-3048", detail: "Consumables top-up sent today", amount: "GBP 125.00" }
+      ]
+    },
+    {
+      id: "client-harris",
+      initials: "HA",
+      display_name: "Harris",
+      name: "Harris",
+      company: "",
+      client_type: "individual",
+      company_name: "",
+      first_name: "Harris",
+      last_name: "",
+      status: "prospect",
+      statusTone: "warning",
+      lead_source: "phone",
+      email: "harris@example.test",
+      phone: "07700 900545",
+      balance: "GBP 0.00",
+      mainProperty: "2-bed flat",
+      area: "Ealing",
+      activeSummary: "Request open",
+      lastCommunication: "5 days ago",
+      internalNote: "Asked for one-off deep clean price. Needs follow-up before weekend.",
+      internal_notes: "Asked for one-off deep clean price. Needs follow-up before weekend.",
+      billingAddress: "2-bed flat, Ealing",
+      properties: [
+        {
+          id: "PROP-4001",
+          client_id: "client-harris",
+          label: "2-bed flat",
+          name: "2-bed flat",
+          address: "2-bed flat, Ealing",
+          area: "Ealing",
+          postcode: "Ealing",
+          property_type: "flat_apartment",
+          bedrooms: "2",
+          bathrooms: "unknown",
+          default_service_type: "to_confirm",
+          default_cadence: "to_confirm",
+          preferred_day: "to_confirm",
+          preferred_time_window: "to_confirm",
+          access_method: "to_arrange",
+          parking: "paid_parking",
+          pets_present: "unknown",
+          cleaning_products: "to_confirm",
+          vacuum_hoover: "to_confirm",
+          mop: "to_confirm",
+          property_notes: "Client to confirm access.",
+          cleaning_notes: "Cleaning scope belongs in the request once created.",
+          next_action: "Create request with service scope"
+        }
+      ],
+      activeWork: [
+        { type: "Request", title: "Deep clean enquiry", status: "Open", tone: "warning" }
+      ],
+      requests: [
+        { number: "REQ-1045", title: "Deep clean enquiry", status: "Open", tone: "warning", propertyId: "PROP-4001" }
+      ],
+      quotes: [],
+      jobs: [],
+      invoices: [],
+      billingHistory: [
+        { invoice: "No billing history", detail: "Prospect has not been billed", amount: "GBP 0.00" }
+      ]
+    }
+  ],
 
   requests: [
     { number: "REQ-1042", client: "W Amman", service: "End-of-tenancy", property: "Flat 4, Camden", preferred: "5 Jun", status: "Quote required", owner: "Office", tone: "warning" },

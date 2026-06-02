@@ -99,8 +99,8 @@
 
   function slotTimes() {
     const times = [];
-    for (let hour = startHour; hour <= endHour; hour += 1) {
-      times.push(`${String(hour).padStart(2, "0")}:00`);
+    for (let minutes = startHour * 60; minutes <= endHour * 60; minutes += 30) {
+      times.push(minutesToTime(minutes));
     }
     return times;
   }
@@ -223,7 +223,8 @@
         </div>
         <div class="filter-section">
           <p class="eyebrow">Assigned person / team</p>
-          ${teamOptions().map((team) => filterOption("team", team, state.activeTeams.has(team))).join("")}
+          <button type="button" class="team-all-button" data-schedule-action="all-teams">All teams</button>
+          ${teamOptions().map((team) => teamFilterOption(team, state.activeTeams.has(team))).join("")}
           <p class="muted filter-note">The Unscheduled rail keeps all matching unscheduled work visible so office staff can still place it.</p>
         </div>
         <div class="filter-section">
@@ -243,6 +244,18 @@
         <input type="checkbox" data-schedule-filter="${group}" value="${escapeHtml(value)}" ${checked ? "checked" : ""}>
         <span>${escapeHtml(value)}</span>
       </label>
+    `;
+  }
+
+  function teamFilterOption(team, checked) {
+    return `
+      <div class="team-filter-row">
+        <label class="schedule-check">
+          <input type="checkbox" data-schedule-filter="team" value="${escapeHtml(team)}" ${checked ? "checked" : ""}>
+          <span>${escapeHtml(team)}</span>
+        </label>
+        <button type="button" data-schedule-team-only="${escapeHtml(team)}">Only</button>
+      </div>
     `;
   }
 
@@ -311,7 +324,7 @@
             <div class="week-head time-spacer"></div>
             ${days.map((day) => `<div class="week-head ${day.today ? "today" : ""}"><strong>${escapeHtml(day.short)}</strong><span>${escapeHtml(day.label.split(" ")[1])}</span></div>`).join("")}
             <div class="time-rail">
-              ${slotTimes().map((time) => `<div class="time-label">${displayTime(time)}</div>`).join("")}
+              ${slotTimes().map((time) => `<div class="time-label ${time.endsWith(":30") ? "half-hour" : ""}">${time.endsWith(":00") ? displayTime(time) : ""}</div>`).join("")}
             </div>
             ${days.map((day) => dayColumn(day, "week")).join("")}
           </div>
@@ -327,7 +340,7 @@
     const layout = layoutVisitsForDay(visits);
     return `
       <div class="schedule-day-column ${day.today ? "today" : ""}" data-day-index="${day.index}">
-        ${slotTimes().map((time) => `<div class="schedule-drop-slot" data-day-index="${day.index}" data-time="${time}"></div>`).join("")}
+        ${slotTimes().map((time) => `<div class="schedule-drop-slot ${time.endsWith(":30") ? "half-hour" : ""}" data-day-index="${day.index}" data-time="${time}" title="${escapeHtml(day.short)} ${escapeHtml(time)}"></div>`).join("")}
         ${visits.map((visit) => scheduledCard(visit, mode, layout.get(visit.id))).join("")}
       </div>
     `;
@@ -342,7 +355,7 @@
           <div class="day-calendar">
             <div class="day-title"><h2>${escapeHtml(day.label)}</h2><span class="muted">Team timeline</span></div>
             <div class="day-grid">
-              <div class="time-rail">${slotTimes().map((time) => `<div class="time-label">${displayTime(time)}</div>`).join("")}</div>
+              <div class="time-rail">${slotTimes().map((time) => `<div class="time-label ${time.endsWith(":30") ? "half-hour" : ""}">${time.endsWith(":00") ? displayTime(time) : ""}</div>`).join("")}</div>
               ${dayColumn(day, "day")}
             </div>
           </div>
@@ -627,6 +640,14 @@
       return;
     }
 
+    const onlyTeamButton = event.target.closest("[data-schedule-team-only]");
+    if (onlyTeamButton) {
+      state.activeTeams = new Set([onlyTeamButton.dataset.scheduleTeamOnly]);
+      toast(`Showing only ${onlyTeamButton.dataset.scheduleTeamOnly}`);
+      refresh();
+      return;
+    }
+
     const action = event.target.closest("[data-schedule-action]");
     if (action) {
       handleAction(action.dataset.scheduleAction);
@@ -673,6 +694,12 @@
       state.activeTeams = new Set(teamOptions());
       state.showWeekends = true;
       toast("Schedule filters cleared");
+      refresh();
+      return;
+    }
+    if (action === "all-teams") {
+      state.activeTeams = new Set(teamOptions());
+      toast("Showing all teams");
       refresh();
       return;
     }

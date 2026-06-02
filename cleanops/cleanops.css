@@ -877,6 +877,38 @@ tr:last-child td {
   accent-color: var(--green);
 }
 
+.team-all-button {
+  width: auto;
+  min-height: 28px;
+  margin: 7px 0 5px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface-soft);
+  color: var(--text);
+  padding: 0 9px;
+  font-weight: 680;
+}
+
+.team-filter-row {
+  min-height: 34px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.team-filter-row button {
+  width: auto;
+  min-height: 26px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--green);
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 720;
+}
+
 .week-calendar {
   display: grid;
   grid-template-columns: 66px repeat(var(--day-count), minmax(130px, 1fr));
@@ -920,12 +952,17 @@ tr:last-child td {
 }
 
 .time-label {
-  height: 63px;
+  height: 31.5px;
   padding: 8px 8px 0;
   border-bottom: 1px solid var(--line);
   color: var(--muted);
   font-size: 12px;
   font-weight: 650;
+}
+
+.time-label.half-hour {
+  border-bottom-color: rgba(225, 228, 219, .36);
+  padding-top: 0;
 }
 
 .schedule-day-column {
@@ -942,8 +979,12 @@ tr:last-child td {
 }
 
 .schedule-drop-slot {
-  height: 63px;
+  height: 31.5px;
   border-bottom: 1px solid rgba(225, 228, 219, .52);
+}
+
+.schedule-drop-slot.half-hour {
+  border-bottom-color: rgba(225, 228, 219, .28);
 }
 
 .schedule-drop-slot:hover {
@@ -1604,6 +1645,6 @@ tr:last-child td {
   }
 
   .month-grid {
-    grid-template-columns: repeat(7, minmax(92px, 1fr));
+    grid-template-columns: repeat(var(--month-cols, 7), minmax(92px, 1fr));
   }
 }

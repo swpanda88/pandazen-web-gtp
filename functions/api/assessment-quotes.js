@@ -186,10 +186,19 @@ async function createAssessmentFromClient(db, body) {
   client.assessmentNotes = primaryAssessment?.assessmentNotes || null;
   client.specialInstructions = cleaningPlan?.specialInstructions || null;
 
-  const propertyMode = normalizeText(body.propertyMode) || "existing_home";
+  const propertyMode = normalizeText(body.propertyMode) || "new_property";
+  const providedPropertyId = Number(body.propertyId) || null;
+  let property = null;
+
+  if (propertyMode === "existing_property") {
+    if (!providedPropertyId) return error("Property ID is required when using an existing property.", 400);
+    property = await db.prepare(`SELECT * FROM properties WHERE id = ? AND client_id = ? AND is_active = 1 LIMIT 1`).bind(providedPropertyId, client.id).first();
+    if (!property) return error("Selected property is invalid, inactive, or does not belong to this client.", 400);
+  }
+
   const prefill = {
     contact: true,
-    homeContext: propertyMode === "existing_home",
+    homeContext: propertyMode === "existing_property",
     accessParking: boolFlag(body.prefill?.accessParking, true),
     petsProducts: boolFlag(body.prefill?.petsProducts, true),
     previousAssessmentNotes: boolFlag(body.prefill?.previousAssessmentNotes, false),
@@ -210,42 +219,28 @@ async function createAssessmentFromClient(db, body) {
   const phone = prefill.contact ? (normalizeText(body.phone) || client.phone || null) : null;
   const email = prefill.contact ? (normalizeText(body.email) || client.email || null) : null;
 
-  const resolvedArea = propertyMode === "another_address"
-    ? normalizeText(body.area)
-    : propertyMode === "existing_home"
-      ? (normalizeText(body.area) || client.area || null)
-      : normalizeText(body.area);
-  const resolvedPostcode = propertyMode === "another_address"
-    ? normalizeText(body.postcode)
-    : propertyMode === "existing_home"
-      ? (normalizeText(body.postcode) || lead?.postcode || null)
-      : normalizeText(body.postcode);
-  const resolvedAddress = propertyMode === "another_address"
-    ? normalizeText(body.address)
-    : propertyMode === "existing_home"
-      ? (normalizeText(body.address) || client.address || null)
-      : normalizeText(body.address);
-  const propertyLabel = propertyMode === "unknown_address"
-    ? (normalizeText(body.propertyLabel) || "Address TBC")
-    : normalizeText(body.propertyLabel);
+  const resolvedArea = propertyMode === "new_property" ? normalizeText(body.area) : (property?.area || null);
+  const resolvedPostcode = propertyMode === "new_property" ? normalizeText(body.postcode) : (property?.postcode || null);
+  const resolvedAddress = propertyMode === "new_property" ? normalizeText(body.address) : (property?.address || null);
+  const propertyLabel = propertyMode === "new_property" ? normalizeText(body.propertyLabel) : (property?.label || null);
+  
   const workLabel = null;
   const purposeLabel = normalizeText(body.assessmentReasonLabel || body.purposeLabel);
   const serviceType = normalizeText(body.serviceType) || primaryAssessment?.serviceType || lead?.serviceType || null;
   const frequency = normalizeText(body.frequency) || "one_off";
-  const useExistingHomeContext = prefill.homeContext && propertyMode === "existing_home";
-  const propertyType = propertyMode === "another_address"
-    ? normalizeText(body.propertyType)
-    : (useExistingHomeContext ? (primaryAssessment?.propertyType || lead?.propertyType || null) : null);
-  const bedrooms = useExistingHomeContext ? (primaryAssessment?.bedrooms || lead?.bedrooms || null) : null;
-  const bathrooms = useExistingHomeContext ? (primaryAssessment?.bathrooms || lead?.bathrooms || null) : null;
-  const propertyCondition = useExistingHomeContext ? (primaryAssessment?.propertyCondition || lead?.propertyCondition || null) : null;
-  const pets = prefill.petsProducts ? (normalizeText(body.pets) || primaryAssessment?.pets || client.petType || null) : null;
-  const parking = prefill.accessParking ? (normalizeText(body.parking) || primaryAssessment?.parking || client.parkingNotes || null) : null;
-  const priorities = useExistingHomeContext ? (primaryAssessment?.priorities || lead?.priorities || null) : null;
-  const productPreferences = prefill.petsProducts ? (normalizeText(body.productPreference) || primaryAssessment?.productPreferences || client.productPreference || lead?.productPreferences || null) : null;
-  const accessMethod = normalizeText(body.accessMethod);
-  const accessNotes = normalizeText(body.accessNotes);
-  const surfaceNotes = normalizeText(body.surfaceNotes);
+  
+  const propertyType = propertyMode === "new_property" ? normalizeText(body.propertyType) : (property?.property_type || null);
+  const bedrooms = propertyMode === "new_property" ? normalizeText(body.bedrooms) : (property?.bedrooms || null);
+  const bathrooms = propertyMode === "new_property" ? normalizeText(body.bathrooms) : (property?.bathrooms || null);
+  const propertyCondition = propertyMode === "new_property" ? normalizeText(body.propertyCondition) : (property?.property_condition || null);
+  
+  const pets = prefill.petsProducts ? (normalizeText(body.pets) || property?.pet_notes || primaryAssessment?.pets || client.petType || null) : null;
+  const parking = prefill.accessParking ? (normalizeText(body.parking) || property?.parking_notes || primaryAssessment?.parking || client.parkingNotes || null) : null;
+  const priorities = prefill.homeContext ? (primaryAssessment?.priorities || lead?.priorities || null) : null;
+  const productPreferences = prefill.petsProducts ? (normalizeText(body.productPreference) || property?.surface_notes || primaryAssessment?.productPreferences || client.productPreference || lead?.productPreferences || null) : null;
+  const accessMethod = normalizeText(body.accessMethod) || (prefill.homeContext ? property?.access_notes : null);
+  const accessNotes = normalizeText(body.accessNotes) || (prefill.homeContext ? property?.access_notes : null);
+  const surfaceNotes = normalizeText(body.surfaceNotes) || (prefill.homeContext ? property?.surface_notes : null);
   const initialScopeNotes = normalizeText(body.initialScopeNotes || body.initialNotes);
   const priorityTasks = normalizeText(body.priorityTasks);
   const includedAreas = normalizeText(body.includedAreas);
@@ -258,8 +253,7 @@ async function createAssessmentFromClient(db, body) {
   const noteBlocks = [];
   if (purposeLabel && purposeLabel !== requestedPurpose) noteBlocks.push(`Requested purpose: ${purposeLabel}`);
   if (propertyLabel) noteBlocks.push(`Property label: ${propertyLabel}`);
-  if (propertyMode === "another_address" && resolvedAddress) noteBlocks.push(`Assessment address: ${resolvedAddress}`);
-  if (propertyMode === "unknown_address") noteBlocks.push("Assessment address: Address not known yet.");
+  if (propertyMode === "new_property" && resolvedAddress) noteBlocks.push(`Assessment address: ${resolvedAddress}`);
   if (accessMethod) noteBlocks.push(`Access method: ${accessMethod}`);
   if (accessNotes) noteBlocks.push(`Access notes: ${accessNotes}`);
   if (surfaceNotes) noteBlocks.push(`Surface notes: ${surfaceNotes}`);
@@ -340,21 +334,43 @@ async function createAssessmentFromClient(db, body) {
     )
     .run();
 
-  // Ensure the client has a primary Property record. This is idempotent;
-  // if one already exists this is a no-op returning the existing id.
-  // Only called here (Assessment creation from existing client) — not on reads.
-  const propertyId = await ensurePrimaryProperty(db, client.id, {
-    address: resolvedAddress,
-    area: resolvedArea,
-    postcode: resolvedPostcode,
-    propertyType,
-    bedrooms,
-    bathrooms,
-    propertyCondition,
-    parkingNotes: parking,
-    petNotes: pets ? String(pets) : null,
-    accessNotes: accessNotes || null
-  });
+  let propertyId = null;
+  if (propertyMode === "existing_property") {
+    propertyId = providedPropertyId;
+  } else {
+    // new_property path: insert a new property.
+    // Check if client has no active properties to set is_primary = 1
+    const existingCount = await db.prepare("SELECT COUNT(*) AS cnt FROM properties WHERE client_id = ? AND is_active = 1").bind(client.id).first();
+    const isPrimary = (existingCount?.cnt ?? 0) === 0 ? 1 : 0;
+    
+    const propInsert = await db
+      .prepare(
+        `INSERT INTO properties
+           (client_id, label, address, area, postcode, property_type, bedrooms, bathrooms,
+            property_condition, access_notes, parking_notes, pet_notes, surface_notes,
+            notes, is_primary, is_active)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`
+      )
+      .bind(
+        client.id,
+        propertyLabel,
+        resolvedAddress,
+        resolvedArea,
+        resolvedPostcode,
+        propertyType,
+        bedrooms,
+        bathrooms,
+        propertyCondition,
+        accessNotes || null,
+        parking || null,
+        pets ? String(pets) : null,
+        surfaceNotes || null,
+        null, // notes
+        isPrimary
+      )
+      .run();
+    propertyId = propInsert.meta.last_row_id;
+  }
 
   // Backfill property_id onto the newly created assessment row
   if (propertyId) {

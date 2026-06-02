@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CleanOps AG - Prototype</title>
+    <link rel="stylesheet" href="cleanops-ag.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                CleanOps AG
+            </div>
+            <nav class="nav-links">
+                <button class="nav-item" data-target="home">Home</button>
+                <button class="nav-item" data-target="schedule">Schedule</button>
+                <button class="nav-item active" data-target="clients">Clients</button>
+                <button class="nav-item" data-target="requests">Requests</button>
+                <button class="nav-item" data-target="quotes">Quotes</button>
+                <button class="nav-item" data-target="jobs">Jobs</button>
+                <button class="nav-item" data-target="invoices">Invoices</button>
+                <div class="nav-divider"></div>
+                <button class="nav-item" data-target="team">Team</button>
+                <button class="nav-item" data-target="reports">Reports</button>
+                <button class="nav-item" data-target="settings">Settings</button>
+                <div class="nav-divider"></div>
+                <button class="nav-item" data-target="mobile">Cleaner Mobile</button>
+                <button class="nav-item" data-target="portal">Client Portal</button>
+            </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Topbar -->
+            <header class="topbar">
+                <div class="breadcrumbs">
+                    CleanOps AG / <span class="current" id="breadcrumb-current">Clients</span>
+                </div>
+                <div class="top-actions">
+                    <input type="text" class="search-bar" placeholder="Search clients, jobs...">
+                    <button class="icon-btn" title="Add New" onclick="showToast('Add New Action')">+</button>
+                    <button class="icon-btn" title="Settings" onclick="showToast('Settings')">⚙</button>
+                </div>
+            </header>
+
+            <!-- Screens -->
+            <div id="screen-home" class="screen">
+                <div class="page-header">
+                    <div>
+                        <h1>Home</h1>
+                        <p>Welcome to CleanOps AG.</p>
+                    </div>
+                </div>
+                <div class="empty-state">Home dashboard overview goes here.</div>
+            </div>
+
+            <!-- Clients Screen (The main focus) -->
+            <div id="screen-clients" class="screen active">
+                <div class="page-header">
+                    <div>
+                        <h1 id="client-name-header">Sarah Jenkins</h1>
+                        <div style="display: flex; gap: 8px; align-items: center; margin-top: 8px;">
+                            <span class="chip green" id="client-status">Active Client</span>
+                            <span class="text-subtle" id="client-tags">VIP, Weekly</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn" onclick="showToast('Edit Client')">Edit</button>
+                        <button class="btn primary" onclick="showToast('New Property')">New Property</button>
+                    </div>
+                </div>
+
+                <div class="split-layout">
+                    <!-- Left: Properties & Workspace -->
+                    <div>
+                        <div class="panel">
+                            <div class="panel-header">
+                                <h2>Properties</h2>
+                            </div>
+                            <div class="panel-body">
+                                <div class="property-list" id="property-list-container">
+                                    <!-- Populated by JS -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Selected Property Workspace -->
+                        <div class="panel" id="property-workspace">
+                            <div class="workspace-header">
+                                <h2 id="workspace-title">Workspace: 14 Birch Road</h2>
+                                <button class="btn small" onclick="showToast('New Job')">New Job</button>
+                            </div>
+                            <div class="panel-body no-pad">
+                                <table class="table" id="workspace-work-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Type</th>
+                                            <th>Title</th>
+                                            <th>Status</th>
+                                            <th>Details / Next Visit</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="workspace-work-body">
+                                        <!-- Populated by JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Context Panel -->
+                    <div class="context-panel">
+                        <div class="context-section">
+                            <h3>Contact Info</h3>
+                            <div class="key-value">
+                                <span class="key">Phone</span>
+                                <span class="value" id="client-phone">07700 900123</span>
+                            </div>
+                            <div class="key-value">
+                                <span class="key">Email</span>
+                                <span class="value" id="client-email">sarah.j@example.com</span>
+                            </div>
+                        </div>
+                        <div class="context-section">
+                            <h3>Billing Summary</h3>
+                            <div class="key-value">
+                                <span class="key">Account Balance</span>
+                                <span class="value" id="client-balance">£120.00</span>
+                            </div>
+                            <div style="margin-top: 12px; text-align: right;">
+                                <button class="btn small" onclick="showToast('Collect Payment')">Record Payment</button>
+                            </div>
+                        </div>
+                        <div class="context-section">
+                            <h3>Internal Notes</h3>
+                            <p class="text-subtle" id="client-notes" style="font-size: 13px;">Prefers morning visits. Allergic to strong citrus scents.</p>
+                            <button class="btn small" style="margin-top: 12px;" onclick="showToast('Edit Notes')">Edit Notes</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stubs for other screens -->
+            <div id="screen-schedule" class="screen"><div class="page-header"><h1>Schedule</h1></div></div>
+            <div id="screen-requests" class="screen"><div class="page-header"><h1>Requests</h1></div></div>
+            <div id="screen-quotes" class="screen"><div class="page-header"><h1>Quotes</h1></div></div>
+            <div id="screen-jobs" class="screen"><div class="page-header"><h1>Jobs</h1></div></div>
+            <div id="screen-invoices" class="screen"><div class="page-header"><h1>Invoices</h1></div></div>
+            <div id="screen-team" class="screen"><div class="page-header"><h1>Team</h1></div></div>
+            <div id="screen-reports" class="screen"><div class="page-header"><h1>Reports</h1></div></div>
+            <div id="screen-settings" class="screen"><div class="page-header"><h1>Settings</h1></div></div>
+            <div id="screen-mobile" class="screen"><div class="page-header"><h1>Cleaner Mobile</h1></div></div>
+            <div id="screen-portal" class="screen"><div class="page-header"><h1>Client Portal</h1></div></div>
+        </main>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">Action triggered</div>
+
+    <!-- Scripts -->
+    <script src="mock-data.js"></script>
+    <script src="cleanops-ag.js"></script>
+</body>
+</html>

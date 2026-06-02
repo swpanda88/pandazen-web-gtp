@@ -185,7 +185,7 @@ window.CLEANOPS_DATA = {
     scheduledVisits: [
       {
           id: "sv-1001",
-          type: "Requests",
+          type: "Request / enquiry",
           statusGroup: "Scheduled",
           dayIndex: 2,
         start: "10:00",
@@ -202,24 +202,24 @@ window.CLEANOPS_DATA = {
       },
         {
           id: "sv-1002",
-          type: "Visits",
+          type: "Quote / assessment",
           statusGroup: "Scheduled",
           dayIndex: 3,
         start: "11:30",
         duration: 60,
         client: "Mrs. Elaine Patterson",
         property: "14 Oak Lane, Durham",
-        service: "Roof inspection clean",
+        service: "Quote assessment",
         team: "Marta + Daniel",
         status: "Scheduled",
-        tone: "success",
+        tone: "info",
         warnings: [],
           completed: false,
           map: { x: 57, y: 44 }
         },
         {
           id: "sv-1007",
-          type: "Visits",
+          type: "Cleaning visit",
           statusGroup: "Scheduled",
           dayIndex: 3,
           start: "12:00",
@@ -236,7 +236,7 @@ window.CLEANOPS_DATA = {
         },
         {
           id: "sv-1003",
-          type: "Visits",
+          type: "Issue / revisit",
           statusGroup: "Issue / warning",
           dayIndex: 4,
         start: "13:00",
@@ -253,7 +253,7 @@ window.CLEANOPS_DATA = {
         },
         {
           id: "sv-1008",
-          type: "Requests",
+          type: "Request / enquiry",
           statusGroup: "Scheduled",
           dayIndex: 4,
           start: "14:00",
@@ -270,7 +270,7 @@ window.CLEANOPS_DATA = {
         },
       {
           id: "sv-1004",
-          type: "Visits",
+          type: "Commercial / special",
           statusGroup: "Issue / warning",
           dayIndex: 5,
         start: "09:00",
@@ -287,7 +287,7 @@ window.CLEANOPS_DATA = {
       },
       {
           id: "sv-1005",
-          type: "Tasks",
+          type: "Task / reminder",
           statusGroup: "Completed",
           dayIndex: 0,
         start: "08:30",
@@ -304,8 +304,8 @@ window.CLEANOPS_DATA = {
       },
       {
           id: "sv-1006",
-          type: "Reminders",
-          statusGroup: "Unassigned",
+          type: "Task / reminder",
+          statusGroup: "Overdue",
           dayIndex: 1,
         start: "15:00",
         duration: 60,
@@ -313,8 +313,8 @@ window.CLEANOPS_DATA = {
         property: "Family home, Durham",
         service: "Call before quote",
         team: "Unassigned",
-        status: "Unassigned",
-        tone: "info",
+        status: "Overdue",
+        tone: "danger",
         warnings: ["No cleaner"],
         completed: false,
         map: { x: 35, y: 64 }
@@ -323,7 +323,7 @@ window.CLEANOPS_DATA = {
     unscheduled: [
       {
         id: "uv-2001",
-        type: "Requests",
+        type: "Request / enquiry",
         statusGroup: "Unassigned",
         client: "W Amman",
         property: "Flat 4, Camden",
@@ -336,7 +336,7 @@ window.CLEANOPS_DATA = {
       },
       {
         id: "uv-2002",
-        type: "Visits",
+        type: "Cleaning visit",
         statusGroup: "Unassigned",
         client: "Riverside Blocks",
         property: "Block B, SE1",
@@ -349,7 +349,7 @@ window.CLEANOPS_DATA = {
       },
       {
         id: "uv-2003",
-        type: "Tasks",
+        type: "Issue / revisit",
         statusGroup: "Issue / warning",
         client: "John Smith",
         property: "24 Hill Road, SW12",
@@ -369,19 +369,19 @@ window.CLEANOPS_DATA = {
       { label: "Later", ids: [] }
     ],
     month: [
-      { day: 1, count: 2, text: "2 visits" },
-      { day: 2, count: 1, text: "Assessment" },
-      { day: 4, count: 3, text: "3 visits" },
-      { day: 8, count: 1, text: "Follow-up" },
-      { day: 9, count: 2, text: "2 visits" },
-      { day: 11, count: 1, text: "Request" },
-      { day: 12, count: 2, text: "2 visits" },
-      { day: 13, count: 1, text: "Issue" },
-      { day: 14, count: 3, text: "3 visits" },
-      { day: 17, count: 2, text: "Quotes" },
-      { day: 21, count: 1, text: "Deep clean" },
-      { day: 24, count: 2, text: "Commercial" },
-      { day: 28, count: 1, text: "Revisit" }
+      { day: 1, count: 2, text: "2 visits", type: "Cleaning visit" },
+      { day: 2, count: 1, text: "Assessment", type: "Quote / assessment" },
+      { day: 4, count: 3, text: "3 visits", type: "Cleaning visit" },
+      { day: 8, count: 1, text: "Follow-up", type: "Task / reminder" },
+      { day: 9, count: 2, text: "2 visits", type: "Cleaning visit" },
+      { day: 11, count: 1, text: "Request", type: "Request / enquiry" },
+      { day: 12, count: 2, text: "2 visits", type: "Cleaning visit" },
+      { day: 13, count: 1, text: "Issue", type: "Issue / revisit" },
+      { day: 14, count: 3, text: "3 visits", type: "Cleaning visit" },
+      { day: 17, count: 2, text: "Quotes", type: "Quote / assessment" },
+      { day: 21, count: 1, text: "Deep clean", type: "Cleaning visit" },
+      { day: 24, count: 2, text: "Commercial", type: "Commercial / special" },
+      { day: 28, count: 1, text: "Revisit", type: "Issue / revisit" }
     ]
   },
 

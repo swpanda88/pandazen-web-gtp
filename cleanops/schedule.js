@@ -4,6 +4,15 @@
   const endHour = 18;
   const minuteHeight = 1.05;
   const minDuration = 30;
+  const scheduleTypes = [
+    { label: "Cleaning visit", className: "type-cleaning-visit" },
+    { label: "Quote / assessment", className: "type-quote-assessment" },
+    { label: "Request / enquiry", className: "type-request-enquiry" },
+    { label: "Task / reminder", className: "type-task-reminder" },
+    { label: "Issue / revisit", className: "type-issue-revisit" },
+    { label: "Commercial / special", className: "type-commercial-special" }
+  ];
+  const statusOptions = ["Scheduled", "Completed", "Unassigned", "Overdue", "Issue / warning"];
   const state = {
     view: "week",
     rangeLabel: source.rangeLabel,
@@ -12,8 +21,8 @@
     filtersOpen: false,
     viewMenuOpen: false,
     moreMenuOpen: false,
-    activeTypes: new Set(["Visits", "Requests", "Tasks", "Reminders"]),
-    activeStatuses: new Set(["Scheduled", "Completed", "Unassigned", "Issue / warning"]),
+    activeTypes: new Set(typeLabels()),
+    activeStatuses: new Set(statusOptions),
     activeTeams: new Set(teamOptions()),
     visits: structuredCloneSafe(source.scheduledVisits),
     unscheduled: structuredCloneSafe(source.unscheduled),
@@ -37,6 +46,52 @@
   function chip(label, tone) {
     const toneClass = tone && tone !== "success" ? ` ${tone}` : "";
     return `<span class="chip${toneClass}"><span class="dot"></span>${escapeHtml(label)}</span>`;
+  }
+
+  function typeLabels() {
+    return scheduleTypes.map((type) => type.label);
+  }
+
+  function typeDefinition(label) {
+    return scheduleTypes.find((type) => type.label === label) || scheduleTypes[0];
+  }
+
+  function typeClass(label) {
+    return typeDefinition(label).className;
+  }
+
+  function isCompleted(item) {
+    return item.completed || item.statusGroup === "Completed" || item.status === "Completed";
+  }
+
+  function hasRiskAccent(item) {
+    return !isCompleted(item) && (
+      item.statusGroup === "Unassigned" ||
+      item.statusGroup === "Overdue" ||
+      item.status === "Unassigned" ||
+      item.status === "Overdue" ||
+      item.team === "Unassigned"
+    );
+  }
+
+  function scheduleItemClasses(item) {
+    const classes = [typeClass(item.type)];
+    if (isCompleted(item)) classes.push("status-completed");
+    if (hasRiskAccent(item)) classes.push("status-risk");
+    return classes.join(" ");
+  }
+
+  function typeLegend(label) {
+    return `
+      <span class="type-filter-label">
+        <span class="schedule-type-dot ${escapeHtml(typeClass(label))}" aria-hidden="true"></span>
+        <span>${escapeHtml(label)}</span>
+      </span>
+    `;
+  }
+
+  function typePill(label) {
+    return `<span class="type-pill ${escapeHtml(typeClass(label))}">${escapeHtml(label)}</span>`;
   }
 
   function button(label, action, variant = "") {
@@ -205,8 +260,7 @@
   }
 
   function filtersMenu() {
-    const typeOptions = ["Visits", "Requests", "Tasks", "Reminders"];
-    const statusOptions = ["Scheduled", "Completed", "Unassigned", "Issue / warning"];
+    const typeOptions = typeLabels();
     return `
       <div class="schedule-dropdown filters-menu" role="menu">
         <div class="filters-menu-head">
@@ -241,11 +295,12 @@
   }
 
   function filterOption(group, value, checked) {
+    const label = group === "type" ? typeLegend(value) : `<span>${escapeHtml(value)}</span>`;
     return `
       <div class="filter-option-row">
         <label class="schedule-check">
           <input type="checkbox" data-schedule-filter="${group}" value="${escapeHtml(value)}" ${checked ? "checked" : ""}>
-          <span>${escapeHtml(value)}</span>
+          ${label}
         </label>
         <button type="button" data-schedule-filter-only="${escapeHtml(group)}" data-schedule-filter-value="${escapeHtml(value)}">Only</button>
       </div>
@@ -273,11 +328,12 @@
 
   function unscheduledCard(item) {
     return `
-      <article class="unscheduled-card" draggable="true" data-unscheduled-id="${escapeHtml(item.id)}" title="Drag into schedule">
+      <article class="unscheduled-card ${escapeHtml(scheduleItemClasses(item))}" draggable="true" data-unscheduled-id="${escapeHtml(item.id)}" title="Drag into schedule">
         <div class="button-row" style="justify-content:space-between">
           <strong>${escapeHtml(item.client)}</strong>
           ${chip(item.status, item.tone)}
         </div>
+        ${typePill(item.type)}
         <span class="muted">${escapeHtml(item.property)}</span>
         <span>${escapeHtml(item.service)}</span>
         ${item.warnings?.length ? `<div class="button-row" style="justify-content:flex-start">${item.warnings.map((warning) => chip(warning, "warning")).join("")}</div>` : ""}
@@ -292,7 +348,7 @@
       ? `left:calc(8px + ${layout.columnIndex} * ((100% - 16px) / ${layout.columnCount}));width:calc((100% - 16px) / ${layout.columnCount} - 4px);right:auto;`
       : "left:8px;right:8px;";
     return `
-      <article class="schedule-visit-card ${escapeHtml(visit.tone)} ${mode}" draggable="true"
+      <article class="schedule-visit-card ${escapeHtml(scheduleItemClasses(visit))} ${mode}" draggable="true"
         data-visit-id="${escapeHtml(visit.id)}"
         data-overlap-count="${layout.columnCount}"
         style="top:${top}px;height:${height}px;${overlapStyle}"
@@ -375,7 +431,7 @@
               const item = monthItems.get(day);
               return `<div class="month-cell ${day === 11 ? "today" : ""}">
                 <strong>${day}</strong>
-                ${item ? `<span>${escapeHtml(item.text)}</span>${item.count > 1 ? chip(`${item.count}`, "info") : ""}` : ""}
+                ${item ? `<div class="month-summary ${escapeHtml(typeClass(item.type))}"><span>${escapeHtml(item.text)}</span>${item.count > 1 ? chip(`${item.count}`, "info") : ""}</div>` : ""}
               </div>`;
             }).join("")}
           </div>
@@ -412,11 +468,11 @@
         <tbody>
           ${visits.map((visit) => {
             const day = source.days.find((item) => item.index === visit.dayIndex);
-            return `<tr>
+            return `<tr class="${escapeHtml(scheduleItemClasses(visit))}">
               <td><input type="checkbox" ${visit.completed ? "checked" : ""} data-schedule-complete="${escapeHtml(visit.id)}" aria-label="Complete ${escapeHtml(visit.client)}"></td>
               <td>${escapeHtml(visit.client)}</td>
               <td>${escapeHtml(visit.property)}</td>
-              <td>${escapeHtml(visit.service)}</td>
+              <td><div class="type-cell">${typePill(visit.type)}<span>${escapeHtml(visit.service)}</span></div></td>
               <td>${escapeHtml(day?.label || "")} ${escapeHtml(timeRange(visit))}</td>
               <td>${escapeHtml(visit.team)}</td>
               <td>${chip(visit.status, visit.tone)}</td>
@@ -436,16 +492,17 @@
           <aside class="map-list">
             <h2>Visits</h2>
             ${visits.map((visit) => `
-              <button type="button" data-visit-id="${escapeHtml(visit.id)}">
+              <button type="button" class="${escapeHtml(scheduleItemClasses(visit))}" data-visit-id="${escapeHtml(visit.id)}">
                 <strong>${escapeHtml(visit.client)}</strong>
                 <span>${escapeHtml(visit.property)}</span>
+                ${typePill(visit.type)}
                 ${chip(visit.status, visit.tone)}
               </button>
             `).join("")}
           </aside>
           <div class="mock-map" aria-label="Mock map view">
             <div class="mock-map-grid"></div>
-            ${visits.map((visit, index) => `<button class="map-pin ${escapeHtml(visit.tone)}" style="left:${visit.map?.x || 40}%;top:${visit.map?.y || 40}%" data-visit-id="${escapeHtml(visit.id)}" title="${escapeHtml(visit.client)}">${index + 1}</button>`).join("")}
+            ${visits.map((visit, index) => `<button class="map-pin ${escapeHtml(scheduleItemClasses(visit))}" style="left:${visit.map?.x || 40}%;top:${visit.map?.y || 40}%" data-visit-id="${escapeHtml(visit.id)}" title="${escapeHtml(visit.client)}">${index + 1}</button>`).join("")}
             <div class="map-note">
               <strong>Mock map</strong>
               <span>No map API connected in v0.</span>
@@ -708,8 +765,8 @@
       return;
     }
     if (action === "clear-filters") {
-      state.activeTypes = new Set(["Visits", "Requests", "Tasks", "Reminders"]);
-      state.activeStatuses = new Set(["Scheduled", "Completed", "Unassigned", "Issue / warning"]);
+      state.activeTypes = new Set(typeLabels());
+      state.activeStatuses = new Set(statusOptions);
       state.activeTeams = new Set(teamOptions());
       state.showWeekends = true;
       toast("Schedule filters cleared");
@@ -717,13 +774,13 @@
       return;
     }
     if (action === "all-types") {
-      state.activeTypes = new Set(["Visits", "Requests", "Tasks", "Reminders"]);
+      state.activeTypes = new Set(typeLabels());
       toast("Showing all types");
       refresh();
       return;
     }
     if (action === "all-statuses") {
-      state.activeStatuses = new Set(["Scheduled", "Completed", "Unassigned", "Issue / warning"]);
+      state.activeStatuses = new Set(statusOptions);
       toast("Showing all statuses");
       refresh();
       return;

@@ -912,6 +912,40 @@ tr:last-child td {
   font-weight: 720;
 }
 
+.type-filter-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.schedule-type-dot {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface-soft);
+}
+
+.type-pill {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  min-height: 21px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0 8px;
+  color: var(--text);
+  font-size: 11.5px;
+  font-weight: 720;
+}
+
+.type-cell {
+  display: grid;
+  gap: 5px;
+}
+
 .week-calendar {
   display: grid;
   grid-template-columns: 66px repeat(var(--day-count), minmax(130px, 1fr));
@@ -1045,6 +1079,128 @@ tr:last-child td {
   background: var(--red-soft);
 }
 
+.schedule-visit-card.type-cleaning-visit,
+.unscheduled-card.type-cleaning-visit {
+  border-left-color: var(--green);
+  background: var(--green-soft);
+}
+
+.schedule-visit-card.type-quote-assessment,
+.unscheduled-card.type-quote-assessment {
+  border-left-color: var(--blue);
+  background: var(--blue-soft);
+}
+
+.schedule-visit-card.type-request-enquiry,
+.unscheduled-card.type-request-enquiry {
+  border-left-color: var(--amber);
+  background: var(--amber-soft);
+}
+
+.schedule-visit-card.type-task-reminder,
+.unscheduled-card.type-task-reminder {
+  border-left-color: var(--line-strong);
+  background: var(--surface-soft);
+}
+
+.schedule-visit-card.type-issue-revisit,
+.unscheduled-card.type-issue-revisit {
+  border-left-color: var(--red);
+  background: var(--red-soft);
+}
+
+.schedule-visit-card.type-commercial-special,
+.unscheduled-card.type-commercial-special {
+  border-left-color: #60777c;
+  background: #edf2f2;
+}
+
+.schedule-visit-card.status-completed,
+.unscheduled-card.status-completed {
+  border-color: var(--line);
+  border-left-color: var(--line-strong);
+  background: var(--surface-soft);
+  color: var(--muted);
+}
+
+.schedule-visit-card.status-risk,
+.unscheduled-card.status-risk {
+  outline: 1px solid var(--red);
+  outline-offset: -1px;
+}
+
+tr.status-completed .type-pill {
+  border-color: var(--line);
+  background: var(--surface-soft);
+  color: var(--muted);
+}
+
+tr.status-completed .chip,
+.map-list button.status-completed .chip {
+  color: var(--muted);
+  background: var(--surface-soft);
+}
+
+tr.status-risk td:first-child {
+  box-shadow: inset 3px 0 0 var(--red);
+}
+
+.schedule-visit-card.type-issue-revisit .schedule-warning {
+  color: var(--red);
+}
+
+.schedule-type-dot.type-cleaning-visit,
+.type-pill.type-cleaning-visit,
+.month-summary.type-cleaning-visit {
+  border-color: var(--green);
+  background: var(--green-soft);
+}
+
+.schedule-type-dot.type-quote-assessment,
+.type-pill.type-quote-assessment,
+.month-summary.type-quote-assessment {
+  border-color: var(--blue);
+  background: var(--blue-soft);
+}
+
+.schedule-type-dot.type-request-enquiry,
+.type-pill.type-request-enquiry,
+.month-summary.type-request-enquiry {
+  border-color: var(--amber);
+  background: var(--amber-soft);
+}
+
+.schedule-type-dot.type-task-reminder,
+.type-pill.type-task-reminder,
+.month-summary.type-task-reminder {
+  border-color: var(--line-strong);
+  background: var(--surface-soft);
+}
+
+.schedule-type-dot.type-issue-revisit,
+.type-pill.type-issue-revisit,
+.month-summary.type-issue-revisit {
+  border-color: var(--red);
+  background: var(--red-soft);
+}
+
+.schedule-type-dot.type-commercial-special,
+.type-pill.type-commercial-special,
+.month-summary.type-commercial-special {
+  border-color: #60777c;
+  background: #edf2f2;
+}
+
+.month-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 4px 7px;
+}
+
 .schedule-visit-card strong {
   font-size: 11.5px;
 }
@@ -1132,6 +1288,7 @@ tr:last-child td {
   display: grid;
   gap: 7px;
   border: 1px solid var(--line);
+  border-left-width: 4px;
   border-radius: var(--radius);
   background: var(--surface-soft);
   padding: 11px;
@@ -1254,6 +1411,47 @@ tr:last-child td {
   padding: 10px;
 }
 
+.map-list button.type-cleaning-visit {
+  border-left: 4px solid var(--green);
+  background: var(--green-soft);
+}
+
+.map-list button.type-quote-assessment {
+  border-left: 4px solid var(--blue);
+  background: var(--blue-soft);
+}
+
+.map-list button.type-request-enquiry {
+  border-left: 4px solid var(--amber);
+  background: var(--amber-soft);
+}
+
+.map-list button.type-task-reminder {
+  border-left: 4px solid var(--line-strong);
+  background: var(--surface-soft);
+}
+
+.map-list button.type-issue-revisit {
+  border-left: 4px solid var(--red);
+  background: var(--red-soft);
+}
+
+.map-list button.type-commercial-special {
+  border-left: 4px solid #60777c;
+  background: #edf2f2;
+}
+
+.map-list button.status-completed {
+  border-left-color: var(--line-strong);
+  background: var(--surface-soft);
+  color: var(--muted);
+}
+
+.map-list button.status-risk {
+  outline: 1px solid var(--red);
+  outline-offset: -1px;
+}
+
 .mock-map {
   position: relative;
   overflow: hidden;
@@ -1297,6 +1495,38 @@ tr:last-child td {
 
 .map-pin.danger {
   background: var(--red);
+}
+
+.map-pin.type-cleaning-visit {
+  background: var(--green);
+}
+
+.map-pin.type-quote-assessment {
+  background: var(--blue);
+}
+
+.map-pin.type-request-enquiry {
+  background: var(--amber);
+}
+
+.map-pin.type-task-reminder {
+  background: var(--muted);
+}
+
+.map-pin.type-issue-revisit {
+  background: var(--red);
+}
+
+.map-pin.type-commercial-special {
+  background: #60777c;
+}
+
+.map-pin.status-completed {
+  background: var(--faint);
+}
+
+.map-pin.status-risk {
+  outline: 2px solid var(--red);
 }
 
 .map-note {

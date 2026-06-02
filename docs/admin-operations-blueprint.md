@@ -1,3 +1,6 @@
+> [!WARNING]
+> **LEGACY REFERENCE**: This document refers to the old `/admin` monolithic architecture. The current development focus is the Jobber-inspired `/cleanops` application. See `docs/cleanops-architecture-and-data.md` for current guidelines. Do not build new features based on this blueprint.
+
 # PandaZen Admin Operations Blueprint
 
 ## 1. Purpose

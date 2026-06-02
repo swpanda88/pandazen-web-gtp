@@ -49,11 +49,61 @@
             <div id="screen-home" class="screen">
                 <div class="page-header">
                     <div>
-                        <h1>Home</h1>
-                        <p>Welcome to CleanOps AG.</p>
+                        <h1>Today at CleanOps</h1>
+                        <p>Tuesday, 2 June. Exceptions first, schedule second.</p>
+                    </div>
+                    <div class="top-actions">
+                        <button class="btn" onclick="showToast('New Quote')">New Quote</button>
+                        <button class="btn primary" onclick="showToast('New Job')">New Job</button>
                     </div>
                 </div>
-                <div class="empty-state">Home dashboard overview goes here.</div>
+                
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <span class="text-subtle">Today's visits</span>
+                        <div class="metric-value">18</div>
+                        <span class="chip green" style="align-self: flex-start;">12 confirmed</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="text-subtle">Quotes awaiting</span>
+                        <div class="metric-value">7</div>
+                        <span class="chip amber" style="align-self: flex-start;">3 follow-ups</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="text-subtle">Ready to invoice</span>
+                        <div class="metric-value">9</div>
+                        <span class="chip blue" style="align-self: flex-start;">£1,840</span>
+                    </div>
+                </div>
+
+                <div class="split-layout">
+                    <div class="panel">
+                        <div class="panel-header">
+                            <h2>Work Queue</h2>
+                            <button class="btn small">View all</button>
+                        </div>
+                        <div class="panel-body no-pad">
+                            <table class="table">
+                                <thead>
+                                    <tr><th>Action</th><th>Client</th><th>Status</th></tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td>Confirm access details</td><td>Flat 4, Camden</td><td><span class="chip amber">Waiting</span></td></tr>
+                                    <tr><td>Send quote follow-up</td><td>TechFlow Ltd</td><td><span class="chip blue">Quote sent</span></td></tr>
+                                    <tr><td>Review complaint</td><td>John Smith</td><td><span class="chip amber">Open</span></td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="context-panel">
+                        <div class="context-section">
+                            <h3>Revenue Snapshot</h3>
+                            <div class="key-value"><span class="key">This month</span><span class="value">£24,860</span></div>
+                            <div class="key-value"><span class="key">Overdue</span><span class="value">£930</span></div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Clients Screen (The main focus) -->
@@ -142,17 +192,152 @@
                 </div>
             </div>
 
-            <!-- Stubs for other screens -->
-            <div id="screen-schedule" class="screen"><div class="page-header"><h1>Schedule</h1></div></div>
-            <div id="screen-requests" class="screen"><div class="page-header"><h1>Requests</h1></div></div>
-            <div id="screen-quotes" class="screen"><div class="page-header"><h1>Quotes</h1></div></div>
-            <div id="screen-jobs" class="screen"><div class="page-header"><h1>Jobs</h1></div></div>
-            <div id="screen-invoices" class="screen"><div class="page-header"><h1>Invoices</h1></div></div>
-            <div id="screen-team" class="screen"><div class="page-header"><h1>Team</h1></div></div>
-            <div id="screen-reports" class="screen"><div class="page-header"><h1>Reports</h1></div></div>
-            <div id="screen-settings" class="screen"><div class="page-header"><h1>Settings</h1></div></div>
-            <div id="screen-mobile" class="screen"><div class="page-header"><h1>Cleaner Mobile</h1></div></div>
-            <div id="screen-portal" class="screen"><div class="page-header"><h1>Client Portal</h1></div></div>
+            <!-- Schedule Screen -->
+            <div id="screen-schedule" class="screen">
+                <div class="page-header">
+                    <div>
+                        <h1>Schedule</h1>
+                        <p>Team view with cleaning-specific warnings.</p>
+                    </div>
+                    <div class="top-actions">
+                        <button class="btn">Team view</button>
+                        <button class="btn primary">New visit</button>
+                    </div>
+                </div>
+                <div class="schedule-grid">
+                    <div class="schedule-header">Time</div>
+                    <div class="schedule-header">Alex</div>
+                    <div class="schedule-header">Sam</div>
+                    <div class="schedule-header">Jordan</div>
+                    <div class="schedule-header">Casey</div>
+                    <div class="schedule-header">Unassigned</div>
+
+                    <div class="schedule-cell schedule-time">08:00</div>
+                    <div class="schedule-cell"><div class="visit-block">08:30 - Smith (Weekly)</div></div>
+                    <div class="schedule-cell"><div class="visit-block blue">08:00 - TechFlow HQ</div></div>
+                    <div class="schedule-cell"></div>
+                    <div class="schedule-cell"></div>
+                    <div class="schedule-cell"></div>
+                    
+                    <div class="schedule-cell schedule-time">10:00</div>
+                    <div class="schedule-cell"><div class="visit-block blue">10:30 - ABC Offices</div></div>
+                    <div class="schedule-cell"><div class="visit-block" style="border-left-color: #f5a623;">10:00 - End of Tenancy</div></div>
+                    <div class="schedule-cell"></div>
+                    <div class="schedule-cell"></div>
+                    <div class="schedule-cell"><div class="visit-block" style="background: rgba(0,0,0,0.05); border-left-color: #ccc;">11:00 - Quote Visit</div></div>
+                </div>
+            </div>
+
+            <!-- Requests Screen -->
+            <div id="screen-requests" class="screen">
+                <div class="page-header">
+                    <div>
+                        <h1>Requests</h1>
+                        <p>New inquiries and quotes needed.</p>
+                    </div>
+                    <button class="btn primary">New Request</button>
+                </div>
+                <div class="panel">
+                    <table class="table">
+                        <thead><tr><th>Client</th><th>Address</th><th>Details</th><th>Status</th></tr></thead>
+                        <tbody>
+                            <tr><td>New Lead</td><td>72 High Street</td><td>Requires deep clean</td><td><span class="chip blue">New</span></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Quotes Screen -->
+            <div id="screen-quotes" class="screen">
+                <div class="page-header">
+                    <div><h1>Quotes</h1></div>
+                    <button class="btn primary">New Quote</button>
+                </div>
+                <div class="panel">
+                    <table class="table">
+                        <thead><tr><th>Quote #</th><th>Client / Property</th><th>Amount</th><th>Status</th></tr></thead>
+                        <tbody>
+                            <tr><td>#1002</td><td>Sarah Jenkins - Rental Flat</td><td>£350.00</td><td><span class="chip amber">Awaiting Response</span></td></tr>
+                            <tr><td>#1003</td><td>TechFlow Ltd - HQ</td><td>£1,200.00</td><td><span class="chip green">Approved</span></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Jobs Screen -->
+            <div id="screen-jobs" class="screen">
+                <div class="page-header">
+                    <div><h1>Jobs</h1></div>
+                    <button class="btn primary">New Job</button>
+                </div>
+                <div class="panel">
+                    <table class="table">
+                        <thead><tr><th>Job #</th><th>Client / Property</th><th>Schedule</th><th>Status</th></tr></thead>
+                        <tbody>
+                            <tr><td>#5042</td><td>Sarah Jenkins - 14 Birch Road</td><td>Weekly</td><td><span class="chip green">Active</span></td></tr>
+                            <tr><td>#5043</td><td>TechFlow Ltd - HQ</td><td>Daily</td><td><span class="chip green">Active</span></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Invoices Screen -->
+            <div id="screen-invoices" class="screen">
+                <div class="page-header">
+                    <div><h1>Invoices</h1></div>
+                    <button class="btn primary">New Invoice</button>
+                </div>
+                <div class="panel">
+                    <table class="table">
+                        <thead><tr><th>Invoice #</th><th>Client</th><th>Amount</th><th>Status</th></tr></thead>
+                        <tbody>
+                            <tr><td>#INV-001</td><td>Sarah Jenkins</td><td>£120.00</td><td><span class="chip amber">Overdue</span></td></tr>
+                            <tr><td>#INV-002</td><td>Sarah Jenkins</td><td>£120.00</td><td><span class="chip green">Paid</span></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Team Screen -->
+            <div id="screen-team" class="screen">
+                <div class="page-header">
+                    <div><h1>Team</h1></div>
+                    <button class="btn primary">Add Member</button>
+                </div>
+                <div class="grid-3">
+                    <div class="panel panel-body"><h2 style="margin:0">Alex</h2><p>Cleaner</p></div>
+                    <div class="panel panel-body"><h2 style="margin:0">Sam</h2><p>Supervisor</p></div>
+                    <div class="panel panel-body"><h2 style="margin:0">Jordan</h2><p>Cleaner</p></div>
+                </div>
+            </div>
+
+            <!-- Reports Screen -->
+            <div id="screen-reports" class="screen">
+                <div class="page-header"><div><h1>Reports</h1></div></div>
+                <div class="empty-state"><div class="empty-icon">📊</div><h3>Reports coming soon</h3></div>
+            </div>
+
+            <!-- Settings Screen -->
+            <div id="screen-settings" class="screen">
+                <div class="page-header"><div><h1>Settings</h1></div></div>
+                <div class="empty-state"><div class="empty-icon">⚙️</div><h3>Settings coming soon</h3></div>
+            </div>
+
+            <!-- Cleaner Mobile Screen -->
+            <div id="screen-mobile" class="screen">
+                <div class="page-header"><div><h1>Cleaner Mobile View</h1><p>Preview what your cleaners see on the field.</p></div></div>
+                <div style="width: 320px; height: 600px; border: 8px solid #2b3334; border-radius: 24px; background: #fff; margin: 0 auto; box-shadow: var(--shadow-panel); padding: 16px; overflow-y:auto;">
+                    <h3 style="text-align:center; border-bottom:1px solid #eee; padding-bottom:12px; margin-bottom:16px;">Today's Visits</h3>
+                    <div class="panel" style="box-shadow:var(--shadow-sm);"><div class="panel-body"><strong>08:30 - Sarah Jenkins</strong><p>14 Birch Road</p></div></div>
+                    <div class="panel" style="box-shadow:var(--shadow-sm);"><div class="panel-body"><strong>10:30 - ABC Offices</strong><p>M1 1AA</p></div></div>
+                </div>
+            </div>
+
+            <!-- Client Portal Screen -->
+            <div id="screen-portal" class="screen">
+                <div class="page-header"><div><h1>Client Portal Preview</h1></div></div>
+                <div class="empty-state"><div class="empty-icon">🌐</div><h3>Client portal preview</h3></div>
+            </div>
         </main>
     </div>
 

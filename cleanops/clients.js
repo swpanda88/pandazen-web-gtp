@@ -22,6 +22,199 @@
     return `<span class="chip${toneClass}"><span class="dot"></span>${escapeHtml(label)}</span>`;
   }
 
+  const clientStatusLabels = {
+    lead: "Lead",
+    prospect: "Prospect",
+    active_client: "Active client",
+    commercial: "Commercial",
+    paused: "Paused",
+    inactive: "Inactive",
+    archived: "Archived"
+  };
+
+  const clientTypeLabels = {
+    individual: "Individual",
+    company: "Company"
+  };
+
+  const leadSourceLabels = {
+    website_enquiry: "Website enquiry",
+    phone: "Phone",
+    email: "Email",
+    referral: "Referral",
+    manual: "Manual",
+    repeat_customer: "Repeat customer",
+    other: "Other"
+  };
+
+  const propertyTypeLabels = {
+    domestic_house: "Domestic house",
+    flat_apartment: "Flat / apartment",
+    studio_annexe: "Studio / annexe",
+    commercial_office: "Commercial office",
+    commercial_unit: "Commercial unit",
+    holiday_let_airbnb: "Holiday let / Airbnb",
+    unknown: "To confirm",
+    other: "Other"
+  };
+
+  const bedroomsLabels = {
+    studio: "Studio",
+    "1": "1",
+    "2": "2",
+    "3": "3",
+    "4": "4",
+    "5_plus": "5+",
+    not_applicable: "N/A",
+    unknown: "Unknown"
+  };
+
+  const bathroomsLabels = {
+    "1": "1",
+    "2": "2",
+    "3": "3",
+    "4_plus": "4+",
+    not_applicable: "N/A",
+    unknown: "Unknown"
+  };
+
+  const serviceLabels = {
+    regular_domestic_clean: "Regular domestic clean",
+    deep_clean: "Deep clean",
+    end_of_tenancy: "End-of-tenancy",
+    commercial_clean: "Commercial clean",
+    holiday_let_turnaround: "Holiday let turnaround",
+    one_off_clean: "One-off clean",
+    other: "Other",
+    to_confirm: "To confirm"
+  };
+
+  const cadenceLabels = {
+    one_off: "One-off",
+    weekly: "Weekly",
+    fortnightly: "Fortnightly",
+    four_weekly: "Four-weekly",
+    monthly: "Monthly",
+    as_requested: "As requested",
+    to_confirm: "To confirm"
+  };
+
+  const dayLabels = {
+    monday: "Monday",
+    tuesday: "Tuesday",
+    wednesday: "Wednesday",
+    thursday: "Thursday",
+    friday: "Friday",
+    flexible: "Flexible",
+    to_confirm: "To confirm"
+  };
+
+  const timeWindowLabels = {
+    morning: "Morning",
+    midday: "Midday",
+    afternoon: "Afternoon",
+    evening: "Evening",
+    flexible: "Flexible",
+    to_confirm: "To confirm"
+  };
+
+  const accessLabels = {
+    client_home: "Client home",
+    key_held: "Key held",
+    lockbox: "Lockbox",
+    concierge_reception: "Concierge / reception",
+    agent_landlord_access: "Agent / landlord access",
+    staff_opens: "Staff opens",
+    to_arrange: "To arrange",
+    unknown: "Unknown"
+  };
+
+  const parkingLabels = {
+    driveway: "Driveway",
+    street_parking: "Street parking",
+    permit_required: "Permit required",
+    paid_parking: "Paid parking",
+    staff_bays: "Staff bays",
+    no_easy_parking: "No easy parking",
+    unknown: "Unknown"
+  };
+
+  const petsLabels = {
+    none: "No pets",
+    dog: "Dog",
+    cat: "Cat",
+    multiple_pets: "Multiple pets",
+    other: "Other pets",
+    not_applicable: "N/A",
+    unknown: "Unknown"
+  };
+
+  const supplyLabels = {
+    client_provides: "Client provides",
+    pandazen_provides: "PandaZen provides",
+    mixed_specific_products_required: "Specific products",
+    pandazen_brings: "PandaZen brings",
+    not_required: "Not required",
+    to_confirm: "To confirm"
+  };
+
+  function labelFrom(map, value, fallback = "Not set") {
+    if (!value) return fallback;
+    return map[value] || value;
+  }
+
+  function displayName(client) {
+    return client.display_name || client.name || [client.first_name, client.last_name].filter(Boolean).join(" ") || "Unnamed client";
+  }
+
+  function statusLabel(client) {
+    return labelFrom(clientStatusLabels, client.status, "Lead");
+  }
+
+  function sourceLabel(client) {
+    return labelFrom(leadSourceLabels, client.lead_source || client.source, "Manual");
+  }
+
+  function propertyLabel(property) {
+    return property?.label || property?.name || "Property";
+  }
+
+  function propertyTypeLabel(property) {
+    return labelFrom(propertyTypeLabels, property?.property_type || property?.type, "Property");
+  }
+
+  function propertyArea(property) {
+    return property?.postcode || property?.area || "";
+  }
+
+  function defaultServiceLabel(property) {
+    return labelFrom(serviceLabels, property?.default_service_type || property?.service, "To confirm");
+  }
+
+  function cadenceLabel(property) {
+    return labelFrom(cadenceLabels, property?.default_cadence || property?.cadence, "To confirm");
+  }
+
+  function compactServiceChip(property) {
+    const cadence = labelFrom(cadenceLabels, property?.default_cadence, "");
+    const service = labelFrom(serviceLabels, property?.default_service_type, "");
+    if (cadence && service && service !== "To confirm") return `${cadence} clean`;
+    return cadence || service || "To confirm";
+  }
+
+  function derivedClientChips(client) {
+    const property = client.properties?.[0];
+    const chips = [
+      chip(statusLabel(client), client.statusTone || statusTone(client.status)),
+      client.client_type ? chip(labelFrom(clientTypeLabels, client.client_type), "info") : "",
+      property ? chip(propertyTypeLabel(property).startsWith("Commercial") ? "Commercial" : "Domestic", "info") : "",
+      propertyArea(property) ? chip(propertyArea(property), "info") : "",
+      property?.access_method === "key_held" ? chip("Key held", "success") : "",
+      property?.default_cadence && property.default_cadence !== "to_confirm" ? chip(compactServiceChip(property), "success") : ""
+    ].filter(Boolean);
+    return chips.slice(0, 5).join("");
+  }
+
   function button(label, action, variant = "") {
     const classes = ["button", variant].filter(Boolean).join(" ");
     return `<button class="${classes}" type="button" data-client-action="${escapeHtml(action)}">${escapeHtml(label)}</button>`;
@@ -54,12 +247,19 @@
 
   function statusTone(status) {
     const tones = {
+      lead: "info",
       Lead: "info",
+      active_client: "success",
       "Active client": "success",
+      prospect: "warning",
       Prospect: "warning",
+      commercial: "info",
       Commercial: "info",
+      paused: "warning",
       Paused: "warning",
+      inactive: "info",
       Inactive: "info",
+      archived: "danger",
       Archived: "danger"
     };
     return tones[status] || "info";
@@ -96,18 +296,18 @@
 
   function renderList() {
     const rows = clients().map((client) => `
-      <tr class="client-row" data-client-id="${escapeHtml(client.id)}" tabindex="0" role="button" aria-label="Open ${escapeHtml(client.name)}">
+      <tr class="client-row" data-client-id="${escapeHtml(client.id)}" tabindex="0" role="button" aria-label="Open ${escapeHtml(displayName(client))}">
         <td>
           <div class="client-cell">
-            <div class="avatar small">${escapeHtml(client.initials || initials(client.name))}</div>
+            <div class="avatar small">${escapeHtml(client.initials || initials(displayName(client)))}</div>
             <div>
-              <strong>${escapeHtml(client.name)}</strong>
+              <strong>${escapeHtml(displayName(client))}</strong>
               ${client.company ? `<span class="muted">${escapeHtml(client.company)}</span>` : `<span class="muted">${escapeHtml(client.email || client.phone || "No contact method")}</span>`}
             </div>
           </div>
         </td>
         <td><strong>${escapeHtml(client.mainProperty || "No property yet")}</strong><br><span class="muted">${escapeHtml(client.area || "")}</span></td>
-        <td>${chip(client.status, client.statusTone || statusTone(client.status))}</td>
+        <td>${chip(statusLabel(client), client.statusTone || statusTone(client.status))}</td>
         <td>${escapeHtml(client.activeSummary || "No active work")}</td>
         <td>${escapeHtml(client.balance || "GBP 0.00")}</td>
         <td>${escapeHtml(client.lastCommunication || "No contact yet")}</td>
@@ -164,12 +364,12 @@
     const properties = (client.properties || []).map((item) => `
       <button class="property-card property-button${property?.id === item.id ? " selected" : ""}" type="button" data-client-property-id="${escapeHtml(item.id)}">
         <div class="button-row" style="justify-content:space-between">
-          <strong>${escapeHtml(item.name)}</strong>
+          <strong>${escapeHtml(propertyLabel(item))}</strong>
           ${property?.id === item.id ? chip("Selected", "success") : chip("Secondary", "info")}
         </div>
         <p class="muted">${escapeHtml(item.address || "No address yet")}</p>
-        <div class="field-row"><span>Type</span><strong>${escapeHtml(item.type || "Property")}</strong></div>
-        <div class="field-row"><span>Cadence</span><strong>${escapeHtml(item.cadence || "Not set")}</strong></div>
+        <div class="field-row"><span>Type</span><strong>${escapeHtml(propertyTypeLabel(item))}</strong></div>
+        <div class="field-row"><span>Cadence</span><strong>${escapeHtml(cadenceLabel(item))}</strong></div>
       </button>
     `).join("");
 
@@ -179,14 +379,14 @@
         <span>/</span>
         <button type="button" data-client-action="back-to-list">Clients</button>
         <span>/</span>
-        <strong>${escapeHtml(client.name)}</strong>
+        <strong>${escapeHtml(displayName(client))}</strong>
       </div>
 
       <div class="page-head">
         <div class="title-row">
-          <div class="avatar">${escapeHtml(client.initials || initials(client.name))}</div>
-          <h1>${escapeHtml(client.name)}</h1>
-          ${chip(client.status, client.statusTone || statusTone(client.status))}
+          <div class="avatar">${escapeHtml(client.initials || initials(displayName(client)))}</div>
+          <h1>${escapeHtml(displayName(client))}</h1>
+          ${chip(statusLabel(client), client.statusTone || statusTone(client.status))}
         </div>
         <div class="page-actions">
           ${button("Email", "email-client", "primary")}
@@ -226,11 +426,11 @@
               <h2>Contact info</h2>
               <div class="field-row"><span>Email</span><strong>${escapeHtml(client.email || "Not set")}</strong></div>
               <div class="field-row"><span>Phone</span><strong>${escapeHtml(client.phone || "Not set")}</strong></div>
-              <div class="field-row"><span>Lead source</span><strong>${escapeHtml(client.source || "Manual")}</strong></div>
+              <div class="field-row"><span>Lead source</span><strong>${escapeHtml(sourceLabel(client))}</strong></div>
             </div>
             <div class="side-section">
-              <h2>Tags</h2>
-              <div class="button-row" style="justify-content:flex-start">${(client.tags || []).map((tag) => chip(tag, "info")).join("") || chip("No tags", "info")}</div>
+              <h2>Labels</h2>
+              <div class="button-row" style="justify-content:flex-start">${derivedClientChips(client) || chip("No labels", "info")}</div>
             </div>
             <div class="side-section">
               <h2>Last client communication</h2>
@@ -281,23 +481,33 @@
         <div class="panel-head">
           <div>
             <p class="eyebrow">Selected property workspace</p>
-            <h2>${escapeHtml(property.name)}</h2>
+            <h2>${escapeHtml(propertyLabel(property))}</h2>
           </div>
           ${button("Create request", "create-request", "small primary")}
         </div>
         <div class="panel-body grid-2">
           <div>
-            <h3>Property profile</h3>
+            <h3>Property setup</h3>
             <div class="field-row"><span>Address</span><strong>${escapeHtml(property.address || "Not set")}</strong></div>
-            <div class="field-row"><span>Service</span><strong>${escapeHtml(property.service || "Not agreed yet")}</strong></div>
-            <div class="field-row"><span>Cadence</span><strong>${escapeHtml(property.cadence || "Not set")}</strong></div>
+            <div class="field-row"><span>Property type</span><strong>${escapeHtml(propertyTypeLabel(property))}</strong></div>
+            <div class="field-row"><span>Bedrooms</span><strong>${escapeHtml(labelFrom(bedroomsLabels, property.bedrooms, "Unknown"))}</strong></div>
+            <div class="field-row"><span>Bathrooms</span><strong>${escapeHtml(labelFrom(bathroomsLabels, property.bathrooms, "Unknown"))}</strong></div>
+            <div class="field-row"><span>Default service</span><strong>${escapeHtml(defaultServiceLabel(property))}</strong></div>
+            <div class="field-row"><span>Cadence</span><strong>${escapeHtml(cadenceLabel(property))}</strong></div>
+            <div class="field-row"><span>Preferred day</span><strong>${escapeHtml(labelFrom(dayLabels, property.preferred_day, "To confirm"))}</strong></div>
+            <div class="field-row"><span>Time window</span><strong>${escapeHtml(labelFrom(timeWindowLabels, property.preferred_time_window, "To confirm"))}</strong></div>
           </div>
           <div>
-            <h3>Operational notes</h3>
-            <div class="field-row"><span>Access</span><strong>${escapeHtml(property.access || "Not collected")}</strong></div>
-            <div class="field-row"><span>Risk / pets</span><strong>${escapeHtml(property.risk || "None logged")}</strong></div>
-            <div class="field-row"><span>Parking</span><strong>${escapeHtml(property.parking || "Not set")}</strong></div>
-            <div class="field-row"><span>Next action</span><strong>${escapeHtml(property.nextAction || "No next action")}</strong></div>
+            <h3>Practical details</h3>
+            <div class="field-row"><span>Access</span><strong>${escapeHtml(labelFrom(accessLabels, property.access_method || property.access, "To arrange"))}</strong></div>
+            <div class="field-row"><span>Parking</span><strong>${escapeHtml(labelFrom(parkingLabels, property.parking, "Unknown"))}</strong></div>
+            <div class="field-row"><span>Pets</span><strong>${escapeHtml(labelFrom(petsLabels, property.pets_present, "Unknown"))}</strong></div>
+            <div class="field-row"><span>Products</span><strong>${escapeHtml(labelFrom(supplyLabels, property.cleaning_products, "To confirm"))}</strong></div>
+            <div class="field-row"><span>Vacuum / hoover</span><strong>${escapeHtml(labelFrom(supplyLabels, property.vacuum_hoover, "To confirm"))}</strong></div>
+            <div class="field-row"><span>Mop</span><strong>${escapeHtml(labelFrom(supplyLabels, property.mop, "To confirm"))}</strong></div>
+            <div class="field-row"><span>Property notes</span><strong>${escapeHtml(property.property_notes || "None")}</strong></div>
+            <div class="field-row"><span>Cleaning notes</span><strong>${escapeHtml(property.cleaning_notes || "None")}</strong></div>
+            <div class="field-row"><span>Next action</span><strong>${escapeHtml(property.next_action || property.nextAction || "No next action")}</strong></div>
           </div>
         </div>
       </article>
@@ -344,14 +554,14 @@
         ${createItems.map(itemButton).join("")}
         <p class="eyebrow">Client tools</p>
         ${toolItems.map(itemButton).join("")}
-        <p class="muted menu-context">Context: ${escapeHtml(client.name)}${property ? ` / ${escapeHtml(property.name)}` : ""}</p>
+        <p class="muted menu-context">Context: ${escapeHtml(displayName(client))}${property ? ` / ${escapeHtml(propertyLabel(property))}` : ""}</p>
       </div>
     `;
   }
 
   function renderNewClientModal() {
     return `
-      <div class="client-modal-backdrop" data-client-action="close-new-client">
+      <div class="client-modal-backdrop" data-client-backdrop="true">
         <section class="client-modal" role="dialog" aria-modal="true" aria-label="New Client" data-client-modal="true">
           <div class="drawer-header">
             <div>
@@ -366,15 +576,25 @@
             <label class="client-field">Company name <input id="new-client-company" type="text" autocomplete="off"></label>
             <label class="client-field">Phone <input id="new-client-phone" type="tel" autocomplete="off"></label>
             <label class="client-field">Email <input id="new-client-email" type="email" autocomplete="off"></label>
-            <label class="client-field">Lead source <input id="new-client-source" type="text" value="Manual" autocomplete="off"></label>
+            <label class="client-field">Lead source
+              <select id="new-client-source">
+                <option value="manual">Manual</option>
+                <option value="website_enquiry">Website enquiry</option>
+                <option value="phone">Phone</option>
+                <option value="email">Email</option>
+                <option value="referral">Referral</option>
+                <option value="repeat_customer">Repeat customer</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
             <label class="client-field">Client status
               <select id="new-client-status">
-                <option>Lead</option>
-                <option>Prospect</option>
-                <option>Active client</option>
-                <option>Commercial</option>
-                <option>Paused</option>
-                <option>Inactive</option>
+                <option value="lead">Lead</option>
+                <option value="prospect">Prospect</option>
+                <option value="active_client">Active client</option>
+                <option value="commercial">Commercial</option>
+                <option value="paused">Paused</option>
+                <option value="inactive">Inactive</option>
               </select>
             </label>
             <label class="client-field wide">Billing address <input id="new-client-billing" type="text" autocomplete="off"></label>
@@ -386,8 +606,20 @@
             <label class="schedule-check"><input id="new-client-add-property" type="checkbox"><span>Add first property?</span></label>
             <div class="client-form-grid">
               <label class="client-field">Property name / label <input id="new-property-name" type="text" autocomplete="off"></label>
-              <label class="client-field">Property type <input id="new-property-type" type="text" autocomplete="off"></label>
+              <label class="client-field">Property type
+                <select id="new-property-type">
+                  <option value="unknown">To confirm</option>
+                  <option value="domestic_house">Domestic house</option>
+                  <option value="flat_apartment">Flat / apartment</option>
+                  <option value="studio_annexe">Studio / annexe</option>
+                  <option value="commercial_office">Commercial office</option>
+                  <option value="commercial_unit">Commercial unit</option>
+                  <option value="holiday_let_airbnb">Holiday let / Airbnb</option>
+                  <option value="other">Other</option>
+                </select>
+              </label>
               <label class="client-field wide">Property address <input id="new-property-address" type="text" autocomplete="off"></label>
+              <label class="client-field wide">Property notes <textarea id="new-property-notes" rows="2"></textarea></label>
             </div>
           </div>
 
@@ -429,34 +661,49 @@
     const propertyId = `PROP-${Date.now()}`;
     const properties = addProperty ? [{
       id: propertyId,
-      name: propertyName || propertyAddress || "Main property",
+      label: propertyName || propertyAddress || "Main property",
       address: propertyAddress,
-      type: propertyType || "Property",
-      access: "Not collected",
-      risk: "Not assessed",
-      parking: "Not set",
-      service: "Not agreed yet",
-      cadence: "Not set",
-      nextAction: "Create request if service scope is needed"
+      area: "",
+      postcode: "",
+      property_type: propertyType || "unknown",
+      bedrooms: "unknown",
+      bathrooms: "unknown",
+      default_service_type: "to_confirm",
+      default_cadence: "to_confirm",
+      preferred_day: "to_confirm",
+      preferred_time_window: "to_confirm",
+      access_method: "to_arrange",
+      parking: "unknown",
+      pets_present: "unknown",
+      cleaning_products: "to_confirm",
+      vacuum_hoover: "to_confirm",
+      mop: "to_confirm",
+      property_notes: value("new-property-notes"),
+      cleaning_notes: "",
+      next_action: "Create request if service scope is needed"
     }] : [];
-    const status = value("new-client-status") || "Lead";
+    const status = value("new-client-status") || "lead";
     const billingSame = document.getElementById("new-client-billing-same")?.checked;
     const client = {
       id: `client-${Date.now()}`,
       initials: initials(name),
+      display_name: name,
       name,
+      client_type: value("new-client-company") ? "company" : "individual",
+      company_name: value("new-client-company"),
       company: value("new-client-company"),
+      first_name: name.split(/\s+/)[0] || "",
+      last_name: name.split(/\s+/).slice(1).join(" "),
       status,
       statusTone: statusTone(status),
-      source: value("new-client-source") || "Manual",
+      lead_source: value("new-client-source") || "manual",
       email,
       phone,
       balance: "GBP 0.00",
-      mainProperty: properties[0]?.name || "No property yet",
+      mainProperty: properties[0]?.label || "No property yet",
       area: properties[0]?.address || "",
       activeSummary: "Client shell",
       lastCommunication: "Just now",
-      tags: status === "Commercial" ? ["Commercial"] : ["Manual"],
       internalNote: value("new-client-note") || "Manual client created in CleanOps prototype.",
       billingAddress: value("new-client-billing") || (billingSame ? properties[0]?.address || "" : ""),
       properties,
@@ -476,7 +723,7 @@
     state.detailTab = "active";
     state.newClientOpen = false;
     state.moreOpen = false;
-    toast(`Created ${client.name}.`);
+    toast(`Created ${displayName(client)}.`);
     refresh();
   }
 
@@ -490,7 +737,7 @@
 
     const modal = event.target.closest("[data-client-modal]");
     const actionTarget = event.target.closest("[data-client-action]");
-    if (event.target.closest(".client-modal-backdrop") && !modal && !actionTarget) {
+    if (event.target.closest("[data-client-backdrop]") && !modal) {
       state.newClientOpen = false;
       refresh();
       return true;
@@ -525,7 +772,7 @@
       const client = selectedClient();
       const property = selectedProperty(client);
       state.moreOpen = false;
-      toast(`${moreAction} is mocked for ${client?.name || "client"}${property ? ` / ${property.name}` : ""}.`);
+      toast(`${moreAction} is mocked for ${client ? displayName(client) : "client"}${property ? ` / ${propertyLabel(property)}` : ""}.`);
       refresh();
       return true;
     }
@@ -560,7 +807,7 @@
 
     const client = selectedClient();
     const property = selectedProperty(client);
-    toast(`${action.replace(/-/g, " ")} is mocked for ${client?.name || "client"}${property ? ` / ${property.name}` : ""}.`);
+    toast(`${action.replace(/-/g, " ")} is mocked for ${client ? displayName(client) : "client"}${property ? ` / ${propertyLabel(property)}` : ""}.`);
     return true;
   }
 

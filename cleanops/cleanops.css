@@ -563,6 +563,12 @@ h3 {
   font-weight: 780;
 }
 
+.avatar.small {
+  width: 34px;
+  height: 34px;
+  font-size: 12px;
+}
+
 .metric .chip {
   margin-top: 7px;
 }
@@ -670,9 +676,12 @@ tr:last-child td {
   display: flex;
   align-items: center;
   flex: 0 0 auto;
+  border: 0;
+  background: transparent;
   border-bottom: 3px solid transparent;
   color: var(--muted);
   font-weight: 700;
+  padding: 0;
 }
 
 .tab.active {
@@ -699,9 +708,180 @@ tr:last-child td {
   background: #fbfdf9;
 }
 
+.property-button {
+  width: 100%;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.property-button:hover {
+  border-color: var(--line-strong);
+}
+
 .property-workspace {
   border: 1px solid var(--line-strong);
   background: #fbfdf9;
+}
+
+.client-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 680;
+}
+
+.client-breadcrumb button {
+  border: 0;
+  background: transparent;
+  color: var(--green);
+  padding: 0;
+  font-weight: 760;
+}
+
+.client-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 220px;
+}
+
+.client-cell > div:last-child {
+  display: grid;
+  gap: 3px;
+}
+
+.client-row {
+  cursor: pointer;
+}
+
+.client-row:hover td {
+  background: #fbfbf8;
+}
+
+.clients-list-layout {
+  grid-template-columns: minmax(0, 1fr) 310px;
+}
+
+.client-model-list {
+  display: grid;
+  gap: 7px;
+}
+
+.client-model-list span {
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface-soft);
+  padding: 0 9px;
+  font-weight: 680;
+}
+
+.client-more-wrap {
+  position: relative;
+}
+
+.client-more-menu {
+  position: absolute;
+  top: calc(100% + 7px);
+  right: 0;
+  z-index: 24;
+  width: 224px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  padding: 9px;
+}
+
+.client-more-menu button {
+  width: 100%;
+  min-height: 31px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  padding: 0 9px;
+  font-weight: 680;
+}
+
+.client-more-menu button:hover {
+  background: var(--surface-soft);
+}
+
+.menu-context {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.client-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 38;
+  display: grid;
+  place-items: start center;
+  overflow: auto;
+  background: rgba(18, 50, 53, .18);
+  padding: 46px 18px;
+}
+
+.client-modal {
+  width: min(760px, 100%);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 20px 70px rgba(18, 50, 53, .18);
+  padding: 16px;
+}
+
+.client-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.client-field {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 720;
+}
+
+.client-field.wide,
+.schedule-check.wide {
+  grid-column: 1 / -1;
+}
+
+.client-field input,
+.client-field select,
+.client-field textarea {
+  width: 100%;
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  padding: 8px 10px;
+}
+
+.client-field textarea {
+  resize: vertical;
+}
+
+.client-form-section {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
 }
 
 .property-grid {
@@ -1916,5 +2096,9 @@ tr.status-risk td:first-child {
 
   .month-grid {
     grid-template-columns: repeat(var(--month-cols, 7), minmax(92px, 1fr));
+  }
+
+  .client-form-grid {
+    grid-template-columns: 1fr;
   }
 }

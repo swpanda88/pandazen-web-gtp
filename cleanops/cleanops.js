@@ -206,6 +206,7 @@
   }
 
   function renderClients() {
+    if (window.CleanOpsClients?.render) return window.CleanOpsClients.render();
     const client = data.selectedClient;
     const properties = client.properties.map((property, index) => `
       <article class="property-card${index === 0 ? " selected" : ""}">

@@ -215,16 +215,18 @@
         </div>
         <div class="filter-section">
           <p class="eyebrow">Types</p>
+          <button type="button" class="filter-all-button" data-schedule-action="all-types">All types</button>
           ${typeOptions.map((type) => filterOption("type", type, state.activeTypes.has(type))).join("")}
         </div>
         <div class="filter-section">
           <p class="eyebrow">Status</p>
+          <button type="button" class="filter-all-button" data-schedule-action="all-statuses">All statuses</button>
           ${statusOptions.map((status) => filterOption("status", status, state.activeStatuses.has(status))).join("")}
         </div>
         <div class="filter-section">
           <p class="eyebrow">Assigned person / team</p>
-          <button type="button" class="team-all-button" data-schedule-action="all-teams">All teams</button>
-          ${teamOptions().map((team) => teamFilterOption(team, state.activeTeams.has(team))).join("")}
+          <button type="button" class="filter-all-button" data-schedule-action="all-teams">All teams</button>
+          ${teamOptions().map((team) => filterOption("team", team, state.activeTeams.has(team))).join("")}
           <p class="muted filter-note">The Unscheduled rail keeps all matching unscheduled work visible so office staff can still place it.</p>
         </div>
         <div class="filter-section">
@@ -240,21 +242,12 @@
 
   function filterOption(group, value, checked) {
     return `
-      <label class="schedule-check">
-        <input type="checkbox" data-schedule-filter="${group}" value="${escapeHtml(value)}" ${checked ? "checked" : ""}>
-        <span>${escapeHtml(value)}</span>
-      </label>
-    `;
-  }
-
-  function teamFilterOption(team, checked) {
-    return `
-      <div class="team-filter-row">
+      <div class="filter-option-row">
         <label class="schedule-check">
-          <input type="checkbox" data-schedule-filter="team" value="${escapeHtml(team)}" ${checked ? "checked" : ""}>
-          <span>${escapeHtml(team)}</span>
+          <input type="checkbox" data-schedule-filter="${group}" value="${escapeHtml(value)}" ${checked ? "checked" : ""}>
+          <span>${escapeHtml(value)}</span>
         </label>
-        <button type="button" data-schedule-team-only="${escapeHtml(team)}">Only</button>
+        <button type="button" data-schedule-filter-only="${escapeHtml(group)}" data-schedule-filter-value="${escapeHtml(value)}">Only</button>
       </div>
     `;
   }
@@ -309,7 +302,8 @@
         <span class="muted">${escapeHtml(visit.property)}</span>
         <span class="muted">${escapeHtml(visit.service)}</span>
         ${visit.warnings?.length ? `<span class="schedule-warning">${escapeHtml(visit.warnings[0])}</span>` : ""}
-        <span class="resize-handle" data-resize-id="${escapeHtml(visit.id)}" title="Resize duration" aria-hidden="true"></span>
+        <span class="resize-handle top" data-resize-id="${escapeHtml(visit.id)}" data-resize-edge="top" title="Resize start time" aria-hidden="true"></span>
+        <span class="resize-handle bottom" data-resize-id="${escapeHtml(visit.id)}" data-resize-edge="bottom" title="Resize end time" aria-hidden="true"></span>
       </article>
     `;
   }
@@ -570,15 +564,19 @@
     state.popoverDrag = null;
   }
 
-  function startResize(visitId, event) {
+  function startResize(visitId, edge, event) {
     const visit = findVisit(visitId);
     if (!visit) return;
     event.preventDefault();
     event.stopPropagation();
+    const originalStart = timeToMinutes(visit.start);
     state.resizing = {
       visitId,
+      edge,
       startY: event.clientY,
-      originalDuration: visit.duration
+      originalStart,
+      originalDuration: visit.duration,
+      originalEnd: originalStart + visit.duration
     };
     document.body.classList.add("schedule-resizing");
   }
@@ -597,9 +595,28 @@
     const visit = findVisit(state.resizing.visitId);
     if (!visit) return;
     const deltaMinutes = Math.round((event.clientY - state.resizing.startY) / (minuteHeight * 30)) * 30;
-    visit.duration = Math.max(minDuration, state.resizing.originalDuration + deltaMinutes);
+    if (state.resizing.edge === "top") {
+      const earliestStart = startHour * 60;
+      const latestStart = state.resizing.originalEnd - minDuration;
+      const newStart = Math.min(latestStart, Math.max(earliestStart, state.resizing.originalStart + deltaMinutes));
+      visit.start = minutesToTime(newStart);
+      visit.duration = state.resizing.originalEnd - newStart;
+    } else {
+      const latestEnd = endHour * 60 + 120;
+      const newEnd = Math.max(
+        state.resizing.originalStart + minDuration,
+        Math.min(latestEnd, state.resizing.originalEnd + deltaMinutes)
+      );
+      visit.duration = newEnd - state.resizing.originalStart;
+    }
     const card = document.querySelector(`[data-visit-id="${state.resizing.visitId}"]`);
-    if (card) card.style.height = `${Math.max(34, visit.duration * minuteHeight - 4)}px`;
+    if (card) {
+      card.style.top = `${Math.max(0, (timeToMinutes(visit.start) - startHour * 60) * minuteHeight)}px`;
+      card.style.height = `${Math.max(34, visit.duration * minuteHeight - 4)}px`;
+      card.title = `${visit.client} ${timeRange(visit)}`;
+      const range = card.querySelector("strong");
+      if (range) range.textContent = timeRange(visit);
+    }
   }
 
   function finishResize() {
@@ -609,7 +626,7 @@
     }
     if (!state.resizing) return;
     const visit = findVisit(state.resizing.visitId);
-    if (visit) toast(`${visit.client} duration updated to ${visit.duration} minutes`);
+    if (visit) toast(`${visit.client} now ${timeRange(visit)}`);
     state.resizing = null;
     document.body.classList.remove("schedule-resizing");
     refresh();
@@ -640,10 +657,12 @@
       return;
     }
 
-    const onlyTeamButton = event.target.closest("[data-schedule-team-only]");
-    if (onlyTeamButton) {
-      state.activeTeams = new Set([onlyTeamButton.dataset.scheduleTeamOnly]);
-      toast(`Showing only ${onlyTeamButton.dataset.scheduleTeamOnly}`);
+    const onlyFilterButton = event.target.closest("[data-schedule-filter-only]");
+    if (onlyFilterButton) {
+      const group = onlyFilterButton.dataset.scheduleFilterOnly;
+      const value = onlyFilterButton.dataset.scheduleFilterValue;
+      setOnlyFilter(group, value);
+      toast(`Showing only ${value}`);
       refresh();
       return;
     }
@@ -697,6 +716,18 @@
       refresh();
       return;
     }
+    if (action === "all-types") {
+      state.activeTypes = new Set(["Visits", "Requests", "Tasks", "Reminders"]);
+      toast("Showing all types");
+      refresh();
+      return;
+    }
+    if (action === "all-statuses") {
+      state.activeStatuses = new Set(["Scheduled", "Completed", "Unassigned", "Issue / warning"]);
+      toast("Showing all statuses");
+      refresh();
+      return;
+    }
     if (action === "all-teams") {
       state.activeTeams = new Set(teamOptions());
       toast("Showing all teams");
@@ -704,6 +735,18 @@
       return;
     }
     toast(`${action.replace(/-/g, " ")} is mocked for Schedule v0.`);
+  }
+
+  function setOnlyFilter(group, value) {
+    if (group === "type") {
+      state.activeTypes = new Set([value]);
+      return;
+    }
+    if (group === "team") {
+      state.activeTeams = new Set([value]);
+      return;
+    }
+    state.activeStatuses = new Set([value]);
   }
 
   function onDocumentChange(event) {
@@ -786,7 +829,7 @@
       return;
     }
     const handle = event.target.closest("[data-resize-id]");
-    if (handle) startResize(handle.dataset.resizeId, event);
+    if (handle) startResize(handle.dataset.resizeId, handle.dataset.resizeEdge || "bottom", event);
   }
 
   function afterRender() {

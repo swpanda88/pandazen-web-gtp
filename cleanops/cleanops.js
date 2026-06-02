@@ -414,35 +414,7 @@
   }
 
   function renderSchedule() {
-    const header = `<div class="day-head"></div>${data.scheduleDays.map((day) => `<div class="day-head">${escapeHtml(day)}</div>`).join("")}`;
-    const rows = data.scheduleRows.map((row) => `
-      <div class="slot time-cell">${escapeHtml(row.time)}</div>
-      ${row.visits.map((visit) => `
-        <div class="slot">
-          ${visit ? `
-            <article class="visit-card ${escapeHtml(visit.tone)}">
-              <strong>${escapeHtml(visit.client)}</strong>
-              <span class="muted">${escapeHtml(visit.property)}</span>
-              <span class="muted">${escapeHtml(visit.service)}</span>
-            </article>
-          ` : ""}
-        </div>
-      `).join("")}
-    `).join("");
-
-    return `
-      ${pageHead("Schedule", "Readable week and team view with cleaning-specific warnings.", button("New visit", "Open new visit drawer", "primary"))}
-      <article class="panel">
-        <div class="filters">
-          <button class="button small" type="button" data-action="Show today">Today</button>
-          <span class="selectish">Week of 2 Jun</span>
-          <span class="selectish">All teams</span>
-          <span class="selectish">All services</span>
-          <span class="selectish">Warnings only</span>
-        </div>
-        <div class="schedule-grid">${header}${rows}</div>
-      </article>
-    `;
+    return window.CleanOpsSchedule?.render?.() || "";
   }
 
   function renderInvoices() {
@@ -634,6 +606,10 @@
     showToast.timeout = window.setTimeout(() => toast.classList.remove("visible"), 2200);
   }
 
+  window.CleanOpsShell = {
+    toast: showToast
+  };
+
   function openDrawer(title) {
     drawerTitle.textContent = title;
     drawerCopy.textContent = "This first-pass prototype keeps the action visible without connecting to D1, payments, email, SMS, auth, or external services yet.";
@@ -651,6 +627,7 @@
     renderNav(safeRoute);
     breadcrumb.textContent = titles[safeRoute];
     pageRoot.innerHTML = renderers[safeRoute]();
+    if (safeRoute === "schedule") window.CleanOpsSchedule?.afterRender?.();
     window.location.hash = safeRoute;
   }
 

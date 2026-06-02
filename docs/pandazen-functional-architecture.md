@@ -1,3 +1,6 @@
+> [!NOTE]
+> **SEE NEW DIRECTION**: The current development focus is the Jobber-inspired `/cleanops` application. See `docs/cleanops-architecture-and-data.md` for the single source of truth regarding the new architecture and data semantics.
+
 # PandaZen Functional Architecture
 
 ## 1. Purpose

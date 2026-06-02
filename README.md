@@ -1,9 +1,13 @@
-# Panda Zen Website
+# PandaZen Website
 
-Static one-page website for Panda Zen, a boutique home cleaning service in Durham and the surrounding areas.
+Static one-page website for PandaZen, a boutique home cleaning service in Durham and the surrounding areas.
 
 Open `index.html` in a browser, or serve this folder with any static web server.
 
-Admin preview is available at `/admin/`. Backend setup notes are in `docs/pr2-cloudflare-backend.md`.
+> [!IMPORTANT]
+> **New Operational App**: Development has pivoted to the Jobber-inspired `/cleanops` application. See `docs/cleanops-architecture-and-data.md` for architecture and data rules.
+> The `/admin/` cockpit is legacy and serves as fallback/reference only.
 
-Security setup notes are in `docs/security.md`. Protect `/admin/*` and `/api/*` with Cloudflare Access before entering real customer data.
+Backend setup notes are in `docs/pr2-cloudflare-backend.md`.
+
+Security setup notes are in `docs/security.md`. Protect `/admin/*`, `/cleanops/*` and `/api/*` with Cloudflare Access before entering real customer data.

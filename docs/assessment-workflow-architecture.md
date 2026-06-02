@@ -1,3 +1,6 @@
+> [!WARNING]
+> **LEGACY REFERENCE**: This document refers to the old `/admin` monolithic architecture and the `Lead -> Assessment` workflow. The current development focus is the Jobber-inspired `/cleanops` application. See `docs/cleanops-architecture-and-data.md` for current guidelines.
+
 # Assessment Workflow Architecture
 
 This note records the agreed direction for Assessments, Client & Home, quotes, jobs and invoices.

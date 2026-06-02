@@ -2522,7 +2522,7 @@ function renderAssessmentWizardPropertySelector(record, values) {
           <label class="assessment-property-option ${isSelected ? "selected" : ""}" style="display: block; margin-bottom: 8px; cursor: pointer;">
             <input type="radio" name="propertyId" value="${p.id}" ${isSelected ? "checked" : ""}>
             <div class="property-option-content" style="display: inline-block; vertical-align: top; margin-left: 8px;">
-              <strong>${escapeHtml(p.propertyLabel || p.address || "Property #" + p.id)}</strong>
+              <strong>${escapeHtml(p.displayLabel || p.label || p.address || "Property #" + p.id)}</strong>
               <div class="property-option-address">${escapeHtml(formatAddressContext([p.address, p.area, p.postcode]))}</div>
               <small class="muted">Property #${p.id}</small>
             </div>

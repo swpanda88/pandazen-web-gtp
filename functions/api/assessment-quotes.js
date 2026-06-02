@@ -192,9 +192,8 @@ async function createAssessmentFromClient(db, body) {
 
   if (propertyMode === "existing_property") {
     if (!providedPropertyId) return error("Property ID is required when using an existing property.", 400);
-    property = await db.prepare(`SELECT * FROM properties WHERE id = ? AND client_id = ? AND status != 'deleted'`).bind(providedPropertyId, client.id).first();
-    if (!property) return error("Selected property is invalid or does not belong to this client.", 400);
-    if (!property.is_active) return error("Selected property is inactive.", 400);
+    property = await db.prepare(`SELECT * FROM properties WHERE id = ? AND client_id = ? AND is_active = 1 LIMIT 1`).bind(providedPropertyId, client.id).first();
+    if (!property) return error("Selected property is invalid, inactive, or does not belong to this client.", 400);
   }
 
   const prefill = {

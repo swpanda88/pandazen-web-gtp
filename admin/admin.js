@@ -2280,6 +2280,10 @@ function clientAssessmentFrequencyContext(record) {
 }
 
 function defaultAssessmentWizard(record) {
+  const properties = state.clientProperties[record.id] || [];
+  const hasProperties = properties.length > 0;
+  const defaultProperty = hasProperties ? (properties.find(p => p.isPrimary) || properties[0]) : null;
+
   return {
     clientId: record.id,
     step: 1,
@@ -2290,7 +2294,8 @@ function defaultAssessmentWizard(record) {
       assessmentReason: "existing_client_extra",
       serviceType: clientAssessmentServiceSuggestion(record) || "",
       frequency: "one_off",
-      propertyMode: "existing_home",
+      propertyMode: hasProperties ? "existing_property" : "new_property",
+      propertyId: defaultProperty ? String(defaultProperty.id) : "",
       propertyLabel: record.address || "",
       area: record.area || "",
       address: record.address || "",
@@ -2324,12 +2329,18 @@ function defaultAssessmentWizard(record) {
 function applyAssessmentWizardPropertyMode(wizard, record, nextMode) {
   if (!wizard || !record) return;
   const values = wizard.values;
-  const currentMode = values.propertyMode || "existing_home";
+  const currentMode = values.propertyMode || "existing_property";
   if (currentMode === nextMode) return;
   values.propertyMode = nextMode;
 
-  if (nextMode === "existing_home") {
-    values.propertyLabel = record.address || values.propertyLabel || "";
+  if (nextMode === "existing_property") {
+    const properties = state.clientProperties[record.id] || [];
+    values.propertyId = properties.length > 0 ? String(properties.find(p => p.isPrimary)?.id || properties[0].id) : "";
+    return;
+  }
+
+  if (nextMode === "new_property") {
+    values.propertyLabel = record.address || "";
     values.area = record.area || "";
     values.address = record.address || "";
     values.postcode = record.postcode || "";
@@ -2337,28 +2348,8 @@ function applyAssessmentWizardPropertyMode(wizard, record, nextMode) {
     values.bedrooms = record.bedrooms || "";
     values.bathrooms = record.bathrooms || "";
     values.propertyCondition = record.propertyCondition || "";
-    
-    // access / parking and pets/products are handled by applyCarryOverPrefills,
-    // but if carry-over checkbox is set we prefill, else clear.
     applyCarryOverPrefills(wizard, record);
     return;
-  }
-
-  values.propertyLabel = nextMode === "unknown_address" ? "Address TBC" : "";
-  values.address = "";
-  values.postcode = "";
-  values.propertyType = "";
-  values.bedrooms = "";
-  values.bathrooms = "";
-  values.propertyCondition = "";
-  values.parking = "";
-  values.accessMethod = "";
-  values.accessNotes = "";
-  values.pets = "";
-  values.productPreference = "";
-  values.surfaceNotes = "";
-  if (nextMode === "another_address") {
-    values.area = "";
   }
 }
 
@@ -2518,40 +2509,26 @@ function renderAssessmentWizardHero(record, values) {
   `;
 }
 
-function wizardPropertyContextCard(record, values) {
-  if (values.propertyMode === "another_address") {
-    const propertySummary = formatAddressContext([
-      values.address,
-      values.area,
-      values.postcode
-    ]) || "Details will be captured on Step 2.";
-    return `
-      <div class="assessment-property-preview">
-        <strong>${escapeHtml(values.propertyLabel || "Another address")}</strong>
-        <p>${escapeHtml(propertySummary)}</p>
-        <small>${escapeHtml(compactMeta([leadValueLabel("propertyType", values.propertyType), values.bedrooms ? `${values.bedrooms} bed` : "", values.bathrooms ? `${values.bathrooms} bath` : ""]))}</small>
-      </div>
-    `;
+function renderAssessmentWizardPropertySelector(record, values) {
+  const properties = state.clientProperties[record.id] || [];
+  if (properties.length === 0) {
+    return `<div class="workspace-placeholder muted"><p>No properties found for this client.</p></div>`;
   }
-  if (values.propertyMode === "unknown_address") {
-    return `
-      <div class="assessment-property-preview">
-        <strong>${escapeHtml(values.propertyLabel || "Address TBC")}</strong>
-        <p>${escapeHtml(values.area || "Address/property details can be completed later.")}</p>
-        <small>Address/property details can be completed later.</small>
-      </div>
-    `;
-  }
-  const propertySummary = formatAddressContext([
-    record.address,
-    record.area,
-    record.postcode
-  ]) || "No current address is stored for this client yet.";
   return `
-    <div class="assessment-property-preview">
-      <strong>${escapeHtml(values.propertyLabel || record.address || "Existing property")}</strong>
-      <p>${escapeHtml(propertySummary)}</p>
-      <small>${escapeHtml(compactMeta([leadValueLabel("propertyType", record.propertyType), record.bedrooms ? `${record.bedrooms} bedrooms` : "", record.bathrooms ? `${record.bathrooms} bathrooms` : "", record.updatedAt ? `Updated ${formatDate(record.updatedAt)}` : ""]))}</small>
+    <div class="assessment-property-list">
+      ${properties.map(p => {
+        const isSelected = values.propertyId === String(p.id);
+        return `
+          <label class="assessment-property-option ${isSelected ? "selected" : ""}" style="display: block; margin-bottom: 8px; cursor: pointer;">
+            <input type="radio" name="propertyId" value="${p.id}" ${isSelected ? "checked" : ""}>
+            <div class="property-option-content" style="display: inline-block; vertical-align: top; margin-left: 8px;">
+              <strong>${escapeHtml(p.propertyLabel || p.address || "Property #" + p.id)}</strong>
+              <div class="property-option-address">${escapeHtml(formatAddressContext([p.address, p.area, p.postcode]))}</div>
+              <small class="muted">Property #${p.id}</small>
+            </div>
+          </label>
+        `;
+      }).join("")}
     </div>
   `;
 }
@@ -2596,11 +2573,10 @@ function renderAssessmentWizardStep1(record, values) {
           <section class="assessment-wizard-card">
             <h3>B. Property context</h3>
             <div class="assessment-property-mode-control" data-property-mode-control>
-              <button class="${values.propertyMode === "existing_home" ? "active" : ""}" type="button" data-set-property-mode="existing_home">Existing property</button>
-              <button class="${values.propertyMode === "another_address" ? "active" : ""}" type="button" data-set-property-mode="another_address">Another address</button>
-              <button class="${values.propertyMode === "unknown_address" ? "active" : ""}" type="button" data-set-property-mode="unknown_address">Address unknown</button>
+              <button class="${values.propertyMode === "existing_property" ? "active" : ""}" type="button" data-set-property-mode="existing_property">Use one of this client’s existing properties</button>
+              <button class="${values.propertyMode === "new_property" ? "active" : ""}" type="button" data-set-property-mode="new_property">Create a new property/address for this client</button>
             </div>
-            ${wizardPropertyContextCard(record, values)}
+            ${values.propertyMode === "existing_property" ? renderAssessmentWizardPropertySelector(record, values) : ""}
           </section>
           
           <section class="assessment-wizard-card">
@@ -2667,17 +2643,18 @@ function renderAssessmentWizardStep2(record, values) {
         <div class="assessment-wizard-col-left">
           <section class="assessment-wizard-card">
             <h3>Property details</h3>
-            ${values.propertyMode === "unknown_address" ? `<div class="workspace-placeholder muted"><p>Address/property details can be completed later. Capture only what is known now so the assessment can move forward cleanly.</p></div>` : ""}
+            ${values.propertyMode === "existing_property" ? `<div class="workspace-placeholder muted"><p>Using an existing property. Details cannot be edited here.</p></div>` : `
             <div class="wizard-table-section">
-              ${renderWizardTableRow("Property label", `<input name="propertyLabel" value="${escapeHtml(values.propertyLabel || "")}" placeholder="${escapeHtml(values.propertyMode === "unknown_address" ? "Address TBC" : "e.g. Holiday let, Flat 2, Annex")}">`)}
-              ${renderWizardTableRow("Address", `<textarea name="address" rows="3" placeholder="${escapeHtml(values.propertyMode === "existing_home" ? "Current client/home address" : "Property address")}">${escapeHtml(values.address || "")}</textarea>`)}
-              ${renderWizardTableRow("Area", `<input name="area" value="${escapeHtml(values.area || "")}" placeholder="${escapeHtml(values.propertyMode === "existing_home" ? "Current area" : "Area")}">`)}
-              ${renderWizardTableRow("Postcode", `<input name="postcode" value="${escapeHtml(values.postcode || "")}" placeholder="${escapeHtml(values.propertyMode === "existing_home" ? "Current postcode" : "Postcode")}">`)}
+              ${renderWizardTableRow("Property label", `<input name="propertyLabel" value="${escapeHtml(values.propertyLabel || "")}" placeholder="e.g. Holiday let, Flat 2, Annex">`)}
+              ${renderWizardTableRow("Address", `<textarea name="address" rows="3" placeholder="Property address">${escapeHtml(values.address || "")}</textarea>`)}
+              ${renderWizardTableRow("Area", `<input name="area" value="${escapeHtml(values.area || "")}" placeholder="Area">`)}
+              ${renderWizardTableRow("Postcode", `<input name="postcode" value="${escapeHtml(values.postcode || "")}" placeholder="Postcode">`)}
               ${renderWizardTableRow("Property type", renderEditableSelect({ name: "propertyType", currentValue: values.propertyType, staticOptions: propertyTypeOptions }))}
               ${renderWizardTableRow("Bedrooms", renderEditableSelect({ name: "bedrooms", currentValue: values.bedrooms, staticOptions: bedroomsOptions }))}
               ${renderWizardTableRow("Bathrooms", renderEditableSelect({ name: "bathrooms", currentValue: values.bathrooms, staticOptions: bathroomsOptions }))}
               ${renderWizardTableRow("Property condition", renderEditableSelect({ name: "propertyCondition", currentValue: values.propertyCondition, staticOptions: propertyConditionOptions }))}
             </div>
+            `}
           </section>
         </div>
         
@@ -2870,7 +2847,7 @@ function captureAssessmentWizardForm(form) {
   const values = wizard.values;
   const raw = Object.fromEntries(new FormData(form).entries());
   const fields = [
-    "assessmentReason", "serviceType", "frequency", "propertyMode",
+    "assessmentReason", "serviceType", "frequency", "propertyMode", "propertyId",
     "propertyLabel", "area", "address", "postcode", "propertyType", "bedrooms",
     "bathrooms", "propertyCondition", "parking", "accessMethod", "accessNotes",
     "pets", "productPreference", "surfaceNotes", "initialScopeNotes", "priorityTasks",
@@ -2936,9 +2913,10 @@ function resetAssessmentWizardUi() {
   document.body.style.overflow = "";
 }
 
-function openAssessmentSetupModal(clientId) {
+async function openAssessmentSetupModal(clientId) {
   const client = findRecordByType("client", clientId);
   if (!client) throw new Error("Client & Home record not found.");
+  await loadClientProperties(client.id);
   resetAssessmentWizardUi();
   state.assessmentSetupClientId = client.id;
   state.assessmentWizard = defaultAssessmentWizard(client);
@@ -2988,6 +2966,7 @@ async function submitAssessmentSetup() {
     phone: wizard.values.phone,
     email: wizard.values.email,
     propertyMode: wizard.values.propertyMode,
+    propertyId: wizard.values.propertyId,
     propertyLabel: wizard.values.propertyLabel,
     area: wizard.values.area,
     address: wizard.values.address,
@@ -6200,7 +6179,7 @@ function bindEvents() {
     if (newAssessmentButton) {
       const clientId = newAssessmentButton.dataset.createAssessmentFromClient;
       try {
-        openAssessmentSetupModal(clientId);
+        await openAssessmentSetupModal(clientId);
       } catch (err) {
         window.alert(`Could not create Assessment. ${err.message}`);
       }

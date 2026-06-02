@@ -315,7 +315,7 @@ window.CLEANOPS_DATA = {
         team: "Unassigned",
         status: "Overdue",
         tone: "danger",
-        warnings: ["No cleaner"],
+        warnings: ["Unassigned"],
         completed: false,
         map: { x: 35, y: 64 }
       }

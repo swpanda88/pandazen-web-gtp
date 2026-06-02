@@ -74,6 +74,11 @@
     );
   }
 
+  function isUnassigned(item) {
+    const team = String(item.team || "").trim().toLowerCase();
+    return !team || team === "unassigned" || team === "team needed";
+  }
+
   function scheduleItemClasses(item) {
     const classes = [typeClass(item.type)];
     if (isCompleted(item)) classes.push("status-completed");
@@ -92,6 +97,46 @@
 
   function typePill(label) {
     return `<span class="type-pill ${escapeHtml(typeClass(label))}">${escapeHtml(label)}</span>`;
+  }
+
+  function normaliseWarning(warning) {
+    return String(warning || "").trim() === "No cleaner" ? "Unassigned" : String(warning || "").trim();
+  }
+
+  function visitPopoverChips(visit) {
+    const chips = [];
+    const seen = new Set();
+    const addChip = (label, tone) => {
+      const cleanLabel = normaliseWarning(label);
+      if (!cleanLabel || seen.has(cleanLabel)) return;
+      seen.add(cleanLabel);
+      chips.push(chip(cleanLabel, tone));
+    };
+
+    if (isCompleted(visit)) {
+      addChip("Completed", "muted");
+    } else {
+      if (visit.statusGroup === "Overdue" || visit.status === "Overdue") addChip("Overdue", "danger");
+      if (isUnassigned(visit) || visit.statusGroup === "Unassigned" || visit.status === "Unassigned") {
+        addChip("Unassigned", "danger");
+      }
+      if (visit.type === "Issue / revisit") {
+        addChip("Issue / revisit", "danger");
+      } else if (visit.statusGroup === "Issue / warning") {
+        addChip("Issue", "warning");
+      }
+    }
+
+    (visit.warnings || []).some((warning) => {
+      if (chips.length >= 3) return true;
+      const cleanWarning = normaliseWarning(warning);
+      if (cleanWarning === visit.type || cleanWarning === visit.status || cleanWarning === visit.statusGroup) return false;
+      if (cleanWarning === "Request" || cleanWarning === "No cleaner") return false;
+      addChip(cleanWarning, cleanWarning === "Unassigned" ? "danger" : "warning");
+      return false;
+    });
+
+    return chips.join("");
   }
 
   function button(label, action, variant = "") {
@@ -589,6 +634,7 @@
     const visit = findVisit(visitId);
     const root = document.getElementById("schedule-popover-root");
     if (!visit || !root || !target) return;
+    const statusChips = visitPopoverChips(visit);
     const rect = target.getBoundingClientRect();
     const left = Math.min(rect.left + window.scrollX + 12, window.scrollX + window.innerWidth - 310);
     const top = rect.top + window.scrollY - 10;
@@ -600,12 +646,13 @@
         </div>
         <div class="visit-popover-body">
           <label class="schedule-check"><input type="checkbox" data-schedule-complete="${escapeHtml(visit.id)}" ${visit.completed ? "checked" : ""}><span>Completed</span></label>
+          <div class="field-row"><span>Type</span><strong>${typePill(visit.type)}</strong></div>
           <div class="field-row"><span>Details</span><strong>${escapeHtml(visit.service)}</strong></div>
           <div class="field-row"><span>Team</span><strong>${escapeHtml(visit.team)}</strong></div>
           <div class="field-row"><span>Location</span><strong>${escapeHtml(visit.property)}</strong></div>
           <div class="field-row"><span>Starts</span><strong>${escapeHtml(displayTime(visit.start))}</strong></div>
           <div class="field-row"><span>Ends</span><strong>${escapeHtml(displayTime(minutesToTime(timeToMinutes(visit.start) + visit.duration)))}</strong></div>
-          ${visit.warnings?.length ? `<div class="button-row" style="justify-content:flex-start">${visit.warnings.map((warning) => chip(warning, "warning")).join("")}</div>` : ""}
+          ${statusChips ? `<div class="button-row popover-chip-row">${statusChips}</div>` : ""}
           <div class="button-row">
             ${button("Edit", "edit-visit")}
             ${button("View details", "view-details", "primary")}

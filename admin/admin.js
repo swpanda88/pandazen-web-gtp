@@ -2729,6 +2729,29 @@ function renderAssessmentWizardStep4(record, values) {
     values.carryCleaningPlanNotes ? "Cleaning plan notes" : ""
   ].filter(Boolean).join(", ");
   
+  let selectedPropertyLabel = `Unknown Property #${values.propertyId}`;
+  if (values.propertyMode === "existing_property") {
+    const properties = state.clientProperties[record.id] || [];
+    const p = properties.find(prop => String(prop.id) === values.propertyId);
+    if (p) {
+      const addr = formatAddressContext([p.address, p.area, p.postcode]);
+      selectedPropertyLabel = `${p.displayLabel || p.label || addr || "Property #" + p.id} (ID: ${p.id})`;
+    }
+  }
+
+  const propertyReviewRows = values.propertyMode === "existing_property"
+    ? renderWizardReviewRow("Selected property", selectedPropertyLabel)
+    : [
+        renderWizardReviewRow("Property label", values.propertyLabel),
+        renderWizardReviewRow("Address", values.address),
+        renderWizardReviewRow("Area", values.area),
+        renderWizardReviewRow("Postcode", values.postcode),
+        renderWizardReviewRow("Property type", friendlyDisplayLabel("propertyType", values.propertyType)),
+        renderWizardReviewRow("Bedrooms", friendlyDisplayLabel("bedrooms", values.bedrooms)),
+        renderWizardReviewRow("Bathrooms", friendlyDisplayLabel("bathrooms", values.bathrooms)),
+        renderWizardReviewRow("Property condition", friendlyDisplayLabel("propertyCondition", values.propertyCondition))
+      ].join("");
+
   return `
     <div class="assessment-wizard-layout">
       ${renderAssessmentWizardHero(record, values)}
@@ -2750,24 +2773,7 @@ function renderAssessmentWizardStep4(record, values) {
             <h3>Property / access</h3>
             <div class="wizard-table-section">
               ${renderWizardReviewRow("Property mode", values.propertyMode === "existing_property" ? "Existing property" : "New property")}
-              ${values.propertyMode === "existing_property" ? 
-                renderWizardReviewRow("Selected property", (() => {
-                  const properties = state.clientProperties[record.id] || [];
-                  const p = properties.find(prop => String(prop.id) === values.propertyId);
-                  if (!p) return \`Unknown Property #\${values.propertyId}\`;
-                  const addr = formatAddressContext([p.address, p.area, p.postcode]);
-                  return \`\${p.displayLabel || p.label || addr || "Property #" + p.id} (ID: \${p.id})\`;
-                })())
-              : \`
-              \${renderWizardReviewRow("Property label", values.propertyLabel)}
-              \${renderWizardReviewRow("Address", values.address)}
-              \${renderWizardReviewRow("Area", values.area)}
-              \${renderWizardReviewRow("Postcode", values.postcode)}
-              \${renderWizardReviewRow("Property type", friendlyDisplayLabel("propertyType", values.propertyType))}
-              \${renderWizardReviewRow("Bedrooms", friendlyDisplayLabel("bedrooms", values.bedrooms))}
-              \${renderWizardReviewRow("Bathrooms", friendlyDisplayLabel("bathrooms", values.bathrooms))}
-              \${renderWizardReviewRow("Property condition", friendlyDisplayLabel("propertyCondition", values.propertyCondition))}
-              \`}
+              ${propertyReviewRows}
               ${renderWizardReviewRow("Parking", friendlyDisplayLabel("parking", values.parking))}
               ${renderWizardReviewRow("Access method", friendlyDisplayLabel("accessMethod", values.accessMethod))}
               ${renderWizardReviewRow("Access notes", values.accessNotes)}

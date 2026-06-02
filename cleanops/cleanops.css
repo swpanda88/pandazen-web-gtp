@@ -970,6 +970,22 @@ tr:last-child td {
   font-size: 12px;
 }
 
+.schedule-visit-card[data-overlap-count="2"],
+.schedule-visit-card[data-overlap-count="3"],
+.schedule-visit-card[data-overlap-count="4"] {
+  gap: 1px;
+  padding-inline: 6px;
+  font-size: 11px;
+}
+
+.schedule-visit-card[data-overlap-count="2"] .muted,
+.schedule-visit-card[data-overlap-count="3"] .muted,
+.schedule-visit-card[data-overlap-count="4"] .muted {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .schedule-visit-card.warning {
   border-left-color: var(--amber);
   background: var(--amber-soft);
@@ -1025,7 +1041,10 @@ tr:last-child td {
   position: sticky;
   top: 70px;
   display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
   gap: 11px;
+  max-height: calc(100vh - 86px);
+  overflow: hidden;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
@@ -1041,7 +1060,10 @@ tr:last-child td {
 
 .unscheduled-list {
   display: grid;
+  align-content: start;
   gap: 10px;
+  overflow-y: auto;
+  padding-right: 3px;
 }
 
 .unscheduled-card {
@@ -1237,14 +1259,55 @@ tr:last-child td {
 .visit-popover {
   position: absolute;
   z-index: 36;
-  width: 292px;
-  display: grid;
-  gap: 10px;
+  width: 296px;
+  overflow: hidden;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
   box-shadow: 0 16px 46px rgba(18, 50, 53, .15);
-  padding: 13px;
+}
+
+.visit-popover-bar {
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-soft);
+  padding: 5px 8px 5px 11px;
+  cursor: move;
+}
+
+.visit-popover-bar strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.visit-popover-bar button {
+  width: 26px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 760;
+}
+
+.visit-popover-bar button:hover {
+  background: var(--red-soft);
+  color: var(--red);
+}
+
+.visit-popover-body {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
 }
 
 .kanban {
@@ -1464,6 +1527,7 @@ tr:last-child td {
 
   .unscheduled-panel {
     position: static;
+    max-height: none;
   }
 
   .schedule-toolbar {

@@ -200,11 +200,11 @@ window.CLEANOPS_DATA = {
         completed: false,
         map: { x: 42, y: 38 }
       },
-      {
-        id: "sv-1002",
-        type: "Visits",
-        statusGroup: "Scheduled",
-        dayIndex: 4,
+        {
+          id: "sv-1002",
+          type: "Visits",
+          statusGroup: "Scheduled",
+          dayIndex: 4,
         start: "11:30",
         duration: 60,
         client: "Mrs. Elaine Patterson",
@@ -214,14 +214,31 @@ window.CLEANOPS_DATA = {
         status: "Scheduled",
         tone: "success",
         warnings: [],
-        completed: false,
-        map: { x: 57, y: 44 }
-      },
-      {
-        id: "sv-1003",
-        type: "Visits",
-        statusGroup: "Issue / warning",
-        dayIndex: 5,
+          completed: false,
+          map: { x: 57, y: 44 }
+        },
+        {
+          id: "sv-1007",
+          type: "Visits",
+          statusGroup: "Scheduled",
+          dayIndex: 4,
+          start: "12:00",
+          duration: 120,
+          client: "Harbour House",
+          property: "3 River Walk, Durham",
+          service: "Move-in sparkle clean",
+          team: "Marta + Daniel",
+          status: "Scheduled",
+          tone: "success",
+          warnings: [],
+          completed: false,
+          map: { x: 61, y: 48 }
+        },
+        {
+          id: "sv-1003",
+          type: "Visits",
+          statusGroup: "Issue / warning",
+          dayIndex: 5,
         start: "13:00",
         duration: 180,
         client: "Mr. Thomas Ritter",
@@ -231,9 +248,26 @@ window.CLEANOPS_DATA = {
         status: "Issue",
         tone: "danger",
         warnings: ["Access risk"],
-        completed: false,
-        map: { x: 68, y: 58 }
-      },
+          completed: false,
+          map: { x: 68, y: 58 }
+        },
+        {
+          id: "sv-1008",
+          type: "Requests",
+          statusGroup: "Scheduled",
+          dayIndex: 5,
+          start: "14:00",
+          duration: 90,
+          client: "Luna Apartments",
+          property: "Flat 12, Claypath",
+          service: "Check-out clean request",
+          team: "Team B",
+          status: "Scheduled",
+          tone: "warning",
+          warnings: ["Agent keys"],
+          completed: false,
+          map: { x: 72, y: 62 }
+        },
       {
         id: "sv-1004",
         type: "Visits",
@@ -327,10 +361,10 @@ window.CLEANOPS_DATA = {
         warnings: ["Quality follow-up"]
       }
     ],
-    listGroups: [
-      { label: "Overdue", ids: ["sv-1006"] },
-      { label: "Today", ids: ["sv-1001", "sv-1002"] },
-      { label: "Tomorrow", ids: ["sv-1003"] },
+      listGroups: [
+        { label: "Overdue", ids: ["sv-1006"] },
+        { label: "Today", ids: ["sv-1001", "sv-1002", "sv-1007"] },
+        { label: "Tomorrow", ids: ["sv-1003", "sv-1008"] },
       { label: "This Week", ids: ["sv-1004", "sv-1005"] },
       { label: "Later", ids: [] }
     ],

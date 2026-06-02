@@ -10,6 +10,7 @@
   --line: rgba(32, 50, 41, 0.16);
   --shadow: 0 20px 60px rgba(24, 36, 31, 0.16);
   --max: 1180px;
+  --dev-bar-height: 38px;
 }
 
 * {
@@ -26,6 +27,58 @@ body {
   color: var(--ink);
   background: var(--paper);
   line-height: 1.6;
+}
+
+.dev-preview-bar {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 40;
+  min-height: var(--dev-bar-height);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 7px 16px;
+  border-bottom: 1px solid rgba(56, 83, 67, 0.22);
+  background: #fff8df;
+  color: var(--deep);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.dev-preview-bar a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 10px;
+  border: 1px solid rgba(56, 83, 67, 0.28);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--forest);
+  text-decoration: none;
+  letter-spacing: 0;
+}
+
+.dev-preview-bar a:hover {
+  background: var(--mist);
+}
+
+@media (max-width: 560px) {
+  :root {
+    --dev-bar-height: 46px;
+  }
+
+  .dev-preview-bar {
+    justify-content: space-between;
+    gap: 10px;
+    padding-inline: 12px;
+    font-size: 0.72rem;
+  }
+
+  .dev-preview-bar a {
+    min-height: 28px;
+  }
 }
 
 img {
@@ -51,7 +104,7 @@ a {
 
 .site-header {
   position: fixed;
-  inset: 0 0 auto;
+  inset: var(--dev-bar-height) 0 auto;
   z-index: 20;
   display: flex;
   align-items: center;

@@ -1,5 +1,7 @@
 (function () {
   const data = window.CLEANOPS_DATA;
+  const appShell = document.getElementById("app-shell");
+  const sidebarToggle = document.getElementById("sidebar-toggle");
   const pageRoot = document.getElementById("page-root");
   const navRoot = document.getElementById("nav-list");
   const breadcrumb = document.getElementById("breadcrumb-title");
@@ -22,6 +24,60 @@
     mobile: "Mobile",
     portal: "Client Portal"
   };
+
+  const icons = {
+    panda: '<svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="5" y="5" width="14" height="14" rx="4"></rect><path d="M9 9h6v6H9z"></path></svg>',
+    "plus-square": '<svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="4" y="4" width="16" height="16" rx="4"></rect><path d="M12 8v8"></path><path d="M8 12h8"></path></svg>',
+    home: '<svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 11.5 12 5l8 6.5"></path><path d="M6.5 10.5V20h11V10.5"></path><path d="M10 20v-5h4v5"></path></svg>',
+    calendar: '<svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="4" y="5" width="16" height="16" rx="3"></rect><path d="M8 3v4"></path><path d="M16 3v4"></path><path d="M4 10h16"></path></svg>',
+    user: '<svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="3.5"></circle><path d="M5.5 20a6.5 6.5 0 0 1 13 0"></path></svg>',
+    users: '<svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="9" cy="8" r="3"></circle><path d="M3.5 19a5.5 5.5 0 0 1 11 0"></path><path d="M16 11a3 3 0 1 0-1.5-5.6"></path><path d="M17 14a5 5 0 0 1 4 5"></path></svg>',
+    inbox: '<svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 13V6.5A2.5 2.5 0 0 1 6.5 4h13L20 13"></path><path d="M4 13h5l1.5 3h3L15 13h5v4.5A2.5 2.5 0 0 1 17.5 20h-11A2.5 2.5 0 0 1 4 17.5Z"></path></svg>',
+    document: '<svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 3h7l5 5v13H7z"></path><path d="M14 3v5h5"></path><path d="M9.5 13h5"></path><path d="M9.5 17h5"></path></svg>',
+    briefcase: '<svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3.5" y="7" width="17" height="13" rx="3"></rect><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"></path><path d="M3.5 12h17"></path><path d="M10 12v2h4v-2"></path></svg>',
+    receipt: '<svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 3h12v18l-2-1.2-2 1.2-2-1.2-2 1.2-2-1.2L6 21z"></path><path d="M9 8h6"></path><path d="M9 12h6"></path><path d="M9 16h4"></path></svg>',
+    chart: '<svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 19h17"></path><path d="M7 16v-5"></path><path d="M12 16V7"></path><path d="M17 16v-9"></path></svg>',
+    gear: '<svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="3"></circle><path d="M19 12a7.7 7.7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1a8.1 8.1 0 0 0-1.8-1L14.4 3H10l-.4 3a8.1 8.1 0 0 0-1.8 1l-2.4-1-2 3.4 2 1.5a7.7 7.7 0 0 0 0 2l-2 1.5 2 3.4 2.4-1a8.1 8.1 0 0 0 1.8 1l.4 3h4.4l.4-3a8.1 8.1 0 0 0 1.8-1l2.4 1 2-3.4-2-1.5c.1-.3.1-.7.1-1Z"></path></svg>',
+    phone: '<svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="7" y="3" width="10" height="18" rx="2.5"></rect><path d="M10.5 18h3"></path></svg>',
+    globe: '<svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18"></path><path d="M12 3a14 14 0 0 1 0 18"></path><path d="M12 3a14 14 0 0 0 0 18"></path></svg>',
+    bell: '<svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6.5 10.5a5.5 5.5 0 0 1 11 0v4l2 3h-15l2-3z"></path><path d="M10 20a2.4 2.4 0 0 0 4 0"></path></svg>',
+    help: '<svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"></circle><path d="M9.5 9a2.7 2.7 0 1 1 4.3 2.2c-.9.6-1.8 1.2-1.8 2.3"></path><path d="M12 17h.01"></path></svg>',
+    x: '<svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 7l10 10"></path><path d="M17 7 7 17"></path></svg>'
+  };
+
+  function iconSvg(name) {
+    return icons[name] || icons.help;
+  }
+
+  function hydrateStaticIcons() {
+    document.querySelectorAll("[data-icon]").forEach((target) => {
+      target.innerHTML = iconSvg(target.dataset.icon);
+    });
+  }
+
+  function readSidebarPreference() {
+    try {
+      return window.localStorage.getItem("cleanopsSidebarCollapsed") === "true";
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function writeSidebarPreference(collapsed) {
+    try {
+      window.localStorage.setItem("cleanopsSidebarCollapsed", collapsed ? "true" : "false");
+    } catch (error) {
+      // localStorage may be unavailable in some preview/test contexts.
+    }
+  }
+
+  function setSidebarCollapsed(collapsed) {
+    appShell.classList.toggle("sidebar-collapsed", collapsed);
+    sidebarToggle.setAttribute("aria-expanded", String(!collapsed));
+    sidebarToggle.setAttribute("aria-label", collapsed ? "Expand sidebar" : "Collapse sidebar");
+    sidebarToggle.setAttribute("title", collapsed ? "Expand sidebar" : "Collapse sidebar");
+    writeSidebarPreference(collapsed);
+  }
 
   function escapeHtml(value) {
     return String(value ?? "")
@@ -79,9 +135,9 @@
   function renderNav(activeId) {
     navRoot.innerHTML = data.navItems
       .map((item) => `
-        <button class="nav-item${item.divider ? " is-divided" : ""}${item.id === activeId ? " active" : ""}" type="button" data-route="${item.id}">
-          <span class="nav-icon">${escapeHtml(item.icon)}</span>
-          <span>${escapeHtml(item.label)}</span>
+        <button class="nav-item${item.divider ? " is-divided" : ""}${item.id === activeId ? " active" : ""}" type="button" data-route="${item.id}" aria-label="${escapeHtml(item.label)}" title="${escapeHtml(item.label)}">
+          <span class="nav-icon">${iconSvg(item.icon)}</span>
+          <span class="nav-label">${escapeHtml(item.label)}</span>
         </button>
       `)
       .join("");
@@ -631,6 +687,12 @@
     }
   });
 
+  sidebarToggle.addEventListener("click", () => {
+    setSidebarCollapsed(!appShell.classList.contains("sidebar-collapsed"));
+  });
+
   const initialRoute = window.location.hash.replace("#", "");
+  hydrateStaticIcons();
+  setSidebarCollapsed(readSidebarPreference());
   navigate(initialRoute || "home");
 })();

@@ -1,17 +1,17 @@
 window.CLEANOPS_DATA = {
   navItems: [
-    { id: "home", label: "Home", icon: "H" },
-    { id: "schedule", label: "Schedule", icon: "S" },
-    { id: "clients", label: "Clients", icon: "C" },
-    { id: "requests", label: "Requests", icon: "R" },
-    { id: "quotes", label: "Quotes", icon: "Q" },
-    { id: "jobs", label: "Jobs", icon: "J" },
-    { id: "invoices", label: "Invoices", icon: "I" },
-    { id: "team", label: "Team", icon: "T", divider: true },
-    { id: "reports", label: "Reports", icon: "R" },
-    { id: "settings", label: "Settings", icon: "G" },
-    { id: "mobile", label: "Mobile", icon: "M", divider: true },
-    { id: "portal", label: "Client Portal", icon: "P" }
+    { id: "home", label: "Home", icon: "home" },
+    { id: "schedule", label: "Schedule", icon: "calendar" },
+    { id: "clients", label: "Clients", icon: "user" },
+    { id: "requests", label: "Requests", icon: "inbox" },
+    { id: "quotes", label: "Quotes", icon: "document" },
+    { id: "jobs", label: "Jobs", icon: "briefcase" },
+    { id: "invoices", label: "Invoices", icon: "receipt" },
+    { id: "team", label: "Team", icon: "users", divider: true },
+    { id: "reports", label: "Reports", icon: "chart" },
+    { id: "settings", label: "Settings", icon: "gear" },
+    { id: "mobile", label: "Mobile", icon: "phone", divider: true },
+    { id: "portal", label: "Client Portal", icon: "globe" }
   ],
 
   metrics: [

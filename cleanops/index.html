@@ -7,16 +7,16 @@
   <link rel="stylesheet" href="./cleanops.css">
 </head>
 <body>
-  <div class="app-shell">
+  <div class="app-shell" id="app-shell">
     <aside class="sidebar" aria-label="CleanOps navigation">
-      <a class="brand" href="#home" data-route="home" aria-label="CleanOps home">
-        <span class="brand-mark">P</span>
+      <button class="brand sidebar-toggle" type="button" id="sidebar-toggle" aria-expanded="true" aria-label="Collapse sidebar" title="Collapse sidebar">
+        <span class="brand-mark" data-icon="panda"></span>
         <span class="brand-name">CleanOps</span>
-      </a>
+      </button>
 
-      <button class="nav-create" type="button" data-action="Create new operational record">
-        <span class="nav-icon">+</span>
-        <span>Create</span>
+      <button class="nav-create" type="button" data-action="Create new operational record" aria-label="Create" title="Create">
+        <span class="nav-icon" data-icon="plus-square"></span>
+        <span class="nav-label">Create</span>
       </button>
 
       <nav class="nav-list" id="nav-list"></nav>
@@ -36,10 +36,10 @@
             <input id="global-search" type="search" placeholder="Client, property, quote">
             <kbd>/</kbd>
           </label>
-          <button class="icon-button" type="button" data-action="Open quick actions" aria-label="Quick actions">+</button>
-          <button class="icon-button" type="button" data-action="Open notifications" aria-label="Notifications">o</button>
-          <button class="icon-button" type="button" data-action="Open help" aria-label="Help">?</button>
-          <button class="icon-button" type="button" data-action="Open settings" aria-label="Settings">*</button>
+          <button class="icon-button" type="button" data-action="Create quick record" aria-label="Quick create" title="Quick create"><span data-icon="plus-square"></span></button>
+          <button class="icon-button" type="button" data-action="Open notifications" aria-label="Notifications" title="Notifications"><span data-icon="bell"></span></button>
+          <button class="icon-button" type="button" data-action="Open help" aria-label="Help" title="Help"><span data-icon="help"></span></button>
+          <button class="icon-button" type="button" data-action="Open settings" aria-label="Settings" title="Settings"><span data-icon="gear"></span></button>
         </div>
       </header>
 
@@ -55,7 +55,7 @@
         <p class="eyebrow">Prototype action</p>
         <h2 id="drawer-title">Action</h2>
       </div>
-      <button class="icon-button" type="button" id="drawer-close" aria-label="Close drawer">x</button>
+      <button class="icon-button" type="button" id="drawer-close" aria-label="Close drawer" title="Close"><span data-icon="x"></span></button>
     </div>
     <p class="muted" id="drawer-copy"></p>
     <div class="drawer-actions">

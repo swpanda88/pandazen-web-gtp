@@ -2962,6 +2962,13 @@ async function createAssessmentFromClient(payload) {
     action: "create_from_client",
     ...payload
   });
+  
+  if (result.propertyId && payload.clientId) {
+    delete state.clientProperties[payload.clientId];
+    await loadClientProperties(payload.clientId);
+    state.activeClientProperty[payload.clientId] = String(result.propertyId);
+  }
+
   await loadApiData();
   const created = findRecordByType("assessment", result.id || result.assessmentQuoteId);
   if (!created) return result;

@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CleanOps Admin Prototype | PandaZen</title>
+  <link rel="stylesheet" href="./cleanops.css">
+</head>
+<body>
+  <div class="app-shell" id="app-shell">
+    <aside class="sidebar" aria-label="CleanOps navigation">
+      <button class="brand sidebar-toggle" type="button" id="sidebar-toggle" aria-expanded="true" aria-label="Collapse sidebar" title="Collapse sidebar">
+        <span class="brand-mark" data-icon="panda"></span>
+        <span class="brand-name">CleanOps</span>
+      </button>
+
+      <button class="nav-create" type="button" data-action="Create new operational record" aria-label="Create" title="Create">
+        <span class="nav-icon" data-icon="plus-square"></span>
+        <span class="nav-label">Create</span>
+      </button>
+
+      <nav class="nav-list" id="nav-list"></nav>
+    </aside>
+
+    <main class="main-shell">
+      <header class="topbar">
+        <div class="breadcrumbs">
+          <span>PandaZen</span>
+          <span>/</span>
+          <strong id="breadcrumb-title">Home</strong>
+        </div>
+
+        <div class="topbar-actions">
+          <label class="search-box">
+            <span aria-hidden="true">Search</span>
+            <input id="global-search" type="search" placeholder="Client, property, quote">
+            <kbd>/</kbd>
+          </label>
+          <button class="icon-button" type="button" data-action="Create quick record" aria-label="Quick create" title="Quick create"><span data-icon="plus-square"></span></button>
+          <button class="icon-button" type="button" data-action="Open notifications" aria-label="Notifications" title="Notifications"><span data-icon="bell"></span></button>
+          <button class="icon-button" type="button" data-action="Open help" aria-label="Help" title="Help"><span data-icon="help"></span></button>
+          <button class="icon-button" type="button" data-action="Open settings" aria-label="Settings" title="Settings"><span data-icon="gear"></span></button>
+        </div>
+      </header>
+
+      <div class="page" id="page-root" aria-live="polite"></div>
+    </main>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <aside class="action-drawer" id="action-drawer" aria-hidden="true">
+    <div class="drawer-header">
+      <div>
+        <p class="eyebrow">Prototype action</p>
+        <h2 id="drawer-title">Action</h2>
+      </div>
+      <button class="icon-button" type="button" id="drawer-close" aria-label="Close drawer" title="Close"><span data-icon="x"></span></button>
+    </div>
+    <p class="muted" id="drawer-copy"></p>
+    <div class="drawer-actions">
+      <button class="button primary" type="button" id="drawer-primary">Continue</button>
+      <button class="button ghost" type="button" id="drawer-secondary">Keep browsing</button>
+    </div>
+  </aside>
+
+  <script src="./mock-data.js"></script>
+  <script src="./cleanops.js"></script>
+</body>
+</html>

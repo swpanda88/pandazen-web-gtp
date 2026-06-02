@@ -2476,10 +2476,13 @@ function assessmentWizardContextItems(record, values) {
     { label: "Current frequency", value: clientAssessmentFrequencyContext(record) || "Not set" },
     { label: "Current address", value: formatAddressContext([record.address, record.area, record.postcode]) || "Not set" }
   ];
-  if (values.propertyMode === "another_address") {
+  if (values.propertyMode === "new_property") {
     items.push({ label: "Assessment address", value: formatAddressContext([values.propertyLabel, values.address, values.area, values.postcode]) || "Will be entered next" });
-  } else if (values.propertyMode === "unknown_address") {
-    items.push({ label: "Assessment address", value: values.propertyLabel || "Address TBC" });
+  } else if (values.propertyMode === "existing_property" && values.propertyId) {
+    const p = (state.clientProperties[record.id] || []).find(prop => String(prop.id) === values.propertyId);
+    if (p) {
+      items.push({ label: "Assessment address", value: formatAddressContext([p.address, p.area, p.postcode]) || p.displayLabel || p.label || ("Property #" + p.id) });
+    }
   }
   return items;
 }
@@ -2563,7 +2566,7 @@ function renderAssessmentWizardStep1(record, values) {
           <section class="assessment-wizard-card">
             <h3>A. Assessment setup</h3>
             <div class="wizard-table-section">
-              <input type="hidden" name="propertyMode" value="${escapeHtml(values.propertyMode || "existing_home")}">
+              <input type="hidden" name="propertyMode" value="${escapeHtml(values.propertyMode || "existing_property")}">
               ${renderWizardTableRow("Reason for opening assessment", renderEditableSelect({ name: "assessmentReason", groupKey: null, currentValue: values.assessmentReason, staticOptions: assessmentReasonOptions }))}
               ${renderWizardTableRow("Service type", renderEditableSelect({ name: "serviceType", groupKey: null, currentValue: values.serviceType, staticOptions: serviceOptions, allowOtherOverride: false }))}
               ${renderWizardTableRow("Frequency", renderEditableSelect({ name: "frequency", groupKey: "frequency", currentValue: values.frequency }))}
@@ -2746,15 +2749,25 @@ function renderAssessmentWizardStep4(record, values) {
           <section class="assessment-wizard-card">
             <h3>Property / access</h3>
             <div class="wizard-table-section">
-              ${renderWizardReviewRow("Property mode", values.propertyMode === "existing_home" ? "Existing property" : values.propertyMode === "another_address" ? "Another address" : "Address unknown")}
-              ${renderWizardReviewRow("Property label", values.propertyLabel)}
-              ${renderWizardReviewRow("Address", values.address)}
-              ${renderWizardReviewRow("Area", values.area)}
-              ${renderWizardReviewRow("Postcode", values.postcode)}
-              ${renderWizardReviewRow("Property type", friendlyDisplayLabel("propertyType", values.propertyType))}
-              ${renderWizardReviewRow("Bedrooms", friendlyDisplayLabel("bedrooms", values.bedrooms))}
-              ${renderWizardReviewRow("Bathrooms", friendlyDisplayLabel("bathrooms", values.bathrooms))}
-              ${renderWizardReviewRow("Property condition", friendlyDisplayLabel("propertyCondition", values.propertyCondition))}
+              ${renderWizardReviewRow("Property mode", values.propertyMode === "existing_property" ? "Existing property" : "New property")}
+              ${values.propertyMode === "existing_property" ? 
+                renderWizardReviewRow("Selected property", (() => {
+                  const properties = state.clientProperties[record.id] || [];
+                  const p = properties.find(prop => String(prop.id) === values.propertyId);
+                  if (!p) return \`Unknown Property #\${values.propertyId}\`;
+                  const addr = formatAddressContext([p.address, p.area, p.postcode]);
+                  return \`\${p.displayLabel || p.label || addr || "Property #" + p.id} (ID: \${p.id})\`;
+                })())
+              : \`
+              \${renderWizardReviewRow("Property label", values.propertyLabel)}
+              \${renderWizardReviewRow("Address", values.address)}
+              \${renderWizardReviewRow("Area", values.area)}
+              \${renderWizardReviewRow("Postcode", values.postcode)}
+              \${renderWizardReviewRow("Property type", friendlyDisplayLabel("propertyType", values.propertyType))}
+              \${renderWizardReviewRow("Bedrooms", friendlyDisplayLabel("bedrooms", values.bedrooms))}
+              \${renderWizardReviewRow("Bathrooms", friendlyDisplayLabel("bathrooms", values.bathrooms))}
+              \${renderWizardReviewRow("Property condition", friendlyDisplayLabel("propertyCondition", values.propertyCondition))}
+              \`}
               ${renderWizardReviewRow("Parking", friendlyDisplayLabel("parking", values.parking))}
               ${renderWizardReviewRow("Access method", friendlyDisplayLabel("accessMethod", values.accessMethod))}
               ${renderWizardReviewRow("Access notes", values.accessNotes)}

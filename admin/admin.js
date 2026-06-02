@@ -215,6 +215,8 @@ const state = {
     assessments: null,
     clients: null
   },
+  clientProperties: {},
+  activeClientProperty: {},
   workspaceDrawerMode: {
     assessments: "collapsed",
     clients: "collapsed"
@@ -1088,17 +1090,38 @@ function isWorkspaceExpanded(view, record) {
   return Boolean(workspace && String(workspace.id) === String(record.id));
 }
 
-function setExpandedWorkspace(view, recordId, tab = "overview") {
+async function loadClientProperties(clientId) {
+  if (state.clientProperties[clientId]) return state.clientProperties[clientId];
+  try {
+    const res = await apiGet(`/api/admin/clients/${clientId}/properties`);
+    state.clientProperties[clientId] = res.properties || [];
+    if (!state.activeClientProperty[clientId] && state.clientProperties[clientId].length > 0) {
+      const primary = state.clientProperties[clientId].find(p => p.isPrimary) || state.clientProperties[clientId][0];
+      if (primary) {
+        state.activeClientProperty[clientId] = primary.id;
+      }
+    }
+  } catch (err) {
+    console.error("Failed to load client properties", err);
+    state.clientProperties[clientId] = [];
+  }
+  return state.clientProperties[clientId];
+}
+
+async function setExpandedWorkspace(view, recordId, tab = "overview") {
   if (!state.expandedWorkspaces[view]) {
     state.expandedWorkspaces[view] = { id: recordId, tab };
   } else {
     state.expandedWorkspaces[view] = { id: recordId, tab: tab || state.expandedWorkspaces[view].tab || "overview" };
   }
+  if (view === "clients") {
+    await loadClientProperties(recordId);
+  }
   renderTables();
   syncWorkspaceFirstLayout();
 }
 
-function toggleExpandedWorkspace(view, recordId, defaultTab = "overview") {
+async function toggleExpandedWorkspace(view, recordId, defaultTab = "overview") {
   const current = expandedWorkspaceState(view);
   if (view === "assessments" && assessmentDetailsEditState && String(state.editingAssessmentId || "") !== String(recordId)) {
     clearAssessmentWorkspaceEditState();
@@ -1116,6 +1139,9 @@ function toggleExpandedWorkspace(view, recordId, defaultTab = "overview") {
     state.expandedWorkspaces[view] = null;
   } else {
     state.expandedWorkspaces[view] = { id: recordId, tab: defaultTab };
+    if (view === "clients") {
+      await loadClientProperties(recordId);
+    }
     if (isWorkspaceFirstView(view)) {
       renderTables();
       renderWorkspaceDrawerClosedState(view);
@@ -3640,9 +3666,14 @@ function resetDrawer() {
   syncWorkspaceFirstLayout();
 }
 
-function openDrawer(type, record = {}) {
+async function openDrawer(type, record = {}) {
   state.activeDrawerType = type;
   rememberWorkspaceDrawerRecord(type, record);
+  
+  if (type === "client" && record?.id) {
+    await loadClientProperties(record.id);
+  }
+
   if (isWorkspaceFirstView() && type === recordTypeForView()) {
     state.workspaceDrawerMode[state.view] = "expanded";
   }
@@ -4549,9 +4580,10 @@ function renderWorkspaceEmptyDrawerShell(view = state.view) {
   });
 }
 
-function renderExpandableWorkspace({ view, record, tabs, actions = "", content }) {
+function renderExpandableWorkspace({ view, record, tabs, header = "", actions = "", content }) {
   return `
       <section class="expandable-workspace" data-workspace="${escapeHtml(view)}" data-workspace-id="${escapeHtml(record.id)}">
+        ${header}
         <div class="workspace-shell">
           ${workspaceTabs(view, record.id, tabs)}
           ${actions ? `<div class="workspace-toolbar">${actions}</div>` : ""}
@@ -5383,8 +5415,11 @@ function renderClientWorkspaceTab(record, tab) {
 
   const linkedAssessments = assessmentsForClient(record);
 
-  // Build property summary: use first-class Property row if available, else fall back to flat client fields
-  const pp = record.primaryProperty;
+  // Build property summary: use selected first-class Property row if available, else fall back to flat client fields
+  const properties = state.clientProperties[record.id] || [];
+  const activePropertyId = state.activeClientProperty[record.id];
+  const pp = properties.find(p => String(p.id) === String(activePropertyId)) || record.primaryProperty;
+
   const propertyRows = pp
     ? [
         ["Property address", pp.address || formatAddressContext([pp.area, pp.postcode]) || ""],
@@ -5415,7 +5450,7 @@ function renderClientWorkspaceTab(record, tab) {
       ])}
       <section>
         <div class="workspace-section-header">
-          <h4>Service Property</h4>
+          <h4>${pp ? escapeHtml(pp.displayLabel || pp.address || "Service Property") : "Service Property"}</h4>
           ${pp ? `<span class="pill" title="First-class property record">Property #${pp.id}</span>` : `<span class="record-sub">Using client address fields — property record not yet created</span>`}
         </div>
         ${workspaceSummaryRows(propertyRows)}
@@ -5445,9 +5480,28 @@ function renderClientWorkspaceTab(record, tab) {
 function renderClientWorkspace(record) {
   const tabs = clientWorkspaceTabs();
   const activeTab = expandedWorkspaceState("clients")?.tab || tabs[0].key;
+  
+  const properties = state.clientProperties[record.id] || [];
+  const activePropertyId = state.activeClientProperty[record.id];
+  
+  let header = "";
+  if (properties.length > 0) {
+    const options = properties.map(p => {
+      const isSelected = String(p.id) === String(activePropertyId);
+      return `<button type="button" class="pill ${isSelected ? "primary" : "ghost"}" data-select-client-property="${escapeHtml(p.id)}" data-client-id="${escapeHtml(record.id)}">${escapeHtml(p.displayLabel || p.address || "Property #" + p.id)}</button>`;
+    }).join("");
+    header = `
+      <div class="property-selector" style="padding: 12px 16px; border-bottom: 1px solid var(--line); display: flex; gap: 8px; align-items: center; background: var(--bg-wash);">
+        <strong style="font-size: 0.9rem; color: var(--ink);">Property Context:</strong>
+        ${options}
+      </div>
+    `;
+  }
+
   return renderExpandableWorkspace({
     view: "clients",
     record,
+    header,
     tabs,
     actions: "",
     content: renderClientWorkspaceTab(record, activeTab)
@@ -6082,6 +6136,20 @@ function bindEvents() {
         captureAssessmentWizardForm(form);
         applyAssessmentWizardPropertyMode(state.assessmentWizard, assessmentWizardRecord(), propertyModeButton.dataset.setPropertyMode);
         renderAssessmentWizardModal();
+      }
+      return;
+    }
+
+    const selectPropertyBtn = event.target.closest("[data-select-client-property]");
+    if (selectPropertyBtn) {
+      const clientId = selectPropertyBtn.dataset.clientId;
+      const propertyId = selectPropertyBtn.dataset.selectClientProperty;
+      state.activeClientProperty[clientId] = propertyId;
+      renderTables();
+      syncWorkspaceFirstLayout();
+      if (state.activeDrawerType === "client") {
+        const record = findRecordByType("client", clientId);
+        if (record) openDrawer("client", record);
       }
       return;
     }

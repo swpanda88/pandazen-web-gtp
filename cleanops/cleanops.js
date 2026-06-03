@@ -358,6 +358,7 @@
   }
 
   function renderQuotes() {
+    if (window.CleanOpsQuotes?.render) return window.CleanOpsQuotes.render();
     const rows = data.quotes.map((quote) => `
       <tr>
         <td>${escapeHtml(quote.number)}</td>
@@ -632,6 +633,8 @@
     if (safeRoute === "schedule") window.CleanOpsSchedule?.afterRender?.();
     window.location.hash = safeRoute;
   }
+
+  window.CleanOpsShell.navigate = navigate;
 
   function handleDocumentClick(event) {
     const routeTarget = event.target.closest("[data-route]");

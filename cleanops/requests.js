@@ -126,9 +126,76 @@
     client_provides: "Client provides",
     pandazen_provides: "PandaZen provides",
     mixed_specific_products_required: "Mixed / specific products",
+    to_confirm: "To confirm"
+  };
+
+  const equipmentLabels = {
+    client_provides: "Client provides",
     pandazen_brings: "PandaZen brings",
     not_required: "Not required",
     to_confirm: "To confirm"
+  };
+
+  const howSoonLabels = {
+    asap: "As soon as possible",
+    this_week: "This week",
+    next_week: "Next week",
+    specific_date: "Specific date",
+    flexible: "Flexible",
+    to_confirm: "To confirm"
+  };
+
+  const approxSizeLabels = {
+    small: "Small",
+    medium: "Medium",
+    large: "Large",
+    very_large: "Very large",
+    commercial_small: "Small commercial",
+    commercial_medium: "Medium commercial",
+    commercial_large: "Large commercial",
+    unknown: "Unknown"
+  };
+
+  const petsLabels = {
+    none: "No pets",
+    dog: "Dog",
+    cat: "Cat",
+    multiple_pets: "Multiple pets",
+    other: "Other pets",
+    not_applicable: "N/A",
+    unknown: "Unknown"
+  };
+
+  const parkingLabels = {
+    driveway: "Driveway",
+    street_parking: "Street parking",
+    permit_required: "Permit required",
+    paid_parking: "Paid parking",
+    staff_bays: "Staff bays",
+    no_easy_parking: "No easy parking",
+    unknown: "Unknown"
+  };
+
+  const photoHelpLabels = {
+    yes: "Photos would help",
+    no: "Photos not needed",
+    requested: "Photos requested",
+    to_confirm: "To confirm"
+  };
+
+  const priorityLabels = {
+    kitchen: "Kitchen",
+    bathrooms: "Bathrooms",
+    floors: "Floors",
+    dusting: "Dusting",
+    inside_windows: "Inside windows",
+    oven: "Oven",
+    fridge: "Fridge",
+    limescale: "Limescale",
+    washrooms: "Washrooms",
+    common_areas: "Common areas",
+    access: "Access",
+    move_out_standard: "Move-out standard"
   };
 
   const quoteReadinessLabels = {
@@ -171,14 +238,23 @@
   };
 
   const scopeConfidenceLabels = {
+    to_confirm: "To confirm",
     low: "Low confidence",
     medium: "Medium confidence",
     high: "High confidence"
   };
 
+  const prepStateLabels = {
+    suggested: "Suggested",
+    confirmed: "Confirmed",
+    to_confirm: "To confirm",
+    not_estimated: "Not estimated yet"
+  };
+
   const quoteConsiderationLabels = {
     eco_products_preferred: "Eco products preferred",
-    include_initial_deep_clean: "Initial deep clean",
+    photos_requested: "Photos requested",
+    initial_deep_clean: "Initial deep clean",
     commercial_consumables_option: "Consumables option",
     key_holder_access: "Key holder access",
     parking_permit_needed: "Parking permit needed",
@@ -318,6 +394,30 @@
     const size = Number(value);
     if (!Number.isFinite(size) || size <= 0) return "To confirm";
     return `${size} ${size === 1 ? "cleaner" : "cleaners"}`;
+  }
+
+  function prepValue(label, state = "to_confirm") {
+    if (!label) return state === "to_confirm" ? "To confirm" : "Not estimated yet";
+    if (label === "To confirm") return labelFrom(prepStateLabels, state, "To confirm");
+    if (state === "confirmed") return `Confirmed - ${label}`;
+    if (state === "suggested") return `Suggested - ${label}`;
+    if (state === "not_estimated") return "Not estimated yet";
+    if (state === "to_confirm") return "To confirm";
+    return label;
+  }
+
+  function prepMinutesLabel(value, state = "not_estimated") {
+    return prepValue(minutesLabel(value, ""), state);
+  }
+
+  function prepTeamSizeLabel(value, state = "not_estimated") {
+    return prepValue(teamSizeLabel(value) === "To confirm" ? "" : teamSizeLabel(value), state);
+  }
+
+  function priorityChips(request) {
+    const items = Array.isArray(request.main_priorities) ? request.main_priorities : [];
+    if (!items.length) return chip("No priorities supplied", "muted");
+    return items.map((item) => chip(labelFrom(priorityLabels, item, item), "info")).join("");
   }
 
   function considerationChips(request) {
@@ -478,42 +578,78 @@
           </article>
 
           <article class="panel">
-            <div class="panel-head"><h2>Customer message</h2></div>
-            <div class="panel-body">
-              <p>${escapeHtml(request.customer_message || "No customer message recorded.")}</p>
+            <div class="panel-head"><h2>Client enquiry</h2></div>
+            <div class="panel-body request-summary-grid">
+              <div>
+                <h3>What the client asked for</h3>
+                <div class="field-row"><span>Service</span><strong>${escapeHtml(requestTypeLabel(request))}</strong></div>
+                <div class="field-row"><span>Frequency</span><strong>${escapeHtml(labelFrom(cadenceLabels, request.preferred_cadence, "To confirm"))}</strong></div>
+                <div class="field-row"><span>How soon</span><strong>${escapeHtml(labelFrom(howSoonLabels, request.how_soon, "To confirm"))}</strong></div>
+                <div class="field-row"><span>Preferred days</span><strong>${escapeHtml(labelFrom(dayLabels, request.preferred_day, "To confirm"))}</strong></div>
+                <div class="field-row"><span>Preferred times</span><strong>${escapeHtml(labelFrom(timeWindowLabels, request.preferred_time_window, "To confirm"))}</strong></div>
+              </div>
+              <div>
+                <h3>Property snapshot from intake</h3>
+                <div class="field-row"><span>Property type</span><strong>${escapeHtml(labelFrom(propertyTypeLabels, request.intake_property_type || property?.property_type, "To confirm"))}</strong></div>
+                <div class="field-row"><span>Approx size</span><strong>${escapeHtml(labelFrom(approxSizeLabels, request.approx_size, "Unknown"))}</strong></div>
+                <div class="field-row"><span>Bedrooms</span><strong>${escapeHtml(labelFrom(bedroomsLabels, request.bedrooms || property?.bedrooms, "Unknown"))}</strong></div>
+                <div class="field-row"><span>Bathrooms</span><strong>${escapeHtml(labelFrom(bathroomsLabels, request.bathrooms || property?.bathrooms, "Unknown"))}</strong></div>
+                <div class="field-row"><span>Pets</span><strong>${escapeHtml(labelFrom(petsLabels, request.pets_present || property?.pets_present, "Unknown"))}</strong></div>
+                <div class="field-row"><span>Parking</span><strong>${escapeHtml(labelFrom(parkingLabels, request.parking || property?.parking, "Unknown"))}</strong></div>
+              </div>
+              <div class="wide">
+                <h3>Main priorities</h3>
+                <div class="button-row request-considerations" style="justify-content:flex-start">${priorityChips(request)}</div>
+              </div>
+              <div>
+                <h3>Products and photos</h3>
+                <div class="field-row"><span>Products preference</span><strong>${escapeHtml(labelFrom(supplyLabels, request.products_preference || request.cleaning_products, "To confirm"))}</strong></div>
+                <div class="field-row"><span>Would photos help?</span><strong>${escapeHtml(labelFrom(photoHelpLabels, request.photos_helpful, "To confirm"))}</strong></div>
+              </div>
+              <div class="wide">
+                <h3>Customer message</h3>
+                <p class="muted">${escapeHtml(request.customer_message || "No customer message recorded.")}</p>
+              </div>
             </div>
           </article>
 
           <article class="panel">
-            <div class="panel-head"><h2>Service / scoping</h2>${button("Create quote", "create-quote", "small primary")}</div>
+            <div class="panel-head"><h2>Practical setup</h2></div>
             <div class="panel-body request-summary-grid">
               <div>
-                <h3>Service need</h3>
-                <div class="field-row"><span>Type</span><strong>${escapeHtml(requestTypeLabel(request))}</strong></div>
-                <div class="field-row"><span>Cadence</span><strong>${escapeHtml(labelFrom(cadenceLabels, request.preferred_cadence, "To confirm"))}</strong></div>
-                <div class="field-row"><span>Preferred day</span><strong>${escapeHtml(labelFrom(dayLabels, request.preferred_day, "To confirm"))}</strong></div>
-                <div class="field-row"><span>Time window</span><strong>${escapeHtml(labelFrom(timeWindowLabels, request.preferred_time_window, "To confirm"))}</strong></div>
+                <h3>Operational supplies</h3>
+                <div class="field-row"><span>Cleaning products supplied by</span><strong>${escapeHtml(labelFrom(supplyLabels, request.cleaning_products, "To confirm"))}</strong></div>
+                <div class="field-row"><span>Vacuum / hoover supplied by</span><strong>${escapeHtml(labelFrom(equipmentLabels, request.vacuum_hoover, "To confirm"))}</strong></div>
+                <div class="field-row"><span>Mop supplied by</span><strong>${escapeHtml(labelFrom(equipmentLabels, request.mop, "To confirm"))}</strong></div>
               </div>
               <div>
-                <h3>Practical cleaning setup</h3>
-                <div class="field-row"><span>Products</span><strong>${escapeHtml(labelFrom(supplyLabels, request.cleaning_products, "To confirm"))}</strong></div>
-                <div class="field-row"><span>Vacuum / hoover</span><strong>${escapeHtml(labelFrom(supplyLabels, request.vacuum_hoover, "To confirm"))}</strong></div>
-                <div class="field-row"><span>Mop</span><strong>${escapeHtml(labelFrom(supplyLabels, request.mop, "To confirm"))}</strong></div>
+                <h3>Confirmation state</h3>
+                <div class="field-row"><span>Products source</span><strong>${escapeHtml(prepValue(labelFrom(supplyLabels, request.cleaning_products, ""), request.cleaning_products_state || "to_confirm"))}</strong></div>
+                <div class="field-row"><span>Equipment source</span><strong>${escapeHtml(request.setup_confirmed ? "Confirmed" : "To confirm")}</strong></div>
+              </div>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head"><h2>Internal quote prep</h2>${button("Create quote", "create-quote", "small primary")}</div>
+            <div class="panel-body request-summary-grid">
+              <div>
+                <h3>Readiness</h3>
+                <div class="field-row"><span>Quote readiness</span><strong>${escapeHtml(labelFrom(quoteReadinessLabels, request.quote_readiness || deriveQuoteReadiness(request), "Missing scope"))}</strong></div>
+                <div class="field-row"><span>Assessment requirement</span><strong>${escapeHtml(prepValue(labelFrom(assessmentLabels, request.assessment_required, ""), request.assessment_state || "to_confirm"))}</strong></div>
+                <div class="field-row"><span>Pricing basis</span><strong>${escapeHtml(prepValue(labelFrom(pricingBasisLabels, request.pricing_basis, ""), request.pricing_basis_state || "to_confirm"))}</strong></div>
+                <div class="field-row"><span>Initial clean required</span><strong>${escapeHtml(prepValue(labelFrom(initialCleanLabels, request.initial_clean_required, ""), request.initial_clean_state || "to_confirm"))}</strong></div>
               </div>
               <div>
-                <h3>Quote inputs</h3>
-                <div class="field-row"><span>Readiness</span><strong>${escapeHtml(labelFrom(quoteReadinessLabels, request.quote_readiness || deriveQuoteReadiness(request), "Missing scope"))}</strong></div>
-                <div class="field-row"><span>Assessment</span><strong>${escapeHtml(labelFrom(assessmentLabels, request.assessment_required, "To confirm"))}</strong></div>
-                <div class="field-row"><span>Pricing basis</span><strong>${escapeHtml(labelFrom(pricingBasisLabels, request.pricing_basis, "To confirm"))}</strong></div>
-                <div class="field-row"><span>Initial clean</span><strong>${escapeHtml(labelFrom(initialCleanLabels, request.initial_clean_required, "To confirm"))}</strong></div>
-                <div class="field-row"><span>Regular duration</span><strong>${escapeHtml(minutesLabel(request.estimated_regular_duration_minutes))}</strong></div>
-                <div class="field-row"><span>Initial duration</span><strong>${escapeHtml(minutesLabel(request.estimated_initial_duration_minutes, "N/A"))}</strong></div>
-                <div class="field-row"><span>Team size</span><strong>${escapeHtml(teamSizeLabel(request.estimated_team_size))}</strong></div>
+                <h3>Estimates</h3>
+                <div class="field-row"><span>Regular duration</span><strong>${escapeHtml(prepMinutesLabel(request.estimated_regular_duration_minutes, request.regular_duration_state || "not_estimated"))}</strong></div>
+                <div class="field-row"><span>Initial duration</span><strong>${escapeHtml(prepMinutesLabel(request.estimated_initial_duration_minutes, request.initial_duration_state || "not_estimated"))}</strong></div>
+                <div class="field-row"><span>Team size</span><strong>${escapeHtml(prepTeamSizeLabel(request.estimated_team_size, request.team_size_state || "not_estimated"))}</strong></div>
                 <div class="field-row"><span>Scope confidence</span><strong>${escapeHtml(labelFrom(scopeConfidenceLabels, request.scope_confidence, "To confirm"))}</strong></div>
               </div>
               <div class="wide">
                 <h3>Short scoping note</h3>
-                <p class="muted">${escapeHtml(request.service_summary || "No service summary yet.")}</p>
+                <p class="muted">${escapeHtml(request.short_scoping_note || request.service_summary || "No internal scoping note yet.")}</p>
               </div>
               <div class="wide">
                 <h3>Quote considerations</h3>
@@ -642,14 +778,23 @@
           </div>
 
           <div class="request-form-section">
-            <h3>Request / service need</h3>
+            <h3>Client enquiry</h3>
             <div class="request-form-grid">
-              <label class="client-field">Request type <select id="new-request-type">${optionList(requestTypeLabels, "regular_domestic_clean")}</select></label>
+              <label class="client-field">Service <select id="new-request-type">${optionList(requestTypeLabels, "regular_domestic_clean")}</select></label>
               <label class="client-field">Status <select id="new-request-status">${optionList(requestStatusLabels, "new_enquiry")}</select></label>
-              <label class="client-field">Preferred frequency <select id="new-request-cadence">${optionList(cadenceLabels, "to_confirm")}</select></label>
-              <label class="client-field">Preferred day <select id="new-request-day">${optionList(dayLabels, "to_confirm")}</select></label>
-              <label class="client-field">Preferred time window <select id="new-request-time">${optionList(timeWindowLabels, "to_confirm")}</select></label>
+              <label class="client-field">Frequency <select id="new-request-cadence">${optionList(cadenceLabels, "to_confirm")}</select></label>
+              <label class="client-field">How soon <select id="new-request-how-soon">${optionList(howSoonLabels, "to_confirm")}</select></label>
+              <label class="client-field">Preferred days <select id="new-request-day">${optionList(dayLabels, "to_confirm")}</select></label>
+              <label class="client-field">Preferred times <select id="new-request-time">${optionList(timeWindowLabels, "to_confirm")}</select></label>
+              <label class="client-field">Approx size <select id="new-request-approx-size">${optionList(approxSizeLabels, "unknown")}</select></label>
+              <label class="client-field">Pets <select id="new-request-pets">${optionList(petsLabels, "unknown")}</select></label>
+              <label class="client-field">Parking <select id="new-request-parking">${optionList(parkingLabels, "unknown")}</select></label>
+              <label class="client-field">Would photos help? <select id="new-request-photos">${optionList(photoHelpLabels, "to_confirm")}</select></label>
               <label class="client-field">Next action <input id="new-request-next-action" type="text" value="Contact customer"></label>
+              <label class="schedule-check wide"><input id="new-request-priority-kitchen" type="checkbox"><span>Kitchen priority</span></label>
+              <label class="schedule-check wide"><input id="new-request-priority-bathrooms" type="checkbox"><span>Bathrooms priority</span></label>
+              <label class="schedule-check wide"><input id="new-request-priority-floors" type="checkbox"><span>Floors priority</span></label>
+              <label class="schedule-check wide"><input id="new-request-priority-oven" type="checkbox"><span>Oven / appliance priority</span></label>
               <label class="client-field wide">Customer message <textarea id="new-request-message" rows="3"></textarea></label>
             </div>
           </div>
@@ -657,14 +802,14 @@
           <div class="request-form-section">
             <h3>Practical cleaning setup</h3>
             <div class="request-form-grid">
-              <label class="client-field">Cleaning products <select id="new-request-products">${optionList(supplyLabels, "to_confirm")}</select></label>
-              <label class="client-field">Vacuum / hoover <select id="new-request-vacuum">${optionList(supplyLabels, "to_confirm")}</select></label>
-              <label class="client-field">Mop <select id="new-request-mop">${optionList(supplyLabels, "to_confirm")}</select></label>
+              <label class="client-field">Cleaning products supplied by <select id="new-request-products">${optionList(supplyLabels, "to_confirm")}</select></label>
+              <label class="client-field">Vacuum / hoover supplied by <select id="new-request-vacuum">${optionList(equipmentLabels, "to_confirm")}</select></label>
+              <label class="client-field">Mop supplied by <select id="new-request-mop">${optionList(equipmentLabels, "to_confirm")}</select></label>
             </div>
           </div>
 
           <div class="request-form-section">
-            <h3>Quote inputs</h3>
+            <h3>Internal quote prep</h3>
             <div class="request-form-grid">
               <label class="client-field">Quote readiness <select id="new-request-quote-readiness">${optionList(quoteReadinessLabels, "needs_contact")}</select></label>
               <label class="client-field">Assessment required <select id="new-request-assessment">${optionList(assessmentLabels, "to_confirm")}</select></label>
@@ -673,9 +818,10 @@
               <label class="client-field">Regular duration (minutes) <input id="new-request-regular-duration" type="number" min="0" step="30" placeholder="180"></label>
               <label class="client-field">Initial duration (minutes) <input id="new-request-initial-duration" type="number" min="0" step="30" placeholder="300"></label>
               <label class="client-field">Team size <input id="new-request-team-size" type="number" min="1" step="1" placeholder="1"></label>
-              <label class="client-field">Scope confidence <select id="new-request-scope-confidence">${optionList(scopeConfidenceLabels, "medium")}</select></label>
+              <label class="client-field">Scope confidence <select id="new-request-scope-confidence">${optionList(scopeConfidenceLabels, "to_confirm")}</select></label>
+              <label class="client-field wide">Short scoping note <textarea id="new-request-scoping-note" rows="2"></textarea></label>
               <label class="schedule-check wide"><input id="new-request-consider-eco" type="checkbox"><span>Eco products preferred</span></label>
-              <label class="schedule-check wide"><input id="new-request-consider-initial" type="checkbox"><span>Include initial deep clean in quote thinking</span></label>
+              <label class="schedule-check wide"><input id="new-request-consider-initial" type="checkbox"><span>Initial deep clean may be needed</span></label>
               <label class="schedule-check wide"><input id="new-request-consider-consumables" type="checkbox"><span>Commercial consumables option may be needed</span></label>
               <label class="schedule-check wide"><input id="new-request-consider-parking" type="checkbox"><span>Parking permit may affect quote</span></label>
             </div>
@@ -720,12 +866,33 @@
   }
 
   function selectedQuoteConsiderations() {
-    return [
+    const considerations = [
       checked("new-request-consider-eco") ? "eco_products_preferred" : "",
-      checked("new-request-consider-initial") ? "include_initial_deep_clean" : "",
+      checked("new-request-consider-initial") ? "initial_deep_clean" : "",
       checked("new-request-consider-consumables") ? "commercial_consumables_option" : "",
       checked("new-request-consider-parking") ? "parking_permit_needed" : ""
     ].filter(Boolean);
+    if (value("new-request-photos") === "yes" || value("new-request-photos") === "requested") considerations.push("photos_requested");
+    if (value("new-request-products") === "mixed_specific_products_required") considerations.push("eco_products_preferred");
+    if (value("new-request-parking") === "permit_required") considerations.push("parking_permit_needed");
+    return Array.from(new Set(considerations));
+  }
+
+  function selectedMainPriorities() {
+    return [
+      checked("new-request-priority-kitchen") ? "kitchen" : "",
+      checked("new-request-priority-bathrooms") ? "bathrooms" : "",
+      checked("new-request-priority-floors") ? "floors" : "",
+      checked("new-request-priority-oven") ? "oven" : ""
+    ].filter(Boolean);
+  }
+
+  function prepStateFor(valueToCheck, suggestedState = "suggested") {
+    return valueToCheck && valueToCheck !== "to_confirm" ? suggestedState : "to_confirm";
+  }
+
+  function estimateStateFor(valueToCheck) {
+    return valueToCheck ? "suggested" : "not_estimated";
   }
 
   function initials(name) {
@@ -819,8 +986,8 @@
       preferred_day: value("new-request-day") || "to_confirm",
       preferred_time_window: value("new-request-time") || "to_confirm",
       access_method: "to_arrange",
-      parking: "unknown",
-      pets_present: "unknown",
+      parking: value("new-request-parking") || "unknown",
+      pets_present: value("new-request-pets") || "unknown",
       cleaning_products: value("new-request-products") || "to_confirm",
       vacuum_hoover: value("new-request-vacuum") || "to_confirm",
       mop: value("new-request-mop") || "to_confirm",
@@ -850,6 +1017,11 @@
     if (!property) property = createPropertyShell(client);
 
     const type = value("new-request-type") || "regular_domestic_clean";
+    const pricingBasis = value("new-request-pricing-basis") || "to_confirm";
+    const initialCleanRequired = value("new-request-initial-clean") || "to_confirm";
+    const regularDuration = numericValue("new-request-regular-duration");
+    const initialDuration = numericValue("new-request-initial-duration");
+    const teamSize = numericValue("new-request-team-size");
     const requestNumber = `REQ-${1047 + requests().length}`;
     const request = {
       id: `request-${Date.now()}`,
@@ -865,20 +1037,36 @@
       next_action: value("new-request-next-action") || "Contact customer",
       customer_message: value("new-request-message") || "Manual request created by the office.",
       service_summary: `${labelFrom(requestTypeLabels, type, "Request")} request. Confirm service scope before quote or job creation.`,
+      short_scoping_note: value("new-request-scoping-note") || `${labelFrom(requestTypeLabels, type, "Request")} request. Internal scoping still needs confirmation before quote.`,
       preferred_cadence: value("new-request-cadence") || "to_confirm",
+      how_soon: value("new-request-how-soon") || "to_confirm",
       preferred_day: value("new-request-day") || "to_confirm",
       preferred_time_window: value("new-request-time") || "to_confirm",
+      intake_property_type: property.property_type || "unknown",
+      approx_size: value("new-request-approx-size") || "unknown",
+      bedrooms: property.bedrooms || "unknown",
+      bathrooms: property.bathrooms || "unknown",
+      pets_present: value("new-request-pets") || property.pets_present || "unknown",
+      parking: value("new-request-parking") || property.parking || "unknown",
+      main_priorities: selectedMainPriorities(),
+      photos_helpful: value("new-request-photos") || "to_confirm",
       cleaning_products: value("new-request-products") || "to_confirm",
       vacuum_hoover: value("new-request-vacuum") || "to_confirm",
       mop: value("new-request-mop") || "to_confirm",
       quote_readiness: value("new-request-quote-readiness") || "needs_contact",
       assessment_required: value("new-request-assessment") || "to_confirm",
-      initial_clean_required: value("new-request-initial-clean") || "to_confirm",
-      pricing_basis: value("new-request-pricing-basis") || "to_confirm",
-      estimated_regular_duration_minutes: numericValue("new-request-regular-duration"),
-      estimated_initial_duration_minutes: numericValue("new-request-initial-duration"),
-      estimated_team_size: numericValue("new-request-team-size"),
-      scope_confidence: value("new-request-scope-confidence") || "medium",
+      assessment_state: prepStateFor(value("new-request-assessment")),
+      initial_clean_required: initialCleanRequired,
+      initial_clean_state: prepStateFor(initialCleanRequired),
+      pricing_basis: pricingBasis,
+      pricing_basis_state: prepStateFor(pricingBasis),
+      estimated_regular_duration_minutes: regularDuration,
+      regular_duration_state: estimateStateFor(regularDuration),
+      estimated_initial_duration_minutes: initialDuration,
+      initial_duration_state: estimateStateFor(initialDuration),
+      estimated_team_size: teamSize,
+      team_size_state: estimateStateFor(teamSize),
+      scope_confidence: value("new-request-scope-confidence") || "to_confirm",
       quote_considerations: selectedQuoteConsiderations(),
       property_notes: value("new-request-property-notes") || property.property_notes || "",
       cleaning_notes: value("new-request-cleaning-notes") || property.cleaning_notes || "",

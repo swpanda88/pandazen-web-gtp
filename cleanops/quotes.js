@@ -579,7 +579,6 @@
           <div style="position: absolute; right: 0; ${["rejected", "expired", "superseded", "archived"].includes(quote.status) ? "bottom: 100%; margin-bottom: 4px;" : "top: 100%; margin-top: 4px;"} background: #fff; border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 100; min-width: 160px; padding: 4px 0; text-align: left;">
             ${actions.join("")}
           </div>
-          <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 99;" data-quote-action="close-row-menu"></div>
         ` : ""}
       </div>
     `;

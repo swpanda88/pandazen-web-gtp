@@ -220,7 +220,7 @@
 
   function money(value) {
     const number = Number(value) || 0;
-    return `GBP ${number.toFixed(2)}`;
+    return `£${number.toFixed(2)}`;
   }
 
   function minutesLabel(value, fallback = "To confirm") {
@@ -290,9 +290,8 @@
 
   function primaryTotalLabel(quote) {
     const totals = calculateTotals(quote);
-    if (totals.monthly) return `${money(totals.monthly)}/mo`;
-    if (totals.recurring && totals.oneOff) return `${money(totals.oneOff)} initial + ${money(totals.recurring)}/visit`;
-    if (totals.recurring) return `${money(totals.recurring)}/visit`;
+    if (totals.monthly) return `${money(totals.monthly)} / month`;
+    if (totals.recurring) return `${money(totals.recurring)} / visit`;
     return money(totals.oneOff + totals.optional);
   }
 
@@ -649,6 +648,14 @@
 
   function renderPreviewModal(quote) {
     const { client, property } = sourceSummary(quote);
+    const totals = calculateTotals(quote);
+
+    let totalsHtml = "";
+    if (totals.oneOff) totalsHtml += `<div><span>Initial / one-off clean</span><strong>${money(totals.oneOff)}</strong></div>`;
+    if (totals.recurring) totalsHtml += `<div><span>Recurring clean</span><strong>${money(totals.recurring)} per visit</strong></div>`;
+    if (totals.monthly) totalsHtml += `<div><span>Monthly estimate</span><strong>${money(totals.monthly)} per month</strong></div>`;
+    if (totals.optional) totalsHtml += `<div><span>Optional extras</span><strong>${money(totals.optional)}</strong></div>`;
+
     return `
       <div class="quote-modal-backdrop" data-quote-action="close-preview">
         <article class="quote-modal quote-preview" role="dialog" aria-modal="true" aria-label="Client quote preview" data-quote-modal>
@@ -667,11 +674,14 @@
             <ul>${parseLines(lineList(quote.included_scope)).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
             <h3>Not included</h3>
             <ul>${parseLines(lineList(quote.exclusions)).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
-            <div class="quote-side-totals">
-              <div><span>Quote total</span><strong>${escapeHtml(primaryTotalLabel(quote))}</strong></div>
+            <div class="quote-side-totals" style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border)">
+              ${totalsHtml}
               <div><span>Valid until</span><strong>${escapeHtml(quote.valid_until || "To confirm")}</strong></div>
             </div>
-            <p class="muted">${escapeHtml(quote.terms || "")}</p>
+            <p class="muted" style="margin-top: 12px;">${escapeHtml(quote.terms || "")}</p>
+            <div style="margin-top: 24px;">
+              <button class="button primary" style="width: 100%; justify-content: center; font-size: 14px; padding: 10px;">Reply to confirm acceptance or ask any questions.</button>
+            </div>
           </div>
         </article>
       </div>

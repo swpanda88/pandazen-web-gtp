@@ -628,8 +628,8 @@
       }).join("");
 
       return `
-        <div style="margin-bottom: 32px; background: #fff; border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-          <h3 style="font-size: 15px; margin: 0; padding: 12px 16px; background: var(--surface); border-bottom: 1px solid var(--border); color: var(--text-muted); display: flex; align-items: center; gap: 8px; border-top-left-radius: 8px; border-top-right-radius: 8px;">
+        <div style="margin-bottom: 48px; background: #fff; border: 1px solid var(--border); border-top: 3px solid #94a3b8; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+          <h3 style="font-size: 15px; margin: 0; padding: 12px 16px; background: #f8fafc; border-bottom: 1px solid var(--border); color: var(--text); display: flex; align-items: center; gap: 8px; border-top-left-radius: 5px; border-top-right-radius: 5px;">
             ${escapeHtml(title)}
             <span style="background:var(--bg); color:var(--text); padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; border: 1px solid var(--border);">${list.length}</span>
           </h3>
@@ -702,9 +702,6 @@
                   ${quoteStatusChip(quote)}
                   ${chip("v" + (quote.version || 1), "info")}
                 </div>
-              </div>
-              <div class="button-row">
-                ${button("Close", "close-editor", "ghost")}
               </div>
             </div>
           </header>
@@ -1006,8 +1003,9 @@
 
     return `
       <article class="panel pad">
-        <div class="panel-head flush"><h2>Source request</h2>${chip(request.number || "Request", "info")}</div>
-        <div class="stack" style="margin-top:12px; gap:8px;">
+        <div class="panel-head flush" style="margin-bottom: 8px;"><h2>Source request</h2>${chip(request.number || "Request", "info")}</div>
+        <p class="muted" style="font-size: 13px; margin-bottom: 16px;">This provides internal context. Details are not visible to the customer unless added to the quote scope.</p>
+        <div class="stack" style="gap:8px;">
           <div style="display:flex; flex-direction:column; gap:2px;"><span class="muted" style="font-size:12px; text-transform:uppercase;">Client</span><strong>${escapeHtml(client?.display_name || request.client || "Client")}</strong></div>
           <div style="display:flex; flex-direction:column; gap:2px;"><span class="muted" style="font-size:12px; text-transform:uppercase;">Property</span><strong>${escapeHtml(property?.address || request.property || "Property")}</strong></div>
           <div style="display:flex; flex-direction:column; gap:2px;"><span class="muted" style="font-size:12px; text-transform:uppercase;">Service</span><strong>${escapeHtml(requestTypeLabel(request))}</strong></div>

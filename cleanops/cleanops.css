@@ -816,6 +816,23 @@ tr:last-child td {
   padding: 12px;
 }
 
+.request-checklist {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text);
+  font-weight: 640;
+}
+
+.request-checklist li::marker {
+  color: var(--green);
+}
+
+.quote-assist .side-section h2 {
+  margin-bottom: 8px;
+}
+
 .request-side-actions {
   margin-top: 12px;
 }

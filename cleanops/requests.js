@@ -3,6 +3,7 @@
   const state = {
     selectedRequestId: null,
     newRequestOpen: false,
+    reviewRequestOpen: false,
     moreOpen: false
   };
 
@@ -371,13 +372,13 @@
 
   function quoteBlocker(request) {
     const readiness = request.quote_readiness || deriveQuoteReadiness(request);
-    const blockers = {
-      needs_contact: "Contact customer before preparing the quote.",
-      needs_assessment: "Book or complete assessment before preparing the quote.",
-      missing_scope: "Complete missing scope before preparing the quote.",
-      quote_created: "A quote already exists for this request."
-    };
-    return readiness === "ready_to_quote" ? "" : blockers[readiness] || "Review quote inputs before preparing the quote.";
+    if (readiness === "ready_to_quote") return "";
+    const missing = missingChecklist(request);
+    const headline = readiness === "needs_assessment"
+      ? "This request needs contact or assessment before it is ready to quote."
+      : "This request is not ready to quote yet.";
+    const firstMissing = missing[0] ? ` Missing: ${missing[0]}.` : "";
+    return `${headline}${firstMissing} Review request before creating a quote.`;
   }
 
   function minutesLabel(value, fallback = "To confirm") {
@@ -428,6 +429,73 @@
       .join("");
   }
 
+  function needsValue(value) {
+    return value === undefined || value === null || value === "" || value === "to_confirm" || value === "unknown";
+  }
+
+  function missingChecklist(request) {
+    const missing = [];
+    if ((request.quote_readiness || deriveQuoteReadiness(request)) !== "ready_to_quote") missing.push("Set quote readiness when review is complete");
+    if (needsValue(request.initial_clean_required)) missing.push("Confirm initial clean requirement");
+    if (needsValue(request.cleaning_products) || needsValue(request.vacuum_hoover) || needsValue(request.mop) || !request.setup_confirmed) missing.push("Confirm products and equipment source");
+    if (!request.estimated_regular_duration_minutes || request.regular_duration_state === "not_estimated") missing.push("Estimate regular visit duration");
+    if (request.initial_clean_required === "yes" && (!request.estimated_initial_duration_minutes || request.initial_duration_state === "not_estimated")) missing.push("Estimate initial clean duration");
+    if (needsValue(request.how_soon)) missing.push("Confirm preferred start date");
+    if (needsValue(request.assessment_required)) missing.push("Confirm whether assessment is needed");
+    if (needsValue(request.parking) || (request.quote_considerations || []).includes("access_to_confirm")) missing.push("Confirm access and parking details");
+    return Array.from(new Set(missing)).slice(0, 6);
+  }
+
+  function renderMissingChecklist(request) {
+    const items = missingChecklist(request);
+    if (!items.length) {
+      return `<div class="empty mini"><div class="empty-icon">OK</div><div><h3>Ready for quote</h3><p class="muted">Core quote-prep fields look complete for this mock request.</p></div></div>`;
+    }
+    return `<ul class="request-checklist">${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+  }
+
+  function suggestedQuestions(request) {
+    const questions = [];
+    if (needsValue(request.initial_clean_required)) questions.push("Would you like us to include an initial deep clean before regular visits?");
+    if (needsValue(request.cleaning_products) || request.cleaning_products === "mixed_specific_products_required") questions.push("Do you want PandaZen to bring products or use your preferred products?");
+    if (needsValue(request.how_soon) || needsValue(request.preferred_day)) questions.push("Is your preferred day fixed, or are other days possible?");
+    if (!request.main_priorities?.length) questions.push("Are there any rooms or surfaces needing special attention?");
+    if (request.photos_helpful === "yes" || request.photos_helpful === "requested") questions.push("Could you send a few photos so we can scope the clean accurately?");
+    if ((request.quote_considerations || []).includes("parking_permit_needed")) questions.push("Will parking be available, or should we allow time/cost for parking?");
+    return questions.slice(0, 4);
+  }
+
+  function renderQuoteAssist(request) {
+    const questions = suggestedQuestions(request);
+    return `
+      <article class="panel pad quote-assist">
+        <div class="side-section">
+          <div class="button-row" style="justify-content:space-between">
+            <h2>Quote Assist</h2>
+            ${quoteReadinessChip(request)}
+          </div>
+          <p class="muted">Internal guidance only. Use Review request to confirm missing fields before quoting.</p>
+        </div>
+        <div class="side-section">
+          <h2>Missing before quote</h2>
+          ${renderMissingChecklist(request)}
+        </div>
+        <div class="side-section">
+          <h2>Suggested next action</h2>
+          <p><strong>${escapeHtml(request.next_action || "Review request")}</strong></p>
+        </div>
+        <div class="side-section">
+          <h2>Suggested questions</h2>
+          ${questions.length ? `<ul class="request-checklist">${questions.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : `<p class="muted">No obvious client questions from current mock data.</p>`}
+        </div>
+        <div>
+          <h2>Quote considerations</h2>
+          <div class="button-row request-considerations" style="justify-content:flex-start">${considerationChips(request)}</div>
+        </div>
+      </article>
+    `;
+  }
+
   function propertyArea(property) {
     return property?.postcode || property?.area || "Area to confirm";
   }
@@ -447,6 +515,7 @@
       <section class="requests-root" data-requests-root="true">
         ${request ? renderDetail(request) : renderList()}
         ${state.newRequestOpen ? renderNewRequestModal() : ""}
+        ${state.reviewRequestOpen && request ? renderReviewRequestModal(request) : ""}
       </section>
     `;
   }
@@ -543,6 +612,7 @@
           <div class="button-row request-title-chips" style="justify-content:flex-start">${requestTypeChip(request)} ${quoteReadinessChip(request)} ${chip(labelFrom(sourceLabels, request.source, "Manual"), "info")}</div>
         </div>
         <div class="page-actions">
+          ${button("Review request", "open-review-request", "primary")}
           ${button("Contact customer", "contact-customer", "primary")}
           ${button("Create quote", "create-quote")}
           ${button("Create job", "create-job")}
@@ -655,6 +725,10 @@
                 <h3>Quote considerations</h3>
                 <div class="button-row request-considerations" style="justify-content:flex-start">${considerationChips(request)}</div>
               </div>
+              <div class="wide">
+                <h3>Missing before quote</h3>
+                ${renderMissingChecklist(request)}
+              </div>
             </div>
           </article>
 
@@ -670,6 +744,7 @@
         </div>
 
         <aside class="stack">
+          ${renderQuoteAssist(request)}
           <article class="panel pad">
             <div class="side-section">
               <h2>Client</h2>
@@ -732,6 +807,104 @@
       });
     });
     return options.join("");
+  }
+
+  function checkedAttr(items, key) {
+    return Array.isArray(items) && items.includes(key) ? " checked" : "";
+  }
+
+  function renderReviewRequestModal(request) {
+    const property = findProperty(request.client_id, request.property_id) || findAnyProperty(request.property_id).property || {};
+    return `
+      <div class="request-modal-backdrop" data-review-backdrop="true">
+        <section class="request-modal" role="dialog" aria-modal="true" aria-label="Review Request" data-review-modal="true">
+          <div class="drawer-header">
+            <div>
+              <p class="eyebrow">Complete missing information</p>
+              <h2>Review request</h2>
+            </div>
+            <button class="icon-button" type="button" data-request-action="close-review-request" aria-label="Close review request" title="Close"><span>X</span></button>
+          </div>
+
+          <div class="request-form-section">
+            <h3>Client enquiry</h3>
+            <div class="request-form-grid">
+              <label class="client-field">Service type <select id="review-request-type">${optionList(requestTypeLabels, request.request_type || "regular_domestic_clean")}</select></label>
+              <label class="client-field">Status <select id="review-request-status">${optionList(requestStatusLabels, request.status || "new_enquiry")}</select></label>
+              <label class="client-field">Frequency <select id="review-request-cadence">${optionList(cadenceLabels, request.preferred_cadence || "to_confirm")}</select></label>
+              <label class="client-field">How soon <select id="review-request-how-soon">${optionList(howSoonLabels, request.how_soon || "to_confirm")}</select></label>
+              <label class="client-field">Preferred day <select id="review-request-day">${optionList(dayLabels, request.preferred_day || "to_confirm")}</select></label>
+              <label class="client-field">Preferred time <select id="review-request-time">${optionList(timeWindowLabels, request.preferred_time_window || "to_confirm")}</select></label>
+              <label class="client-field">Approx size <select id="review-request-approx-size">${optionList(approxSizeLabels, request.approx_size || "unknown")}</select></label>
+              <label class="client-field">Would photos help? <select id="review-request-photos">${optionList(photoHelpLabels, request.photos_helpful || "to_confirm")}</select></label>
+              <label class="client-field wide">Customer message <textarea id="review-request-message" rows="3">${escapeHtml(request.customer_message || "")}</textarea></label>
+              <label class="schedule-check wide"><input id="review-priority-kitchen" type="checkbox"${checkedAttr(request.main_priorities, "kitchen")}><span>Kitchen priority</span></label>
+              <label class="schedule-check wide"><input id="review-priority-bathrooms" type="checkbox"${checkedAttr(request.main_priorities, "bathrooms")}><span>Bathrooms priority</span></label>
+              <label class="schedule-check wide"><input id="review-priority-floors" type="checkbox"${checkedAttr(request.main_priorities, "floors")}><span>Floors priority</span></label>
+              <label class="schedule-check wide"><input id="review-priority-oven" type="checkbox"${checkedAttr(request.main_priorities, "oven")}><span>Oven / appliance priority</span></label>
+              <label class="schedule-check wide"><input id="review-priority-washrooms" type="checkbox"${checkedAttr(request.main_priorities, "washrooms")}><span>Washrooms priority</span></label>
+              <label class="schedule-check wide"><input id="review-priority-common-areas" type="checkbox"${checkedAttr(request.main_priorities, "common_areas")}><span>Common areas priority</span></label>
+            </div>
+          </div>
+
+          <div class="request-form-section">
+            <h3>Property details</h3>
+            <div class="request-form-grid">
+              <label class="client-field">Property type <select id="review-property-type">${optionList(propertyTypeLabels, request.intake_property_type || property.property_type || "unknown")}</select></label>
+              <label class="client-field">Bedrooms <select id="review-bedrooms">${optionList(bedroomsLabels, request.bedrooms || property.bedrooms || "unknown")}</select></label>
+              <label class="client-field">Bathrooms <select id="review-bathrooms">${optionList(bathroomsLabels, request.bathrooms || property.bathrooms || "unknown")}</select></label>
+              <label class="client-field">Pets <select id="review-pets">${optionList(petsLabels, request.pets_present || property.pets_present || "unknown")}</select></label>
+              <label class="client-field">Parking <select id="review-parking">${optionList(parkingLabels, request.parking || property.parking || "unknown")}</select></label>
+            </div>
+          </div>
+
+          <div class="request-form-section">
+            <h3>Practical setup</h3>
+            <div class="request-form-grid">
+              <label class="client-field">Products preference / cleaning products <select id="review-products">${optionList(supplyLabels, request.cleaning_products || "to_confirm")}</select></label>
+              <label class="client-field">Vacuum / hoover supplied by <select id="review-vacuum">${optionList(equipmentLabels, request.vacuum_hoover || "to_confirm")}</select></label>
+              <label class="client-field">Mop supplied by <select id="review-mop">${optionList(equipmentLabels, request.mop || "to_confirm")}</select></label>
+              <label class="schedule-check wide"><input id="review-setup-confirmed" type="checkbox"${request.setup_confirmed ? " checked" : ""}><span>Products and equipment setup confirmed</span></label>
+            </div>
+          </div>
+
+          <div class="request-form-section">
+            <h3>Internal quote prep</h3>
+            <div class="request-form-grid">
+              <label class="client-field">Quote readiness <select id="review-quote-readiness">${optionList(quoteReadinessLabels, request.quote_readiness || deriveQuoteReadiness(request))}</select></label>
+              <label class="client-field">Assessment requirement <select id="review-assessment">${optionList(assessmentLabels, request.assessment_required || "to_confirm")}</select></label>
+              <label class="client-field">Pricing basis <select id="review-pricing-basis">${optionList(pricingBasisLabels, request.pricing_basis || "to_confirm")}</select></label>
+              <label class="client-field">Initial clean required <select id="review-initial-clean">${optionList(initialCleanLabels, request.initial_clean_required || "to_confirm")}</select></label>
+              <label class="client-field">Estimated regular duration <input id="review-regular-duration" type="number" min="0" step="30" value="${escapeHtml(request.estimated_regular_duration_minutes || "")}"></label>
+              <label class="client-field">Estimated initial duration <input id="review-initial-duration" type="number" min="0" step="30" value="${escapeHtml(request.estimated_initial_duration_minutes || "")}"></label>
+              <label class="client-field">Team size <input id="review-team-size" type="number" min="1" step="1" value="${escapeHtml(request.estimated_team_size || "")}"></label>
+              <label class="client-field">Scope confidence <select id="review-scope-confidence">${optionList(scopeConfidenceLabels, request.scope_confidence || "to_confirm")}</select></label>
+              <label class="client-field wide">Short scoping note <textarea id="review-scoping-note" rows="2">${escapeHtml(request.short_scoping_note || request.service_summary || "")}</textarea></label>
+              <label class="schedule-check wide"><input id="review-consider-eco" type="checkbox"${checkedAttr(request.quote_considerations, "eco_products_preferred")}><span>Eco products preferred</span></label>
+              <label class="schedule-check wide"><input id="review-consider-photos" type="checkbox"${checkedAttr(request.quote_considerations, "photos_requested")}><span>Photos requested/helpful</span></label>
+              <label class="schedule-check wide"><input id="review-consider-initial" type="checkbox"${checkedAttr(request.quote_considerations, "initial_deep_clean")}><span>Initial deep clean may be needed</span></label>
+              <label class="schedule-check wide"><input id="review-consider-consumables" type="checkbox"${checkedAttr(request.quote_considerations, "commercial_consumables_option")}><span>Commercial consumables option</span></label>
+              <label class="schedule-check wide"><input id="review-consider-parking" type="checkbox"${checkedAttr(request.quote_considerations, "parking_permit_needed")}><span>Parking permit may affect quote</span></label>
+              <label class="schedule-check wide"><input id="review-consider-access" type="checkbox"${checkedAttr(request.quote_considerations, "access_to_confirm")}><span>Access still needs confirmation</span></label>
+            </div>
+          </div>
+
+          <div class="request-form-section">
+            <h3>Notes</h3>
+            <div class="request-form-grid">
+              <label class="client-field wide">Property notes <textarea id="review-property-notes" rows="2">${escapeHtml(request.property_notes || "")}</textarea></label>
+              <label class="client-field wide">Cleaning notes <textarea id="review-cleaning-notes" rows="2">${escapeHtml(request.cleaning_notes || "")}</textarea></label>
+              <label class="client-field wide">Internal notes <textarea id="review-internal-notes" rows="2">${escapeHtml(request.internal_notes || "")}</textarea></label>
+            </div>
+          </div>
+
+          <div class="drawer-actions">
+            <button class="button primary" type="button" data-request-action="save-review-request">Save review</button>
+            <button class="button ghost" type="button" data-request-action="close-review-request">Cancel</button>
+          </div>
+        </section>
+      </div>
+    `;
   }
 
   function renderNewRequestModal() {
@@ -885,6 +1058,32 @@
       checked("new-request-priority-floors") ? "floors" : "",
       checked("new-request-priority-oven") ? "oven" : ""
     ].filter(Boolean);
+  }
+
+  function selectedReviewPriorities() {
+    return [
+      checked("review-priority-kitchen") ? "kitchen" : "",
+      checked("review-priority-bathrooms") ? "bathrooms" : "",
+      checked("review-priority-floors") ? "floors" : "",
+      checked("review-priority-oven") ? "oven" : "",
+      checked("review-priority-washrooms") ? "washrooms" : "",
+      checked("review-priority-common-areas") ? "common_areas" : ""
+    ].filter(Boolean);
+  }
+
+  function selectedReviewConsiderations() {
+    const considerations = [
+      checked("review-consider-eco") ? "eco_products_preferred" : "",
+      checked("review-consider-photos") ? "photos_requested" : "",
+      checked("review-consider-initial") ? "initial_deep_clean" : "",
+      checked("review-consider-consumables") ? "commercial_consumables_option" : "",
+      checked("review-consider-parking") ? "parking_permit_needed" : "",
+      checked("review-consider-access") ? "access_to_confirm" : ""
+    ].filter(Boolean);
+    if (value("review-photos") === "yes" || value("review-photos") === "requested") considerations.push("photos_requested");
+    if (value("review-products") === "mixed_specific_products_required") considerations.push("eco_products_preferred");
+    if (value("review-parking") === "permit_required") considerations.push("parking_permit_needed");
+    return Array.from(new Set(considerations));
   }
 
   function prepStateFor(valueToCheck, suggestedState = "suggested") {
@@ -1087,10 +1286,89 @@
     refresh();
   }
 
+  function saveReviewRequest() {
+    const request = selectedRequest();
+    if (!request) return;
+    const property = findProperty(request.client_id, request.property_id) || findAnyProperty(request.property_id).property;
+    const regularDuration = numericValue("review-regular-duration");
+    const initialDuration = numericValue("review-initial-duration");
+    const teamSize = numericValue("review-team-size");
+    const readiness = value("review-quote-readiness") || "needs_contact";
+    const confirmed = readiness === "ready_to_quote";
+
+    request.request_type = value("review-request-type") || request.request_type;
+    request.status = value("review-request-status") || request.status;
+    request.preferred_cadence = value("review-request-cadence") || "to_confirm";
+    request.how_soon = value("review-request-how-soon") || "to_confirm";
+    request.preferred_day = value("review-request-day") || "to_confirm";
+    request.preferred_time_window = value("review-request-time") || "to_confirm";
+    request.approx_size = value("review-request-approx-size") || "unknown";
+    request.photos_helpful = value("review-request-photos") || "to_confirm";
+    request.customer_message = value("review-request-message") || request.customer_message;
+    request.main_priorities = selectedReviewPriorities();
+
+    request.intake_property_type = value("review-property-type") || "unknown";
+    request.bedrooms = value("review-bedrooms") || "unknown";
+    request.bathrooms = value("review-bathrooms") || "unknown";
+    request.pets_present = value("review-pets") || "unknown";
+    request.parking = value("review-parking") || "unknown";
+
+    request.cleaning_products = value("review-products") || "to_confirm";
+    request.vacuum_hoover = value("review-vacuum") || "to_confirm";
+    request.mop = value("review-mop") || "to_confirm";
+    request.setup_confirmed = checked("review-setup-confirmed");
+    request.cleaning_products_state = request.setup_confirmed ? "confirmed" : prepStateFor(request.cleaning_products);
+
+    request.quote_readiness = readiness;
+    request.assessment_required = value("review-assessment") || "to_confirm";
+    request.assessment_state = confirmed ? "confirmed" : prepStateFor(request.assessment_required);
+    request.pricing_basis = value("review-pricing-basis") || "to_confirm";
+    request.pricing_basis_state = confirmed ? "confirmed" : prepStateFor(request.pricing_basis);
+    request.initial_clean_required = value("review-initial-clean") || "to_confirm";
+    request.initial_clean_state = confirmed ? "confirmed" : prepStateFor(request.initial_clean_required);
+    request.estimated_regular_duration_minutes = regularDuration;
+    request.regular_duration_state = confirmed && regularDuration ? "confirmed" : estimateStateFor(regularDuration);
+    request.estimated_initial_duration_minutes = initialDuration;
+    request.initial_duration_state = confirmed && initialDuration ? "confirmed" : estimateStateFor(initialDuration);
+    request.estimated_team_size = teamSize;
+    request.team_size_state = confirmed && teamSize ? "confirmed" : estimateStateFor(teamSize);
+    request.scope_confidence = value("review-scope-confidence") || "to_confirm";
+    request.short_scoping_note = value("review-scoping-note");
+    request.quote_considerations = selectedReviewConsiderations();
+
+    request.property_notes = value("review-property-notes");
+    request.cleaning_notes = value("review-cleaning-notes");
+    request.internal_notes = value("review-internal-notes");
+    request.updated_at = "Just now";
+    request.next_action = confirmed ? "Create quote" : (missingChecklist(request)[0] || "Review request");
+
+    if (property) {
+      property.property_type = request.intake_property_type;
+      property.bedrooms = request.bedrooms;
+      property.bathrooms = request.bathrooms;
+      property.pets_present = request.pets_present;
+      property.parking = request.parking;
+      property.cleaning_products = request.cleaning_products;
+      property.vacuum_hoover = request.vacuum_hoover;
+      property.mop = request.mop;
+      property.property_notes = request.property_notes;
+      property.cleaning_notes = request.cleaning_notes;
+      property.default_service_type = request.request_type;
+      property.default_cadence = request.preferred_cadence;
+      property.preferred_day = request.preferred_day;
+      property.preferred_time_window = request.preferred_time_window;
+    }
+
+    state.reviewRequestOpen = false;
+    toast(confirmed ? "Request marked ready to quote." : "Request review saved.");
+    refresh();
+  }
+
   function handleClick(event) {
     const routeTarget = event.target.closest("[data-route='requests']");
     if (routeTarget) {
       state.selectedRequestId = null;
+      state.reviewRequestOpen = false;
       state.moreOpen = false;
       return false;
     }
@@ -1101,10 +1379,17 @@
       refresh();
       return true;
     }
+    const reviewModal = event.target.closest("[data-review-modal]");
+    if (event.target.closest("[data-review-backdrop]") && !reviewModal) {
+      state.reviewRequestOpen = false;
+      refresh();
+      return true;
+    }
 
     const requestId = event.target.closest("[data-request-id]")?.dataset.requestId;
     if (requestId) {
       state.selectedRequestId = requestId;
+      state.reviewRequestOpen = false;
       state.moreOpen = false;
       refresh();
       return true;
@@ -1137,8 +1422,23 @@
       saveNewRequest();
       return true;
     }
+    if (action === "open-review-request") {
+      state.reviewRequestOpen = true;
+      refresh();
+      return true;
+    }
+    if (action === "close-review-request") {
+      state.reviewRequestOpen = false;
+      refresh();
+      return true;
+    }
+    if (action === "save-review-request") {
+      saveReviewRequest();
+      return true;
+    }
     if (action === "back-to-list") {
       state.selectedRequestId = null;
+      state.reviewRequestOpen = false;
       state.moreOpen = false;
       refresh();
       return true;

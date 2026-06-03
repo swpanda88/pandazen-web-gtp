@@ -576,10 +576,10 @@
       <div style="position: relative; display: inline-block;">
         ${button("Actions ▾", `toggle-row-menu:${quote.id}`, "small ghost")}
         ${isOpen ? `
-          <div style="position: absolute; right: 0; ${["rejected", "expired", "superseded", "archived"].includes(quote.status) ? "bottom: 100%; margin-bottom: 4px;" : "top: 100%; margin-top: 4px;"} background: #fff; border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 100; min-width: 160px; padding: 4px 0; text-align: left;">
+          <div style="position: absolute; right: 0; ${["rejected", "expired", "superseded", "archived"].includes(quote.status) ? "bottom: 100%; margin-bottom: 4px;" : "top: 100%; margin-top: 4px;"} background: #fff; border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 100; min-width: 160px; padding: 4px 0; text-align: left;">
             ${actions.join("")}
           </div>
-          <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 99;" data-quote-action="close-row-menu"></div>
+          <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 99;" data-quote-action="close-row-menu"></div>
         ` : ""}
       </div>
     `;
@@ -628,10 +628,10 @@
       }).join("");
 
       return `
-        <div style="margin-bottom: 48px; background: #fff; border: 1px solid var(--border); border-top: 3px solid #4ade80; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
-          <h3 style="font-size: 15px; margin: 0; padding: 12px 16px; background: #f0fdf4; border-bottom: 1px solid var(--border); color: var(--text); display: flex; align-items: center; gap: 8px; border-top-left-radius: 5px; border-top-right-radius: 5px;">
+        <div style="margin-bottom: 48px; background: var(--surface); border: 1px solid var(--line); border-top: 3px solid var(--line-strong); border-radius: 8px; box-shadow: var(--shadow);">
+          <h3 style="font-size: 15px; margin: 0; padding: 12px 16px; background: var(--surface-soft); border-bottom: 1px solid var(--line); color: var(--text); display: flex; align-items: center; gap: 8px; border-top-left-radius: 5px; border-top-right-radius: 5px;">
             ${escapeHtml(title)}
-            <span style="background:var(--bg); color:var(--text); padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; border: 1px solid var(--border);">${list.length}</span>
+            <span style="background:var(--bg); color:var(--text); padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; border: 1px solid var(--line);">${list.length}</span>
           </h3>
           <table class="quotes-group-table" style="width: 100%; border-collapse: collapse; table-layout: fixed;">
             <thead>

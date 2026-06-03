@@ -1345,14 +1345,19 @@
       return true;
     }
 
-    if (event.target.closest("[data-quote-modal]") && !event.target.closest("[data-quote-action]")) return false;
+    const actionTarget = event.target.closest("[data-quote-action]");
+    const modalTarget = event.target.closest("[data-quote-modal]");
 
-    const target = event.target.closest("[data-quote-action]");
-    if (!target) return false;
+    // Ignore clicks inside the modal that don't hit a specific action button (they shouldn't trigger the backdrop)
+    if (modalTarget && actionTarget && actionTarget.classList.contains("quote-modal-backdrop")) {
+      return false;
+    }
+
+    if (!actionTarget) return false;
     event.preventDefault();
     event.stopPropagation();
 
-    const action = target.dataset.quoteAction;
+    const action = actionTarget.dataset.quoteAction;
     const quote = selectedQuote();
 
     if (action === "close-editor" || action === "back-to-list") {

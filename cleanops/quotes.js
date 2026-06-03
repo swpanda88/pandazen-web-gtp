@@ -396,7 +396,7 @@
       structure,
       estimates,
       considerations: considerations.length ? considerations : ["No extra considerations yet"],
-      warning: ready ? "" : "This request is not ready to quote yet. Review the request before sending."
+      warning: ready ? "Based on request details and template rules." : "This request is not ready to quote yet. Review the request before sending."
     };
   }
 
@@ -576,7 +576,7 @@
       <div style="position: relative; display: inline-block;">
         ${button("Actions ▾", `toggle-row-menu:${quote.id}`, "small ghost")}
         ${isOpen ? `
-          <div style="position: absolute; right: 0; top: 100%; margin-top: 4px; background: #fff; border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 100; min-width: 160px; padding: 4px 0; text-align: left;">
+          <div style="position: absolute; right: 0; ${["rejected", "expired", "superseded", "archived"].includes(quote.status) ? "bottom: 100%; margin-bottom: 4px;" : "top: 100%; margin-top: 4px;"} background: #fff; border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 100; min-width: 160px; padding: 4px 0; text-align: left;">
             ${actions.join("")}
           </div>
           <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 99;" data-quote-action="close-row-menu"></div>
@@ -628,8 +628,8 @@
       }).join("");
 
       return `
-        <div style="margin-bottom: 48px; background: #fff; border: 1px solid var(--border); border-top: 3px solid #94a3b8; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
-          <h3 style="font-size: 15px; margin: 0; padding: 12px 16px; background: #f8fafc; border-bottom: 1px solid var(--border); color: var(--text); display: flex; align-items: center; gap: 8px; border-top-left-radius: 5px; border-top-right-radius: 5px;">
+        <div style="margin-bottom: 48px; background: #fff; border: 1px solid var(--border); border-top: 3px solid #4ade80; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+          <h3 style="font-size: 15px; margin: 0; padding: 12px 16px; background: #f0fdf4; border-bottom: 1px solid var(--border); color: var(--text); display: flex; align-items: center; gap: 8px; border-top-left-radius: 5px; border-top-right-radius: 5px;">
             ${escapeHtml(title)}
             <span style="background:var(--bg); color:var(--text); padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; border: 1px solid var(--border);">${list.length}</span>
           </h3>
@@ -731,7 +731,7 @@
                     <input type="date" class="quote-input" data-quote-field="created_at" value="${escapeHtml(quote.created_at || "")}"${dis}>
                   </label>
                   <label class="client-field">Valid Until
-                    <input type="text" class="quote-input" data-quote-field="valid_until" value="${escapeHtml(quote.valid_until || "")}"${dis}>
+                    <input type="date" class="quote-input" data-quote-field="valid_until" value="${escapeHtml(quote.valid_until && quote.valid_until !== 'To confirm' ? quote.valid_until : '')}"${dis}>
                   </label>
                 </div>
               </div>
@@ -739,10 +739,16 @@
               <!-- DOC CLIENT DETAILS -->
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 40px; padding: 20px; background: #f9fafb; border-radius: 8px;">
                 <label class="client-field">Client
-                  <input type="text" class="quote-input" data-quote-field="client" value="${escapeHtml(quote.client || "")}"${dis}>
+                  <select class="quote-input" data-quote-field="client"${dis}>
+                    <option value="">Select a client...</option>
+                    ${data.clients.map(c => `<option value="${escapeHtml(c.display_name)}"${quote.client === c.display_name ? " selected" : ""}>${escapeHtml(c.display_name)}</option>`).join("")}
+                  </select>
                 </label>
                 <label class="client-field">Property
-                  <input type="text" class="quote-input" data-quote-field="property" value="${escapeHtml(quote.property || "")}"${dis}>
+                  <select class="quote-input" data-quote-field="property"${dis}>
+                    <option value="">Select a property...</option>
+                    ${data.properties.filter(p => !quote.client || p.client_name === quote.client).map(p => `<option value="${escapeHtml(p.address)}"${quote.property === p.address ? " selected" : ""}>${escapeHtml(p.address)}</option>`).join("")}
+                  </select>
                 </label>
               </div>
 
@@ -1406,8 +1412,10 @@
     if (field === "included_scope" || field === "exclusions") quote[field] = parseLines(target.value);
     else quote[field] = target.value;
     markDocumentNeedsUpdate(quote);
-    quote.updated_at = "2026-06-03";
+    quote.updated_at = new Date().toISOString().split("T")[0];
     updateQuoteCompatibility(quote);
+    if (field === "client") quote.property = "";
+    if (field === "client" || field === "property" || field === "valid_until") refresh();
   }
 
   function saveQuoteItemField(target) {

@@ -1,6 +1,6 @@
 window.CLEANOPS_DATA = {
   catalogue: [
-    { item_id: "cat-1", code: "SRV-REG", name: "Regular domestic clean", default_description: "Standard recurring domestic cleaning service.", default_pricing_type: "recurring", default_unit: "visit", default_rate: 90, billable: true },
+    { item_id: "cat-1", code: "SRV-REG", name: "Regular domestic clean", default_description: "Standard recurring domestic cleaning service.", default_pricing_type: "per_visit", default_unit: "visit", default_rate: 90, billable: true },
     { item_id: "cat-2", code: "SRV-INIT", name: "Initial deep clean", default_description: "Comprehensive initial clean to bring the property up to baseline standard before recurring service.", default_pricing_type: "one_off", default_unit: "visit", default_rate: 240, billable: true },
     { item_id: "cat-3", code: "SRV-DEEP", name: "One-off deep clean", default_description: "Intensive deep clean including all standard areas, skirting boards, inside windows, and deep dusting.", default_pricing_type: "one_off", default_unit: "visit", default_rate: 260, billable: true },
     { item_id: "cat-4", code: "SRV-EOT", name: "End of tenancy clean", default_description: "Full end of tenancy clean designed to meet inventory check-out standards.", default_pricing_type: "one_off", default_unit: "visit", default_rate: 350, billable: true },
@@ -687,7 +687,7 @@ window.CLEANOPS_DATA = {
           quantity_or_hours: 3,
           rate: 30,
           amount: 90,
-          type: "recurring",
+          type: "per_visit",
           optional: false,
           included: true
         }
@@ -786,7 +786,7 @@ window.CLEANOPS_DATA = {
           quantity_or_hours: 3,
           rate: 30,
           amount: 90,
-          type: "recurring",
+          type: "per_visit",
           optional: false,
           included: true
         },

@@ -146,9 +146,8 @@
 
   const itemTypeLabels = {
     one_off: "One-off",
-    recurring: "Recurring",
-    monthly: "Monthly",
-    optional: "Optional"
+    per_visit: "Per visit",
+    monthly: "Monthly"
   };
 
   const considerationLabels = {
@@ -305,7 +304,7 @@
         totals.optional += amount;
       } else if (item.type === "monthly") {
         totals.monthly += amount;
-      } else if (item.type === "recurring") {
+      } else if (item.type === "per_visit" || item.type === "recurring") {
         totals.recurring += amount;
       } else {
         totals.oneOff += amount;
@@ -528,44 +527,123 @@
     return renderList();
   }
 
-  function quoteActionButtons(quote) {
+  function renderRowActionsMenu(quote) {
+    const isOpen = state.quoteRowMenuId === quote.id;
+
+    let actions = [];
     if (["draft", "ready_to_send"].includes(quote.status)) {
-      return `${button("Edit draft", `open-quote:${quote.id}`, "small primary")}
-              ${(!quote.document_status || quote.document_status === "not_generated") ? button("Generate doc", `open-document-modal-id:${quote.id}`, "small ghost") : button("Preview doc", `open-a4-view-id:${quote.id}`, "small ghost")}`;
+      actions.push(`<button class="quote-dropdown-item" data-quote-action="open-quote:${quote.id}">Edit draft</button>`);
+      if (!quote.document_status || quote.document_status === "not_generated") {
+        actions.push(`<button class="quote-dropdown-item" data-quote-action="open-document-modal-id:${quote.id}">Generate doc</button>`);
+      } else {
+        actions.push(`<button class="quote-dropdown-item" data-quote-action="open-a4-view-id:${quote.id}">Preview doc</button>`);
+      }
+      actions.push(`<button class="quote-dropdown-item" data-quote-action="duplicate-quote:${quote.id}">Duplicate</button>`);
+      actions.push(`<button class="quote-dropdown-item" data-quote-action="create-alternative:${quote.id}">Create alternative</button>`);
+      actions.push(`<button class="quote-dropdown-item text-danger" data-quote-action="archive-quote:${quote.id}">Archive draft</button>`);
+    } else if (["sent", "viewed"].includes(quote.status)) {
+      actions.push(`<button class="quote-dropdown-item" data-quote-action="open-quote:${quote.id}">View / Revise</button>`);
+      actions.push(`<button class="quote-dropdown-item" data-quote-action="open-a4-view-id:${quote.id}">Preview doc</button>`);
+      actions.push(`<div class="quote-dropdown-divider"></div>`);
+      actions.push(`<button class="quote-dropdown-item" data-quote-action="mark-accepted:${quote.id}">Mark accepted</button>`);
+      actions.push(`<button class="quote-dropdown-item" data-quote-action="mark-rejected:${quote.id}">Mark rejected</button>`);
+      actions.push(`<div class="quote-dropdown-divider"></div>`);
+      actions.push(`<button class="quote-dropdown-item" data-quote-action="create-alternative:${quote.id}">Create alternative</button>`);
+      actions.push(`<button class="quote-dropdown-item text-danger" data-quote-action="archive-quote:${quote.id}">Archive</button>`);
+    } else if (["accepted", "converted_to_job"].includes(quote.status)) {
+      actions.push(`<button class="quote-dropdown-item" data-quote-action="open-quote:${quote.id}">View</button>`);
+      actions.push(`<button class="quote-dropdown-item" data-quote-action="open-a4-view-id:${quote.id}">Preview doc</button>`);
+      if (quote.status === "accepted" && !quote.job_id) {
+        actions.push(`<button class="quote-dropdown-item" data-quote-action="convert-to-job:${quote.id}">Convert to job</button>`);
+      }
+      actions.push(`<button class="quote-dropdown-item" data-quote-action="duplicate-quote:${quote.id}">Duplicate</button>`);
+      actions.push(`<button class="quote-dropdown-item text-danger" data-quote-action="archive-quote:${quote.id}">Archive</button>`);
     } else {
-      return `${button("View / Revise", `open-quote:${quote.id}`, "small")}
-              ${button("Preview doc", `open-a4-view-id:${quote.id}`, "small ghost")}`;
+      actions.push(`<button class="quote-dropdown-item" data-quote-action="open-quote:${quote.id}">View</button>`);
+      actions.push(`<button class="quote-dropdown-item" data-quote-action="open-a4-view-id:${quote.id}">Preview doc</button>`);
+      actions.push(`<button class="quote-dropdown-item" data-quote-action="duplicate-quote:${quote.id}">Duplicate</button>`);
+      actions.push(`<button class="quote-dropdown-item" data-quote-action="restore-quote:${quote.id}">Restore</button>`);
     }
+
+    return `
+      <div style="position: relative; display: inline-block;">
+        ${button("Actions ▾", `toggle-row-menu:${quote.id}`, "small ghost")}
+        ${isOpen ? `
+          <div style="position: absolute; right: 0; top: 100%; margin-top: 4px; background: #fff; border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 100; min-width: 160px; padding: 4px 0; text-align: left;">
+            ${actions.join("")}
+          </div>
+          <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 99;" data-quote-action="close-row-menu"></div>
+        ` : ""}
+      </div>
+    `;
   }
 
   function renderList() {
-    const rows = quotes().map((quote) => {
-      const id = quoteId(quote);
-      const isSuperseded = quote.status === "superseded";
-      const style = isSuperseded ? "opacity: 0.6;" : "";
+    const allQuotes = quotes();
+    const drafts = allQuotes.filter(q => ["draft", "ready_to_send"].includes(q.status));
+    const sent = allQuotes.filter(q => ["sent", "viewed"].includes(q.status));
+    const accepted = allQuotes.filter(q => ["accepted", "converted_to_job"].includes(q.status));
+    const archived = allQuotes.filter(q => ["rejected", "expired", "superseded", "archived"].includes(q.status));
 
-      const docLabel = documentStatusLabels[quote.document_status || "not_generated"];
-      const docTone = documentStatusTones[quote.document_status || "not_generated"];
+    const rowMenuStyles = `
+      <style>
+        .quote-dropdown-item { padding: 8px 16px; display: block; width: 100%; text-align: left; background: none; border: none; cursor: pointer; font-size: 13px; color: var(--text); }
+        .quote-dropdown-item:hover { background: var(--surface); }
+        .quote-dropdown-item.text-danger { color: #dc2626; }
+        .quote-dropdown-divider { height: 1px; background: var(--border); margin: 4px 0; }
+        .quotes-group-table th { padding: 12px 8px; text-align: left; border-bottom: 2px solid var(--border); color: var(--text-muted); font-size: 12px; text-transform: uppercase; font-weight: 600; }
+        .quotes-group-table td { padding: 12px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+      </style>
+    `;
+
+    const renderGroup = (title, list) => {
+      if (list.length === 0) return "";
+      const rows = list.map((quote) => {
+        const isSuperseded = quote.status === "superseded" || quote.status === "archived";
+        const style = isSuperseded ? "opacity: 0.6;" : "";
+        const docLabel = documentStatusLabels[quote.document_status || "not_generated"];
+        const docTone = documentStatusTones[quote.document_status || "not_generated"];
+
+        return `
+          <tr class="quote-row" tabindex="0" style="${style}">
+            <td><strong>${escapeHtml(quoteNumber(quote))}</strong><br><span class="muted" style="font-size:12px;">v${escapeHtml(quote.version || 1)}</span></td>
+            <td>${escapeHtml(quote.client)}<br><span class="muted" style="font-size:12px;">${escapeHtml(quote.property)}</span></td>
+            <td>${escapeHtml(quote.service)}</td>
+            <td><strong>${escapeHtml(quote.total)}</strong></td>
+            <td>${quoteStatusChip(quote)}</td>
+            <td>${chip(docLabel, docTone)}</td>
+            <td>${escapeHtml(quote.valid_until || quote.updated_at || quote.created_at || "")}</td>
+            <td style="text-align:right;">
+              ${renderRowActionsMenu(quote)}
+            </td>
+          </tr>
+        `;
+      }).join("");
 
       return `
-        <tr class="quote-row" tabindex="0" style="${style}">
-          <td><strong>${escapeHtml(quoteNumber(quote))}</strong><br><span class="muted" style="font-size:12px;">v${escapeHtml(quote.version || 1)}</span></td>
-          <td>${escapeHtml(quote.client)}<br><span class="muted" style="font-size:12px;">${escapeHtml(quote.property)}</span></td>
-          <td>${escapeHtml(quote.service)}</td>
-          <td><strong>${escapeHtml(quote.total)}</strong></td>
-          <td>${quoteStatusChip(quote)}</td>
-          <td>${chip(docLabel, docTone)}</td>
-          <td>${escapeHtml(quote.valid_until || quote.updated_at || quote.created_at || "")}</td>
-          <td>
-            <div class="stack horizontal" style="gap:4px;">
-              ${quoteActionButtons(quote)}
-            </div>
-          </td>
-        </tr>
+        <div style="margin-bottom: 32px;">
+          <h3 style="font-size: 15px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); color: var(--text-muted); display: flex; align-items: center; gap: 8px;">
+            ${escapeHtml(title)}
+            <span style="background:var(--surface); color:var(--text); padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">${list.length}</span>
+          </h3>
+          <table class="quotes-group-table" style="width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr>
+                <th>Quote ref</th>
+                <th>Client / Property</th>
+                <th>Scope</th>
+                <th>Total</th>
+                <th>Status</th>
+                <th>Document</th>
+                <th>Updated / Valid</th>
+                <th style="text-align:right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
       `;
-    }).join("");
-
-    const readyRequests = requests().filter((request) => request.quote_readiness === "ready_to_quote");
+    };
 
     return `
       <div class="page-head">
@@ -576,27 +654,18 @@
         ${button("New quote", "open-new-quote", "primary")}
       </div>
       <section class="grid-detail quotes-list-layout">
-        <article class="panel" style="grid-column: span 12;">
-          <div class="filters">
+        <article class="panel pad" style="grid-column: span 12;">
+          <div class="filters" style="margin-bottom: 24px;">
             <span class="inputish">Search quotes</span>
             <span class="selectish">All statuses</span>
             <span class="selectish">This month</span>
           </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Quote ref</th>
-                <th>Client / Property</th>
-                <th>Scope / option</th>
-                <th>Total</th>
-                <th>Status</th>
-                <th>Document</th>
-                <th>Updated / Valid</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-          </table>
+          ${rowMenuStyles}
+          ${renderGroup("Drafts", drafts)}
+          ${renderGroup("Sent to customer", sent)}
+          ${renderGroup("Accepted / Converted", accepted)}
+          ${renderGroup("Archive", archived)}
+          ${allQuotes.length === 0 ? `<div style="padding: 40px; text-align: center; color: var(--text-muted);">No quotes found.</div>` : ""}
         </article>
       </section>
       ${state.newQuoteOpen ? renderNewQuoteLauncherModal() : ""}
@@ -723,17 +792,19 @@
           </div>
 
           <!-- STICKY ACTION BAR -->
-          <footer style="background: var(--surface); border-top: 1px solid var(--border); padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
-            <div class="button-row">
-              ${button("Cancel", "close-editor", "ghost")}
+          <footer style="background: var(--surface); border-top: 1px solid var(--border); padding: 16px 24px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; flex-shrink: 0;">
+            <div style="display: flex; justify-content: flex-start;">
+              ${button("Close", "close-editor", "ghost")}
+            </div>
+            <div style="display: flex; justify-content: center;">
               ${!locked ? button("Save draft", "save-draft") : ""}
             </div>
-            <div class="button-row">
+            <div style="display: flex; justify-content: flex-end; gap: 8px;">
               ${button("Preview doc", "open-a4-view", "ghost")}
               ${(!quote.document_status || quote.document_status === "not_generated") ? button("Generate doc", `open-document-modal-id:${quote.id}`, "ghost") : ""}
               ${!locked ? button("Mark ready to send", "mark-ready", "primary") : ""}
-              ${quote.status === "accepted" ? button("Convert to job", "convert-to-job", "primary") : ""}
-              ${quote.status === "accepted" ? button("Convert to invoice", "convert-to-invoice", "primary") : ""}
+              ${quote.status === "accepted" && !quote.job_id ? button("Convert to job", "convert-to-job", "primary") : ""}
+              ${(quote.status === "converted_to_job" || quote.job_id) ? button("View job", "view-job-mock", "ghost") : ""}
             </div>
           </footer>
 
@@ -1218,6 +1289,17 @@
     const nextGroup = `qg-${Date.now()}`;
     const nextNumber = `Q-${2090 + quotes().length}`;
     const ref = `${nextNumber}/01`;
+
+    let summaryText = `${requestTypeLabel(request)} for ${property?.address || property?.label || request.property || "the property"}`;
+    if (request.preferred_cadence && request.preferred_cadence !== "to_confirm") {
+      summaryText += `, ${request.preferred_cadence.replace(/_/g, " ")}`;
+    }
+    if (request.cleaning_notes) {
+      summaryText += `, focused on: ${request.cleaning_notes}`;
+    } else {
+      summaryText += `, based on the request details provided.`;
+    }
+
     let quote = {
       quote_id: `quote-${Date.now()}`,
       id: `quote-${Date.now()}`,
@@ -1238,11 +1320,11 @@
       property: property?.label || property?.address || request.property || "Property",
       service: requestTypeLabel(request),
       quote_items: buildItemsFromRequest(request),
-      client_facing_summary: `${requestTypeLabel(request)} for ${property?.label || request.property || "the property"}, based on the request details provided.`,
-      included_scope: ["Agreed priority areas", "General cleaning within quoted time", "Products and equipment as confirmed"],
-      exclusions: ["Extra specialist tasks unless listed", "Heavy descaling beyond agreed scope", "Waste removal"],
-      special_notes: request.preferred_day && request.preferred_day !== "to_confirm" ? `${labelFrom(dayLabels, request.preferred_day)} ${labelFrom(timeWindowLabels, request.preferred_time_window, "")}`.trim() : "",
-      terms: "Quote is based on current request information and may be updated if scope changes.",
+      client_facing_summary: summaryText,
+      included_scope: ["Kitchen surfaces and general clean", "Bathrooms", "Floors (vacuum and mop)", "Dusting of accessible surfaces", "Bedrooms and living areas as time allows"],
+      exclusions: ["Inside cupboards and appliances (unless added as extra)", "Heavy descaling beyond agreed scope", "Waste removal", "Moving heavy furniture"],
+      special_notes: request.preferred_day && request.preferred_day !== "to_confirm" ? `Preferred time: ${labelFrom(dayLabels, request.preferred_day)} ${labelFrom(timeWindowLabels, request.preferred_time_window, "")}`.trim() : "",
+      terms: "Quote is based on information provided and may change if scope or condition changes upon arrival. Preferred day/time subject to availability.",
       internal_notes: request.short_scoping_note || "",
       created_at: new Date().toISOString().split("T")[0],
       updated_at: new Date().toISOString().split("T")[0]
@@ -1582,6 +1664,158 @@
       state.actionsModalOpen = false;
       toast(`Created new option ${ref}`);
       refresh();
+      return true;
+    }
+
+    if (action.startsWith("toggle-row-menu:")) {
+      const qId = action.split(":")[1];
+      if (state.quoteRowMenuId === qId) {
+        state.quoteRowMenuId = null;
+      } else {
+        state.quoteRowMenuId = qId;
+      }
+      refresh();
+      return true;
+    }
+    if (action === "close-row-menu") {
+      state.quoteRowMenuId = null;
+      refresh();
+      return true;
+    }
+    if (action.startsWith("open-document-modal-id:")) {
+      const qId = action.split(":")[1];
+      const q = quotes().find(x => x.id === qId);
+      if (q) {
+        state.documentModalId = qId;
+        state.quoteRowMenuId = null;
+        refresh();
+      }
+      return true;
+    }
+    if (action.startsWith("open-a4-view-id:")) {
+      const qId = action.split(":")[1];
+      const q = quotes().find(x => x.id === qId);
+      if (q) {
+        state.a4ViewId = qId;
+        state.quoteRowMenuId = null;
+        refresh();
+      }
+      return true;
+    }
+    if (action.startsWith("duplicate-quote:")) {
+      const qId = action.split(":")[1];
+      const q = quotes().find(x => x.id === qId);
+      if (q) {
+        const nextGroup = `qg-${Date.now()}`;
+        const nextNumberBase = `Q-${2090 + quotes().length}`;
+        const ref = `${nextNumberBase}/01`;
+
+        const newQuote = {
+          ...JSON.parse(JSON.stringify(q)),
+          quote_id: `quote-${Date.now()}`,
+          id: `quote-${Date.now()}`,
+          quote_group_id: nextGroup,
+          quote_number_base: nextNumberBase,
+          version: 1,
+          quote_ref: ref,
+          quote_number: ref,
+          number: ref,
+          status: "draft",
+          document_status: "not_generated",
+          supersedes_quote_id: null,
+          created_at: new Date().toISOString().split("T")[0],
+          updated_at: new Date().toISOString().split("T")[0]
+        };
+
+        quotes().unshift(newQuote);
+        state.quoteRowMenuId = null;
+        toast(`Duplicated quote to draft ${ref}`);
+        refresh();
+      }
+      return true;
+    }
+    if (action.startsWith("create-alternative:")) {
+      const qId = action.split(":")[1];
+      const q = quotes().find(x => x.id === qId);
+      if (q) {
+        const newVersion = q.version ? q.version + 1 : 2;
+        const ref = `${q.quote_number_base || q.quote_number}/${newVersion.toString().padStart(2, "0")}`;
+
+        const newQuote = {
+          ...JSON.parse(JSON.stringify(q)),
+          quote_id: `quote-${Date.now()}`,
+          id: `quote-${Date.now()}`,
+          version: newVersion,
+          quote_ref: ref,
+          quote_number: ref,
+          number: ref,
+          status: "draft",
+          document_status: "not_generated",
+          supersedes_quote_id: q.id,
+          created_at: new Date().toISOString().split("T")[0],
+          updated_at: new Date().toISOString().split("T")[0]
+        };
+
+        quotes().unshift(newQuote);
+        state.quoteRowMenuId = null;
+        state.selectedQuoteId = newQuote.id;
+        toast(`Created alternative draft ${ref}`);
+        refresh();
+      }
+      return true;
+    }
+    if (action.startsWith("archive-quote:")) {
+      const qId = action.split(":")[1];
+      const q = quotes().find(x => x.id === qId);
+      if (q) {
+        q.status = "archived";
+        state.quoteRowMenuId = null;
+        toast(`Quote archived.`);
+        refresh();
+      }
+      return true;
+    }
+    if (action.startsWith("mark-accepted:")) {
+      const qId = action.split(":")[1];
+      const q = quotes().find(x => x.id === qId);
+      if (q) {
+        q.status = "accepted";
+        state.quoteRowMenuId = null;
+        toast(`Quote marked accepted.`);
+        refresh();
+      }
+      return true;
+    }
+    if (action.startsWith("mark-rejected:")) {
+      const qId = action.split(":")[1];
+      const q = quotes().find(x => x.id === qId);
+      if (q) {
+        q.status = "rejected";
+        state.quoteRowMenuId = null;
+        toast(`Quote marked rejected.`);
+        refresh();
+      }
+      return true;
+    }
+    if (action.startsWith("restore-quote:")) {
+      const qId = action.split(":")[1];
+      const q = quotes().find(x => x.id === qId);
+      if (q) {
+        q.status = "draft";
+        state.quoteRowMenuId = null;
+        toast(`Quote restored to draft.`);
+        refresh();
+      }
+      return true;
+    }
+    if (action.startsWith("convert-to-job:")) {
+      const qId = action.split(":")[1];
+      const q = quotes().find(x => x.id === qId);
+      if (q) {
+        toast("Convert to job is mocked for this prototype.");
+        state.quoteRowMenuId = null;
+        refresh();
+      }
       return true;
     }
 

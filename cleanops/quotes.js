@@ -701,9 +701,18 @@
             <!-- SIDEBAR: INTERNAL CONTEXT -->
             <aside style="padding: 24px; background: var(--bg); overflow-y: auto;">
               <h3 style="margin-bottom: 16px; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted);">Request Context</h3>
-              ${renderSourceRequestCard(quote, request, client, property)}
-              <div style="margin-top: 16px;"></div>
-              ${assist.ready ? "" : renderQuoteAssistCard(assist)}
+
+              ${quote.request_id ? `
+                ${renderSourceRequestCard(quote, request, client, property)}
+                <div style="margin-top: 16px;"></div>
+                ${assist.ready ? "" : renderQuoteAssistCard(assist)}
+              ` : `
+                <div class="panel pad" style="background: var(--surface); text-align: center; border: 1px dashed var(--border);">
+                  <div style="margin-bottom: 8px;">${chip("Not linked", "default")}</div>
+                  <p class="muted">Add items manually or start from a ready request.</p>
+                </div>
+              `}
+
               <div style="margin-top: 16px;"></div>
               <article class="panel pad" style="background: var(--surface);">
                 <label class="client-field wide" style="margin:0;">Internal Notes
@@ -818,7 +827,7 @@
     `;
   }
 
-  function renderNewQuoteModal() {
+  function renderNewQuoteLauncherModal() {
     const readyRequests = requests().filter((request) => request.quote_readiness === "ready_to_quote");
     const options = readyRequests.map((request) => {
       const client = requestClient(request);
@@ -828,37 +837,43 @@
     const templateOptions = (data.quoteTemplates || []).map(t => `<option value="${escapeHtml(t.id)}"${t.id === state.newQuoteTemplateId ? " selected" : ""}>${escapeHtml(t.name)}</option>`).join("");
 
     return `
-      <div class="quote-modal-backdrop" data-quote-action="close-new-quote">
-        <article class="quote-modal" role="dialog" aria-modal="true" aria-label="New quote" data-quote-modal>
-          <div class="panel-head flush">
+      <div class="quote-modal-backdrop" data-quote-action="close-new-quote-launcher">
+        <article class="quote-modal" role="dialog" aria-modal="true" aria-label="New quote launcher" data-quote-modal style="max-width: 500px;">
+          <div class="panel-head flush" style="padding-bottom: 0;">
             <div>
               <p class="eyebrow">New quote</p>
-              <h2>Start a quote draft</h2>
+              <h2>Select starting method</h2>
             </div>
-            ${iconButton("Close new quote", "close-new-quote")}
+            ${iconButton("Close", "close-new-quote-launcher")}
           </div>
-          <div class="request-form-section">
-            <label class="client-field wide">Ready request
-              <select data-new-quote-request>
+          <div class="request-form-section stack" style="gap: 24px; padding-top: 16px;">
+
+            <div style="background: var(--surface); padding: 16px; border-radius: 6px; border: 1px solid var(--border);">
+              <h3 style="font-size: 15px; margin-bottom: 8px;">Start from request</h3>
+              <p class="muted" style="margin-bottom: 12px;">Link this quote to an existing client enquiry or scoping request.</p>
+              <select data-new-quote-request style="margin-bottom: 12px; width: 100%;">
                 <option value="">Choose a ready request</option>
                 ${options}
               </select>
-            </label>
-            <label class="client-field wide" style="margin-top: 12px;">Quote template (optional)
-              <select data-new-quote-template>
-                <option value="">Blank / manual</option>
+              ${button("Start from request", "create-from-request", "primary")}
+            </div>
+
+            <div style="background: var(--surface); padding: 16px; border-radius: 6px; border: 1px solid var(--border);">
+              <h3 style="font-size: 15px; margin-bottom: 8px;">Use template</h3>
+              <p class="muted" style="margin-bottom: 12px;">Start a manual quote populated with standard items and terms.</p>
+              <select data-new-quote-template style="margin-bottom: 12px; width: 100%;">
+                <option value="">Choose a template</option>
                 ${templateOptions}
               </select>
-            </label>
-            <p class="muted" style="margin-top:12px;">For v0, request-led quoting keeps the commercial offer separate from intake and scoping.</p>
-            <div class="button-row">
-              ${button("Cancel", "close-new-quote", "ghost")}
-              ${button("Create quote", "create-from-selected-request", "primary")}
+              ${button("Use template", "create-from-template")}
             </div>
-            <hr>
-            <div style="text-align:center; padding-top: 12px;">
-              ${button("Or create blank quote without request", "create-blank-quote", "small ghost")}
+
+            <div style="background: var(--surface); padding: 16px; border-radius: 6px; border: 1px solid var(--border);">
+              <h3 style="font-size: 15px; margin-bottom: 8px;">Blank quote</h3>
+              <p class="muted" style="margin-bottom: 12px;">Start completely from scratch with no pre-filled items.</p>
+              ${button("Blank quote", "create-blank")}
             </div>
+
           </div>
         </article>
       </div>
@@ -1386,19 +1401,34 @@
       refresh();
       return true;
     }
-    if (action === "close-new-quote") {
+    if (action === "close-new-quote-launcher") {
       state.newQuoteOpen = false;
       refresh();
       return true;
     }
-    if (action === "create-from-selected-request") {
+    if (action === "create-from-request") {
       const requestId = state.newQuoteRequestId || document.querySelector("[data-new-quote-request]")?.value;
       const created = createQuoteFromRequest(requestId);
       toast(created ? `Draft opened for ${quoteNumber(created)}.` : "Choose a ready request first.");
       refresh();
       return true;
     }
-    if (action === "create-blank-quote") {
+    if (action === "create-from-template") {
+      const templateId = state.newQuoteTemplateId || document.querySelector("[data-new-quote-template]")?.value;
+      if (!templateId) {
+        toast("Choose a template first.");
+        return true;
+      }
+      state.newQuoteTemplateId = templateId;
+      state.newQuoteRequestId = null;
+      const created = createBlankQuote();
+      toast(`Draft opened using template for ${quoteNumber(created)}.`);
+      refresh();
+      return true;
+    }
+    if (action === "create-blank") {
+      state.newQuoteTemplateId = null;
+      state.newQuoteRequestId = null;
       const created = createBlankQuote();
       toast(`Blank draft opened for ${quoteNumber(created)}.`);
       refresh();

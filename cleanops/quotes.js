@@ -525,21 +525,42 @@
   }
 
   function renderInner() {
-    const quote = selectedQuote();
-    return quote ? renderDetail(quote) : renderList();
+    return renderList();
+  }
+
+  function quoteActionButtons(quote) {
+    if (["draft", "ready_to_send"].includes(quote.status)) {
+      return `${button("Edit draft", `open-quote:${quote.id}`, "small primary")}
+              ${(!quote.document_status || quote.document_status === "not_generated") ? button("Generate doc", `open-document-modal-id:${quote.id}`, "small ghost") : button("Preview doc", `open-a4-view-id:${quote.id}`, "small ghost")}`;
+    } else {
+      return `${button("View / Revise", `open-quote:${quote.id}`, "small")}
+              ${button("Preview doc", `open-a4-view-id:${quote.id}`, "small ghost")}`;
+    }
   }
 
   function renderList() {
     const rows = quotes().map((quote) => {
       const id = quoteId(quote);
+      const isSuperseded = quote.status === "superseded";
+      const style = isSuperseded ? "opacity: 0.6;" : "";
+
+      const docLabel = documentStatusLabels[quote.document_status || "not_generated"];
+      const docTone = documentStatusTones[quote.document_status || "not_generated"];
+
       return `
-        <tr class="quote-row" data-quote-id="${escapeHtml(id)}" tabindex="0">
-          <td><strong>${escapeHtml(quoteNumber(quote))}</strong></td>
-          <td>${escapeHtml(quote.client)}</td>
-          <td><strong>${escapeHtml(quote.service)}</strong><br><span class="muted">${escapeHtml(quote.property)}</span></td>
-          <td>${escapeHtml(quote.total)}</td>
+        <tr class="quote-row" tabindex="0" style="${style}">
+          <td><strong>${escapeHtml(quoteNumber(quote))}</strong><br><span class="muted" style="font-size:12px;">v${escapeHtml(quote.version || 1)}</span></td>
+          <td>${escapeHtml(quote.client)}<br><span class="muted" style="font-size:12px;">${escapeHtml(quote.property)}</span></td>
+          <td>${escapeHtml(quote.service)}</td>
+          <td><strong>${escapeHtml(quote.total)}</strong></td>
           <td>${quoteStatusChip(quote)}</td>
-          <td>${escapeHtml(quote.validUntil)}</td>
+          <td>${chip(docLabel, docTone)}</td>
+          <td>${escapeHtml(quote.valid_until || quote.updated_at || quote.created_at || "")}</td>
+          <td>
+            <div class="stack horizontal" style="gap:4px;">
+              ${quoteActionButtons(quote)}
+            </div>
+          </td>
         </tr>
       `;
     }).join("");
@@ -550,34 +571,129 @@
       <div class="page-head">
         <div>
           <h1>Quotes</h1>
-          <p>Build, send, and track cleaning quotes.</p>
+          <p>Quote register and document tracking.</p>
         </div>
         ${button("New quote", "open-new-quote", "primary")}
       </div>
       <section class="grid-detail quotes-list-layout">
-        <article class="panel">
+        <article class="panel" style="grid-column: span 12;">
           <div class="filters">
             <span class="inputish">Search quotes</span>
             <span class="selectish">All statuses</span>
             <span class="selectish">This month</span>
           </div>
           <table>
-            <thead><tr><th>Quote</th><th>Client</th><th>Service / property</th><th>Total</th><th>Status</th><th>Valid until</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Quote ref</th>
+                <th>Client / Property</th>
+                <th>Scope / option</th>
+                <th>Total</th>
+                <th>Status</th>
+                <th>Document</th>
+                <th>Updated / Valid</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
             <tbody>${rows}</tbody>
           </table>
         </article>
-        <aside class="panel pad">
-          <h2>Quote builder preview</h2>
-          <p class="muted" style="margin-top:8px">Draft commercial offers from request context, editable scope items, totals, and client-facing wording.</p>
-          <div class="stack" style="margin-top:14px">
-            <div class="field-row"><span>Ready requests</span><strong>${readyRequests.length}</strong></div>
-            <div class="field-row"><span>Draft quotes</span><strong>${quotes().filter((quote) => quote.status === "draft").length}</strong></div>
-            <div class="field-row"><span>Ready to send</span><strong>${quotes().filter((quote) => quote.status === "ready_to_send").length}</strong></div>
-            ${button("Start from request", "open-new-quote", "primary")}
-          </div>
-        </aside>
       </section>
       ${state.newQuoteOpen ? renderNewQuoteModal() : ""}
+      ${state.selectedQuoteId ? renderQuoteEditorModal(selectedQuote()) : ""}
+      ${state.documentModalId ? renderDocumentModal(quotes().find(q => q.id === state.documentModalId)) : ""}
+      ${state.a4ViewId ? renderA4DocumentView(quotes().find(q => q.id === state.a4ViewId)) : ""}
+    `;
+  }
+
+  function renderQuoteEditorModal(quote) {
+    updateQuoteCompatibility(quote);
+    const { request, client, property } = sourceSummary(quote);
+    const assist = quoteAssist(quote);
+    const totals = calculateTotals(quote);
+    const locked = isQuoteLocked(quote);
+
+    return `
+      <div class="quote-modal-backdrop" data-quote-action="close-editor">
+        <div class="quote-editor-modal" role="dialog" aria-modal="true" data-quote-modal style="width: 90vw; height: 90vh; max-width: 1400px; display: flex; flex-direction: column; background: var(--bg); border-radius: 8px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
+
+          <header class="panel-head" style="background: var(--surface); border-bottom: 1px solid var(--border); padding: 16px 24px; flex-shrink: 0;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <h2 style="margin: 0; font-size: 20px;">Quote ${escapeHtml(quoteNumber(quote))}</h2>
+                <div class="request-title-chips" style="margin-top: 8px;">
+                  ${quoteStatusChip(quote)}
+                  ${request ? quoteReadinessChip(request) : chip("No request linked", "warning")}
+                  ${chip("v" + (quote.version || 1), "info")}
+                </div>
+              </div>
+              <div class="button-row">
+                ${!locked ? button("Save & close", "close-editor") : button("Close", "close-editor")}
+              </div>
+            </div>
+          </header>
+
+          <div class="editor-body" style="flex: 1; overflow-y: auto; padding: 24px; background: var(--bg);">
+            ${locked ? `
+              <div class="banner warning" style="margin-bottom: 24px;">
+                <div style="font-weight:500; margin-bottom:8px;">This quote has already been used commercially. Create a revision to preserve history.</div>
+                <div class="button-row">
+                  ${button("Create revision", "create-revision", "primary")}
+                  ${button("Duplicate as new option", "duplicate-option")}
+                </div>
+              </div>
+            ` : ""}
+
+            <div class="quote-builder-grid" style="display: grid; grid-template-columns: 3fr 1fr; gap: 24px;">
+              <div class="stack">
+                ${renderSourceRequestCard(quote, request, client, property)}
+                ${assist.ready ? "" : renderQuoteAssistCard(assist)}
+                ${renderQuoteItemsTable(quote, locked)}
+                ${renderClientTextCard(quote, locked)}
+              </div>
+              <aside class="stack">
+                ${renderTotalsPanel(quote, totals)}
+                ${renderActionsPanel(quote, locked)}
+              </aside>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderTotalsPanel(quote, totals) {
+    return `
+      <article class="panel pad">
+        <h2>Totals</h2>
+        <div class="quote-side-totals" style="margin-top:12px;">
+          <div><span>One-off / initial</span><strong>${money(totals.oneOff)}</strong></div>
+          <div><span>Recurring visit</span><strong>${money(totals.recurring)}</strong></div>
+          <div><span>Monthly estimate</span><strong>${money(totals.monthlyEstimate)}</strong></div>
+          <div><span>Optional extras</span><strong>${money(totals.optional)}</strong></div>
+        </div>
+        <hr>
+        <div class="stack" style="margin-top:14px">
+          <div class="field-row">
+            <span>Document</span>
+            <strong>${chip(documentStatusLabels[quote.document_status || "not_generated"], documentStatusTones[quote.document_status || "not_generated"])}</strong>
+          </div>
+          ${(!quote.document_status || quote.document_status === "not_generated") ? button("Generate document", `open-document-modal-id:${quote.id}`) : ""}
+        </div>
+      </article>
+    `;
+  }
+
+  function renderActionsPanel(quote, locked) {
+    return `
+      <article class="panel pad">
+        <h2>Actions</h2>
+        <div class="stack" style="margin-top:12px">
+          ${!locked ? button("Mark ready to send", "mark-ready", "primary") : ""}
+          ${button("Preview as client", "preview-client")}
+          ${locked ? "" : button("Save draft", "save-draft")}
+        </div>
+      </article>
     `;
   }
 
@@ -639,29 +755,6 @@
     `;
   }
 
-  function renderActionsModal(quote) {
-    return `
-      <div class="quote-modal-backdrop" data-quote-action="close-actions-modal">
-        <article class="quote-modal" role="dialog" aria-modal="true" style="max-width: 400px;" data-quote-modal>
-          <div class="panel-head flush">
-            <h2>Quote actions</h2>
-            ${iconButton("Close", "close-actions-modal")}
-          </div>
-          <div class="panel-body stack" style="margin-top: 16px;">
-            ${button("Create revision", "create-revision", "primary")}
-            <p class="muted" style="margin-top: -4px; font-size: 13px;">Update this offer while preserving the previous version.</p>
-
-            ${button("Duplicate as new quote option", "duplicate-option")}
-            <p class="muted" style="margin-top: -4px; font-size: 13px;">Create a different option for the same request.</p>
-
-            ${button("View quote history", "view-history")}
-            <p class="muted" style="margin-top: -4px; font-size: 13px;">See previous versions and options.</p>
-          </div>
-        </article>
-      </div>
-    `;
-  }
-
   function renderHistoryModal(quote) {
     const groupQuotes = quotes().filter(q => q.quote_group_id === quote.quote_group_id || q.request_id === quote.request_id).sort((a,b) => b.version - a.version);
     return `
@@ -691,6 +784,84 @@
         </article>
       </div>
     `;
+  }
+
+  function renderNewQuoteModal() {
+    const readyRequests = requests().filter((request) => request.quote_readiness === "ready_to_quote");
+    const options = readyRequests.map((request) => {
+      const client = requestClient(request);
+      return `<option value="${escapeHtml(request.id)}"${request.id === state.newQuoteRequestId ? " selected" : ""}>${escapeHtml(`${request.number} - ${client?.display_name || request.client || "Client"} - ${requestTypeLabel(request)}`)}</option>`;
+    }).join("");
+
+    const templateOptions = (data.quoteTemplates || []).map(t => `<option value="${escapeHtml(t.id)}"${t.id === state.newQuoteTemplateId ? " selected" : ""}>${escapeHtml(t.name)}</option>`).join("");
+
+    return `
+      <div class="quote-modal-backdrop" data-quote-action="close-new-quote">
+        <article class="quote-modal" role="dialog" aria-modal="true" aria-label="New quote" data-quote-modal>
+          <div class="panel-head flush">
+            <div>
+              <p class="eyebrow">New quote</p>
+              <h2>Start a quote draft</h2>
+            </div>
+            ${iconButton("Close new quote", "close-new-quote")}
+          </div>
+          <div class="request-form-section">
+            <label class="client-field wide">Ready request
+              <select data-new-quote-request>
+                <option value="">Choose a ready request</option>
+                ${options}
+              </select>
+            </label>
+            <label class="client-field wide" style="margin-top: 12px;">Quote template (optional)
+              <select data-new-quote-template>
+                <option value="">Blank / manual</option>
+                ${templateOptions}
+              </select>
+            </label>
+            <p class="muted" style="margin-top:12px;">For v0, request-led quoting keeps the commercial offer separate from intake and scoping.</p>
+            <div class="button-row">
+              ${button("Cancel", "close-new-quote", "ghost")}
+              ${button("Create quote", "create-from-selected-request", "primary")}
+            </div>
+            <hr>
+            <div style="text-align:center; padding-top: 12px;">
+              ${button("Or create blank quote without request", "create-blank-quote", "small ghost")}
+            </div>
+          </div>
+        </article>
+      </div>
+    `;
+  }
+
+  function applyTemplate(quote, templateId) {
+    if (!templateId || !data.quoteTemplates) return quote;
+    const tpl = data.quoteTemplates.find(t => t.id === templateId);
+    if (!tpl) return quote;
+
+    quote.client_facing_summary = tpl.client_facing_summary || "";
+    quote.included_scope = tpl.included_scope ? tpl.included_scope.split("\n") : [];
+    quote.exclusions = tpl.exclusions ? tpl.exclusions.split("\n") : [];
+    quote.terms = tpl.terms || "";
+
+    if (tpl.items && data.catalogue) {
+      quote.quote_items = tpl.items.map(ti => {
+        const cat = data.catalogue.find(c => c.item_id === ti.catalogue_id);
+        if (!cat) return null;
+        return {
+          item_id: `qi-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
+          catalogue_id: cat.item_id,
+          name: cat.name,
+          description: cat.default_description,
+          quantity_or_hours: ti.quantity_or_hours || 1,
+          rate: cat.default_rate,
+          amount: (cat.default_rate * (ti.quantity_or_hours || 1)),
+          type: cat.default_pricing_type,
+          included: ti.included,
+          optional: ti.optional
+        };
+      }).filter(Boolean);
+    }
+    return quote;
   }
 
   function renderSourceRequestCard(quote, request, client, property) {
@@ -777,11 +948,21 @@
 
     const totals = calculateTotals(quote);
 
+    const catalogueOptions = data.catalogue ? data.catalogue.map(cat => `<option value="${cat.item_id}">${escapeHtml(cat.name)} — ${money(cat.default_rate)}</option>`).join("") : "";
+
     return `
       <article class="panel quote-items-panel">
         <div class="panel-head">
           <h2>Quote items</h2>
-          ${!locked ? button("Add row", "add-item", "small primary") : ""}
+          ${!locked ? `
+            <div style="display:flex; gap:8px;">
+              <select class="selectish" data-quote-action="add-catalogue-item" style="max-width:200px;">
+                <option value="">+ Add from catalogue...</option>
+                ${catalogueOptions}
+              </select>
+              ${button("Add blank row", "add-item", "small ghost")}
+            </div>
+          ` : ""}
         </div>
         <div class="quote-table-scroll">
           <table class="quote-items-table">
@@ -1081,7 +1262,7 @@
     const nextGroup = `qg-${Date.now()}`;
     const nextNumber = `Q-${2090 + quotes().length}`;
     const ref = `${nextNumber}/01`;
-    const quote = {
+    let quote = {
       quote_id: `quote-${Date.now()}`,
       id: `quote-${Date.now()}`,
       quote_group_id: nextGroup,
@@ -1092,9 +1273,9 @@
       number: ref,
       status: "draft",
       document_status: "not_generated",
-      client_id: request.client_id,
-      property_id: request.property_id,
-      request_id: request.id,
+      client_id: client?.id || "",
+      property_id: property?.id || "",
+      request_id: requestId,
       pricing_basis: request.pricing_basis || "to_confirm",
       valid_until: "To confirm",
       client: client?.display_name || request.client || "Client",
@@ -1107,12 +1288,17 @@
       special_notes: request.preferred_day && request.preferred_day !== "to_confirm" ? `${labelFrom(dayLabels, request.preferred_day)} ${labelFrom(timeWindowLabels, request.preferred_time_window, "")}`.trim() : "",
       terms: "Quote is based on current request information and may be updated if scope changes.",
       internal_notes: request.short_scoping_note || "",
-      created_at: "2026-06-03",
-      updated_at: "2026-06-03"
+      created_at: new Date().toISOString().split("T")[0],
+      updated_at: new Date().toISOString().split("T")[0]
     };
+
+    if (state.newQuoteTemplateId) {
+      quote = applyTemplate(quote, state.newQuoteTemplateId);
+    }
+
     quotes().unshift(quote);
     updateQuoteCompatibility(quote);
-    state.selectedQuoteId = quoteId(quote);
+    state.selectedQuoteId = quote.id;
     state.newQuoteOpen = false;
     return quote;
   }
@@ -1123,7 +1309,7 @@
     const nextGroup = `qg-${Date.now()}`;
     const nextNumber = `Q-${2090 + quotes().length}`;
     const ref = `${nextNumber}/01`;
-    const quote = {
+    let quote = {
       quote_id: `quote-${Date.now()}`,
       id: `quote-${Date.now()}`,
       quote_group_id: nextGroup,
@@ -1139,17 +1325,27 @@
       request_id: "",
       pricing_basis: "to_confirm",
       valid_until: "To confirm",
+      client: client?.display_name || "Client",
+      property: property?.label || property?.address || "Property",
+      service: "General cleaning",
       quote_items: [newItem()],
       client_facing_summary: "",
       included_scope: [],
       exclusions: [],
       special_notes: "",
       terms: "",
-      internal_notes: ""
+      internal_notes: "",
+      created_at: new Date().toISOString().split("T")[0],
+      updated_at: new Date().toISOString().split("T")[0]
     };
+
+    if (state.newQuoteTemplateId) {
+      quote = applyTemplate(quote, state.newQuoteTemplateId);
+    }
+
     quotes().unshift(quote);
     updateQuoteCompatibility(quote);
-    state.selectedQuoteId = quoteId(quote);
+    state.selectedQuoteId = quote.id;
     state.newQuoteOpen = false;
     return quote;
   }
@@ -1203,7 +1399,7 @@
     const action = target.dataset.quoteAction;
     const quote = selectedQuote();
 
-    if (action === "back-to-list") {
+    if (action === "close-editor" || action === "back-to-list") {
       state.selectedQuoteId = null;
       state.previewQuoteId = null;
       state.newQuoteOpen = false;
@@ -1409,6 +1605,38 @@
     const target = event.target;
     if (target.matches("[data-new-quote-request]")) {
       state.newQuoteRequestId = target.value;
+      return;
+    }
+    if (target.matches("[data-new-quote-template]")) {
+      state.newQuoteTemplateId = target.value;
+      return;
+    }
+    if (target.matches("[data-quote-action='add-catalogue-item']")) {
+      const catId = target.value;
+      if (!catId) return;
+
+      const quote = selectedQuote();
+      if (!quote) return;
+
+      const catItem = window.CLEANOPS_DATA.catalogue.find(c => c.item_id === catId);
+      if (catItem) {
+        quote.quote_items = quote.quote_items || [];
+        quote.quote_items.push({
+          item_id: `qi-${Date.now()}`,
+          catalogue_id: catItem.item_id,
+          name: catItem.name,
+          description: catItem.default_description,
+          quantity_or_hours: 1,
+          rate: catItem.default_rate,
+          amount: catItem.default_rate,
+          type: catItem.default_pricing_type,
+          included: true,
+          optional: false
+        });
+        updateQuoteCompatibility(quote);
+        refresh();
+      }
+      target.value = "";
       return;
     }
     if (target.matches("[data-quote-field]")) {

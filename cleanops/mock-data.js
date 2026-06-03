@@ -1,4 +1,62 @@
 window.CLEANOPS_DATA = {
+  catalogue: [
+    { item_id: "cat-1", code: "SRV-REG", name: "Regular domestic clean", default_description: "Standard recurring domestic cleaning service.", default_pricing_type: "recurring", default_unit: "visit", default_rate: 90, billable: true },
+    { item_id: "cat-2", code: "SRV-INIT", name: "Initial deep clean", default_description: "Comprehensive initial clean to bring the property up to baseline standard before recurring service.", default_pricing_type: "one_off", default_unit: "visit", default_rate: 240, billable: true },
+    { item_id: "cat-3", code: "SRV-DEEP", name: "One-off deep clean", default_description: "Intensive deep clean including all standard areas, skirting boards, inside windows, and deep dusting.", default_pricing_type: "one_off", default_unit: "visit", default_rate: 260, billable: true },
+    { item_id: "cat-4", code: "SRV-EOT", name: "End of tenancy clean", default_description: "Full end of tenancy clean designed to meet inventory check-out standards.", default_pricing_type: "one_off", default_unit: "visit", default_rate: 350, billable: true },
+    { item_id: "cat-5", code: "SRV-COM", name: "Commercial cleaning", default_description: "Commercial cleaning for office or retail spaces.", default_pricing_type: "monthly", default_unit: "month", default_rate: 650, billable: true },
+    { item_id: "cat-6", code: "ADD-OVEN", name: "Oven clean", default_description: "Professional deep cleaning of one standard single or double oven.", default_pricing_type: "one_off", default_unit: "fixed", default_rate: 65, billable: true },
+    { item_id: "cat-7", code: "ADD-FRIDGE", name: "Inside fridge/freezer", default_description: "Deep clean of inside fridge and freezer (must be defrosted).", default_pricing_type: "one_off", default_unit: "fixed", default_rate: 40, billable: true },
+    { item_id: "cat-8", code: "ADD-CUPBOARDS", name: "Inside cupboards", default_description: "Cleaning inside all kitchen and bathroom cupboards (must be emptied).", default_pricing_type: "one_off", default_unit: "fixed", default_rate: 50, billable: true },
+    { item_id: "cat-9", code: "PRD-INC", name: "Cleaning products & equipment", default_description: "PandaZen will supply all required professional cleaning chemicals and equipment.", default_pricing_type: "one_off", default_unit: "fixed", default_rate: 0, billable: false },
+    { item_id: "cat-10", code: "EXP-PARK", name: "Parking/permit allowance", default_description: "Allowance for required paid parking or visitor permits.", default_pricing_type: "one_off", default_unit: "fixed", default_rate: 15, billable: true },
+    { item_id: "cat-11", code: "COM-CONS", name: "Commercial washroom consumables", default_description: "Monthly supply of hand towels, toilet tissue, and hand wash.", default_pricing_type: "monthly", default_unit: "month", default_rate: 85, billable: true }
+  ],
+
+  quoteTemplates: [
+    {
+      id: "tpl-1",
+      name: "Initial clean + weekly domestic",
+      client_facing_summary: "Thank you for enquiring with PandaZen. We are pleased to provide this quote for bringing your home up to a brilliant standard with an initial deep clean, followed by a regular weekly maintenance service.",
+      included_scope: "Initial visit:\n- Deep clean of all rooms\n- Inside windows and frames\n- Skirting boards and doors\n- Deep dusting of all surfaces\n- Full bathroom descaling\n\nWeekly service:\n- Dusting and wiping all accessible surfaces\n- Vacuuming and mopping floors\n- Cleaning bathrooms and kitchen surfaces\n- Emptying bins",
+      exclusions: "Moving heavy furniture\nCleaning exterior windows\nCleaning inside fridge/oven (unless added as extra)",
+      terms: "Initial clean must be completed before weekly service commences.\nRequires 48 hours notice for cancellation to avoid full charge.",
+      items: [
+        { catalogue_id: "cat-2", quantity_or_hours: 1, optional: false, included: true },
+        { catalogue_id: "cat-1", quantity_or_hours: 1, optional: false, included: true },
+        { catalogue_id: "cat-9", quantity_or_hours: 1, optional: false, included: true },
+        { catalogue_id: "cat-6", quantity_or_hours: 1, optional: true, included: false }
+      ]
+    },
+    {
+      id: "tpl-2",
+      name: "One-off deep clean",
+      client_facing_summary: "We are pleased to provide this quote for an intensive one-off deep clean of your property.",
+      included_scope: "Full deep clean of all rooms\nInside windows\nSkirting boards, architraves, and doors\nFull bathroom descaling\nKitchen deep clean (exterior of appliances)",
+      exclusions: "End of tenancy guarantee not applicable for general deep cleans.\nCleaning inside appliances (unless selected).",
+      terms: "Payment due upon completion of service.\nRequires 48 hours notice for cancellation.",
+      items: [
+        { catalogue_id: "cat-3", quantity_or_hours: 1, optional: false, included: true },
+        { catalogue_id: "cat-9", quantity_or_hours: 1, optional: false, included: true },
+        { catalogue_id: "cat-6", quantity_or_hours: 1, optional: true, included: false },
+        { catalogue_id: "cat-8", quantity_or_hours: 1, optional: true, included: false }
+      ]
+    },
+    {
+      id: "tpl-3",
+      name: "Commercial monthly contract",
+      client_facing_summary: "Thank you for the opportunity to quote for your commercial cleaning requirements. Our team will ensure a professional and hygienic environment for your staff and visitors.",
+      included_scope: "Daily/weekly cleaning as per agreed schedule\nWashroom sanitisation\nKitchen area cleaning\nDesks and surfaces (clear areas only)\nFloors vacuumed and mopped\nEmptying recycling and waste bins",
+      exclusions: "Cleaning personal items on desks\nIT equipment cleaning (screens/keyboards)\nDeep carpet extraction (quoted separately)",
+      terms: "Monthly rolling contract with 30 days notice.\nInvoices issued on the 1st of the month, 14 days payment terms.",
+      items: [
+        { catalogue_id: "cat-5", quantity_or_hours: 1, optional: false, included: true },
+        { catalogue_id: "cat-9", quantity_or_hours: 1, optional: false, included: true },
+        { catalogue_id: "cat-11", quantity_or_hours: 1, optional: true, included: false }
+      ]
+    }
+  ],
+
   navItems: [
     { id: "home", label: "Home", icon: "home" },
     { id: "schedule", label: "Schedule", icon: "calendar" },

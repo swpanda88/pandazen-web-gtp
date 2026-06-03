@@ -1,5 +1,8 @@
 # Cleaning Company Management Software Specification
 
+> [!IMPORTANT]
+> **Active Implementation Note**: This document outlines the initial broad requirements and general business goals for CleanOps. For the active, true state of the application's data semantics, architectural decisions, and current UI progress, please refer to `docs/cleanops-architecture-and-data.md` as the single source of truth.
+
 Version: 1.1  
 Prepared for: UK-based cleaning company operations  
 Product type: Web application with mobile-first field staff experience  

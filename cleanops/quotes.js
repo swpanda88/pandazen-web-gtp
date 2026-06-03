@@ -746,7 +746,7 @@
                 <label class="client-field">Property
                   <select class="quote-input" data-quote-field="property"${dis}>
                     <option value="">Select a property...</option>
-                    ${data.properties.filter(p => !quote.client || p.client_name === quote.client).map(p => `<option value="${escapeHtml(p.address)}"${quote.property === p.address ? " selected" : ""}>${escapeHtml(p.address)}</option>`).join("")}
+                    ${clients().flatMap(c => (c.properties || []).map(p => ({ address: p.address, client_name: c.display_name }))).filter(p => !quote.client || p.client_name === quote.client).map(p => `<option value="${escapeHtml(p.address)}"${quote.property === p.address ? " selected" : ""}>${escapeHtml(p.address)}</option>`).join("")}
                   </select>
                 </label>
               </div>

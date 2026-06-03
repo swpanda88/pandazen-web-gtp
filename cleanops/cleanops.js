@@ -189,9 +189,9 @@
           <article class="panel pad">
             <div class="side-section">
               <h2>Revenue snapshot</h2>
-              <div class="field-row"><span>This month</span><strong>GBP 24,860</strong></div>
-              <div class="field-row"><span>Recurring</span><strong>GBP 14,120</strong></div>
-              <div class="field-row"><span>Overdue</span><strong>GBP 930</strong></div>
+              <div class="field-row"><span>This month</span><strong>£24,860</strong></div>
+              <div class="field-row"><span>Recurring</span><strong>£14,120</strong></div>
+              <div class="field-row"><span>Overdue</span><strong>£930</strong></div>
             </div>
             <div class="side-section">
               <h2>Staff today</h2>
@@ -358,6 +358,7 @@
   }
 
   function renderQuotes() {
+    if (window.CleanOpsQuotes?.render) return window.CleanOpsQuotes.render();
     const rows = data.quotes.map((quote) => `
       <tr>
         <td>${escapeHtml(quote.number)}</td>
@@ -632,6 +633,8 @@
     if (safeRoute === "schedule") window.CleanOpsSchedule?.afterRender?.();
     window.location.hash = safeRoute;
   }
+
+  window.CleanOpsShell.navigate = navigate;
 
   function handleDocumentClick(event) {
     const routeTarget = event.target.closest("[data-route]");

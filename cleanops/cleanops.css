@@ -29,6 +29,7 @@
 html {
   min-width: 320px;
   background: var(--bg);
+  overflow-y: scroll;
 }
 
 body {
@@ -831,6 +832,201 @@ tr:last-child td {
 
 .quote-assist .side-section h2 {
   margin-bottom: 8px;
+}
+
+.quotes-list-layout {
+  grid-template-columns: minmax(0, 1fr) 310px;
+}
+
+.quote-row {
+  cursor: pointer;
+}
+
+.quote-row:hover td {
+  background: #fbfbf8;
+}
+
+.quote-builder-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 18px;
+  align-items: start;
+}
+
+.panel-head.flush {
+  min-height: auto;
+  margin: -16px -16px 0;
+}
+
+.link-button {
+  border: 0;
+  background: transparent;
+  color: var(--green);
+  padding: 0;
+  font: inherit;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.quote-source-grid .request-note-block strong {
+  line-height: 1.45;
+}
+
+.quote-assist-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.quote-assist-grid .wide {
+  grid-column: 1 / -1;
+}
+
+.notice {
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+  padding: 10px 12px;
+  color: var(--text);
+  font-weight: 680;
+  line-height: 1.45;
+}
+
+.notice.warning {
+  border-color: #e5d3aa;
+  background: #fff9ea;
+}
+
+.quote-items-panel {
+  overflow: hidden;
+}
+
+.quote-table-scroll {
+  overflow-x: auto;
+}
+
+.quote-items-table {
+  min-width: 980px;
+}
+
+.quote-items-table th:first-child,
+.quote-items-table td:first-child {
+  width: 48px;
+  text-align: center;
+}
+
+.quote-input {
+  width: 100%;
+  min-height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 7px 8px;
+  font: inherit;
+  font-weight: 650;
+}
+
+.quote-input.mini {
+  width: 76px;
+}
+
+.quote-textarea {
+  min-height: 54px;
+  resize: vertical;
+}
+
+.schedule-check.compact {
+  min-height: auto;
+  justify-content: center;
+  gap: 6px;
+}
+
+.quote-totals-footer,
+.quote-side-totals {
+  display: grid;
+  gap: 8px;
+}
+
+.quote-totals-footer {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-top: 1px solid var(--line);
+  background: #fbfbf8;
+  padding: 12px 14px;
+}
+
+.quote-totals-footer div,
+.quote-side-totals div {
+  display: grid;
+  gap: 3px;
+}
+
+.quote-totals-footer span,
+.quote-side-totals span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 720;
+}
+
+.quote-totals-footer strong,
+.quote-side-totals strong {
+  color: var(--text);
+  font-weight: 780;
+}
+
+.quote-summary-panel {
+  position: sticky;
+  top: 18px;
+}
+
+.quote-side-totals {
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+  padding: 12px;
+}
+
+.quote-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 42;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  overflow: auto;
+  background: rgba(18, 50, 53, .18);
+  padding: 46px 18px;
+}
+
+.quote-modal {
+  width: min(760px, 100%);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 20px 70px rgba(18, 50, 53, .18);
+  padding: 16px;
+}
+
+.quote-preview {
+  width: min(720px, 100%);
+}
+
+.quote-preview-body {
+  display: grid;
+  gap: 14px;
+  padding-top: 16px;
+  line-height: 1.55;
+}
+
+.quote-preview-body h1 {
+  font-size: 24px;
+}
+
+.quote-preview-body h3 {
+  font-size: 15px;
 }
 
 .request-side-actions {
@@ -2104,7 +2300,10 @@ tr.status-risk td:first-child {
   .property-grid,
   .route-strip,
   .schedule-layout,
-  .map-shell {
+  .map-shell,
+  .quote-builder-grid,
+  .quote-assist-grid,
+  .quote-totals-footer {
     grid-template-columns: 1fr;
   }
 
@@ -2193,7 +2392,72 @@ tr.status-risk td:first-child {
   .client-form-grid,
   .request-form-grid,
   .request-summary-grid,
-  .request-note-grid {
+  .request-note-grid,
+  .quote-source-grid {
     grid-template-columns: 1fr;
+  }
+
+  .quote-modal-backdrop {
+    padding: 18px 12px;
+  }
+}
+
+/* --- A4 Document View --- */
+.a4-document-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  z-index: 9999;
+  display: flex;
+  justify-content: center;
+  padding: 40px 18px;
+  overflow-y: auto;
+}
+
+.a4-document {
+  background: #fff;
+  width: min(800px, 100%);
+  min-height: 1056px;
+  padding: 60px 48px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: system-ui, -apple-system, sans-serif;
+  margin: 0 auto;
+  position: relative;
+}
+
+.a4-header {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 24px;
+  margin-bottom: 32px;
+}
+
+.a4-client-block {
+  margin-bottom: 32px;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .a4-document, .a4-document * {
+    visibility: visible;
+  }
+  .a4-document {
+    position: absolute;
+    left: 0;
+    top: 0;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    min-height: auto;
+    box-shadow: none;
+    border: none;
+  }
+  .no-print {
+    display: none !important;
   }
 }

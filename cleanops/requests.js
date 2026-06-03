@@ -1441,7 +1441,16 @@
     if (action === "create-quote") {
       const request = selectedRequest();
       const blocker = request ? quoteBlocker(request) : "";
-      toast(blocker || `Create quote is mocked for ${request?.number || "request"}.`);
+      if (blocker) {
+        toast(blocker);
+        return true;
+      }
+      if (request && window.CleanOpsQuotes?.openFromRequest?.(request.id)) {
+        window.CleanOpsShell?.navigate?.("quotes");
+        toast(`Quote opened for ${request.number}.`);
+        return true;
+      }
+      toast(`Create quote is mocked for ${request?.number || "request"}.`);
       return true;
     }
 

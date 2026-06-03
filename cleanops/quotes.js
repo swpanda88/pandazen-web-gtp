@@ -616,7 +616,7 @@
           ${(!quote.document_status || quote.document_status === "not_generated") ? button("Generate document", "open-document-modal") : button("Preview document", "open-a4-view")}
           ${button("Preview as client", "preview-client")}
           ${!isQuoteLocked(quote) ? button("Mark ready", "mark-ready", "primary") : ""}
-          ${button("More actions", "open-actions-modal")}
+          ${button("More actions", "more-actions")}
         </div>
       </div>
       <section class="quote-builder-grid">
@@ -835,6 +835,9 @@
   }
 
   function renderSummaryPanel(quote, request, client, property, totals) {
+    const prevQuote = quote.supersedes_quote_id ? quotes().find(q => q.id === quote.supersedes_quote_id) : null;
+    const prevStatus = prevQuote ? labelFrom(quoteStatusLabels, prevQuote.status, "Draft") : "";
+
     return `
       <article class="panel pad quote-summary-panel">
         <h2>Quote summary</h2>
@@ -852,6 +855,23 @@
           <div><span>Monthly estimate</span><strong>${money(totals.monthlyEstimate)}</strong></div>
           <div><span>Optional extras</span><strong>${money(totals.optional)}</strong></div>
         </div>
+
+        <hr>
+
+        <div class="stack" style="margin-top:14px">
+          <h3 style="font-size: 14px; margin-bottom: 4px;">Quote tracking</h3>
+          <div class="field-row"><span>Current ref</span><strong>${escapeHtml(quote.quote_ref || quote.quote_number || quote.number)}</strong></div>
+          <div class="field-row"><span>Version</span><strong>${escapeHtml(quote.version || 1)}</strong></div>
+          ${prevQuote ? `<div class="field-row"><span>Previous</span><span class="muted">${escapeHtml(prevQuote.quote_ref)} &mdash; ${escapeHtml(prevStatus)}</span></div>` : ""}
+          <div class="stack" style="gap:8px; margin-top:8px">
+            ${button("Create revision", "create-revision")}
+            ${button("Duplicate as new quote option", "duplicate-option")}
+            ${button("View quote history", "view-history")}
+          </div>
+        </div>
+
+        <hr>
+
         <div class="stack" style="margin-top:14px">
           <div class="field-row">
             <span>Document</span>
@@ -863,11 +883,11 @@
         </div>
         <hr>
         <div class="stack" style="margin-top:14px">
-          ${button("Save draft", "save-draft", "primary")}
+          ${!isQuoteLocked(quote) ? button("Save draft", "save-draft", "primary") : ""}
           ${button("Preview as client", "preview-client")}
-          ${button("Mark ready to send", "mark-ready")}
+          ${!isQuoteLocked(quote) ? button("Mark ready to send", "mark-ready") : ""}
           ${button("Convert to job", "convert-to-job")}
-          ${button("More actions", "open-actions-modal")}
+          ${button("More actions", "more-actions")}
         </div>
       </article>
     `;
@@ -1289,6 +1309,10 @@
     }
     if (action === "convert-to-job") {
       toast("Convert to job is mocked for this prototype.");
+      return true;
+    }
+    if (action === "more-actions") {
+      toast("Quote actions are mocked for this prototype.");
       return true;
     }
     if (action === "open-actions-modal") {

@@ -576,7 +576,7 @@
       <div style="position: relative; display: inline-block;">
         ${button("Actions ▾", `toggle-row-menu:${quote.id}`, "small ghost")}
         ${isOpen ? `
-          <div style="position: absolute; right: 0; ${["rejected", "expired", "superseded", "archived"].includes(quote.status) ? "bottom: 100%; margin-bottom: 4px;" : "top: 100%; margin-top: 4px;"} background: #fff; border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 100; min-width: 160px; padding: 4px 0; text-align: left;">
+          <div style="position: absolute; right: 0; top: 100%; margin-top: 4px; background: #fff; border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 100; min-width: 160px; padding: 4px 0; text-align: left;">
             ${actions.join("")}
           </div>
         ` : ""}
@@ -1452,11 +1452,23 @@
       return false;
     }
 
-    if (!actionTarget) return false;
+    if (!actionTarget) {
+      if (state.quoteRowMenuId) {
+        state.quoteRowMenuId = null;
+        refresh();
+      }
+      return false;
+    }
+    
     event.preventDefault();
     event.stopPropagation();
 
     const action = actionTarget.dataset.quoteAction;
+
+    if (!action.startsWith("toggle-row-menu:") && state.quoteRowMenuId) {
+      state.quoteRowMenuId = null;
+      // We do not refresh immediately here because the action handler will likely call refresh()
+    }
     const quote = selectedQuote();
 
     if (action === "close-editor" || action === "back-to-list") {

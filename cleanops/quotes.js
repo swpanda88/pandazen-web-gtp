@@ -612,10 +612,11 @@
     const assist = quoteAssist(quote);
     const totals = calculateTotals(quote);
     const locked = isQuoteLocked(quote);
+    const dis = locked ? " disabled" : "";
 
     return `
       <div class="quote-modal-backdrop" data-quote-action="close-editor">
-        <div class="quote-editor-modal" role="dialog" aria-modal="true" data-quote-modal style="width: 90vw; height: 90vh; max-width: 1400px; display: flex; flex-direction: column; background: var(--bg); border-radius: 8px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
+        <div class="quote-editor-modal" role="dialog" aria-modal="true" data-quote-modal style="width: 95vw; height: 95vh; max-width: 1400px; display: flex; flex-direction: column; background: var(--bg); border-radius: 8px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
 
           <header class="panel-head" style="background: var(--surface); border-bottom: 1px solid var(--border); padding: 16px 24px; flex-shrink: 0;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -623,135 +624,166 @@
                 <h2 style="margin: 0; font-size: 20px;">Quote ${escapeHtml(quoteNumber(quote))}</h2>
                 <div class="request-title-chips" style="margin-top: 8px;">
                   ${quoteStatusChip(quote)}
-                  ${request ? quoteReadinessChip(request) : chip("No request linked", "warning")}
                   ${chip("v" + (quote.version || 1), "info")}
                 </div>
               </div>
               <div class="button-row">
-                ${!locked ? button("Save & close", "close-editor") : button("Close", "close-editor")}
+                ${button("Close", "close-editor", "ghost")}
               </div>
             </div>
           </header>
 
-          <div class="editor-body" style="flex: 1; overflow-y: auto; padding: 24px; background: var(--bg);">
-            ${locked ? `
-              <div class="banner warning" style="margin-bottom: 24px;">
-                <div style="font-weight:500; margin-bottom:8px;">This quote has already been used commercially. Create a revision to preserve history.</div>
-                <div class="button-row">
-                  ${button("Create revision", "create-revision", "primary")}
-                  ${button("Duplicate as new option", "duplicate-option")}
+          <div class="editor-body" style="flex: 1; overflow-y: auto; display: grid; grid-template-columns: 1fr 320px; background: var(--bg);">
+
+            <!-- MAIN DOCUMENT AREA -->
+            <div style="padding: 40px; background: #fff; border-right: 1px solid var(--border); overflow-y: auto;">
+              ${locked ? `
+                <div class="banner warning" style="margin-bottom: 24px;">
+                  <div style="font-weight:500; margin-bottom:8px;">This quote has already been used commercially. Create a revision to edit.</div>
+                  <div class="button-row">
+                    ${button("Create revision", "create-revision", "primary")}
+                    ${button("Duplicate option", "duplicate-option")}
+                  </div>
+                </div>
+              ` : ""}
+
+              <!-- DOC HEADER -->
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 40px;">
+                <div>
+                  <h1 style="margin: 0; font-size: 28px;">Quote</h1>
+                  <p class="muted" style="margin-top: 4px;">${escapeHtml(quoteNumber(quote))}</p>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                  <label class="client-field">Quote Date
+                    <input type="date" class="quote-input" data-quote-field="created_at" value="${escapeHtml(quote.created_at || "")}"${dis}>
+                  </label>
+                  <label class="client-field">Valid Until
+                    <input type="text" class="quote-input" data-quote-field="valid_until" value="${escapeHtml(quote.valid_until || "")}"${dis}>
+                  </label>
                 </div>
               </div>
-            ` : ""}
 
-            <div class="quote-builder-grid" style="display: grid; grid-template-columns: 3fr 1fr; gap: 24px;">
-              <div class="stack">
-                ${renderSourceRequestCard(quote, request, client, property)}
-                ${assist.ready ? "" : renderQuoteAssistCard(assist)}
-                ${renderQuoteItemsTable(quote, locked)}
-                ${renderClientTextCard(quote, locked)}
+              <!-- DOC CLIENT DETAILS -->
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 40px; padding: 20px; background: #f9fafb; border-radius: 8px;">
+                <label class="client-field">Client
+                  <input type="text" class="quote-input" data-quote-field="client" value="${escapeHtml(quote.client || "")}"${dis}>
+                </label>
+                <label class="client-field">Property
+                  <input type="text" class="quote-input" data-quote-field="property" value="${escapeHtml(quote.property || "")}"${dis}>
+                </label>
               </div>
-              <aside class="stack">
-                ${renderTotalsPanel(quote, totals)}
-                ${renderActionsPanel(quote, locked)}
-              </aside>
+
+              <!-- DOC ITEMS TABLE -->
+              <div style="margin-bottom: 40px;">
+                ${renderUnifiedItemsTable(quote, locked)}
+              </div>
+
+              <!-- DOC FOOTER & TOTALS -->
+              <div style="display: grid; grid-template-columns: 3fr 2fr; gap: 40px;">
+                <div class="stack">
+                  <label class="client-field wide">Message to client
+                    <textarea rows="3" data-quote-field="client_facing_summary"${dis}>${escapeHtml(quote.client_facing_summary || "")}</textarea>
+                  </label>
+                  <label class="client-field wide">Terms & Conditions
+                    <textarea rows="3" data-quote-field="terms"${dis}>${escapeHtml(quote.terms || "")}</textarea>
+                  </label>
+                </div>
+                <div style="background: #f9fafb; padding: 24px; border-radius: 8px;">
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 12px;"><span>One-off / initial</span><strong>${money(totals.oneOff)}</strong></div>
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 12px;"><span>Recurring visit</span><strong>${money(totals.recurring)}</strong></div>
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 12px;"><span>Monthly estimate</span><strong>${money(totals.monthly)}</strong></div>
+                  <hr style="margin: 16px 0;">
+                  <div style="display: flex; justify-content: space-between; font-size: 18px;"><span><strong>Total (excl. recurring)</strong></span><strong>${money(totals.oneOff + totals.optional)}</strong></div>
+                </div>
+              </div>
             </div>
+
+            <!-- SIDEBAR: INTERNAL CONTEXT -->
+            <aside style="padding: 24px; background: var(--bg); overflow-y: auto;">
+              <h3 style="margin-bottom: 16px; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted);">Request Context</h3>
+              ${renderSourceRequestCard(quote, request, client, property)}
+              <div style="margin-top: 16px;"></div>
+              ${assist.ready ? "" : renderQuoteAssistCard(assist)}
+              <div style="margin-top: 16px;"></div>
+              <article class="panel pad" style="background: var(--surface);">
+                <label class="client-field wide" style="margin:0;">Internal Notes
+                  <textarea rows="4" data-quote-field="internal_notes"${dis}>${escapeHtml(quote.internal_notes || "")}</textarea>
+                </label>
+              </article>
+            </aside>
           </div>
+
+          <!-- STICKY ACTION BAR -->
+          <footer style="background: var(--surface); border-top: 1px solid var(--border); padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+            <div class="button-row">
+              ${button("Cancel", "close-editor", "ghost")}
+              ${!locked ? button("Save draft", "save-draft") : ""}
+            </div>
+            <div class="button-row">
+              ${button("Preview doc", "open-a4-view", "ghost")}
+              ${(!quote.document_status || quote.document_status === "not_generated") ? button("Generate doc", `open-document-modal-id:${quote.id}`, "ghost") : ""}
+              ${!locked ? button("Mark ready to send", "mark-ready", "primary") : ""}
+              ${quote.status === "accepted" ? button("Convert to job", "convert-to-job", "primary") : ""}
+              ${quote.status === "accepted" ? button("Convert to invoice", "convert-to-invoice", "primary") : ""}
+            </div>
+          </footer>
+
         </div>
       </div>
     `;
   }
 
-  function renderTotalsPanel(quote, totals) {
-    return `
-      <article class="panel pad">
-        <h2>Totals</h2>
-        <div class="quote-side-totals" style="margin-top:12px;">
-          <div><span>One-off / initial</span><strong>${money(totals.oneOff)}</strong></div>
-          <div><span>Recurring visit</span><strong>${money(totals.recurring)}</strong></div>
-          <div><span>Monthly estimate</span><strong>${money(totals.monthlyEstimate)}</strong></div>
-          <div><span>Optional extras</span><strong>${money(totals.optional)}</strong></div>
-        </div>
-        <hr>
-        <div class="stack" style="margin-top:14px">
-          <div class="field-row">
-            <span>Document</span>
-            <strong>${chip(documentStatusLabels[quote.document_status || "not_generated"], documentStatusTones[quote.document_status || "not_generated"])}</strong>
-          </div>
-          ${(!quote.document_status || quote.document_status === "not_generated") ? button("Generate document", `open-document-modal-id:${quote.id}`) : ""}
-        </div>
-      </article>
-    `;
-  }
+  function renderUnifiedItemsTable(quote, locked) {
+    const dis = locked ? " disabled" : "";
+    const catalogueOptions = data.catalogue ? data.catalogue.map(cat => `<option value="${cat.item_id}">${escapeHtml(cat.name)} — ${money(cat.default_rate)}</option>`).join("") : "";
 
-  function renderActionsPanel(quote, locked) {
-    return `
-      <article class="panel pad">
-        <h2>Actions</h2>
-        <div class="stack" style="margin-top:12px">
-          ${!locked ? button("Mark ready to send", "mark-ready", "primary") : ""}
-          ${button("Preview as client", "preview-client")}
-          ${locked ? "" : button("Save draft", "save-draft")}
-        </div>
-      </article>
-    `;
-  }
-
-  function renderDetail(quote) {
-    updateQuoteCompatibility(quote);
-    const { request, client, property } = sourceSummary(quote);
-    const assist = quoteAssist(quote);
-    const totals = calculateTotals(quote);
+    const rows = (quote.quote_items || []).map((item) => `
+      <tr data-quote-item-id="${escapeHtml(item.item_id)}" style="border-bottom: 1px solid var(--border);">
+        <td style="padding: 12px 8px;">
+          <input class="quote-input" data-quote-item-field="name" value="${escapeHtml(item.name)}"${dis} placeholder="Service or product name" style="font-weight: 500; margin-bottom: 4px;">
+          <textarea class="quote-input quote-textarea" data-quote-item-field="description"${dis} rows="1" placeholder="Description">${escapeHtml(item.description)}</textarea>
+        </td>
+        <td style="padding: 12px 8px; vertical-align: top;"><input class="quote-input mini" type="number" min="0" step="0.25" data-quote-item-field="quantity_or_hours" value="${escapeHtml(item.quantity_or_hours)}"${dis}></td>
+        <td style="padding: 12px 8px; vertical-align: top;"><input class="quote-input mini" type="number" min="0" step="0.5" data-quote-item-field="rate" value="${escapeHtml(item.rate)}"${dis}></td>
+        <td style="padding: 12px 8px; vertical-align: top;"><strong>${money(item.amount ?? itemAmount(item))}</strong></td>
+        <td style="padding: 12px 8px; vertical-align: top;"><select class="quote-input" data-quote-item-field="type"${dis}>${optionList(itemTypeLabels, item.type || "one_off")}</select></td>
+        <td style="padding: 12px 8px; vertical-align: top;">
+          <label class="schedule-check compact"><input type="checkbox" data-quote-item-field="optional"${item.optional ? " checked" : ""}${dis}><span>Optional</span></label>
+        </td>
+        <td style="padding: 12px 8px; vertical-align: top;">${!locked ? button("Remove", `remove-item:${item.item_id}`, "small ghost") : ""}</td>
+      </tr>
+    `).join("");
 
     return `
-      <div class="request-breadcrumb">
-        <button class="link-button" type="button" data-quote-action="back-to-list">PandaZen</button>
-        <span>/</span>
-        <button class="link-button" type="button" data-quote-action="back-to-list">Quotes</button>
-        <span>/</span>
-        <strong>${escapeHtml(quoteNumber(quote))}</strong>
-      </div>
-
-      ${isQuoteLocked(quote) ? `
-        <div class="banner warning" style="margin-bottom: 16px;">
-          <div style="font-weight:500; margin-bottom:8px;">This quote has already been used commercially. Create a revision to preserve history.</div>
-          <div class="button-row">
-            ${button("Create revision", "create-revision")}
-            ${button("View quote history", "view-history")}
-          </div>
-        </div>
-      ` : ""}
-      <div class="page-head">
-        <div>
-          <div class="request-title-chips">${quoteStatusChip(quote)} ${request ? quoteReadinessChip(request) : chip("No request linked", "warning")}</div>
-          <h1>${escapeHtml(quoteNumber(quote))} - ${escapeHtml(quote.service || "Quote draft")}</h1>
-          <p>${escapeHtml(client?.display_name || quote.client || "Client to confirm")} - ${escapeHtml(property?.address || quote.property || "Property to confirm")}</p>
-        </div>
-        <div class="button-row">
-          ${!isQuoteLocked(quote) ? button("Save draft", "save-draft") : ""}
-          ${(!quote.document_status || quote.document_status === "not_generated") ? button("Generate document", "open-document-modal") : button("Preview document", "open-a4-view")}
-          ${button("Preview as client", "preview-client")}
-          ${!isQuoteLocked(quote) ? button("Mark ready", "mark-ready", "primary") : ""}
-          ${button("More actions", "more-actions")}
-        </div>
-      </div>
-      <section class="quote-builder-grid">
-        <div class="stack">
-          ${renderSourceRequestCard(quote, request, client, property)}
-          ${assist.ready ? "" : renderQuoteAssistCard(assist)}
-          ${renderQuoteItemsTable(quote)}
-          ${renderClientTextCard(quote)}
-        </div>
-        <aside class="stack">
-          ${renderSummaryPanel(quote, request, client, property, totals)}
-        </aside>
-      </section>
-      ${state.previewQuoteId === quoteId(quote) ? renderPreviewModal(quote) : ""}
-      ${state.documentModalOpen ? renderDocumentModal(quote) : ""}
-      ${state.actionsModalOpen ? renderActionsModal(quote) : ""}
-      ${state.historyModalOpen ? renderHistoryModal(quote) : ""}
-      ${state.a4ViewOpen ? renderA4DocumentView(quote) : ""}
-      ${state.newQuoteOpen ? renderNewQuoteModal() : ""}
+      <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr style="border-bottom: 2px solid var(--border); text-align: left; color: var(--text-muted); font-size: 13px; text-transform: uppercase;">
+            <th style="padding: 8px;">Service / Product</th>
+            <th style="padding: 8px; width: 80px;">Qty</th>
+            <th style="padding: 8px; width: 100px;">Rate</th>
+            <th style="padding: 8px; width: 100px;">Amount</th>
+            <th style="padding: 8px; width: 120px;">Billing Type</th>
+            <th style="padding: 8px; width: 100px;">Extras</th>
+            <th style="padding: 8px; width: 60px;"></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows}
+          ${!locked ? `
+            <tr>
+              <td colspan="7" style="padding: 16px 8px;">
+                <div style="display:flex; gap:8px;">
+                  <select class="selectish" data-quote-action="add-catalogue-item" style="max-width:250px;">
+                    <option value="">+ Add from catalogue...</option>
+                    ${catalogueOptions}
+                  </select>
+                  ${button("Add blank row", "add-item", "small ghost")}
+                </div>
+              </td>
+            </tr>
+          ` : ""}
+        </tbody>
+      </table>
     `;
   }
 
@@ -1015,64 +1047,7 @@
     `;
   }
 
-  function renderSummaryPanel(quote, request, client, property, totals) {
-    const prevQuote = quote.supersedes_quote_id ? quotes().find(q => q.id === quote.supersedes_quote_id) : null;
-    const prevStatus = prevQuote ? labelFrom(quoteStatusLabels, prevQuote.status, "Draft") : "";
 
-    return `
-      <article class="panel pad quote-summary-panel">
-        <h2>Quote summary</h2>
-        <div class="stack" style="margin-top:12px">
-          <div class="field-row"><span>Status</span><strong>${escapeHtml(labelFrom(quoteStatusLabels, quote.status, "Draft"))}</strong></div>
-          <div class="field-row"><span>Client</span><strong>${escapeHtml(client?.display_name || quote.client || "To confirm")}</strong></div>
-          <div class="field-row"><span>Property</span><strong>${escapeHtml(property?.label || property?.address || quote.property || "To confirm")}</strong></div>
-          <div class="field-row"><span>Linked request</span><strong>${escapeHtml(request?.number || "Not linked")}</strong></div>
-          <div class="field-row"><span>Pricing basis</span><strong>${escapeHtml(labelFrom(pricingBasisLabels, quote.pricing_basis || request?.pricing_basis, "To confirm"))}</strong></div>
-          <div class="field-row"><span>Valid until</span><strong>${escapeHtml(quote.valid_until || "To confirm")}</strong></div>
-        </div>
-        <div class="quote-side-totals">
-          <div><span>One-off / initial</span><strong>${money(totals.oneOff)}</strong></div>
-          <div><span>Recurring visit</span><strong>${money(totals.recurring)}</strong></div>
-          <div><span>Monthly estimate</span><strong>${money(totals.monthlyEstimate)}</strong></div>
-          <div><span>Optional extras</span><strong>${money(totals.optional)}</strong></div>
-        </div>
-
-        <hr>
-
-        <div class="stack" style="margin-top:14px">
-          <h3 style="font-size: 14px; margin-bottom: 4px;">Quote tracking</h3>
-          <div class="field-row"><span>Current ref</span><strong>${escapeHtml(quote.quote_ref || quote.quote_number || quote.number)}</strong></div>
-          <div class="field-row"><span>Version</span><strong>${escapeHtml(quote.version || 1)}</strong></div>
-          ${prevQuote ? `<div class="field-row"><span>Previous</span><span class="muted">${escapeHtml(prevQuote.quote_ref)} &mdash; ${escapeHtml(prevStatus)}</span></div>` : ""}
-          <div class="stack" style="gap:8px; margin-top:8px">
-            ${button("Create revision", "create-revision")}
-            ${button("Duplicate as new quote option", "duplicate-option")}
-            ${button("View quote history", "view-history")}
-          </div>
-        </div>
-
-        <hr>
-
-        <div class="stack" style="margin-top:14px">
-          <div class="field-row">
-            <span>Document</span>
-            <strong>${chip(documentStatusLabels[quote.document_status || "not_generated"], documentStatusTones[quote.document_status || "not_generated"])}</strong>
-          </div>
-          ${(!quote.document_status || quote.document_status === "not_generated") ? button("Generate / update document", "open-document-modal") : ""}
-          ${quote.document_status === "needs_update" ? `<div class="stack" style="gap:8px;">${button("Update document", "open-document-modal")} ${button("Preview document", "open-a4-view")} ${button("Print document", "print-a4-view")}</div>` : ""}
-          ${quote.document_status === "generated" ? `<div class="stack" style="gap:8px;">${button("Preview document", "open-a4-view")} ${button("Print document", "print-a4-view")}</div>` : ""}
-        </div>
-        <hr>
-        <div class="stack" style="margin-top:14px">
-          ${!isQuoteLocked(quote) ? button("Save draft", "save-draft", "primary") : ""}
-          ${button("Preview as client", "preview-client")}
-          ${!isQuoteLocked(quote) ? button("Mark ready to send", "mark-ready") : ""}
-          ${button("Convert to job", "convert-to-job")}
-          ${button("More actions", "more-actions")}
-        </div>
-      </article>
-    `;
-  }
 
   function renderPreviewModal(quote) {
     const { client, property } = sourceSummary(quote);
@@ -1505,6 +1480,10 @@
     }
     if (action === "convert-to-job") {
       toast("Convert to job is mocked for this prototype.");
+      return true;
+    }
+    if (action === "convert-to-invoice") {
+      toast("Convert to invoice is mocked for this prototype.");
       return true;
     }
     if (action === "more-actions") {

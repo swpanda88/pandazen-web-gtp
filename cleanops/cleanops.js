@@ -332,6 +332,7 @@
   }
 
   function renderRequests() {
+    if (window.CleanOpsRequests?.render) return window.CleanOpsRequests.render();
     const rows = data.requests.map((request) => `
       <tr>
         <td>${escapeHtml(request.number)}</td>

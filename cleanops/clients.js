@@ -533,7 +533,21 @@
   function renderTabContent(client) {
     const tab = state.detailTab;
     if (tab === "active") return (client.activeWork || []).map(renderWorkCard).join("") || emptyWork("No active work", "Requests, quotes, jobs, and invoices will appear here.");
-    if (tab === "requests") return (client.requests || []).map((item) => renderWorkCard({ ...item, type: "Request" })).join("") || emptyWork("No requests", "Manual requests from this client will attach here.");
+    if (tab === "requests") {
+      const linkedRequests = (data.requests || []).filter((request) => request.client_id === client.id);
+      if (linkedRequests.length) {
+        const statusLabels = window.CleanOpsRequests?.labels?.requestStatusLabels || {};
+        const statusTones = window.CleanOpsRequests?.labels?.requestStatusTones || {};
+        return linkedRequests.map((request) => renderWorkCard({
+          type: "Request",
+          title: request.title,
+          status: statusLabels[request.status] || request.status,
+          tone: statusTones[request.status] || "info",
+          number: request.number
+        })).join("");
+      }
+      return (client.requests || []).map((item) => renderWorkCard({ ...item, type: "Request" })).join("") || emptyWork("No requests", "Manual requests from this client will attach here.");
+    }
     if (tab === "quotes") return (client.quotes || []).map((item) => renderWorkCard({ ...item, type: "Quote" })).join("") || emptyWork("No quotes", "Quotes can be created from a known client and property.");
     if (tab === "jobs") return (client.jobs || []).map((item) => renderWorkCard({ ...item, type: "Job" })).join("") || emptyWork("No jobs", "Accepted work will appear here.");
     return (client.invoices || []).map((item) => renderWorkCard({ ...item, type: "Invoice", title: `${item.number} - ${item.title}` })).join("") ||

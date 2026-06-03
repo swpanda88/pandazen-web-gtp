@@ -4,6 +4,8 @@
     selectedQuoteId: null,
     newQuoteOpen: false,
     previewQuoteId: null,
+    documentModalOpen: false,
+    a4ViewOpen: false,
     newQuoteRequestId: ""
   };
 
@@ -19,15 +21,32 @@
   };
 
   const quoteStatusTones = {
-    draft: "info",
-    ready_to_send: "success",
+    draft: "warning",
+    ready_to_send: "info",
     sent: "info",
-    viewed: "warning",
+    viewed: "info",
     accepted: "success",
-    rejected: "danger",
-    expired: "danger",
-    converted_to_job: "success"
+    declined: "danger",
+    expired: "danger"
   };
+
+  const documentStatusLabels = {
+    not_generated: "Not generated",
+    generated: "Generated",
+    needs_update: "Needs update"
+  };
+
+  const documentStatusTones = {
+    not_generated: "warning",
+    generated: "success",
+    needs_update: "danger"
+  };
+
+  function markDocumentNeedsUpdate(quote) {
+    if (quote && quote.document_status === "generated") {
+      quote.document_status = "needs_update";
+    }
+  }
 
   const requestTypeLabels = {
     regular_domestic_clean: "Regular domestic clean",
@@ -378,6 +397,132 @@
     return `<div data-quotes-root>${renderInner()}</div>`;
   }
 
+  function renderDocumentModal(quote) {
+    return `
+      <div class="quote-modal-backdrop" data-quote-action="close-document-modal">
+        <article class="quote-modal" role="dialog" aria-modal="true" data-quote-modal>
+          <div class="panel-head flush">
+            <div>
+              <p class="eyebrow">Document generation</p>
+              <h2>Generate PDF document</h2>
+            </div>
+            ${iconButton("Close", "close-document-modal")}
+            <div class="field-row">
+              <span>Document</span>
+              <strong>${chip(documentStatusLabels[quote.document_status || "not_generated"], documentStatusTones[quote.document_status || "not_generated"])}</strong>
+            </div>
+          </div>
+          <div class="panel-body stack">
+            ${quote.document_status === "not_generated" || !quote.document_status ? button("Generate / update document", "open-document-modal", "primary") : ""}
+            ${quote.document_status === "needs_update" ? `<div class="stack" style="gap:8px;">${button("Update document", "open-document-modal", "primary")} ${button("Preview document", "open-a4-view")}</div>` : ""}
+            ${quote.document_status === "generated" ? `<div class="stack" style="gap:8px;">${button("Preview document", "open-a4-view")} ${button("Print document", "print-a4-view")}</div>` : ""}
+            <hr>
+            ${button("Preview as client", "preview-client")} for <strong>${escapeHtml(quote.client)}</strong>.</p>
+            <p>The document will include:</p>
+            <ul style="margin-left: 20px; margin-top: 8px;">
+              <li>Company branding and contact details</li>
+              <li>Client-facing quote summary</li>
+              <li>Included scope and exclusions</li>
+              <li>Clean pricing table and terms</li>
+            </ul>
+            <div class="button-row" style="margin-top: 14px;">
+              ${button("Generate / update document", "generate-document", "primary")}
+              ${button("Cancel", "close-document-modal")}
+            </div>
+          </div>
+        </article>
+      </div>
+    `;
+  }
+
+  function renderA4DocumentView(quote) {
+    const { client, property } = sourceSummary(quote);
+    const totals = calculateTotals(quote);
+
+    return `
+      <div class="a4-document-backdrop" data-quote-action="close-a4-view">
+        <div class="a4-document-actions no-print" style="position: absolute; top: 16px; right: 16px; display: flex; gap: 8px;">
+          ${button("Print document", "print-a4-view", "primary")}
+          ${button("Close view", "close-a4-view")}
+        </div>
+        <article class="a4-document" data-quote-modal>
+          <header class="a4-header">
+            <div>
+              <h1 style="font-size: 24px; margin-bottom: 4px;">PandaZen Cleaning</h1>
+              <p class="muted">123 Clean Street, London, W1 1AA</p>
+              <p class="muted">hello@pandazen.test | 020 7946 0000</p>
+            </div>
+            <div style="text-align: right;">
+              <h2 style="margin:0; font-size: 28px; color: var(--text);">QUOTE</h2>
+              <p style="margin-top:8px;"><strong>Ref:</strong> ${escapeHtml(quoteNumber(quote))}</p>
+              <p><strong>Date:</strong> ${escapeHtml(quote.updated_at || quote.created_at || "Today")}</p>
+              <p><strong>Valid until:</strong> ${escapeHtml(quote.valid_until || "To confirm")}</p>
+            </div>
+          </header>
+
+          <div class="a4-client-block">
+            <h3 style="margin-bottom: 4px;">Prepared for:</h3>
+            <p><strong>${escapeHtml(client?.display_name || quote.client)}</strong></p>
+            <p>${escapeHtml(property?.address || quote.property)}</p>
+          </div>
+
+          <section class="a4-section">
+            <h3 style="margin-bottom: 8px; border-bottom: 1px solid var(--border); padding-bottom: 4px;">Scope of Work</h3>
+            <p>${escapeHtml(quote.client_facing_summary || "")}</p>
+          </section>
+
+          <section class="a4-section" style="display:flex; gap: 40px; margin-top: 24px;">
+            <div style="flex:1;">
+              <h3 style="margin-bottom: 8px; border-bottom: 1px solid var(--border); padding-bottom: 4px;">Included</h3>
+              <ul style="margin-left: 20px;">${parseLines(lineList(quote.included_scope)).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+            </div>
+            <div style="flex:1;">
+              <h3 style="margin-bottom: 8px; border-bottom: 1px solid var(--border); padding-bottom: 4px;">Not included</h3>
+              <ul style="margin-left: 20px;">${parseLines(lineList(quote.exclusions)).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+            </div>
+          </section>
+
+          <section class="a4-section" style="margin-top: 24px;">
+            <h3 style="margin-bottom: 8px; border-bottom: 1px solid var(--border); padding-bottom: 4px;">Pricing Details</h3>
+            <table class="a4-pricing-table" style="width: 100%; border-collapse: collapse; margin-top: 8px;">
+              <thead>
+                <tr>
+                  <th style="text-align:left; padding: 8px 0; border-bottom: 1px solid var(--border);">Item</th>
+                  <th style="text-align:right; padding: 8px 0; border-bottom: 1px solid var(--border);">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${(quote.quote_items || []).filter(i => i.included !== false).map(i => `
+                  <tr>
+                    <td style="padding: 8px 0; border-bottom: 1px solid var(--line);">
+                      <strong>${escapeHtml(i.name)}</strong>
+                      ${i.description ? `<div style="font-size:13px; color:var(--text-muted); margin-top:2px;">${escapeHtml(i.description)}</div>` : ''}
+                    </td>
+                    <td style="text-align:right; padding: 8px 0; border-bottom: 1px solid var(--line);">${money(i.amount)}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+              <tfoot>
+                ${totals.oneOff ? `<tr><td style="text-align:right; padding-top: 12px;"><strong>Initial / one-off clean:</strong></td><td style="text-align:right; padding-top: 12px;"><strong>${money(totals.oneOff)}</strong></td></tr>` : ''}
+                ${totals.recurring ? `<tr><td style="text-align:right; padding-top: 6px;"><strong>Recurring clean (per visit):</strong></td><td style="text-align:right; padding-top: 6px;"><strong>${money(totals.recurring)}</strong></td></tr>` : ''}
+                ${totals.monthly ? `<tr><td style="text-align:right; padding-top: 6px;"><strong>Monthly estimate:</strong></td><td style="text-align:right; padding-top: 6px;"><strong>${money(totals.monthly)}</strong></td></tr>` : ''}
+              </tfoot>
+            </table>
+          </section>
+
+          <section class="a4-section" style="margin-top: 24px;">
+            <h3 style="margin-bottom: 8px; border-bottom: 1px solid var(--border); padding-bottom: 4px;">Assumptions & Terms</h3>
+            <p>${escapeHtml(quote.terms || "")}</p>
+          </section>
+
+          <footer class="a4-footer" style="margin-top: 40px; padding-top: 16px; border-top: 2px solid var(--border); text-align: center; color: var(--text-muted);">
+            <p>Thank you for considering PandaZen Cleaning. To accept this quote or ask any questions, please reply to our email.</p>
+          </footer>
+        </article>
+      </div>
+    `;
+  }
+
   function renderInner() {
     const quote = selectedQuote();
     return quote ? renderDetail(quote) : renderList();
@@ -476,6 +621,8 @@
         </aside>
       </section>
       ${state.previewQuoteId === quoteId(quote) ? renderPreviewModal(quote) : ""}
+      ${state.documentModalOpen ? renderDocumentModal(quote) : ""}
+      ${state.a4ViewOpen ? renderA4DocumentView(quote) : ""}
       ${state.newQuoteOpen ? renderNewQuoteModal() : ""}
     `;
   }
@@ -838,6 +985,7 @@
       quote_number: nextNumber,
       number: nextNumber,
       status: "draft",
+      document_status: "not_generated",
       client_id: request.client_id,
       property_id: request.property_id,
       request_id: request.id,
@@ -872,6 +1020,7 @@
       quote_number: `Q-${2090 + quotes().length}`,
       number: `Q-${2090 + quotes().length}`,
       status: "draft",
+      document_status: "not_generated",
       client_id: client?.id || "",
       property_id: property?.id || "",
       request_id: "",
@@ -899,6 +1048,7 @@
     if (!field) return;
     if (field === "included_scope" || field === "exclusions") quote[field] = parseLines(target.value);
     else quote[field] = target.value;
+    markDocumentNeedsUpdate(quote);
     quote.updated_at = "2026-06-03";
     updateQuoteCompatibility(quote);
   }
@@ -914,6 +1064,7 @@
     else if (field === "quantity_or_hours" || field === "rate") item[field] = Number(target.value) || 0;
     else item[field] = target.value;
     recalcItem(item);
+    markDocumentNeedsUpdate(quote);
     quote.updated_at = "2026-06-03";
     updateQuoteCompatibility(quote);
     refresh();
@@ -972,6 +1123,7 @@
     if (action === "add-item" && quote) {
       quote.quote_items = quote.quote_items || [];
       quote.quote_items.push(newItem());
+      markDocumentNeedsUpdate(quote);
       toast("Quote item added.");
       refresh();
       return true;
@@ -979,6 +1131,7 @@
     if (action.startsWith("remove-item:") && quote) {
       const itemId = action.split(":")[1];
       quote.quote_items = (quote.quote_items || []).filter((item) => item.item_id !== itemId);
+      markDocumentNeedsUpdate(quote);
       toast("Quote item removed.");
       refresh();
       return true;
@@ -993,7 +1146,41 @@
       refresh();
       return true;
     }
+    if (action === "open-document-modal") {
+      state.documentModalOpen = true;
+      refresh();
+      return true;
+    }
+    if (action === "close-document-modal") {
+      state.documentModalOpen = false;
+      refresh();
+      return true;
+    }
+    if (action === "generate-document" && quote) {
+      quote.document_status = "generated";
+      state.documentModalOpen = false;
+      toast(`Document generated for ${quoteNumber(quote)}.`);
+      refresh();
+      return true;
+    }
+    if (action === "open-a4-view") {
+      state.a4ViewOpen = true;
+      refresh();
+      return true;
+    }
+    if (action === "close-a4-view") {
+      state.a4ViewOpen = false;
+      refresh();
+      return true;
+    }
+    if (action === "print-a4-view") {
+      window.print();
+      return true;
+    }
     if (action === "mark-ready" && quote) {
+      if (quote.document_status !== "generated") {
+        toast("Warning: Document is not generated or needs update.");
+      }
       quote.status = "ready_to_send";
       updateQuoteCompatibility(quote);
       toast(`${quoteNumber(quote)} marked ready to send.`);

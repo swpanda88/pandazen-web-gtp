@@ -17,7 +17,7 @@ window.CLEANOPS_DATA = {
   metrics: [
     { label: "Today's visits", value: "18", chip: "12 confirmed", tone: "success" },
     { label: "Quotes awaiting", value: "7", chip: "3 follow-ups", tone: "warning" },
-    { label: "Ready to invoice", value: "9", chip: "£1,840", tone: "info" },
+    { label: "Ready to invoice", value: "9", chip: "Â£1,840", tone: "info" },
     { label: "Open issues", value: "2", chip: "1 urgent", tone: "danger" }
   ],
 
@@ -44,7 +44,7 @@ window.CLEANOPS_DATA = {
     source: "Website enquiry",
     email: "john.smith@example.test",
     phone: "07700 900123",
-    balance: "£0.00",
+    balance: "Â£0.00",
     mainProperty: "24 Hill Road",
     area: "London SW12",
     activeSummary: "Quote required",
@@ -85,7 +85,7 @@ window.CLEANOPS_DATA = {
       { type: "Task", title: "Call to confirm products", status: "Today", tone: "success" }
     ],
     billingHistory: [
-      { invoice: "No billing history", detail: "This client has not been billed yet", amount: "£0.00" }
+      { invoice: "No billing history", detail: "This client has not been billed yet", amount: "Â£0.00" }
     ]
   },
 
@@ -105,7 +105,7 @@ window.CLEANOPS_DATA = {
       lead_source: "website_enquiry",
       email: "john.smith@example.test",
       phone: "07700 900123",
-      balance: "£0.00",
+      balance: "Â£0.00",
       mainProperty: "24 Hill Road",
       area: "London SW12",
       activeSummary: "Quote required",
@@ -174,12 +174,12 @@ window.CLEANOPS_DATA = {
         { number: "REQ-1044", title: "Weekly domestic clean", status: "Quote required", tone: "warning", propertyId: "PROP-1007" }
       ],
       quotes: [
-        { number: "Q-2091", title: "Initial deep clean", total: "£260", status: "Draft", tone: "info", propertyId: "PROP-1007" }
+        { number: "Q-2091", title: "Initial deep clean", total: "Â£260", status: "Draft", tone: "info", propertyId: "PROP-1007" }
       ],
       jobs: [],
       invoices: [],
       billingHistory: [
-        { invoice: "No billing history", detail: "This client has not been billed yet", amount: "£0.00" }
+        { invoice: "No billing history", detail: "This client has not been billed yet", amount: "Â£0.00" }
       ]
     },
     {
@@ -197,7 +197,7 @@ window.CLEANOPS_DATA = {
       lead_source: "referral",
       email: "olivia.carter@example.test",
       phone: "07700 900214",
-      balance: "£0.00",
+      balance: "Â£0.00",
       mainProperty: "Family home, Durham",
       area: "Durham",
       activeSummary: "Weekly clean",
@@ -242,7 +242,7 @@ window.CLEANOPS_DATA = {
       ],
       invoices: [],
       billingHistory: [
-        { invoice: "No open balance", detail: "Latest invoice paid", amount: "£0.00" }
+        { invoice: "No open balance", detail: "Latest invoice paid", amount: "Â£0.00" }
       ]
     },
     {
@@ -260,7 +260,7 @@ window.CLEANOPS_DATA = {
       lead_source: "manual",
       email: "ops@abcoffices.example.test",
       phone: "020 7946 0123",
-      balance: "£125.00",
+      balance: "Â£125.00",
       mainProperty: "Unit 4",
       area: "M1 business park",
       activeSummary: "Active job",
@@ -305,10 +305,10 @@ window.CLEANOPS_DATA = {
         { number: "JOB-1204", title: "Commercial contract", status: "Recurring", tone: "info", propertyId: "PROP-3001" }
       ],
       invoices: [
-        { number: "INV-3048", title: "Consumables top-up", amount: "£125.00", status: "Sent", tone: "info" }
+        { number: "INV-3048", title: "Consumables top-up", amount: "Â£125.00", status: "Sent", tone: "info" }
       ],
       billingHistory: [
-        { invoice: "INV-3048", detail: "Consumables top-up sent today", amount: "£125.00" }
+        { invoice: "INV-3048", detail: "Consumables top-up sent today", amount: "Â£125.00" }
       ]
     },
     {
@@ -326,7 +326,7 @@ window.CLEANOPS_DATA = {
       lead_source: "phone",
       email: "harris@example.test",
       phone: "07700 900545",
-      balance: "£0.00",
+      balance: "Â£0.00",
       mainProperty: "2-bed flat",
       area: "Ealing",
       activeSummary: "Request open",
@@ -371,7 +371,7 @@ window.CLEANOPS_DATA = {
       jobs: [],
       invoices: [],
       billingHistory: [
-        { invoice: "No billing history", detail: "Prospect has not been billed", amount: "£0.00" }
+        { invoice: "No billing history", detail: "Prospect has not been billed", amount: "Â£0.00" }
       ]
     }
   ],
@@ -594,6 +594,7 @@ window.CLEANOPS_DATA = {
       quote_number: "Q-2089",
       number: "Q-2089",
       status: "draft",
+      document_status: "not_generated",
       client_id: "client-john-smith",
       property_id: "PROP-1007",
       request_id: "request-1045",
@@ -603,7 +604,7 @@ window.CLEANOPS_DATA = {
       client: "John Smith",
       property: "24 Hill Road",
       service: "Deep clean before weekly service",
-      total: "£240 one-off",
+      total: "Â£240 one-off",
       tone: "info",
       quote_items: [
         {
@@ -644,6 +645,7 @@ window.CLEANOPS_DATA = {
       quote_number: "Q-2088",
       number: "Q-2088",
       status: "ready_to_send",
+      document_status: "generated",
       client_id: "client-abc-offices",
       property_id: "PROP-3001",
       request_id: "request-1044",
@@ -653,7 +655,7 @@ window.CLEANOPS_DATA = {
       client: "ABC Offices",
       property: "Unit 4, M1",
       service: "Commercial cleaning contract",
-      total: "£650/mo",
+      total: "Â£650/mo",
       tone: "success",
       quote_items: [
         {
@@ -694,6 +696,7 @@ window.CLEANOPS_DATA = {
       quote_number: "Q-2087",
       number: "Q-2087",
       status: "sent",
+      document_status: "needs_update",
       client_id: "client-olivia-carter",
       property_id: "PROP-2001",
       request_id: "request-1046",
@@ -703,7 +706,7 @@ window.CLEANOPS_DATA = {
       client: "Olivia Carter",
       property: "Family home, Durham",
       service: "Weekly domestic clean",
-      total: "£90/visit",
+      total: "Â£90/visit",
       tone: "info",
       quote_items: [
         {
@@ -744,6 +747,7 @@ window.CLEANOPS_DATA = {
       quote_number: "Q-2086",
       number: "Q-2086",
       status: "expired",
+      document_status: "not_generated",
       client_id: "client-harris",
       property_id: "PROP-4001",
       request_id: "request-1043",
@@ -753,7 +757,7 @@ window.CLEANOPS_DATA = {
       client: "Harris",
       property: "2-bed flat",
       service: "End of tenancy clean",
-      total: "£260 one-off",
+      total: "Â£260 one-off",
       tone: "danger",
       quote_items: [
         {
@@ -1068,10 +1072,10 @@ window.CLEANOPS_DATA = {
   },
 
   invoices: [
-    { number: "INV-3044", client: "ABC Offices", amount: "£1,250", due: "14 Jun", status: "Sent", action: "View", tone: "info" },
-    { number: "INV-3043", client: "Harris", amount: "£78", due: "1 Jun", status: "Overdue", action: "Remind", tone: "danger" },
-    { number: "INV-3042", client: "Patel", amount: "£260", due: "Paid", status: "Paid", action: "Receipt", tone: "success" },
-    { number: "INV-3041", client: "W Amman", amount: "£210", due: "Draft", status: "Draft", action: "View", tone: "warning" }
+    { number: "INV-3044", client: "ABC Offices", amount: "Â£1,250", due: "14 Jun", status: "Sent", action: "View", tone: "info" },
+    { number: "INV-3043", client: "Harris", amount: "Â£78", due: "1 Jun", status: "Overdue", action: "Remind", tone: "danger" },
+    { number: "INV-3042", client: "Patel", amount: "Â£260", due: "Paid", status: "Paid", action: "Receipt", tone: "success" },
+    { number: "INV-3041", client: "W Amman", amount: "Â£210", due: "Draft", status: "Draft", action: "View", tone: "warning" }
   ],
 
   team: [
@@ -1083,15 +1087,15 @@ window.CLEANOPS_DATA = {
 
   reportMetrics: [
     { label: "Quote conversion", value: "68%", chip: "+8%", tone: "success" },
-    { label: "Revenue per labour hour", value: "£38", chip: "Stable", tone: "info" },
+    { label: "Revenue per labour hour", value: "Â£38", chip: "Stable", tone: "info" },
     { label: "Revisit rate", value: "2.4%", chip: "Low", tone: "success" },
     { label: "Average collection", value: "5d", chip: "Watch", tone: "warning" }
   ],
 
   serviceRevenue: [
-    { service: "Regular domestic", jobs: "142", revenue: "£9,840", hours: "312", signal: "Good", tone: "success" },
-    { service: "End-of-tenancy", jobs: "18", revenue: "£7,620", hours: "166", signal: "Review", tone: "warning" },
-    { service: "Commercial", jobs: "44", revenue: "£7,400", hours: "198", signal: "Good", tone: "success" }
+    { service: "Regular domestic", jobs: "142", revenue: "Â£9,840", hours: "312", signal: "Good", tone: "success" },
+    { service: "End-of-tenancy", jobs: "18", revenue: "Â£7,620", hours: "166", signal: "Review", tone: "warning" },
+    { service: "Commercial", jobs: "44", revenue: "Â£7,400", hours: "198", signal: "Good", tone: "success" }
   ],
 
   settings: [
@@ -1111,8 +1115,8 @@ window.CLEANOPS_DATA = {
     client: "John Smith",
     property: "24 Hill Road",
     upcoming: "Tuesday 9 June, arrival 08:30-09:30",
-    quote: "Deep clean quote Q-2088 for £420",
-    balance: "£0.00",
+    quote: "Deep clean quote Q-2088 for Â£420",
+    balance: "Â£0.00",
     receipt: "INV-3042"
   }
 };

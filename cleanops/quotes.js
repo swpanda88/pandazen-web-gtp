@@ -538,6 +538,13 @@
       } else {
         actions.push(`<button class="quote-dropdown-item" data-quote-action="open-a4-view-id:${quote.id}">Preview doc</button>`);
       }
+
+      if (quote.status === "draft") {
+        actions.push(`<button class="quote-dropdown-item" data-quote-action="mark-ready:${quote.id}">Mark ready to send</button>`);
+      } else if (quote.status === "ready_to_send") {
+        actions.push(`<button class="quote-dropdown-item" data-quote-action="send-quote-id:${quote.id}">Mark sent to customer</button>`);
+      }
+
       actions.push(`<button class="quote-dropdown-item" data-quote-action="duplicate-quote:${quote.id}">Duplicate</button>`);
       actions.push(`<button class="quote-dropdown-item" data-quote-action="create-alternative:${quote.id}">Create alternative</button>`);
       actions.push(`<button class="quote-dropdown-item text-danger" data-quote-action="archive-quote:${quote.id}">Archive draft</button>`);
@@ -621,22 +628,22 @@
       }).join("");
 
       return `
-        <div style="margin-bottom: 32px;">
-          <h3 style="font-size: 15px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); color: var(--text-muted); display: flex; align-items: center; gap: 8px;">
+        <div style="margin-bottom: 32px; background: #fff; border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow: hidden;">
+          <h3 style="font-size: 15px; margin: 0; padding: 12px 16px; background: var(--surface); border-bottom: 1px solid var(--border); color: var(--text-muted); display: flex; align-items: center; gap: 8px;">
             ${escapeHtml(title)}
-            <span style="background:var(--surface); color:var(--text); padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">${list.length}</span>
+            <span style="background:var(--bg); color:var(--text); padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; border: 1px solid var(--border);">${list.length}</span>
           </h3>
-          <table class="quotes-group-table" style="width: 100%; border-collapse: collapse;">
+          <table class="quotes-group-table" style="width: 100%; border-collapse: collapse; table-layout: fixed;">
             <thead>
               <tr>
-                <th>Quote ref</th>
-                <th>Client / Property</th>
-                <th>Scope</th>
-                <th>Total</th>
-                <th>Status</th>
-                <th>Document</th>
-                <th>Updated / Valid</th>
-                <th style="text-align:right;">Actions</th>
+                <th style="width: 12%;">Quote ref</th>
+                <th style="width: 25%;">Client / Property</th>
+                <th style="width: 18%;">Scope</th>
+                <th style="width: 12%;">Total</th>
+                <th style="width: 10%;">Status</th>
+                <th style="width: 10%;">Document</th>
+                <th style="width: 10%;">Updated / Valid</th>
+                <th style="width: 8%; text-align:right;">Actions</th>
               </tr>
             </thead>
             <tbody>${rows}</tbody>
@@ -802,7 +809,8 @@
             <div style="display: flex; justify-content: flex-end; gap: 8px;">
               ${button("Preview doc", "open-a4-view", "ghost")}
               ${(!quote.document_status || quote.document_status === "not_generated") ? button("Generate doc", `open-document-modal-id:${quote.id}`, "ghost") : ""}
-              ${!locked ? button("Mark ready to send", "mark-ready", "primary") : ""}
+              ${quote.status === "draft" ? button("Mark ready to send", "mark-ready", "primary") : ""}
+              ${quote.status === "ready_to_send" ? button("Mark sent to customer", "send-quote", "primary") : ""}
               ${quote.status === "accepted" && !quote.job_id ? button("Convert to job", "convert-to-job", "primary") : ""}
               ${(quote.status === "converted_to_job" || quote.job_id) ? button("View job", "view-job-mock", "ghost") : ""}
             </div>
@@ -926,6 +934,10 @@
                 <option value="">Choose a ready request</option>
                 ${options}
               </select>
+              <select data-new-quote-template-for-request style="margin-bottom: 12px; width: 100%;">
+                <option value="">(Optional) Choose a template to apply</option>
+                ${templateOptions}
+              </select>
               ${button("Start from request", "create-from-request", "primary")}
             </div>
 
@@ -995,24 +1007,24 @@
     return `
       <article class="panel pad">
         <div class="panel-head flush"><h2>Source request</h2>${chip(request.number || "Request", "info")}</div>
-        <div class="request-summary-grid quote-source-grid" style="margin-top:12px">
-          <div class="field-row"><span>Client</span><strong>${escapeHtml(client?.display_name || request.client || "Client")}</strong></div>
-          <div class="field-row"><span>Property</span><strong>${escapeHtml(property?.address || request.property || "Property")}</strong></div>
-          <div class="field-row"><span>Service</span><strong>${escapeHtml(requestTypeLabel(request))}</strong></div>
-          <div class="field-row"><span>Frequency</span><strong>${escapeHtml(labelFrom(cadenceLabels, request.preferred_cadence, "To confirm"))}</strong></div>
-          <div class="field-row"><span>Preferred time</span><strong>${escapeHtml(`${labelFrom(dayLabels, request.preferred_day, "To confirm")} / ${labelFrom(timeWindowLabels, request.preferred_time_window, "To confirm")}`)}</strong></div>
-          <div class="field-row"><span>Property type</span><strong>${escapeHtml(labelFrom(propertyTypeLabels, property?.property_type || request.property_type, "To confirm"))}</strong></div>
-          <div class="field-row"><span>Bedrooms / bathrooms</span><strong>${escapeHtml(`${request.bedrooms || property?.bedrooms || "?"} / ${request.bathrooms || property?.bathrooms || "?"}`)}</strong></div>
-          <div class="field-row"><span>Products</span><strong>${escapeHtml(labelFrom(supplyLabels, request.cleaning_products, "To confirm"))}</strong></div>
-          <div class="field-row"><span>Vacuum / mop</span><strong>${escapeHtml(`${labelFrom(equipmentLabels, request.vacuum_hoover, "To confirm")} / ${labelFrom(equipmentLabels, request.mop, "To confirm")}`)}</strong></div>
-          <div class="field-row"><span>Quote readiness</span><strong>${escapeHtml(labelFrom(quoteReadinessLabels, request.quote_readiness, "Missing scope"))}</strong></div>
-          <div class="field-row"><span>Scope confidence</span><strong>${escapeHtml(labelFrom(scopeConfidenceLabels, request.scope_confidence, "To confirm"))}</strong></div>
-          <div class="request-note-block wide">
-            <span class="muted">Main priorities</span>
+        <div class="stack" style="margin-top:12px; gap:8px;">
+          <div style="display:flex; flex-direction:column; gap:2px;"><span class="muted" style="font-size:12px; text-transform:uppercase;">Client</span><strong>${escapeHtml(client?.display_name || request.client || "Client")}</strong></div>
+          <div style="display:flex; flex-direction:column; gap:2px;"><span class="muted" style="font-size:12px; text-transform:uppercase;">Property</span><strong>${escapeHtml(property?.address || request.property || "Property")}</strong></div>
+          <div style="display:flex; flex-direction:column; gap:2px;"><span class="muted" style="font-size:12px; text-transform:uppercase;">Service</span><strong>${escapeHtml(requestTypeLabel(request))}</strong></div>
+          <div style="display:flex; flex-direction:column; gap:2px;"><span class="muted" style="font-size:12px; text-transform:uppercase;">Frequency</span><strong>${escapeHtml(labelFrom(cadenceLabels, request.preferred_cadence, "To confirm"))}</strong></div>
+          <div style="display:flex; flex-direction:column; gap:2px;"><span class="muted" style="font-size:12px; text-transform:uppercase;">Preferred time</span><strong>${escapeHtml(`${labelFrom(dayLabels, request.preferred_day, "To confirm")} / ${labelFrom(timeWindowLabels, request.preferred_time_window, "To confirm")}`)}</strong></div>
+          <div style="display:flex; flex-direction:column; gap:2px;"><span class="muted" style="font-size:12px; text-transform:uppercase;">Property type</span><strong>${escapeHtml(labelFrom(propertyTypeLabels, property?.property_type || request.property_type, "To confirm"))}</strong></div>
+          <div style="display:flex; flex-direction:column; gap:2px;"><span class="muted" style="font-size:12px; text-transform:uppercase;">Bedrooms / bathrooms</span><strong>${escapeHtml(`${request.bedrooms || property?.bedrooms || "?"} / ${request.bathrooms || property?.bathrooms || "?"}`)}</strong></div>
+          <div style="display:flex; flex-direction:column; gap:2px;"><span class="muted" style="font-size:12px; text-transform:uppercase;">Products</span><strong>${escapeHtml(labelFrom(supplyLabels, request.cleaning_products, "To confirm"))}</strong></div>
+          <div style="display:flex; flex-direction:column; gap:2px;"><span class="muted" style="font-size:12px; text-transform:uppercase;">Vacuum / mop</span><strong>${escapeHtml(`${labelFrom(equipmentLabels, request.vacuum_hoover, "To confirm")} / ${labelFrom(equipmentLabels, request.mop, "To confirm")}`)}</strong></div>
+          <div style="display:flex; flex-direction:column; gap:2px;"><span class="muted" style="font-size:12px; text-transform:uppercase;">Quote readiness</span><strong>${escapeHtml(labelFrom(quoteReadinessLabels, request.quote_readiness, "Missing scope"))}</strong></div>
+          <div style="display:flex; flex-direction:column; gap:2px;"><span class="muted" style="font-size:12px; text-transform:uppercase;">Scope confidence</span><strong>${escapeHtml(labelFrom(scopeConfidenceLabels, request.scope_confidence, "To confirm"))}</strong></div>
+          <div style="display:flex; flex-direction:column; gap:2px; margin-top:8px; padding-top:8px; border-top:1px dashed var(--border);">
+            <span class="muted" style="font-size:12px; text-transform:uppercase;">Main priorities</span>
             <strong>${escapeHtml(listText(request.main_priorities, "No priorities set"))}</strong>
           </div>
-          <div class="request-note-block wide">
-            <span class="muted">Internal scoping note</span>
+          <div style="display:flex; flex-direction:column; gap:2px;">
+            <span class="muted" style="font-size:12px; text-transform:uppercase;">Internal scoping note</span>
             <strong>${escapeHtml(request.short_scoping_note || request.service_summary || "No internal scoping note yet.")}</strong>
           </div>
         </div>
@@ -1461,6 +1473,10 @@
     }
     if (action === "create-from-request") {
       const requestId = state.newQuoteRequestId || document.querySelector("[data-new-quote-request]")?.value;
+      const tplId = document.querySelector("[data-new-quote-template-for-request]")?.value;
+      if (tplId) {
+        state.newQuoteTemplateId = tplId;
+      }
       const created = createQuoteFromRequest(requestId);
       if (created) {
         state.newQuoteOpen = false;
@@ -1546,6 +1562,7 @@
         q.document_status = "generated";
         state.documentModalOpen = false;
         state.documentModalId = null;
+        state.a4ViewId = q.id;
         toast(`Document generated for ${quoteNumber(q)}.`);
         refresh();
       }
@@ -1574,6 +1591,35 @@
       updateQuoteCompatibility(quote);
       toast(`${quoteNumber(quote)} marked ready to send.`);
       refresh();
+      return true;
+    }
+    if (action.startsWith("mark-ready:")) {
+      const qId = action.split(":")[1];
+      const q = quotes().find(x => x.id === qId);
+      if (q) {
+        q.status = "ready_to_send";
+        state.quoteRowMenuId = null;
+        toast(`${quoteNumber(q)} marked ready to send.`);
+        refresh();
+      }
+      return true;
+    }
+    if (action === "send-quote" && quote) {
+      quote.status = "sent";
+      updateQuoteCompatibility(quote);
+      toast(`Quote ${quoteNumber(quote)} marked sent to customer.`);
+      refresh();
+      return true;
+    }
+    if (action.startsWith("send-quote-id:")) {
+      const qId = action.split(":")[1];
+      const q = quotes().find(x => x.id === qId);
+      if (q) {
+        q.status = "sent";
+        state.quoteRowMenuId = null;
+        toast(`Quote ${quoteNumber(q)} marked sent to customer.`);
+        refresh();
+      }
       return true;
     }
     if (action === "save-draft" && quote) {

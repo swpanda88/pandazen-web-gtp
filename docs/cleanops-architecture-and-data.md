@@ -26,8 +26,9 @@ This document serves as the **single source of truth** for the current PandaZen/
 
 ### 1.3 Next Build Priorities
 1. **Finish visual review and merge order**:
-   * PR #89 (Requests v0)
-   * PR #90 (Quotes v0) after PR #89 is merged/rebased.
+   * Merge PR #89 (Requests v0) first.
+   * Then update/rebase PR #90 (Quotes v0) onto the new base.
+   * Then merge PR #90 (Quotes v0).
 2. **Stabilise mock flows/regression**.
 3. **Jobs v0 next**:
    * Convert accepted quote → job/work order.

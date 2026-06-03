@@ -599,7 +599,7 @@
           </table>
         </article>
       </section>
-      ${state.newQuoteOpen ? renderNewQuoteModal() : ""}
+      ${state.newQuoteOpen ? renderNewQuoteLauncherModal() : ""}
       ${state.selectedQuoteId ? renderQuoteEditorModal(selectedQuote()) : ""}
       ${state.documentModalId ? renderDocumentModal(quotes().find(q => q.id === state.documentModalId)) : ""}
       ${state.a4ViewId ? renderA4DocumentView(quotes().find(q => q.id === state.a4ViewId)) : ""}
@@ -1106,41 +1106,7 @@
     `;
   }
 
-  function renderNewQuoteModal() {
-    const readyRequests = requests().filter((request) => request.quote_readiness === "ready_to_quote");
-    const options = readyRequests.map((request) => {
-      const client = requestClient(request);
-      return `<option value="${escapeHtml(request.id)}"${request.id === state.newQuoteRequestId ? " selected" : ""}>${escapeHtml(`${request.number} - ${client?.display_name || request.client || "Client"} - ${requestTypeLabel(request)}`)}</option>`;
-    }).join("");
 
-    return `
-      <div class="quote-modal-backdrop" data-quote-action="close-new-quote">
-        <article class="quote-modal" role="dialog" aria-modal="true" aria-label="New quote" data-quote-modal>
-          <div class="panel-head flush">
-            <div>
-              <p class="eyebrow">New quote</p>
-              <h2>Start a quote draft</h2>
-            </div>
-            ${iconButton("Close new quote", "close-new-quote")}
-          </div>
-          <div class="request-form-section">
-            <label class="client-field wide">Ready request
-              <select data-new-quote-request>
-                <option value="">Choose a ready request</option>
-                ${options}
-              </select>
-            </label>
-            <p class="muted">For v0, request-led quoting keeps the commercial offer separate from intake and scoping.</p>
-            <div class="button-row">
-              ${button("Create from request", "create-from-selected-request", "primary")}
-              ${button("Open blank draft", "create-blank-quote")}
-              ${button("Cancel", "close-new-quote", "ghost")}
-            </div>
-          </div>
-        </article>
-      </div>
-    `;
-  }
 
   function refresh() {
     quotes().forEach(updateQuoteCompatibility);
@@ -1409,7 +1375,12 @@
     if (action === "create-from-request") {
       const requestId = state.newQuoteRequestId || document.querySelector("[data-new-quote-request]")?.value;
       const created = createQuoteFromRequest(requestId);
-      toast(created ? `Draft opened for ${quoteNumber(created)}.` : "Choose a ready request first.");
+      if (created) {
+        state.newQuoteOpen = false;
+        toast(`Draft opened for ${quoteNumber(created)}.`);
+      } else {
+        toast("Choose a ready request first.");
+      }
       refresh();
       return true;
     }
@@ -1422,6 +1393,7 @@
       state.newQuoteTemplateId = templateId;
       state.newQuoteRequestId = null;
       const created = createBlankQuote();
+      state.newQuoteOpen = false;
       toast(`Draft opened using template for ${quoteNumber(created)}.`);
       refresh();
       return true;
@@ -1430,6 +1402,7 @@
       state.newQuoteTemplateId = null;
       state.newQuoteRequestId = null;
       const created = createBlankQuote();
+      state.newQuoteOpen = false;
       toast(`Blank draft opened for ${quoteNumber(created)}.`);
       refresh();
       return true;

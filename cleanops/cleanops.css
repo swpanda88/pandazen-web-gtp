@@ -29,6 +29,7 @@
 html {
   min-width: 320px;
   background: var(--bg);
+  overflow-y: scroll;
 }
 
 body {
@@ -992,8 +993,9 @@ tr:last-child td {
   position: fixed;
   inset: 0;
   z-index: 42;
-  display: grid;
-  place-items: start center;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
   overflow: auto;
   background: rgba(18, 50, 53, .18);
   padding: 46px 18px;

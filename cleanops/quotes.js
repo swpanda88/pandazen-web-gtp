@@ -573,7 +573,7 @@
     }
 
     return `
-      <div style="position: relative; display: inline-block;">
+      <div style="position: relative;">
         ${button("Actions ▾", `toggle-row-menu:${quote.id}`, "small ghost")}
         ${isOpen ? `
           <div style="position: absolute; right: 0; top: 100%; margin-top: 4px; background: #fff; border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 100; min-width: 160px; padding: 4px 0; text-align: left;">

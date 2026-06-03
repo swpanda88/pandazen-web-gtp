@@ -628,8 +628,8 @@
       }).join("");
 
       return `
-        <div style="margin-bottom: 32px; background: #fff; border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow: hidden;">
-          <h3 style="font-size: 15px; margin: 0; padding: 12px 16px; background: var(--surface); border-bottom: 1px solid var(--border); color: var(--text-muted); display: flex; align-items: center; gap: 8px;">
+        <div style="margin-bottom: 32px; background: #fff; border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+          <h3 style="font-size: 15px; margin: 0; padding: 12px 16px; background: var(--surface); border-bottom: 1px solid var(--border); color: var(--text-muted); display: flex; align-items: center; gap: 8px; border-top-left-radius: 8px; border-top-right-radius: 8px;">
             ${escapeHtml(title)}
             <span style="background:var(--bg); color:var(--text); padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; border: 1px solid var(--border);">${list.length}</span>
           </h3>

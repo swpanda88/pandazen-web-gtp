@@ -131,6 +131,61 @@
     to_confirm: "To confirm"
   };
 
+  const quoteReadinessLabels = {
+    ready_to_quote: "Ready to quote",
+    needs_contact: "Needs contact",
+    needs_assessment: "Needs assessment",
+    missing_scope: "Missing scope",
+    quote_created: "Quote created"
+  };
+
+  const quoteReadinessTones = {
+    ready_to_quote: "success",
+    needs_contact: "warning",
+    needs_assessment: "warning",
+    missing_scope: "danger",
+    quote_created: "info"
+  };
+
+  const assessmentLabels = {
+    yes: "Assessment required",
+    no: "No assessment needed",
+    optional: "Optional assessment",
+    completed: "Assessment completed",
+    to_confirm: "To confirm"
+  };
+
+  const initialCleanLabels = {
+    yes: "Initial clean required",
+    no: "No initial clean",
+    to_confirm: "To confirm",
+    not_applicable: "N/A"
+  };
+
+  const pricingBasisLabels = {
+    fixed_per_visit: "Fixed per visit",
+    one_off_fixed: "One-off fixed price",
+    monthly_contract: "Monthly contract",
+    hourly_estimate: "Hourly estimate",
+    to_confirm: "To confirm"
+  };
+
+  const scopeConfidenceLabels = {
+    low: "Low confidence",
+    medium: "Medium confidence",
+    high: "High confidence"
+  };
+
+  const quoteConsiderationLabels = {
+    eco_products_preferred: "Eco products preferred",
+    include_initial_deep_clean: "Initial deep clean",
+    commercial_consumables_option: "Consumables option",
+    key_holder_access: "Key holder access",
+    parking_permit_needed: "Parking permit needed",
+    access_to_confirm: "Access to confirm",
+    oven_windows_to_confirm: "Oven/windows to confirm"
+  };
+
   const clientStatusLabels = {
     lead: "Lead",
     prospect: "Prospect",
@@ -223,6 +278,54 @@
 
   function requestStatusChip(request) {
     return chip(requestStatusLabel(request), requestStatusTones[request.status] || "info");
+  }
+
+  function quoteReadinessChip(request) {
+    const readiness = request.quote_readiness || deriveQuoteReadiness(request);
+    return chip(labelFrom(quoteReadinessLabels, readiness, "Missing scope"), quoteReadinessTones[readiness] || "warning");
+  }
+
+  function deriveQuoteReadiness(request) {
+    if (request.status === "quote_sent") return "quote_created";
+    if (request.assessment_required === "yes" || request.assessment_required === "to_confirm") return "needs_assessment";
+    if (!request.customer_message || !request.request_type || request.preferred_cadence === "to_confirm") return "missing_scope";
+    if (request.status === "new_enquiry" || request.status === "waiting_customer") return "needs_contact";
+    return "ready_to_quote";
+  }
+
+  function quoteBlocker(request) {
+    const readiness = request.quote_readiness || deriveQuoteReadiness(request);
+    const blockers = {
+      needs_contact: "Contact customer before preparing the quote.",
+      needs_assessment: "Book or complete assessment before preparing the quote.",
+      missing_scope: "Complete missing scope before preparing the quote.",
+      quote_created: "A quote already exists for this request."
+    };
+    return readiness === "ready_to_quote" ? "" : blockers[readiness] || "Review quote inputs before preparing the quote.";
+  }
+
+  function minutesLabel(value, fallback = "To confirm") {
+    const minutes = Number(value);
+    if (!Number.isFinite(minutes) || minutes <= 0) return fallback;
+    const hours = minutes / 60;
+    if (minutes % 60 === 0) return `${hours} ${hours === 1 ? "hour" : "hours"}`;
+    const whole = Math.floor(hours);
+    const rest = minutes % 60;
+    return whole ? `${whole}h ${rest}m` : `${rest} minutes`;
+  }
+
+  function teamSizeLabel(value) {
+    const size = Number(value);
+    if (!Number.isFinite(size) || size <= 0) return "To confirm";
+    return `${size} ${size === 1 ? "cleaner" : "cleaners"}`;
+  }
+
+  function considerationChips(request) {
+    const items = Array.isArray(request.quote_considerations) ? request.quote_considerations : [];
+    if (!items.length) return chip("No quote considerations", "muted");
+    return items
+      .map((item) => chip(labelFrom(quoteConsiderationLabels, item, item), "info"))
+      .join("");
   }
 
   function propertyArea(property) {
@@ -337,7 +440,7 @@
             <h1>${escapeHtml(request.title)}</h1>
             ${requestStatusChip(request)}
           </div>
-          <div class="button-row request-title-chips" style="justify-content:flex-start">${requestTypeChip(request)} ${chip(labelFrom(sourceLabels, request.source, "Manual"), "info")}</div>
+          <div class="button-row request-title-chips" style="justify-content:flex-start">${requestTypeChip(request)} ${quoteReadinessChip(request)} ${chip(labelFrom(sourceLabels, request.source, "Manual"), "info")}</div>
         </div>
         <div class="page-actions">
           ${button("Contact customer", "contact-customer", "primary")}
@@ -369,6 +472,7 @@
                 <div class="field-row"><span>Received</span><strong>${escapeHtml(request.received_at || "Unknown")}</strong></div>
                 <div class="field-row"><span>Updated</span><strong>${escapeHtml(request.updated_at || "Unknown")}</strong></div>
                 <div class="field-row"><span>Next action</span><strong>${escapeHtml(request.next_action || "Review request")}</strong></div>
+                <div class="field-row"><span>Quote readiness</span><strong>${escapeHtml(labelFrom(quoteReadinessLabels, request.quote_readiness || deriveQuoteReadiness(request), "Missing scope"))}</strong></div>
               </div>
             </div>
           </article>
@@ -396,9 +500,24 @@
                 <div class="field-row"><span>Vacuum / hoover</span><strong>${escapeHtml(labelFrom(supplyLabels, request.vacuum_hoover, "To confirm"))}</strong></div>
                 <div class="field-row"><span>Mop</span><strong>${escapeHtml(labelFrom(supplyLabels, request.mop, "To confirm"))}</strong></div>
               </div>
+              <div>
+                <h3>Quote inputs</h3>
+                <div class="field-row"><span>Readiness</span><strong>${escapeHtml(labelFrom(quoteReadinessLabels, request.quote_readiness || deriveQuoteReadiness(request), "Missing scope"))}</strong></div>
+                <div class="field-row"><span>Assessment</span><strong>${escapeHtml(labelFrom(assessmentLabels, request.assessment_required, "To confirm"))}</strong></div>
+                <div class="field-row"><span>Pricing basis</span><strong>${escapeHtml(labelFrom(pricingBasisLabels, request.pricing_basis, "To confirm"))}</strong></div>
+                <div class="field-row"><span>Initial clean</span><strong>${escapeHtml(labelFrom(initialCleanLabels, request.initial_clean_required, "To confirm"))}</strong></div>
+                <div class="field-row"><span>Regular duration</span><strong>${escapeHtml(minutesLabel(request.estimated_regular_duration_minutes))}</strong></div>
+                <div class="field-row"><span>Initial duration</span><strong>${escapeHtml(minutesLabel(request.estimated_initial_duration_minutes, "N/A"))}</strong></div>
+                <div class="field-row"><span>Team size</span><strong>${escapeHtml(teamSizeLabel(request.estimated_team_size))}</strong></div>
+                <div class="field-row"><span>Scope confidence</span><strong>${escapeHtml(labelFrom(scopeConfidenceLabels, request.scope_confidence, "To confirm"))}</strong></div>
+              </div>
               <div class="wide">
                 <h3>Short scoping note</h3>
                 <p class="muted">${escapeHtml(request.service_summary || "No service summary yet.")}</p>
+              </div>
+              <div class="wide">
+                <h3>Quote considerations</h3>
+                <div class="button-row request-considerations" style="justify-content:flex-start">${considerationChips(request)}</div>
               </div>
             </div>
           </article>
@@ -541,6 +660,30 @@
               <label class="client-field">Cleaning products <select id="new-request-products">${optionList(supplyLabels, "to_confirm")}</select></label>
               <label class="client-field">Vacuum / hoover <select id="new-request-vacuum">${optionList(supplyLabels, "to_confirm")}</select></label>
               <label class="client-field">Mop <select id="new-request-mop">${optionList(supplyLabels, "to_confirm")}</select></label>
+            </div>
+          </div>
+
+          <div class="request-form-section">
+            <h3>Quote inputs</h3>
+            <div class="request-form-grid">
+              <label class="client-field">Quote readiness <select id="new-request-quote-readiness">${optionList(quoteReadinessLabels, "needs_contact")}</select></label>
+              <label class="client-field">Assessment required <select id="new-request-assessment">${optionList(assessmentLabels, "to_confirm")}</select></label>
+              <label class="client-field">Initial clean <select id="new-request-initial-clean">${optionList(initialCleanLabels, "to_confirm")}</select></label>
+              <label class="client-field">Pricing basis <select id="new-request-pricing-basis">${optionList(pricingBasisLabels, "to_confirm")}</select></label>
+              <label class="client-field">Regular duration (minutes) <input id="new-request-regular-duration" type="number" min="0" step="30" placeholder="180"></label>
+              <label class="client-field">Initial duration (minutes) <input id="new-request-initial-duration" type="number" min="0" step="30" placeholder="300"></label>
+              <label class="client-field">Team size <input id="new-request-team-size" type="number" min="1" step="1" placeholder="1"></label>
+              <label class="client-field">Scope confidence <select id="new-request-scope-confidence">${optionList(scopeConfidenceLabels, "medium")}</select></label>
+              <label class="schedule-check wide"><input id="new-request-consider-eco" type="checkbox"><span>Eco products preferred</span></label>
+              <label class="schedule-check wide"><input id="new-request-consider-initial" type="checkbox"><span>Include initial deep clean in quote thinking</span></label>
+              <label class="schedule-check wide"><input id="new-request-consider-consumables" type="checkbox"><span>Commercial consumables option may be needed</span></label>
+              <label class="schedule-check wide"><input id="new-request-consider-parking" type="checkbox"><span>Parking permit may affect quote</span></label>
+            </div>
+          </div>
+
+          <div class="request-form-section">
+            <h3>Notes</h3>
+            <div class="request-form-grid">
               <label class="client-field wide">Property notes <textarea id="new-request-property-notes" rows="2"></textarea></label>
               <label class="client-field wide">Cleaning notes <textarea id="new-request-cleaning-notes" rows="2"></textarea></label>
               <label class="client-field wide">Internal notes <textarea id="new-request-internal-notes" rows="2"></textarea></label>
@@ -563,6 +706,26 @@
 
   function value(id) {
     return document.getElementById(id)?.value?.trim() || "";
+  }
+
+  function numericValue(id) {
+    const raw = value(id);
+    if (!raw) return null;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function checked(id) {
+    return Boolean(document.getElementById(id)?.checked);
+  }
+
+  function selectedQuoteConsiderations() {
+    return [
+      checked("new-request-consider-eco") ? "eco_products_preferred" : "",
+      checked("new-request-consider-initial") ? "include_initial_deep_clean" : "",
+      checked("new-request-consider-consumables") ? "commercial_consumables_option" : "",
+      checked("new-request-consider-parking") ? "parking_permit_needed" : ""
+    ].filter(Boolean);
   }
 
   function initials(name) {
@@ -708,6 +871,15 @@
       cleaning_products: value("new-request-products") || "to_confirm",
       vacuum_hoover: value("new-request-vacuum") || "to_confirm",
       mop: value("new-request-mop") || "to_confirm",
+      quote_readiness: value("new-request-quote-readiness") || "needs_contact",
+      assessment_required: value("new-request-assessment") || "to_confirm",
+      initial_clean_required: value("new-request-initial-clean") || "to_confirm",
+      pricing_basis: value("new-request-pricing-basis") || "to_confirm",
+      estimated_regular_duration_minutes: numericValue("new-request-regular-duration"),
+      estimated_initial_duration_minutes: numericValue("new-request-initial-duration"),
+      estimated_team_size: numericValue("new-request-team-size"),
+      scope_confidence: value("new-request-scope-confidence") || "medium",
+      quote_considerations: selectedQuoteConsiderations(),
       property_notes: value("new-request-property-notes") || property.property_notes || "",
       cleaning_notes: value("new-request-cleaning-notes") || property.cleaning_notes || "",
       internal_notes: value("new-request-internal-notes"),
@@ -786,6 +958,12 @@
     if (action === "toggle-more") {
       state.moreOpen = !state.moreOpen;
       refresh();
+      return true;
+    }
+    if (action === "create-quote") {
+      const request = selectedRequest();
+      const blocker = request ? quoteBlocker(request) : "";
+      toast(blocker || `Create quote is mocked for ${request?.number || "request"}.`);
       return true;
     }
 

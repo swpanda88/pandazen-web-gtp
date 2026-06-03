@@ -6,6 +6,8 @@
     previewQuoteId: null,
     documentModalOpen: false,
     a4ViewOpen: false,
+    actionsModalOpen: false,
+    historyModalOpen: false,
     newQuoteRequestId: ""
   };
 
@@ -17,6 +19,7 @@
     accepted: "Accepted",
     rejected: "Rejected",
     expired: "Expired",
+    superseded: "Superseded",
     converted_to_job: "Converted to job"
   };
 
@@ -27,7 +30,9 @@
     viewed: "info",
     accepted: "success",
     declined: "danger",
-    expired: "danger"
+    rejected: "danger",
+    expired: "danger",
+    superseded: "warning"
   };
 
   const documentStatusLabels = {
@@ -41,6 +46,10 @@
     generated: "success",
     needs_update: "danger"
   };
+
+  function isQuoteLocked(quote) {
+    return !["draft", "ready_to_send"].includes(quote.status);
+  }
 
   function markDocumentNeedsUpdate(quote) {
     if (quote && quote.document_status === "generated") {
@@ -205,7 +214,7 @@
   }
 
   function quoteNumber(quote) {
-    return quote.quote_number || quote.number || "Draft quote";
+    return quote.quote_ref || quote.quote_number || quote.number || "Draft quote";
   }
 
   function selectedQuote() {
@@ -587,6 +596,15 @@
         <strong>${escapeHtml(quoteNumber(quote))}</strong>
       </div>
 
+      ${isQuoteLocked(quote) ? `
+        <div class="banner warning" style="margin-bottom: 16px;">
+          <div style="font-weight:500; margin-bottom:8px;">This quote has already been used commercially. Create a revision to preserve history.</div>
+          <div class="button-row">
+            ${button("Create revision", "create-revision")}
+            ${button("View quote history", "view-history")}
+          </div>
+        </div>
+      ` : ""}
       <div class="page-head">
         <div>
           <div class="request-title-chips">${quoteStatusChip(quote)} ${request ? quoteReadinessChip(request) : chip("No request linked", "warning")}</div>
@@ -594,18 +612,17 @@
           <p>${escapeHtml(client?.display_name || quote.client || "Client to confirm")} - ${escapeHtml(property?.address || quote.property || "Property to confirm")}</p>
         </div>
         <div class="button-row">
-          ${button("Save draft", "save-draft")}
+          ${!isQuoteLocked(quote) ? button("Save draft", "save-draft") : ""}
           ${(!quote.document_status || quote.document_status === "not_generated") ? button("Generate document", "open-document-modal") : button("Preview document", "open-a4-view")}
           ${button("Preview as client", "preview-client")}
-          ${button("Mark ready", "mark-ready", "primary")}
-          ${button("More actions", "more-actions")}
+          ${!isQuoteLocked(quote) ? button("Mark ready", "mark-ready", "primary") : ""}
+          ${button("More actions", "open-actions-modal")}
         </div>
       </div>
-
       <section class="quote-builder-grid">
         <div class="stack">
           ${renderSourceRequestCard(quote, request, client, property)}
-          ${renderQuoteAssistCard(assist)}
+          ${assist.ready ? "" : renderQuoteAssistCard(assist)}
           ${renderQuoteItemsTable(quote)}
           ${renderClientTextCard(quote)}
         </div>
@@ -615,8 +632,64 @@
       </section>
       ${state.previewQuoteId === quoteId(quote) ? renderPreviewModal(quote) : ""}
       ${state.documentModalOpen ? renderDocumentModal(quote) : ""}
+      ${state.actionsModalOpen ? renderActionsModal(quote) : ""}
+      ${state.historyModalOpen ? renderHistoryModal(quote) : ""}
       ${state.a4ViewOpen ? renderA4DocumentView(quote) : ""}
       ${state.newQuoteOpen ? renderNewQuoteModal() : ""}
+    `;
+  }
+
+  function renderActionsModal(quote) {
+    return `
+      <div class="quote-modal-backdrop" data-quote-action="close-actions-modal">
+        <article class="quote-modal" role="dialog" aria-modal="true" style="max-width: 400px;" data-quote-modal>
+          <div class="panel-head flush">
+            <h2>Quote actions</h2>
+            ${iconButton("Close", "close-actions-modal")}
+          </div>
+          <div class="panel-body stack" style="margin-top: 16px;">
+            ${button("Create revision", "create-revision", "primary")}
+            <p class="muted" style="margin-top: -4px; font-size: 13px;">Update this offer while preserving the previous version.</p>
+
+            ${button("Duplicate as new quote option", "duplicate-option")}
+            <p class="muted" style="margin-top: -4px; font-size: 13px;">Create a different option for the same request.</p>
+
+            ${button("View quote history", "view-history")}
+            <p class="muted" style="margin-top: -4px; font-size: 13px;">See previous versions and options.</p>
+          </div>
+        </article>
+      </div>
+    `;
+  }
+
+  function renderHistoryModal(quote) {
+    const groupQuotes = quotes().filter(q => q.quote_group_id === quote.quote_group_id || q.request_id === quote.request_id).sort((a,b) => b.version - a.version);
+    return `
+      <div class="quote-modal-backdrop" data-quote-action="close-history-modal">
+        <article class="quote-modal" role="dialog" aria-modal="true" data-quote-modal>
+          <div class="panel-head flush">
+            <h2>Quote history</h2>
+            ${iconButton("Close", "close-history-modal")}
+          </div>
+          <div class="panel-body stack">
+            <table class="history-table" style="width:100%; margin-top:12px; text-align: left; border-collapse: collapse;">
+              <thead><tr style="border-bottom: 1px solid var(--border);"><th style="padding: 8px;">Ref</th><th style="padding: 8px;">Total</th><th style="padding: 8px;">Status</th><th style="padding: 8px;">Action</th></tr></thead>
+              <tbody>
+                ${groupQuotes.map(q => `
+                  <tr style="${q.id === quote.id ? 'background: var(--bg); font-weight: 500;' : ''} border-bottom: 1px solid var(--border);">
+                    <td style="padding: 8px;">${escapeHtml(q.quote_ref || q.number)}</td>
+                    <td style="padding: 8px;">${escapeHtml(q.total)}</td>
+                    <td style="padding: 8px;">${quoteStatusChip(q)}</td>
+                    <td style="padding: 8px;">
+                      ${q.id !== quote.id ? button("Open", `open-quote:${q.id}`) : "Current"}
+                    </td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </div>
     `;
   }
 
@@ -682,21 +755,23 @@
   }
 
   function renderQuoteItemsTable(quote) {
+    const locked = isQuoteLocked(quote);
+    const dis = locked ? " disabled" : "";
     const rows = (quote.quote_items || []).map((item) => `
       <tr data-quote-item-id="${escapeHtml(item.item_id)}">
         <td>
-          <label class="schedule-check compact"><input type="checkbox" data-quote-item-field="included"${item.included !== false ? " checked" : ""}><span></span></label>
+          <label class="schedule-check compact"><input type="checkbox" data-quote-item-field="included"${item.included !== false ? " checked" : ""}${dis}><span></span></label>
         </td>
-        <td><input class="quote-input" data-quote-item-field="name" value="${escapeHtml(item.name)}"></td>
-        <td><textarea class="quote-input quote-textarea" data-quote-item-field="description">${escapeHtml(item.description)}</textarea></td>
-        <td><input class="quote-input mini" type="number" min="0" step="0.25" data-quote-item-field="quantity_or_hours" value="${escapeHtml(item.quantity_or_hours)}"></td>
-        <td><input class="quote-input mini" type="number" min="0" step="0.5" data-quote-item-field="rate" value="${escapeHtml(item.rate)}"></td>
+        <td><input class="quote-input" data-quote-item-field="name" value="${escapeHtml(item.name)}"${dis}></td>
+        <td><textarea class="quote-input quote-textarea" data-quote-item-field="description"${dis}>${escapeHtml(item.description)}</textarea></td>
+        <td><input class="quote-input mini" type="number" min="0" step="0.25" data-quote-item-field="quantity_or_hours" value="${escapeHtml(item.quantity_or_hours)}"${dis}></td>
+        <td><input class="quote-input mini" type="number" min="0" step="0.5" data-quote-item-field="rate" value="${escapeHtml(item.rate)}"${dis}></td>
         <td><strong>${money(item.amount ?? itemAmount(item))}</strong></td>
-        <td><select class="quote-input" data-quote-item-field="type">${optionList(itemTypeLabels, item.type || "one_off")}</select></td>
+        <td><select class="quote-input" data-quote-item-field="type"${dis}>${optionList(itemTypeLabels, item.type || "one_off")}</select></td>
         <td>
-          <label class="schedule-check compact"><input type="checkbox" data-quote-item-field="optional"${item.optional ? " checked" : ""}><span>Yes</span></label>
+          <label class="schedule-check compact"><input type="checkbox" data-quote-item-field="optional"${item.optional ? " checked" : ""}${dis}><span>Yes</span></label>
         </td>
-        <td>${button("Remove", `remove-item:${item.item_id}`, "small ghost")}</td>
+        <td>${!locked ? button("Remove", `remove-item:${item.item_id}`, "small ghost") : ""}</td>
       </tr>
     `).join("");
 
@@ -706,7 +781,7 @@
       <article class="panel quote-items-panel">
         <div class="panel-head">
           <h2>Quote items</h2>
-          ${button("Add row", "add-item", "small primary")}
+          ${!locked ? button("Add row", "add-item", "small primary") : ""}
         </div>
         <div class="quote-table-scroll">
           <table class="quote-items-table">
@@ -727,30 +802,32 @@
   }
 
   function renderClientTextCard(quote) {
+    const locked = isQuoteLocked(quote);
+    const dis = locked ? " disabled" : "";
     return `
       <article class="panel pad">
         <div class="panel-head flush"><h2>Client-facing quote text</h2>${chip("Internal notes stay separate", "info")}</div>
         <div class="request-form-grid" style="margin-top:12px">
           <label class="client-field wide">Quote summary
-            <textarea rows="3" data-quote-field="client_facing_summary">${escapeHtml(quote.client_facing_summary || "")}</textarea>
+            <textarea rows="3" data-quote-field="client_facing_summary"${dis}>${escapeHtml(quote.client_facing_summary || "")}</textarea>
           </label>
           <label class="client-field">Included scope
-            <textarea rows="6" data-quote-field="included_scope">${escapeHtml(lineList(quote.included_scope))}</textarea>
+            <textarea rows="6" data-quote-field="included_scope"${dis}>${escapeHtml(lineList(quote.included_scope))}</textarea>
           </label>
           <label class="client-field">Exclusions / not included
-            <textarea rows="6" data-quote-field="exclusions">${escapeHtml(lineList(quote.exclusions))}</textarea>
+            <textarea rows="6" data-quote-field="exclusions"${dis}>${escapeHtml(lineList(quote.exclusions))}</textarea>
           </label>
           <label class="client-field">Special notes for client
-            <textarea rows="4" data-quote-field="special_notes">${escapeHtml(quote.special_notes || "")}</textarea>
+            <textarea rows="4" data-quote-field="special_notes"${dis}>${escapeHtml(quote.special_notes || "")}</textarea>
           </label>
           <label class="client-field">Terms / assumptions
-            <textarea rows="4" data-quote-field="terms">${escapeHtml(quote.terms || "")}</textarea>
+            <textarea rows="4" data-quote-field="terms"${dis}>${escapeHtml(quote.terms || "")}</textarea>
           </label>
           <label class="client-field">Valid until
-            <input type="text" data-quote-field="valid_until" value="${escapeHtml(quote.valid_until || "")}">
+            <input type="text" data-quote-field="valid_until" value="${escapeHtml(quote.valid_until || "")}"${dis}>
           </label>
           <label class="client-field">Internal notes
-            <textarea rows="4" data-quote-field="internal_notes">${escapeHtml(quote.internal_notes || "")}</textarea>
+            <textarea rows="4" data-quote-field="internal_notes"${dis}>${escapeHtml(quote.internal_notes || "")}</textarea>
           </label>
         </div>
       </article>
@@ -790,7 +867,7 @@
           ${button("Preview as client", "preview-client")}
           ${button("Mark ready to send", "mark-ready")}
           ${button("Convert to job", "convert-to-job")}
-          ${button("More actions", "more-actions")}
+          ${button("More actions", "open-actions-modal")}
         </div>
       </article>
     `;
@@ -981,12 +1058,18 @@
 
     const client = requestClient(request);
     const property = requestProperty(request);
+    const nextGroup = `qg-${Date.now()}`;
     const nextNumber = `Q-${2090 + quotes().length}`;
+    const ref = `${nextNumber}/01`;
     const quote = {
       quote_id: `quote-${Date.now()}`,
       id: `quote-${Date.now()}`,
-      quote_number: nextNumber,
-      number: nextNumber,
+      quote_group_id: nextGroup,
+      quote_number_base: nextNumber,
+      version: 1,
+      quote_ref: ref,
+      quote_number: ref,
+      number: ref,
       status: "draft",
       document_status: "not_generated",
       client_id: request.client_id,
@@ -1017,11 +1100,18 @@
   function createBlankQuote() {
     const client = clients()[0];
     const property = client?.properties?.[0];
+    const nextGroup = `qg-${Date.now()}`;
+    const nextNumber = `Q-${2090 + quotes().length}`;
+    const ref = `${nextNumber}/01`;
     const quote = {
       quote_id: `quote-${Date.now()}`,
       id: `quote-${Date.now()}`,
-      quote_number: `Q-${2090 + quotes().length}`,
-      number: `Q-${2090 + quotes().length}`,
+      quote_group_id: nextGroup,
+      quote_number_base: nextNumber,
+      version: 1,
+      quote_ref: ref,
+      quote_number: ref,
+      number: ref,
       status: "draft",
       document_status: "not_generated",
       client_id: client?.id || "",
@@ -1201,8 +1291,90 @@
       toast("Convert to job is mocked for this prototype.");
       return true;
     }
-    if (action === "more-actions") {
-      toast("Quote actions are mocked for this prototype.");
+    if (action === "open-actions-modal") {
+      state.actionsModalOpen = true;
+      refresh();
+      return true;
+    }
+    if (action === "close-actions-modal") {
+      state.actionsModalOpen = false;
+      refresh();
+      return true;
+    }
+    if (action === "view-history") {
+      state.actionsModalOpen = false;
+      state.historyModalOpen = true;
+      refresh();
+      return true;
+    }
+    if (action === "close-history-modal") {
+      state.historyModalOpen = false;
+      refresh();
+      return true;
+    }
+    if (action.startsWith("open-quote:")) {
+      state.historyModalOpen = false;
+      state.selectedQuoteId = action.split(":")[1];
+      refresh();
+      return true;
+    }
+    if (action === "create-revision" && quote) {
+      const newVersion = quote.version ? quote.version + 1 : 2;
+      const ref = `${quote.quote_number_base || quote.quote_number}/${newVersion.toString().padStart(2, "0")}`;
+
+      const newQuote = {
+        ...JSON.parse(JSON.stringify(quote)), // deep copy
+        quote_id: `quote-${Date.now()}`,
+        id: `quote-${Date.now()}`,
+        version: newVersion,
+        quote_ref: ref,
+        quote_number: ref,
+        number: ref,
+        status: "draft",
+        document_status: "not_generated",
+        supersedes_quote_id: quote.id,
+        created_at: new Date().toISOString().split("T")[0],
+        updated_at: new Date().toISOString().split("T")[0]
+      };
+
+      if (["sent", "viewed", "rejected", "expired"].includes(quote.status)) {
+        quote.status = "superseded";
+      }
+
+      quotes().unshift(newQuote);
+      state.selectedQuoteId = newQuote.id;
+      state.actionsModalOpen = false;
+      toast(`Created revision ${ref}`);
+      refresh();
+      return true;
+    }
+    if (action === "duplicate-option" && quote) {
+      const nextGroup = `qg-${Date.now()}`;
+      const nextNumberBase = `Q-${2090 + quotes().length}`;
+      const ref = `${nextNumberBase}/01`;
+
+      const newQuote = {
+        ...JSON.parse(JSON.stringify(quote)),
+        quote_id: `quote-${Date.now()}`,
+        id: `quote-${Date.now()}`,
+        quote_group_id: nextGroup,
+        quote_number_base: nextNumberBase,
+        version: 1,
+        quote_ref: ref,
+        quote_number: ref,
+        number: ref,
+        status: "draft",
+        document_status: "not_generated",
+        supersedes_quote_id: null,
+        created_at: new Date().toISOString().split("T")[0],
+        updated_at: new Date().toISOString().split("T")[0]
+      };
+
+      quotes().unshift(newQuote);
+      state.selectedQuoteId = newQuote.id;
+      state.actionsModalOpen = false;
+      toast(`Created new option ${ref}`);
+      refresh();
       return true;
     }
 

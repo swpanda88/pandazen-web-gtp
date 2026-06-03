@@ -426,7 +426,7 @@
               <li>Clean pricing table and terms</li>
             </ul>
             <div class="button-row" style="margin-top: 14px;">
-              ${button("Generate / update document", "generate-document", "primary")}
+              ${button("Generate / update document", `generate-document-id:${quote.id}`, "primary")}
               ${button("Cancel", "close-document-modal")}
             </div>
           </div>
@@ -1527,14 +1527,28 @@
     }
     if (action === "close-document-modal") {
       state.documentModalOpen = false;
+      state.documentModalId = null;
       refresh();
       return true;
     }
     if (action === "generate-document" && quote) {
       quote.document_status = "generated";
       state.documentModalOpen = false;
+      state.documentModalId = null;
       toast(`Document generated for ${quoteNumber(quote)}.`);
       refresh();
+      return true;
+    }
+    if (action.startsWith("generate-document-id:")) {
+      const qId = action.split(":")[1];
+      const q = quotes().find(x => x.id === qId);
+      if (q) {
+        q.document_status = "generated";
+        state.documentModalOpen = false;
+        state.documentModalId = null;
+        toast(`Document generated for ${quoteNumber(q)}.`);
+        refresh();
+      }
       return true;
     }
     if (action === "open-a4-view") {
@@ -1544,6 +1558,7 @@
     }
     if (action === "close-a4-view") {
       state.a4ViewOpen = false;
+      state.a4ViewId = null;
       refresh();
       return true;
     }

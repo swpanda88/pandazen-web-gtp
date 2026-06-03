@@ -415,6 +415,11 @@
     return prepValue(teamSizeLabel(value) === "To confirm" ? "" : teamSizeLabel(value), state);
   }
 
+  function inlineConfirmation(label, confirmed) {
+    const state = confirmed ? "Confirmed" : "To confirm";
+    return `${label || "To confirm"} - ${state}`;
+  }
+
   function priorityChips(request) {
     const items = Array.isArray(request.main_priorities) ? request.main_priorities : [];
     if (!items.length) return chip("No priorities supplied", "muted");
@@ -672,30 +677,15 @@
                 <div class="button-row request-considerations" style="justify-content:flex-start">${priorityChips(request)}</div>
               </div>
               <div>
-                <h3>Products and photos</h3>
-                <div class="field-row"><span>Products preference</span><strong>${escapeHtml(labelFrom(supplyLabels, request.products_preference || request.cleaning_products, "To confirm"))}</strong></div>
+                <h3>Products, equipment and photos</h3>
+                <div class="field-row"><span>Cleaning products / preference</span><strong>${escapeHtml(inlineConfirmation(labelFrom(supplyLabels, request.cleaning_products, "To confirm"), request.cleaning_products_state === "confirmed" || request.setup_confirmed))}</strong></div>
+                <div class="field-row"><span>Vacuum / hoover</span><strong>${escapeHtml(inlineConfirmation(labelFrom(equipmentLabels, request.vacuum_hoover, "To confirm"), request.setup_confirmed))}</strong></div>
+                <div class="field-row"><span>Mop</span><strong>${escapeHtml(inlineConfirmation(labelFrom(equipmentLabels, request.mop, "To confirm"), request.setup_confirmed))}</strong></div>
                 <div class="field-row"><span>Would photos help?</span><strong>${escapeHtml(labelFrom(photoHelpLabels, request.photos_helpful, "To confirm"))}</strong></div>
               </div>
               <div class="wide">
                 <h3>Customer message</h3>
                 <p class="muted">${escapeHtml(request.customer_message || "No customer message recorded.")}</p>
-              </div>
-            </div>
-          </article>
-
-          <article class="panel">
-            <div class="panel-head"><h2>Practical setup</h2></div>
-            <div class="panel-body request-summary-grid">
-              <div>
-                <h3>Operational supplies</h3>
-                <div class="field-row"><span>Cleaning products supplied by</span><strong>${escapeHtml(labelFrom(supplyLabels, request.cleaning_products, "To confirm"))}</strong></div>
-                <div class="field-row"><span>Vacuum / hoover supplied by</span><strong>${escapeHtml(labelFrom(equipmentLabels, request.vacuum_hoover, "To confirm"))}</strong></div>
-                <div class="field-row"><span>Mop supplied by</span><strong>${escapeHtml(labelFrom(equipmentLabels, request.mop, "To confirm"))}</strong></div>
-              </div>
-              <div>
-                <h3>Confirmation state</h3>
-                <div class="field-row"><span>Products source</span><strong>${escapeHtml(prepValue(labelFrom(supplyLabels, request.cleaning_products, ""), request.cleaning_products_state || "to_confirm"))}</strong></div>
-                <div class="field-row"><span>Equipment source</span><strong>${escapeHtml(request.setup_confirmed ? "Confirmed" : "To confirm")}</strong></div>
               </div>
             </div>
           </article>

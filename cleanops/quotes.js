@@ -407,17 +407,9 @@
               <h2>Generate PDF document</h2>
             </div>
             ${iconButton("Close", "close-document-modal")}
-            <div class="field-row">
-              <span>Document</span>
-              <strong>${chip(documentStatusLabels[quote.document_status || "not_generated"], documentStatusTones[quote.document_status || "not_generated"])}</strong>
-            </div>
           </div>
           <div class="panel-body stack">
-            ${quote.document_status === "not_generated" || !quote.document_status ? button("Generate / update document", "open-document-modal", "primary") : ""}
-            ${quote.document_status === "needs_update" ? `<div class="stack" style="gap:8px;">${button("Update document", "open-document-modal", "primary")} ${button("Preview document", "open-a4-view")}</div>` : ""}
-            ${quote.document_status === "generated" ? `<div class="stack" style="gap:8px;">${button("Preview document", "open-a4-view")} ${button("Print document", "print-a4-view")}</div>` : ""}
-            <hr>
-            ${button("Preview as client", "preview-client")} for <strong>${escapeHtml(quote.client)}</strong>.</p>
+            <p>Generate a formal A4 quote document for <strong>${escapeHtml(quote.client)}</strong>.</p>
             <p>The document will include:</p>
             <ul style="margin-left: 20px; margin-top: 8px;">
               <li>Company branding and contact details</li>
@@ -603,6 +595,7 @@
         </div>
         <div class="button-row">
           ${button("Save draft", "save-draft")}
+          ${(!quote.document_status || quote.document_status === "not_generated") ? button("Generate document", "open-document-modal") : button("Preview document", "open-a4-view")}
           ${button("Preview as client", "preview-client")}
           ${button("Mark ready", "mark-ready", "primary")}
           ${button("More actions", "more-actions")}
@@ -782,6 +775,16 @@
           <div><span>Monthly estimate</span><strong>${money(totals.monthlyEstimate)}</strong></div>
           <div><span>Optional extras</span><strong>${money(totals.optional)}</strong></div>
         </div>
+        <div class="stack" style="margin-top:14px">
+          <div class="field-row">
+            <span>Document</span>
+            <strong>${chip(documentStatusLabels[quote.document_status || "not_generated"], documentStatusTones[quote.document_status || "not_generated"])}</strong>
+          </div>
+          ${(!quote.document_status || quote.document_status === "not_generated") ? button("Generate / update document", "open-document-modal") : ""}
+          ${quote.document_status === "needs_update" ? `<div class="stack" style="gap:8px;">${button("Update document", "open-document-modal")} ${button("Preview document", "open-a4-view")} ${button("Print document", "print-a4-view")}</div>` : ""}
+          ${quote.document_status === "generated" ? `<div class="stack" style="gap:8px;">${button("Preview document", "open-a4-view")} ${button("Print document", "print-a4-view")}</div>` : ""}
+        </div>
+        <hr>
         <div class="stack" style="margin-top:14px">
           ${button("Save draft", "save-draft", "primary")}
           ${button("Preview as client", "preview-client")}

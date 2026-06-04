@@ -271,25 +271,25 @@
     let content = "";
     
     if (type === "client") {
-      content = \`<h2 style="margin-bottom:16px;">Client Preview</h2><p>Summary of client contact info, active work, etc.</p>\`;
+      content = `<h2 style="margin-bottom:16px;">Client Preview</h2><p>Summary of client contact info, active work, etc.</p>`;
     } else if (type === "property") {
-      content = \`<h2 style="margin-bottom:16px;">Property Preview</h2><p>Address, access notes, equipment instructions, etc.</p>\`;
+      content = `<h2 style="margin-bottom:16px;">Property Preview</h2><p>Address, access notes, equipment instructions, etc.</p>`;
     } else if (type === "quote") {
-      content = \`<h2 style="margin-bottom:16px;">Quote Preview</h2><p>Quote items, pricing, initial vs recurring basis.</p>\`;
+      content = `<h2 style="margin-bottom:16px;">Quote Preview</h2><p>Quote items, pricing, initial vs recurring basis.</p>`;
     } else if (type === "request") {
-      content = \`<h2 style="margin-bottom:16px;">Request Preview</h2><p>Customer request details, context.</p>\`;
+      content = `<h2 style="margin-bottom:16px;">Request Preview</h2><p>Customer request details, context.</p>`;
     }
 
-    return \`
+    return `
       <div style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.4); z-index:100; display:flex; justify-content:center; align-items:center;" data-job-modal="true" onclick="document.querySelector('[data-job-action=close-source-preview]').click()">
         <div style="background:var(--bg); width:600px; max-height:80vh; padding:32px; border-radius:8px; box-shadow:0 10px 40px rgba(0,0,0,0.2); overflow-y:auto;" onclick="event.stopPropagation()">
           <div style="margin-bottom:24px;">
-            \${button("Back to job", "close-source-preview", "small ghost", "← ")}
+            ${button("Back to job", "close-source-preview", "small ghost", "← ")}
           </div>
-          \${content}
+          ${content}
         </div>
       </div>
-    \`;
+    `;
   }
 
   function renderSetupModal() {

@@ -65,6 +65,31 @@ For a one-off clean, the Job Plan may generate one Scheduled Job. For recurring 
 - internal notes
 - status
 
+### Setup-Complete Checkpoint
+
+A Job Plan should only leave Needs setup when practical setup is complete enough to run.
+
+Setup complete means:
+
+- client is linked
+- property is linked
+- source quote is linked, or the job is clearly marked as manual
+- service type is selected
+- one-off or recurring pattern is confirmed
+- start date/time is confirmed
+- default duration is confirmed
+- cleaner/team is selected or marked flexible
+- checklist template is selected
+- price/billing basis is confirmed
+- products/equipment notes are confirmed
+- recurrence generation has been reviewed/confirmed if recurring
+
+Jobs v0 should include a clear action/state transition:
+
+- Mark setup complete
+
+This action should move the Job Plan out of Needs setup only after the practical setup fields above are present or intentionally marked flexible/manual/to confirm where the business accepts that risk.
+
 ### Job Plan Status Examples
 
 - Draft
@@ -77,12 +102,18 @@ For a one-off clean, the Job Plan may generate one Scheduled Job. For recurring 
 
 ### Job Plan Setup Must Confirm
 
+- Client and property links
+- Source quote or manual source
+- Service type
+- One-off or recurring pattern
+- Start date/time
 - Cleaning plan exists
 - Recurrence/cadence is known where recurring
 - Checklist template is selected
 - Duration is set
-- Cleaner/team is assigned if known
+- Cleaner/team is assigned or marked flexible
 - Billing basis is known
+- Products/equipment notes are confirmed
 - First schedule generation has been confirmed
 
 ## 3. Scheduled Job / Clean
@@ -118,6 +149,30 @@ A Scheduled Job is one dated occurrence generated from a Job Plan. It is what ap
 
 The checklist should be copied onto the Scheduled Job at generation time or start time so later checklist template edits do not accidentally rewrite historical work.
 
+## 3.1 All-Good Fast Path
+
+Normal recurring cleans should not create admin work every time.
+
+If a Scheduled Job/Clean is completed and all of the following are true:
+
+- checklist is complete
+- no cleaner remarks
+- no client remarks
+- no issue flag
+- no extra time
+- no access failure
+- no complaint
+
+Then CleanOps should:
+
+- store the Job Report quietly
+- create or prepare the Billable Event
+- avoid creating an action-board card
+- allow the recurring Job Plan to continue normally
+- leave the next generated Scheduled Job/Clean in place
+
+Only exceptions should appear in the action panel, such as remarks, incomplete checklist items, extra time, no access, complaints, possible revisits, skipped/cancelled work, or billing uncertainty.
+
 ## 4. Job Report
 
 A Job Report is created when a Scheduled Job/Clean is completed. It records what actually happened.
@@ -139,8 +194,10 @@ A Job Report is created when a Scheduled Job/Clean is completed. It records what
 ### Report Principles
 
 - Reports should not pollute the main Jobs workspace.
-- Job cards may show a short recent report summary.
+- Job cards/list rows should show only the last 3 reports or the latest important remark.
 - Full report history belongs in Reports / Job history.
+- Reports should support later filtering/searching by client, property, cleaner/team, issue type, date, and billing state.
+- Completed cleans and reports should not all sit in the main Jobs workspace forever.
 - Cleaner remarks and client remarks should be reviewable before billing if they affect scope, quality, or price.
 
 ### Review Severity Chips
@@ -179,6 +236,18 @@ A Billable Event is the chargeable work output created from a completed and appr
 
 Invoices should be created from selected billable events, not directly from the quote or directly from the parent Job Plan. This allows recurring work, extras, corrections, and write-offs to be handled cleanly.
 
+The billing chain is:
+
+```text
+Job Plan = agreement/service control record
+Scheduled clean = planned work occurrence
+Job Report = proof/record of what happened
+Billable Event = chargeable item created from completed/approved work
+Invoice = commercial/accounting document created from billable events
+```
+
+Do not create invoices directly from the Job Plan without completed/approved work unless a later, explicit contract/monthly billing model supports that behaviour.
+
 ## 6. Recurring Jobs
 
 Recurring domestic and commercial cleaning often stays stable for months or years at the same address, on the same day/time, with the same cleaner/team. CleanOps must support calendar-style recurrence generation.
@@ -200,7 +269,7 @@ Recurring domestic and commercial cleaning often stays stable for months or year
 
 The user should see a spreadsheet-like generated schedule preview before or immediately after confirmation.
 
-| Date | Job | Time | Cleaner/team | Status | Skip/cancel | Reason |
+| Date | Job / clean | Time | Cleaner/team | Status | Skip/cancel checkbox | Reason/note |
 | --- | --- | --- | --- | --- | --- | --- |
 | 12 Jun | Regular clean | 09:00 | Panda Cleaner | Planned | No | - |
 | 19 Jun | Regular clean | 09:00 | Panda Cleaner | Planned | No | - |
@@ -231,7 +300,8 @@ For regular recurring jobs, scheduling should mainly happen during Job Plan setu
 - choose cleaner/team if known
 - choose start date
 - choose optional end date
-- generate scheduled jobs ahead, e.g. 3 months
+- choose generate-ahead window, e.g. 3 months
+- generate scheduled jobs ahead
 - maintain rolling generation, e.g. add 1 month ahead as time passes
 
 Generated recurring jobs should already have planned dates/times from the Job Plan. They should appear in the Schedule as planned/scheduled work, not as a large pile of unscheduled items.
@@ -243,7 +313,7 @@ Generated recurring jobs should already have planned dates/times from the Job Pl
 - dealing with exceptions
 - one-off jobs
 - ad-hoc extra jobs
-- rescheduling cancelled/skipped work
+- cancellations/rescheduling
 - staff/time changes
 - capacity checking before accepting new work
 
@@ -259,9 +329,9 @@ Keep this lean and flexible. Do not create dozens of exception types.
 
 - Pause job plan
 - Resume job plan
-- Skip selected scheduled job
-- Cancel selected scheduled job
-- Add one-off extra scheduled job
+- Skip selected scheduled clean
+- Cancel selected scheduled clean
+- Add extra one-off scheduled clean
 - Add simple reason/note
 
 ### Example Reasons
@@ -299,6 +369,8 @@ Examples:
 - billing basis missing
 - first schedule generation not confirmed
 
+The main transition out of this column should be Mark setup complete.
+
 #### Needs Review
 
 Completed Scheduled Job/Report needs human review.
@@ -325,6 +397,8 @@ The Jobs list should show all Job Plans separately. The same client/property may
 
 Rows/cards should use address-first naming because cleaners and operators naturally refer to work by location.
 
+The address/property short label should be derived from the first address line where practical, with future override support.
+
 Example:
 
 ```text
@@ -343,6 +417,20 @@ ABC Ltd - Commercial clean - Mon/Wed/Fri
 Next: Today 18:00 - Team 1
 Price: GBP 650/month
 Recent: Note left
+```
+
+### Multiple Jobs Per Client/Property
+
+A client can have multiple jobs. A property can have multiple jobs. Jobs must remain separate service records even if they share the same client/property.
+
+Do not merge jobs just because the client/property is the same.
+
+Example:
+
+```text
+Unit 5 All Saints - Weekly office clean
+Unit 5 All Saints - Monthly deep clean
+Unit 5 All Saints - One-off carpet clean
 ```
 
 ### 9.3 Job Workspace

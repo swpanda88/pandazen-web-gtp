@@ -661,7 +661,7 @@ Accepted quote
 ### Job Fields
 
 - Job Plan ID.
-- Job display name, preferably address-first.
+- Job display name, preferably address-first and derived from the first address line where practical.
 - Client ID.
 - Property ID.
 - Source quote ID.
@@ -677,6 +677,27 @@ Accepted quote
 - Price/billing basis.
 - Internal notes.
 - Status.
+
+### Setup Complete
+
+A Job Plan should only leave Needs setup when it is practical enough to run.
+
+Setup complete means:
+
+- client linked.
+- property linked.
+- source quote linked or marked manual.
+- service type selected.
+- one-off or recurring pattern confirmed.
+- start date/time confirmed.
+- default duration confirmed.
+- cleaner/team selected or marked flexible.
+- checklist template selected.
+- price/billing basis confirmed.
+- products/equipment notes confirmed.
+- recurrence generation reviewed/confirmed if recurring.
+
+Jobs v0 should include a clear Mark setup complete action.
 
 ### Jobs Page Layout
 
@@ -694,6 +715,18 @@ The action panel should use:
 
 Do not add a separate Issues column in Jobs v0. Issues, complaints, no access, extra time, and cleaner/client remarks should appear in Needs review with severity chips.
 
+Normal completed recurring cleans should not create admin work every time. If checklist is complete and there are no cleaner remarks, client remarks, issues, extra time, no access, or complaints, the Job Report should be stored quietly, a billable event should be created/prepared, the action panel should stay clean, the recurring Job Plan should continue normally, and the next generated scheduled clean should remain in place.
+
+Jobs list rows/cards should show only the last 3 reports or the latest important remark. Full history belongs in Reports / Job history, where it can later be searched and filtered.
+
+The same client/property may have multiple separate Job Plans. Do not merge jobs just because the client/property is the same.
+
+Example:
+
+- `Unit 5 All Saints - Weekly office clean`
+- `Unit 5 All Saints - Monthly deep clean`
+- `Unit 5 All Saints - One-off carpet clean`
+
 ### Job Actions
 
 - Create or edit Job Plan.
@@ -701,15 +734,16 @@ Do not add a separate Issues column in Jobs v0. Issues, complaints, no access, e
 - Preview generated schedule.
 - Pause job plan.
 - Resume job plan.
-- Skip selected scheduled job.
-- Cancel selected scheduled job.
-- Add one-off extra scheduled job.
+- Skip selected scheduled clean.
+- Cancel selected scheduled clean.
+- Add extra one-off scheduled clean.
 - Assign team.
 - Send confirmation.
 - Add note.
 - Review report.
 - Create billable event.
 - Mark ready to bill.
+- Mark setup complete.
 - Duplicate.
 
 ## 12.1 Recurring Job Generation
@@ -725,6 +759,18 @@ Recurring Job Plan setup should:
 - preview generated scheduled jobs/cleans before or immediately after confirmation.
 
 Generated recurring work should appear in the Schedule as planned/scheduled work. It should not appear as a large pile of unscheduled items that must be manually arranged.
+
+The generated schedule preview should be spreadsheet-like and include:
+
+- Date.
+- Job / clean.
+- Time.
+- Cleaner/team.
+- Status.
+- Skip/cancel checkbox.
+- Reason/note.
+
+This allows 1 to 3 months of generated recurring work to be reviewed before confirmation.
 
 ## 13. Scheduling Module
 
@@ -895,8 +941,9 @@ Optionally send selected client-facing completion summaries.
 
 ### Invoice Features
 
-- Create from job.
-- Create from recurring billing schedule.
+- Create from selected billable events.
+- Group multiple billable events onto one invoice.
+- Link each billable event back to completed/approved work.
 - Apply deposit.
 - Add VAT.
 - Add discounts.
@@ -906,6 +953,8 @@ Optionally send selected client-facing completion summaries.
 - Manual payment recording.
 - Receipts.
 - Automatic reminders.
+
+Do not create invoices directly from the parent Job Plan without completed/approved work unless a later explicit contract/monthly billing model supports that behaviour.
 
 ### UK VAT Requirements
 
@@ -1107,6 +1156,10 @@ Log:
 - Unscheduled one-off/ad-hoc work.
 - Cleaner utilisation.
 - Scheduled job completion rate.
+- Job report history.
+- Latest important job remarks.
+
+Jobs list/cards should only surface recent report summaries. Full completed-clean history belongs in Reports / Job history and should later support filtering/searching.
 
 ### Sales Reports
 

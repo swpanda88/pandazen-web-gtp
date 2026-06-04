@@ -47,6 +47,12 @@ Jobs decides what work exists and under what rules. Schedule is the calendar vie
 
 For recurring work, the Job Plan setup must create the repeating schedule pattern. Do not design recurring work so it creates dozens of unscheduled items that must be manually arranged on the Schedule page.
 
+Normal recurring cleans should follow an all-good fast path: if the clean is completed, checklist is complete, and there are no remarks, issues, extra time, no-access events, or complaints, CleanOps should store the report quietly, create/prepare the billable event, avoid creating action-board noise, and leave the next generated scheduled clean in place.
+
+Jobs v0 should use only three action-panel groups: Needs setup, Needs review, and Ready to bill. Issues, complaints, no access, and urgent problems belong inside Needs review with severity chips rather than a separate Issues column.
+
+Invoices should be created from billable events produced by completed/approved work. Do not invoice directly from the parent Job Plan unless a later explicit contract/monthly billing model supports that behaviour.
+
 ---
 
 ## 3. UI and UX Patterns

@@ -4,7 +4,10 @@
     selectedJobId: null,
     setupModalOpen: false,
     completeModalSjId: null,
-    checklistModalOpen: false
+    checklistBuilderOpen: false,
+    selectedScheduledJobId: null,
+    sourcePreviewType: null,
+    sourcePreviewId: null
   };
 
   // Data helpers
@@ -68,7 +71,11 @@
     let html = job ? renderDetail(job) : renderList();
     if (state.setupModalOpen) html += renderSetupModal();
     if (state.completeModalSjId) html += renderCompleteModal();
-    if (state.checklistModalOpen) html += renderChecklistModal();
+    
+    if (state.checklistBuilderOpen) html += renderChecklistModal();
+    if (state.selectedScheduledJobId) html += renderScheduledCleanWorkspace();
+    if (state.sourcePreviewType) html += renderSourcePreviewWorkspace();
+    
     return html;
   }
 
@@ -121,22 +128,40 @@
     const tplDeep = checklistTemplates().find(t => t.id === job.initial_checklist_template_id);
     
     let html = `
-      <div class="quote-modal-backdrop" data-job-action="close-checklist-modal" style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:100; display:flex; justify-content:flex-end;">
-        <div style="background:var(--bg); width:500px; height:100%; padding:24px; box-shadow:-5px 0 20px rgba(0,0,0,0.1); overflow-y:auto;" data-job-modal="true" onclick="event.stopPropagation()">
-          <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:24px;">
-            <h2>Checklist Builder</h2>
-            ${button("Close", "close-checklist-modal", "small ghost")}
+      <div style="position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg); z-index:100; display:flex; flex-direction:column; overflow-y:auto;" data-job-modal="true">
+        <div style="max-width: 800px; width: 100%; margin: 0 auto; padding: 40px 24px;">
+          <div style="margin-bottom: 24px;">
+            ${button("Back to job", "close-checklist-modal", "small ghost", "← ")}
           </div>
-          <p class="muted" style="font-size:13px; margin-bottom:24px;">This checklist becomes the basis for cleaner completion and later job reports.</p>
+          <div style="margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid var(--border);">
+            <h1 style="font-size: 24px; margin-bottom: 8px;">Checklist Builder</h1>
+            <p class="muted" style="font-size: 14px;">${escapeHtml(job.display_name)} · ${escapeHtml(job.service_type)}</p>
+            <p class="muted" style="font-size: 13px; margin-top: 16px;">This checklist becomes the basis for cleaner completion and later job reports.</p>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 32px;">
+            <!-- Inputs -->
+            <div class="stack">
+              <article class="panel pad">
+                <h3 style="font-size:14px; margin-bottom:12px;">Checklist Inputs</h3>
+                <div style="font-size:13px; margin-bottom:8px;"><strong>Template:</strong> ${escapeHtml(tplReg?.name || "None")}</div>
+                <div style="font-size:13px; margin-bottom:8px;"><strong>Property notes:</strong> ${escapeHtml(job.notes?.cleaning || "None")}</div>
+                <div style="font-size:13px; margin-bottom:8px;"><strong>Source request:</strong> View details</div>
+                <div style="font-size:13px; margin-bottom:8px;"><strong>Quote items / extras:</strong> Standard only</div>
+              </article>
+            </div>
+
+            <!-- Content -->
+            <div class="stack">
     `;
 
     if (tplDeep) {
-      html += `<div style="margin-bottom: 24px;"><h3 style="font-size:14px; margin-bottom:12px; display:flex; justify-content:space-between;"><span>Initial Clean: ${escapeHtml(tplDeep.name)}</span> ${button("Edit", "toast:Edit initial checklist", "small ghost")}</h3>`;
+      html += `<div style="margin-bottom: 24px;"><h3 style="font-size:16px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;"><span>Initial Clean Checklist</span> ${button("Edit", "toast:Edit initial checklist", "small ghost")}</h3>`;
       html += tplDeep.sections.map(s => `
-        <div style="margin-bottom:12px; padding:12px; border:1px solid var(--border); border-radius:6px;">
-          <strong style="font-size:13px; display:block; margin-bottom:8px;">${escapeHtml(s.name)}</strong>
-          <ul style="margin: 0 0 0 16px; font-size:13px;" class="muted">
-            ${s.items.map(i => `<li>${escapeHtml(i)}</li>`).join("")}
+        <div style="margin-bottom:12px; padding:16px; background:var(--surface); border:1px solid var(--border); border-radius:6px;">
+          <strong style="font-size:14px; display:block; margin-bottom:12px;">${escapeHtml(s.name)}</strong>
+          <ul style="margin: 0 0 0 20px; font-size:13px;" class="muted">
+            ${s.items.map(i => `<li style="margin-bottom:4px;">${escapeHtml(i)}</li>`).join("")}
           </ul>
         </div>
       `).join("");
@@ -144,12 +169,12 @@
     }
 
     if (tplReg) {
-      html += `<div><h3 style="font-size:14px; margin-bottom:12px; display:flex; justify-content:space-between;"><span>Regular Clean: ${escapeHtml(tplReg.name)}</span> ${button("Edit", "toast:Edit regular checklist", "small ghost")}</h3>`;
+      html += `<div><h3 style="font-size:16px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;"><span>Regular Clean Checklist</span> ${button("Edit", "toast:Edit regular checklist", "small ghost")}</h3>`;
       html += tplReg.sections.map(s => `
-        <div style="margin-bottom:12px; padding:12px; border:1px solid var(--border); border-radius:6px;">
-          <strong style="font-size:13px; display:block; margin-bottom:8px;">${escapeHtml(s.name)}</strong>
-          <ul style="margin: 0 0 0 16px; font-size:13px;" class="muted">
-            ${s.items.map(i => `<li>${escapeHtml(i)}</li>`).join("")}
+        <div style="margin-bottom:12px; padding:16px; background:var(--surface); border:1px solid var(--border); border-radius:6px;">
+          <strong style="font-size:14px; display:block; margin-bottom:12px;">${escapeHtml(s.name)}</strong>
+          <ul style="margin: 0 0 0 20px; font-size:13px;" class="muted">
+            ${s.items.map(i => `<li style="margin-bottom:4px;">${escapeHtml(i)}</li>`).join("")}
           </ul>
         </div>
       `).join("");
@@ -157,10 +182,114 @@
     }
 
     html += `
+            </div>
+          </div>
         </div>
       </div>
     `;
     return html;
+  }
+
+  function renderScheduledCleanWorkspace() {
+    const sj = scheduledJobs().find(s => s.id === state.selectedScheduledJobId);
+    if (!sj) return '';
+    const job = jobs().find(j => j.id === sj.job_id);
+
+    const pricing = job?.pricing_items?.find(p => p.id === sj.pricing_item_id);
+    const amountLabel = pricing ? `£${pricing.amount.toFixed(2)}` : "-";
+
+    return `
+      <div style="position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg); z-index:100; display:flex; flex-direction:column; overflow-y:auto;" data-job-modal="true">
+        <div style="max-width: 800px; width: 100%; margin: 0 auto; padding: 40px 24px;">
+          <div style="margin-bottom: 24px;">
+            ${button("Back to job", "close-sj-workspace", "small ghost", "← ")}
+          </div>
+          <div style="margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid var(--border); display:flex; justify-content:space-between; align-items:flex-start;">
+            <div>
+              <h1 style="font-size: 24px; margin-bottom: 8px;">Scheduled Clean</h1>
+              <p class="muted" style="font-size: 14px;">${escapeHtml(sj.date)} at ${escapeHtml(sj.start_time)}</p>
+            </div>
+            <div style="display:flex; gap:8px;">
+              ${chip(sj.status, getSJTone(sj.status))}
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 32px;">
+            <div class="stack">
+              <article class="panel pad">
+                <h3 style="font-size:16px; margin-bottom:16px;">Occurrence Details</h3>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+                  <div><strong style="font-size:12px; display:block;" class="muted">Clean Type</strong><div style="font-size:14px;">${escapeHtml(sj.clean_type || 'regular')}</div></div>
+                  <div><strong style="font-size:12px; display:block;" class="muted">Duration</strong><div style="font-size:14px;">${escapeHtml(sj.duration_minutes)} mins</div></div>
+                  <div><strong style="font-size:12px; display:block;" class="muted">Assigned Cleaner/Team</strong><div style="font-size:14px;">${escapeHtml(sj.assigned_staff)}</div></div>
+                  <div><strong style="font-size:12px; display:block;" class="muted">Notes / Reason</strong><div style="font-size:14px;">${escapeHtml(sj.skip_reason || "None")}</div></div>
+                </div>
+                <div style="margin-top:24px; padding-top:16px; border-top:1px dashed var(--border); display:flex; gap:8px;">
+                  ${button("Edit schedule details", "toast:Edit schedule", "small ghost")}
+                  ${button("Assign/change team", "toast:Change team", "small ghost")}
+                </div>
+              </article>
+
+              <article class="panel pad">
+                <h3 style="font-size:16px; margin-bottom:16px;">Checklist & Report</h3>
+                <div style="font-size:13px; margin-bottom:16px;">
+                  Checklist copied from Job Plan: <strong>${sj.clean_type === 'initial' ? 'Initial Clean' : 'Regular Clean'}</strong>
+                </div>
+                <div style="display:flex; gap:8px;">
+                  ${button("Open copied checklist", "toast:Opening specific occurrence checklist", "small ghost")}
+                  ${button("Review report", "toast:No report yet", "small ghost")}
+                </div>
+              </article>
+            </div>
+
+            <div class="stack">
+              <article class="panel pad">
+                <h3 style="font-size:16px; margin-bottom:16px;">Billing Context</h3>
+                <div style="font-size:13px; margin-bottom:8px;"><strong class="muted">Source:</strong> ${escapeHtml(pricing?.name || "Job Plan")}</div>
+                <div style="font-size:13px; margin-bottom:8px;"><strong class="muted">Amount:</strong> ${amountLabel}</div>
+                <div style="font-size:13px; margin-bottom:16px;"><strong class="muted">Status:</strong> Pending completion</div>
+                ${button("View billable details", "toast:View billing", "small ghost")}
+              </article>
+
+              <article class="panel pad">
+                <h3 style="font-size:16px; margin-bottom:16px;">Actions</h3>
+                <div class="stack" style="gap:8px;">
+                  ${button("Complete all good", `fast-complete:${sj.id}`, "primary", "✓ ")}
+                  ${button("Complete with note", `open-complete-modal:${sj.id}`, "secondary")}
+                  ${button("Skip / cancel", `skip-sj:${sj.id}`, "danger ghost")}
+                </div>
+              </article>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderSourcePreviewWorkspace() {
+    const type = state.sourcePreviewType;
+    let content = "";
+    
+    if (type === "client") {
+      content = \`<h2 style="margin-bottom:16px;">Client Preview</h2><p>Summary of client contact info, active work, etc.</p>\`;
+    } else if (type === "property") {
+      content = \`<h2 style="margin-bottom:16px;">Property Preview</h2><p>Address, access notes, equipment instructions, etc.</p>\`;
+    } else if (type === "quote") {
+      content = \`<h2 style="margin-bottom:16px;">Quote Preview</h2><p>Quote items, pricing, initial vs recurring basis.</p>\`;
+    } else if (type === "request") {
+      content = \`<h2 style="margin-bottom:16px;">Request Preview</h2><p>Customer request details, context.</p>\`;
+    }
+
+    return \`
+      <div style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.4); z-index:100; display:flex; justify-content:center; align-items:center;" data-job-modal="true" onclick="document.querySelector('[data-job-action=close-source-preview]').click()">
+        <div style="background:var(--bg); width:600px; max-height:80vh; padding:32px; border-radius:8px; box-shadow:0 10px 40px rgba(0,0,0,0.2); overflow-y:auto;" onclick="event.stopPropagation()">
+          <div style="margin-bottom:24px;">
+            \${button("Back to job", "close-source-preview", "small ghost", "← ")}
+          </div>
+          \${content}
+        </div>
+      </div>
+    \`;
   }
 
   function renderSetupModal() {
@@ -425,32 +554,51 @@
           <!-- Setup -->
             <article class="panel pad">
               <h2 style="margin-bottom: 16px;">Cleaning Plan / Setup</h2>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+              <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                <!-- Column 1 -->
                 <div>
-                  <div class="muted" style="font-size: 12px;">Recurrence</div>
-                  <div style="font-size: 14px;">${job.recurrence ? `${job.recurrence.frequency} on ${job.recurrence.day}` : "One-off"}</div>
+                  <div style="margin-bottom:12px;">
+                    <div class="muted" style="font-size: 12px;">Recurrence</div>
+                    <div style="font-size: 14px;">${job.recurrence ? `${job.recurrence.frequency} on ${job.recurrence.day}` : "One-off"}</div>
+                  </div>
+                  <div>
+                    <div class="muted" style="font-size: 12px;">Day/Time</div>
+                    <div style="font-size: 14px;">${job.recurrence?.start_time || "TBD"}</div>
+                  </div>
                 </div>
+                <!-- Column 2 -->
                 <div>
-                  <div class="muted" style="font-size: 12px;">Time & Duration</div>
-                  <div style="font-size: 14px;">${job.recurrence?.start_time || "TBD"} (${job.default_duration_minutes} mins)</div>
+                  <div style="margin-bottom:12px;">
+                    <div class="muted" style="font-size: 12px;">Duration</div>
+                    <div style="font-size: 14px;">${job.default_duration_minutes} mins</div>
+                  </div>
+                  <div>
+                    <div class="muted" style="font-size: 12px;">Default Team</div>
+                    <div style="font-size: 14px;">${escapeHtml(job.default_staff || "Unassigned")}</div>
+                  </div>
                 </div>
+                <!-- Column 3 -->
                 <div>
-                  <div class="muted" style="font-size: 12px;">Default Team</div>
-                  <div style="font-size: 14px;">${escapeHtml(job.default_staff || "Unassigned")}</div>
-                </div>
-                <div>
-                  <div class="muted" style="font-size: 12px;">Checklist</div>
-                  <div style="font-size: 14px;">${escapeHtml(job.checklist_template_id || "None selected")}</div>
+                  <div style="margin-bottom:12px;">
+                    <div class="muted" style="font-size: 12px;">Checklist</div>
+                    <div style="font-size: 14px;">${escapeHtml(job.checklist_template_id || "None selected")}</div>
+                  </div>
+                  <div>
+                    <div class="muted" style="font-size: 12px;">Billing Basis</div>
+                    <div style="font-size: 14px;">${escapeHtml(job.billing_basis || "Unknown")}</div>
+                  </div>
                 </div>
               </div>
-              <div style="margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--border);">
-                <div class="muted" style="font-size: 12px; margin-bottom: 4px;">Cleaning notes</div>
-                <div style="font-size: 14px;">${escapeHtml(job.notes?.cleaning || "None")}</div>
-              </div>
-              <div style="margin-top: 24px;">
-                ${job.setup_complete
-                  ? chip("Setup complete", "success")
-                  : button("Mark setup complete", `complete-setup:${job.id}`, "primary")}
+              <div style="margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--border); display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                  <span class="muted" style="font-size: 13px; margin-right: 8px;">Cleaning notes:</span>
+                  <span style="font-size: 13px;">${escapeHtml(job.notes?.cleaning || "None")}</span>
+                </div>
+                <div>
+                  ${job.setup_complete
+                    ? chip("Setup complete", "success")
+                    : button("Mark setup complete", `complete-setup:${job.id}`, "primary")}
+                </div>
               </div>
             </article>
 
@@ -473,13 +621,7 @@
                       <td>${chip(sj.status, getSJTone(sj.status))}</td>
                       <td class="muted">${escapeHtml(sj.skip_reason || "-")}</td>
                       <td>
-                        ${sj.status === "planned" ? `
-                          <div style="display: flex; gap: 4px; flex-wrap:wrap;">
-                            ${button("Complete all good", `fast-complete:${sj.id}`, "small ghost")}
-                            ${button("Complete with note", `open-complete-modal:${sj.id}`, "small ghost")}
-                            ${button("Skip", `skip-sj:${sj.id}`, "small ghost danger")}
-                          </div>
-                        ` : "-"}
+                        ${button("Open scheduled clean", `open-sj-workspace:${sj.id}`, "small ghost")}
                       </td>
                     </tr>
                   `})
@@ -530,19 +672,19 @@
               <div class="stack" style="gap: 12px;">
                 <div style="display: flex; justify-content: space-between; align-items: baseline;">
                   <span class="muted" style="font-size: 13px;">Client</span>
-                  ${button("Open client", "toast:Opening client...", "small ghost")}
+                  ${button("Open client", "open-source-preview:client", "small ghost")}
                 </div>
                 <div style="display: flex; justify-content: space-between; align-items: baseline;">
                   <span class="muted" style="font-size: 13px;">Property</span>
-                  ${button("Open property", "toast:Opening property...", "small ghost")}
+                  ${button("Open property", "open-source-preview:property", "small ghost")}
                 </div>
                 <div style="display: flex; justify-content: space-between; align-items: baseline;">
                   <span class="muted" style="font-size: 13px;">Source Quote</span>
-                  ${button("Open quote", "toast:Opening quote...", "small ghost")}
+                  ${button("Open quote", "open-source-preview:quote", "small ghost")}
                 </div>
                 <div style="display: flex; justify-content: space-between; align-items: baseline;">
                   <span class="muted" style="font-size: 13px;">Source Request</span>
-                  ${button("Open request", "toast:Opening request...", "small ghost")}
+                  ${button("Open request", "open-source-preview:request", "small ghost")}
                 </div>
                 <div style="border-top: 1px solid var(--border); padding-top: 12px; margin-top: 4px;">
                   <div class="muted" style="font-size: 12px; margin-bottom: 2px;">Service Details</div>
@@ -666,6 +808,30 @@
 
     if (action === "close-checklist-modal") {
       state.checklistModalOpen = false;
+      refresh();
+      return;
+    }
+
+    if (action.startsWith("open-sj-workspace:")) {
+      state.selectedScheduledJobId = action.split(":")[1];
+      refresh();
+      return;
+    }
+
+    if (action === "close-sj-workspace") {
+      state.selectedScheduledJobId = null;
+      refresh();
+      return;
+    }
+
+    if (action.startsWith("open-source-preview:")) {
+      state.sourcePreviewType = action.split(":")[1];
+      refresh();
+      return;
+    }
+
+    if (action === "close-source-preview") {
+      state.sourcePreviewType = null;
       refresh();
       return;
     }

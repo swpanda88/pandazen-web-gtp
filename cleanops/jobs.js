@@ -3,7 +3,8 @@
   const state = {
     selectedJobId: null,
     setupModalOpen: false,
-    completeModalSjId: null
+    completeModalSjId: null,
+    checklistModalOpen: false
   };
 
   // Data helpers
@@ -67,22 +68,74 @@
     let html = job ? renderDetail(job) : renderList();
     if (state.setupModalOpen) html += renderSetupModal();
     if (state.completeModalSjId) html += renderCompleteModal();
+    if (state.checklistModalOpen) html += renderChecklistModal();
     return html;
   }
 
-  function renderChecklistPreview(job) {
+  function renderChecklistSummary(job) {
     const tplReg = checklistTemplates().find(t => t.id === job.checklist_template_id);
     const tplDeep = checklistTemplates().find(t => t.id === job.initial_checklist_template_id);
     if (!tplReg && !tplDeep) return '';
 
-    let html = `<article class="panel pad" style="margin-top: 16px;"><h2>Checklist Preview</h2>`;
-    
+    let deepHtml = '';
     if (tplDeep) {
-      html += `<div style="margin-top: 16px;"><h3 style="font-size:14px; margin-bottom:8px;">Initial Clean: ${escapeHtml(tplDeep.name)}</h3>`;
-      html += tplDeep.sections.map(s => `
+      const taskCount = tplDeep.sections.reduce((acc, s) => acc + s.items.length, 0);
+      deepHtml = `
         <div style="margin-bottom:8px;">
-          <strong style="font-size:13px;">${escapeHtml(s.name)}</strong>
-          <ul style="margin: 4px 0 0 16px; font-size:13px;" class="muted">
+          <strong style="font-size:13px;">Initial clean:</strong> <span class="muted" style="font-size:13px;">${escapeHtml(tplDeep.name)} · ${tplDeep.sections.length} sections · ${taskCount} tasks</span>
+        </div>
+      `;
+    }
+
+    let regHtml = '';
+    if (tplReg) {
+      const taskCount = tplReg.sections.reduce((acc, s) => acc + s.items.length, 0);
+      regHtml = `
+        <div style="margin-bottom:8px;">
+          <strong style="font-size:13px;">Regular clean:</strong> <span class="muted" style="font-size:13px;">${escapeHtml(tplReg.name)} · ${tplReg.sections.length} sections · ${taskCount} tasks</span>
+        </div>
+      `;
+    }
+
+    const usedBy = [tplDeep ? "initial clean" : "", tplReg ? "regular cleans" : ""].filter(Boolean).join(" / ");
+
+    return `
+      <article class="panel pad">
+        <h2>Checklist Summary</h2>
+        <div style="margin-top: 16px;">
+          ${deepHtml}
+          ${regHtml}
+          <div style="margin-bottom:16px;">
+            <strong style="font-size:13px;">Used by:</strong> <span class="muted" style="font-size:13px;">${usedBy}</span>
+          </div>
+          ${button("Open checklist builder", "open-checklist-modal", "secondary")}
+        </div>
+      </article>
+    `;
+  }
+
+  function renderChecklistModal() {
+    const job = jobs().find(j => j.id === state.selectedJobId);
+    if (!job) return '';
+    const tplReg = checklistTemplates().find(t => t.id === job.checklist_template_id);
+    const tplDeep = checklistTemplates().find(t => t.id === job.initial_checklist_template_id);
+    
+    let html = `
+      <div class="quote-modal-backdrop" data-job-action="close-checklist-modal" style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:100; display:flex; justify-content:flex-end;">
+        <div style="background:var(--bg); width:500px; height:100%; padding:24px; box-shadow:-5px 0 20px rgba(0,0,0,0.1); overflow-y:auto;" data-job-modal="true" onclick="event.stopPropagation()">
+          <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:24px;">
+            <h2>Checklist Builder</h2>
+            ${button("Close", "close-checklist-modal", "small ghost")}
+          </div>
+          <p class="muted" style="font-size:13px; margin-bottom:24px;">This checklist becomes the basis for cleaner completion and later job reports.</p>
+    `;
+
+    if (tplDeep) {
+      html += `<div style="margin-bottom: 24px;"><h3 style="font-size:14px; margin-bottom:12px; display:flex; justify-content:space-between;"><span>Initial Clean: ${escapeHtml(tplDeep.name)}</span> ${button("Edit", "toast:Edit initial checklist", "small ghost")}</h3>`;
+      html += tplDeep.sections.map(s => `
+        <div style="margin-bottom:12px; padding:12px; border:1px solid var(--border); border-radius:6px;">
+          <strong style="font-size:13px; display:block; margin-bottom:8px;">${escapeHtml(s.name)}</strong>
+          <ul style="margin: 0 0 0 16px; font-size:13px;" class="muted">
             ${s.items.map(i => `<li>${escapeHtml(i)}</li>`).join("")}
           </ul>
         </div>
@@ -91,11 +144,11 @@
     }
 
     if (tplReg) {
-      html += `<div style="margin-top: 16px; ${tplDeep ? 'padding-top:16px; border-top:1px dashed var(--border);' : ''}"><h3 style="font-size:14px; margin-bottom:8px;">Regular Clean: ${escapeHtml(tplReg.name)}</h3>`;
+      html += `<div><h3 style="font-size:14px; margin-bottom:12px; display:flex; justify-content:space-between;"><span>Regular Clean: ${escapeHtml(tplReg.name)}</span> ${button("Edit", "toast:Edit regular checklist", "small ghost")}</h3>`;
       html += tplReg.sections.map(s => `
-        <div style="margin-bottom:8px;">
-          <strong style="font-size:13px;">${escapeHtml(s.name)}</strong>
-          <ul style="margin: 4px 0 0 16px; font-size:13px;" class="muted">
+        <div style="margin-bottom:12px; padding:12px; border:1px solid var(--border); border-radius:6px;">
+          <strong style="font-size:13px; display:block; margin-bottom:8px;">${escapeHtml(s.name)}</strong>
+          <ul style="margin: 0 0 0 16px; font-size:13px;" class="muted">
             ${s.items.map(i => `<li>${escapeHtml(i)}</li>`).join("")}
           </ul>
         </div>
@@ -103,7 +156,10 @@
       html += `</div>`;
     }
 
-    html += `</article>`;
+    html += `
+        </div>
+      </div>
+    `;
     return html;
   }
 
@@ -336,28 +392,30 @@
     const reports = jobReports().filter(r => r.job_id === job.id).slice(-3);
     const bills = billableEvents().filter(b => b.source_job_id === job.id);
 
+    const title = job.display_name;
+    const subtitle = `${escapeHtml(job.service_type)} · ${job.recurrence ? job.recurrence.frequency : "One-off"}`;
+
     return `
       <div class="client-breadcrumb">
         <span>PandaZen</span>
         <span>/</span>
         <button type="button" data-job-action="close-workspace">Jobs</button>
         <span>/</span>
-        <strong>${escapeHtml(job.display_name)}</strong>
+        <strong>${escapeHtml(title)}</strong>
       </div>
 
-      <div class="page-head">
-        <div class="title-row">
-          <h1>${escapeHtml(job.display_name)}</h1>
-        </div>
-        <p class="muted" style="margin-top: 4px;">· ${escapeHtml(client?.display_name || "")} · ${escapeHtml(job.service_type)}</p>
-        <div style="margin-top: 12px; display: flex; gap: 8px;">
-          ${chip(job.status, getJobStatusTone(job.status))}
-          ${chip(job.job_type, "neutral")}
-          ${chip(job.billing_basis, "neutral")}
-        </div>
-        <div class="page-actions" style="margin-top: -30px; float: right;">
-          ${button("Edit job", "edit-job")}
-          ${button("Close", "close-workspace")}
+      <div class="page-head" style="margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border);">
+        <div class="title-row" style="display: flex; align-items: center; justify-content: space-between;">
+          <div>
+            <h1 style="margin-bottom: 4px; font-size: 20px;">${escapeHtml(title)}</h1>
+            <p class="muted" style="font-size: 13px;">${subtitle}</p>
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            ${chip(job.status, getJobStatusTone(job.status))}
+            ${chip(job.job_type, "neutral")}
+            ${button("Edit job", "edit-job", "small ghost")}
+            ${button("Close", "close-workspace", "small ghost")}
+          </div>
         </div>
       </div>
 
@@ -396,9 +454,6 @@
               </div>
             </article>
 
-            <!-- Checklist Preview -->
-            ${renderChecklistPreview(job)}
-
             <!-- Scheduled Jobs Table -->
             <article class="panel">
               <div class="panel-head"><h2>Generated Scheduled Cleans</h2></div>
@@ -420,8 +475,8 @@
                       <td>
                         ${sj.status === "planned" ? `
                           <div style="display: flex; gap: 4px; flex-wrap:wrap;">
-                            ${button("All good", `fast-complete:${sj.id}`, "small ghost")}
-                            ${button("With note", `open-complete-modal:${sj.id}`, "small ghost")}
+                            ${button("Complete all good", `fast-complete:${sj.id}`, "small ghost")}
+                            ${button("Complete with note", `open-complete-modal:${sj.id}`, "small ghost")}
                             ${button("Skip", `skip-sj:${sj.id}`, "small ghost danger")}
                           </div>
                         ` : "-"}
@@ -462,10 +517,43 @@
               </div>
             </article>
 
+            <!-- Checklist Summary -->
+            ${renderChecklistSummary(job)}
+
           </div>
 
           <!-- Right Column -->
           <aside class="stack">
+            <!-- Job Context -->
+            <article class="panel pad">
+              <h2 style="margin-bottom: 16px;">Job Context</h2>
+              <div class="stack" style="gap: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                  <span class="muted" style="font-size: 13px;">Client</span>
+                  ${button("Open client", "toast:Opening client...", "small ghost")}
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                  <span class="muted" style="font-size: 13px;">Property</span>
+                  ${button("Open property", "toast:Opening property...", "small ghost")}
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                  <span class="muted" style="font-size: 13px;">Source Quote</span>
+                  ${button("Open quote", "toast:Opening quote...", "small ghost")}
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                  <span class="muted" style="font-size: 13px;">Source Request</span>
+                  ${button("Open request", "toast:Opening request...", "small ghost")}
+                </div>
+                <div style="border-top: 1px solid var(--border); padding-top: 12px; margin-top: 4px;">
+                  <div class="muted" style="font-size: 12px; margin-bottom: 2px;">Service Details</div>
+                  <div style="font-size: 13px; margin-bottom: 8px;">${escapeHtml(job.service_type)} · ${job.recurrence ? job.recurrence.frequency : "One-off"}</div>
+                  ${job.notes?.equipment ? `
+                    <div class="muted" style="font-size: 12px; margin-bottom: 2px;">Equipment</div>
+                    <div style="font-size: 13px;">${escapeHtml(job.notes.equipment)}</div>
+                  ` : ""}
+                </div>
+              </div>
+            </article>
             <!-- Billing Readiness -->
             <article class="panel pad">
               <h2>Billing Readiness</h2>
@@ -566,6 +654,18 @@
 
     if (action === "close-complete-modal") {
       state.completeModalSjId = null;
+      refresh();
+      return;
+    }
+
+    if (action === "open-checklist-modal") {
+      state.checklistModalOpen = true;
+      refresh();
+      return;
+    }
+
+    if (action === "close-checklist-modal") {
+      state.checklistModalOpen = false;
       refresh();
       return;
     }

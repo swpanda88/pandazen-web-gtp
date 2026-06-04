@@ -1185,6 +1185,37 @@ window.CLEANOPS_DATA = {
     { time: "16:30", client: "ABC Offices", service: "Commercial evening", property: "M1", status: "Key held", tone: "info" }
   ],
 
+  checklistTemplates: [
+    {
+      id: "tpl-reg",
+      name: "Regular domestic clean",
+      sections: [
+        { name: "Kitchen", items: ["Wipe surfaces", "Clean sink", "Empty bins", "Sweep/mop floor"] },
+        { name: "Bathrooms", items: ["Clean toilet", "Wipe sink/mirror", "Clean shower/bath", "Sweep/mop floor"] },
+        { name: "Living areas", items: ["Dust surfaces", "Tidy cushions", "Vacuum floors"] },
+        { name: "Bedrooms", items: ["Dust surfaces", "Vacuum floors"] }
+      ]
+    },
+    {
+      id: "tpl-deep",
+      name: "Initial deep clean",
+      sections: [
+        { name: "Kitchen", items: ["Deep clean surfaces", "Inside cupboards (if empty)", "Descale sink", "Oven exterior", "Deep sweep/mop"] },
+        { name: "Bathrooms", items: ["Full descale toilet/shower/bath", "Wipe tiles", "Clean mirrors", "Deep mop"] },
+        { name: "Throughout", items: ["Inside windows", "Skirting boards", "Doors and frames", "Deep vacuum/mop all floors"] }
+      ]
+    },
+    {
+      id: "tpl-eot",
+      name: "End of tenancy clean",
+      sections: [
+        { name: "All rooms", items: ["Remove all cobwebs", "Clean inside windows", "Skirting boards/architraves", "Doors/handles", "Clean switches/sockets"] },
+        { name: "Kitchen", items: ["Inside all cupboards", "Degrease all surfaces", "Descale sink", "Clean white goods (exterior)"] },
+        { name: "Bathrooms", items: ["Full descale all areas", "Clean extractor fan", "Polish mirrors/glass"] }
+      ]
+    }
+  ],
+
   jobs: [
     {
       id: "JOB-1001",
@@ -1199,7 +1230,11 @@ window.CLEANOPS_DATA = {
       default_duration_minutes: 120,
       default_staff: "Panda Cleaner",
       checklist_template_id: "tpl-reg",
-      billing_basis: "£90.00 / visit",
+      initial_checklist_template_id: "tpl-deep",
+      pricing_items: [
+        { id: "pi-1001-1", type: "initial", description: "Initial deep clean", amount: 240.00, duration_minutes: 360, source_quote_item: "quote-2089-item-1" },
+        { id: "pi-1001-2", type: "recurring", description: "Weekly domestic clean", amount: 90.00, duration_minutes: 120, source_quote_item: "quote-2089-item-2" }
+      ],
       setup_complete: true,
       notes: { cleaning: "Focus on kitchen.", internal: "" }
     },
@@ -1216,7 +1251,10 @@ window.CLEANOPS_DATA = {
       default_duration_minutes: 240,
       default_staff: "",
       checklist_template_id: "",
-      billing_basis: "£650.00 / month",
+      pricing_items: [
+        { id: "pi-1002-1", type: "monthly", description: "Commercial cleaning contract", amount: 650.00, duration_minutes: 240, source_quote_item: "quote-2088-item-1" },
+        { id: "pi-1002-2", type: "extra", description: "Washroom consumables option", amount: 125.00, duration_minutes: 0, source_quote_item: "quote-2088-item-2" }
+      ],
       setup_complete: false,
       notes: { cleaning: "", internal: "Need to confirm access code." }
     },
@@ -1233,7 +1271,9 @@ window.CLEANOPS_DATA = {
       default_duration_minutes: 360,
       default_staff: "Panda Team A",
       checklist_template_id: "tpl-eot",
-      billing_basis: "£350.00 / one-off",
+      pricing_items: [
+        { id: "pi-1003-1", type: "initial", description: "End of tenancy clean", amount: 350.00, duration_minutes: 360, source_quote_item: "quote-2087-item-1" }
+      ],
       setup_complete: true,
       notes: { cleaning: "Empty property.", internal: "" }
     }
@@ -1245,7 +1285,10 @@ window.CLEANOPS_DATA = {
       job_id: "JOB-1001",
       date: "2026-06-12",
       start_time: "09:00",
-      duration_minutes: 120,
+      clean_type: "initial",
+      duration_minutes: 360,
+      checklist_template_id: "tpl-deep",
+      pricing_item_id: "pi-1001-1",
       assigned_staff: "Panda Cleaner",
       status: "completed",
       skip_reason: "",
@@ -1257,7 +1300,10 @@ window.CLEANOPS_DATA = {
       job_id: "JOB-1001",
       date: "2026-06-19",
       start_time: "09:00",
+      clean_type: "regular",
       duration_minutes: 120,
+      checklist_template_id: "tpl-reg",
+      pricing_item_id: "pi-1001-2",
       assigned_staff: "Panda Cleaner",
       status: "planned",
       skip_reason: "",
@@ -1269,7 +1315,10 @@ window.CLEANOPS_DATA = {
       job_id: "JOB-1001",
       date: "2026-06-26",
       start_time: "09:00",
+      clean_type: "regular",
       duration_minutes: 120,
+      checklist_template_id: "tpl-reg",
+      pricing_item_id: "pi-1001-2",
       assigned_staff: "Panda Cleaner",
       status: "skipped",
       skip_reason: "Client holiday",
@@ -1281,7 +1330,10 @@ window.CLEANOPS_DATA = {
       job_id: "JOB-1001",
       date: "2026-07-03",
       start_time: "09:00",
+      clean_type: "regular",
       duration_minutes: 120,
+      checklist_template_id: "tpl-reg",
+      pricing_item_id: "pi-1001-2",
       assigned_staff: "Panda Cleaner",
       status: "planned",
       skip_reason: "",
@@ -1293,7 +1345,10 @@ window.CLEANOPS_DATA = {
       job_id: "JOB-1003",
       date: "2026-06-15",
       start_time: "10:00",
+      clean_type: "initial",
       duration_minutes: 360,
+      checklist_template_id: "tpl-eot",
+      pricing_item_id: "pi-1003-1",
       assigned_staff: "Panda Team A",
       status: "completed",
       skip_reason: "",
@@ -1307,14 +1362,14 @@ window.CLEANOPS_DATA = {
       id: "REP-1001-1",
       scheduled_job_id: "SJ-1001-1",
       job_id: "JOB-1001",
-      completed_at: "2026-06-12T11:05:00Z",
+      completed_at: "2026-06-12T15:05:00Z",
       completed_by: "Panda Cleaner",
       checklist_status: "complete",
       cleaner_remarks: "",
       client_remarks: "",
       severity: "",
       review_status: "reviewed",
-      client_visible_summary: "Great clean today."
+      client_visible_summary: "Great deep clean today to get everything up to standard."
     },
     {
       id: "REP-1003-1",
@@ -1337,9 +1392,10 @@ window.CLEANOPS_DATA = {
       source_job_id: "JOB-1001",
       source_scheduled_job_id: "SJ-1001-1",
       source_report_id: "REP-1001-1",
-      catalogue_item_id: "cat-1",
-      description: "Regular domestic clean - 12 Jun",
-      amount: 90.00,
+      pricing_item_id: "pi-1001-1",
+      pricing_type: "initial",
+      description: "Initial deep clean - 12 Jun",
+      amount: 240.00,
       status: "ready_to_bill"
     },
     {
@@ -1347,7 +1403,8 @@ window.CLEANOPS_DATA = {
       source_job_id: "JOB-1003",
       source_scheduled_job_id: "SJ-1003-1",
       source_report_id: "REP-1003-1",
-      catalogue_item_id: "cat-4",
+      pricing_item_id: "pi-1003-1",
+      pricing_type: "initial",
       description: "End of tenancy clean - 15 Jun",
       amount: 350.00,
       status: "draft"

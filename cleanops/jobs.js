@@ -1,7 +1,9 @@
 (function () {
   const data = window.CLEANOPS_DATA;
   const state = {
-    selectedJobId: null
+    selectedJobId: null,
+    setupModalOpen: false,
+    completeModalSjId: null
   };
 
   // Data helpers
@@ -11,6 +13,7 @@
   function billableEvents() { return data.billableEvents || []; }
   function clients() { return data.clients || []; }
   function properties() { return clients().flatMap(c => (c.properties || [])); }
+  function checklistTemplates() { return data.checklistTemplates || []; }
 
   function findClient(id) { return clients().find(c => c.id === id); }
   function findProperty(id) { return properties().find(p => p.id === id); }
@@ -61,8 +64,129 @@
 
   function renderInner() {
     const job = jobs().find(j => j.id === state.selectedJobId);
+    let html = job ? renderDetail(job) : renderList();
+    if (state.setupModalOpen) html += renderSetupModal();
+    if (state.completeModalSjId) html += renderCompleteModal();
+    return html;
+  }
+
+  function renderChecklistPreview(job) {
+    const tplReg = checklistTemplates().find(t => t.id === job.checklist_template_id);
+    const tplDeep = checklistTemplates().find(t => t.id === job.initial_checklist_template_id);
+    if (!tplReg && !tplDeep) return '';
+
+    let html = `<article class="panel pad" style="margin-top: 16px;"><h2>Checklist Preview</h2>`;
+    
+    if (tplDeep) {
+      html += `<div style="margin-top: 16px;"><h3 style="font-size:14px; margin-bottom:8px;">Initial Clean: ${escapeHtml(tplDeep.name)}</h3>`;
+      html += tplDeep.sections.map(s => `
+        <div style="margin-bottom:8px;">
+          <strong style="font-size:13px;">${escapeHtml(s.name)}</strong>
+          <ul style="margin: 4px 0 0 16px; font-size:13px;" class="muted">
+            ${s.items.map(i => `<li>${escapeHtml(i)}</li>`).join("")}
+          </ul>
+        </div>
+      `).join("");
+      html += `</div>`;
+    }
+
+    if (tplReg) {
+      html += `<div style="margin-top: 16px; ${tplDeep ? 'padding-top:16px; border-top:1px dashed var(--border);' : ''}"><h3 style="font-size:14px; margin-bottom:8px;">Regular Clean: ${escapeHtml(tplReg.name)}</h3>`;
+      html += tplReg.sections.map(s => `
+        <div style="margin-bottom:8px;">
+          <strong style="font-size:13px;">${escapeHtml(s.name)}</strong>
+          <ul style="margin: 4px 0 0 16px; font-size:13px;" class="muted">
+            ${s.items.map(i => `<li>${escapeHtml(i)}</li>`).join("")}
+          </ul>
+        </div>
+      `).join("");
+      html += `</div>`;
+    }
+
+    html += `</article>`;
+    return html;
+  }
+
+  function renderSetupModal() {
+    const job = jobs().find(j => j.id === state.selectedJobId);
+    if (!job) return '';
     return `
-      ${job ? renderDetail(job) : renderList()}
+      <div class="quote-modal-backdrop" data-job-action="close-setup-modal" style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:100; display:flex; justify-content:flex-end;">
+        <div style="background:var(--bg); width:400px; height:100%; padding:24px; box-shadow:-5px 0 20px rgba(0,0,0,0.1); overflow-y:auto;" data-job-modal="true" onclick="event.stopPropagation()">
+          <h2 style="margin-bottom:24px;">Job Setup / Edit</h2>
+          <div class="field-row" style="margin-bottom:16px;">
+            <label style="display:block; font-size:12px; margin-bottom:4px;">Service Type</label>
+            <input type="text" class="inputish" style="width:100%;" value="${escapeHtml(job.service_type)}">
+          </div>
+          <div class="field-row" style="margin-bottom:16px;">
+            <label style="display:block; font-size:12px; margin-bottom:4px;">Recurrence</label>
+            <select class="selectish" style="width:100%;">
+              <option>Weekly</option><option>Fortnightly</option><option>Monthly</option><option>One-off</option>
+            </select>
+          </div>
+          <div class="field-row" style="margin-bottom:16px;">
+            <label style="display:block; font-size:12px; margin-bottom:4px;">Day/Time</label>
+            <input type="text" class="inputish" style="width:100%;" value="${escapeHtml(job.recurrence?.day || '')} ${escapeHtml(job.recurrence?.start_time || '')}">
+          </div>
+          <div class="field-row" style="margin-bottom:16px;">
+            <label style="display:block; font-size:12px; margin-bottom:4px;">Duration (mins)</label>
+            <input type="number" class="inputish" style="width:100%;" value="${job.default_duration_minutes}">
+          </div>
+          <div class="field-row" style="margin-bottom:16px;">
+            <label style="display:block; font-size:12px; margin-bottom:4px;">Default Team</label>
+            <input type="text" class="inputish" style="width:100%;" value="${escapeHtml(job.default_staff || '')}">
+          </div>
+          <div class="field-row" style="margin-bottom:16px;">
+            <label style="display:block; font-size:12px; margin-bottom:4px;">Regular Checklist</label>
+            <select class="selectish" style="width:100%;">
+              <option value="tpl-reg" ${job.checklist_template_id==='tpl-reg'?'selected':''}>Regular domestic clean</option>
+              <option value="tpl-deep" ${job.checklist_template_id==='tpl-deep'?'selected':''}>Initial deep clean</option>
+              <option value="tpl-eot" ${job.checklist_template_id==='tpl-eot'?'selected':''}>End of tenancy clean</option>
+            </select>
+          </div>
+          <div style="margin-top:32px; display:flex; gap:8px;">
+            ${button("Cancel", "close-setup-modal", "ghost")}
+            ${button("Save", "save-setup", "primary")}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderCompleteModal() {
+    const sj = scheduledJobs().find(s => s.id === state.completeModalSjId);
+    if (!sj) return '';
+    return `
+      <div class="quote-modal-backdrop" data-job-action="close-complete-modal" style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:100; display:flex; align-items:center; justify-content:center;">
+        <div style="background:var(--bg); border-radius:8px; width:400px; padding:24px; box-shadow:0 10px 30px rgba(0,0,0,0.2);" data-job-modal="true" onclick="event.stopPropagation()">
+          <h2 style="margin-bottom:16px;">Complete with note</h2>
+          <div style="margin-bottom:16px;">
+            <label style="display:block; font-size:12px; margin-bottom:4px;">Cleaner remarks</label>
+            <textarea id="mock-cleaner-note" class="inputish" style="width:100%; height:60px;" placeholder="e.g. Oven took longer than expected."></textarea>
+          </div>
+          <div style="margin-bottom:16px;">
+            <label style="display:block; font-size:12px; margin-bottom:4px;">Severity</label>
+            <select id="mock-severity" class="selectish" style="width:100%;">
+              <option value="Note">Note</option>
+              <option value="Extra time">Extra time</option>
+              <option value="Access issue">Access issue</option>
+              <option value="Complaint">Complaint</option>
+              <option value="Urgent">Urgent</option>
+            </select>
+          </div>
+          <div style="margin-bottom:24px;">
+            <label style="display:block; font-size:12px; margin-bottom:4px;">Checklist status</label>
+            <select id="mock-checklist-status" class="selectish" style="width:100%;">
+              <option value="complete">Complete</option>
+              <option value="incomplete">Incomplete</option>
+            </select>
+          </div>
+          <div style="display:flex; justify-content:flex-end; gap:8px;">
+            ${button("Cancel", "close-complete-modal", "ghost")}
+            ${button("Submit", \`submit-complete-note:\${sj.id}\`, "primary")}
+          </div>
+        </div>
+      </div>
     `;
   }
 
@@ -131,20 +255,29 @@
 
     return `
       <div class="jobs-action-grid">
-        ${renderPanel("Needs setup", setupJobs.length, setupJobs.map(j => renderRow(
-            j.display_name,
-            `${findClient(j.client_id)?.display_name || ""} · ${j.service_type}`,
-            "Missing plan / recurrence details",
-            chip("Setup required", "warning"),
-            `open-job:${j.id}`
-          )).join("")
+        ${renderPanel("Needs setup", setupJobs.length, setupJobs.map(j => {
+            const reasons = [];
+            if (!j.checklist_template_id) reasons.push("Checklist missing");
+            if (!j.default_staff) reasons.push("Team missing");
+            if (!j.pricing_items || j.pricing_items.length === 0) reasons.push("Pricing missing");
+            if (reasons.length === 0) reasons.push("Setup unconfirmed");
+
+            return renderRow(
+              j.display_name,
+              `${findClient(j.client_id)?.display_name || ""} · ${j.service_type}`,
+              reasons.join(", "),
+              chip("Setup required", "warning"),
+              `open-job:${j.id}`
+            );
+          }).join("")
         )}
 
         ${renderPanel("Needs review", reportsToReview.length, reportsToReview.map(r => {
             const j = jobs().find(job => job.id === r.job_id);
+            const sj = scheduledJobs().find(s => s.id === r.scheduled_job_id);
             return renderRow(
               j?.display_name || "Unknown Job",
-              `Report from ${escapeHtml(r.completed_by)}`,
+              `Report from ${escapeHtml(r.completed_by)} on ${sj?.date || ''}`,
               r.cleaner_remarks || r.client_remarks || "Review requested",
               chip(r.severity || "Note", r.severity === "Extra time" || r.severity === "Note" ? "warning" : "danger"),
               `open-job:${r.job_id}`
@@ -155,9 +288,9 @@
         ${renderPanel("Ready to bill", billable.length, billable.map(b => {
             const j = jobs().find(job => job.id === b.source_job_id);
             return renderRow(
-              j?.display_name || "Unknown Job",
               `£${b.amount.toFixed(2)}`,
               b.description,
+              j?.display_name || "Unknown Job",
               chip("Ready", "success"),
               `open-job:${b.source_job_id}`
             );
@@ -176,6 +309,7 @@
 
       const nextText = nextSJ ? `Next: ${nextSJ.date} ${nextSJ.start_time} · ${nextSJ.assigned_staff}` : "No planned schedule";
       const reportText = latestReports.length ? (latestReports[0].severity ? `Recent: ${latestReports[0].severity}` : "Recent: All good") : "No reports yet";
+      const priceLabel = job.pricing_items && job.pricing_items.length > 0 ? job.pricing_items.map(p => `£${p.amount}`).join(" + ") : "Unpriced";
 
       return `
         <tr>
@@ -185,7 +319,7 @@
           </td>
           <td>
             <div style="font-size: 13px;">${escapeHtml(nextText)}</div>
-            <div class="muted" style="font-size: 13px; margin-top: 4px;">${escapeHtml(job.billing_basis)} · ${escapeHtml(reportText)}</div>
+            <div class="muted" style="font-size: 13px; margin-top: 4px;">${escapeHtml(priceLabel)} · ${escapeHtml(reportText)}</div>
           </td>
           <td>${chip(job.status, getJobStatusTone(job.status))}</td>
           <td style="text-align: right;">${button("Open workspace", `open-job:${job.id}`, "small ghost")}</td>
@@ -262,29 +396,38 @@
               </div>
             </article>
 
+            <!-- Checklist Preview -->
+            ${renderChecklistPreview(job)}
+
             <!-- Scheduled Jobs Table -->
             <article class="panel">
               <div class="panel-head"><h2>Generated Scheduled Cleans</h2></div>
               <div class="table-wrapper">
                 ${table(
-                  ["Date", "Time", "Cleaner / Team", "Status", "Note / Reason", "Actions"],
-                  sjs.map(sj => `
+                  ["Date", "Time", "Clean Type", "Duration", "Cleaner / Team", "Status", "Note", "Actions"],
+                  sjs.map(sj => {
+                    const pricing = job.pricing_items?.find(p => p.id === sj.pricing_item_id);
+                    const amountLabel = pricing ? \`£\${pricing.amount.toFixed(2)}\` : "-";
+                    return \`
                     <tr>
-                      <td>${escapeHtml(sj.date)}</td>
-                      <td>${escapeHtml(sj.start_time)}</td>
-                      <td>${escapeHtml(sj.assigned_staff)}</td>
-                      <td>${chip(sj.status, getSJTone(sj.status))}</td>
-                      <td class="muted">${escapeHtml(sj.skip_reason || "-")}</td>
+                      <td>\${escapeHtml(sj.date)}</td>
+                      <td>\${escapeHtml(sj.start_time)}</td>
+                      <td>\${chip(sj.clean_type || "regular", sj.clean_type === "initial" ? "warning" : "info")}</td>
+                      <td>\${escapeHtml(sj.duration_minutes)}m<br><span class="muted" style="font-size:11px;">\${amountLabel}</span></td>
+                      <td>\${escapeHtml(sj.assigned_staff)}</td>
+                      <td>\${chip(sj.status, getSJTone(sj.status))}</td>
+                      <td class="muted">\${escapeHtml(sj.skip_reason || "-")}</td>
                       <td>
-                        ${sj.status === "planned" ? `
-                          <div style="display: flex; gap: 4px;">
-                            ${button("Complete (Fast)", `fast-complete:${sj.id}`, "small ghost")}
-                            ${button("Skip", `skip-sj:${sj.id}`, "small ghost danger")}
+                        \${sj.status === "planned" ? \`
+                          <div style="display: flex; gap: 4px; flex-wrap:wrap;">
+                            \${button("All good", \`fast-complete:\${sj.id}\`, "small ghost")}
+                            \${button("With note", \`open-complete-modal:\${sj.id}\`, "small ghost")}
+                            \${button("Skip", \`skip-sj:\${sj.id}\`, "small ghost danger")}
                           </div>
-                        ` : "-"}
+                        \` : "-"}
                       </td>
                     </tr>
-                  `)
+                  \`})
                 )}
               </div>
             </article>
@@ -304,9 +447,14 @@
                         <div class="muted" style="font-size: 12px; margin-bottom: 8px;">${r.completed_at.replace("T", " ").replace("Z", "")}</div>
                         ${r.cleaner_remarks ? `<div style="font-size: 13px; margin-top: 4px;"><strong>Note:</strong> ${escapeHtml(r.cleaner_remarks)}</div>` : ""}
                       </div>
-                      <div style="display: flex; gap: 8px; align-items: center;">
+                      <div style="display: flex; gap: 8px; align-items: center; flex-wrap:wrap; justify-content:flex-end;">
                         ${r.severity ? chip(r.severity, "danger") : chip("All good", "success")}
-                        ${r.review_status === "needs_review" ? button("Mark reviewed", `review-report:${r.id}`, "small primary") : chip("Reviewed", "neutral")}
+                        ${r.review_status === "needs_review" ? `
+                          ${button("Mark reviewed", \`review-report:\${r.id}\`, "small primary")}
+                          ${button("Not billable", \`toast:Marked not billable\`, "small ghost")}
+                          ${button("Revisit", \`toast:Revisit created\`, "small ghost")}
+                          ${button("Escalate", \`toast:Escalated to management\`, "small ghost danger")}
+                        ` : chip("Reviewed", "neutral")}
                       </div>
                     </div>
                   `).join("")
@@ -321,13 +469,27 @@
             <!-- Billing Readiness -->
             <article class="panel pad">
               <h2>Billing Readiness</h2>
-              <div style="display: flex; justify-content: space-between; margin-bottom: 8px; margin-top: 16px;">
-                <span class="muted" style="font-size: 13px;">Ready to bill</span>
-                <strong style="font-size: 13px;">${bills.filter(b => b.status === "ready_to_bill").length} events</strong>
+              <div style="margin-top: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px;">
+                  <h3 style="font-size:13px; margin-bottom:0;">Ready to bill</h3>
+                  <strong style="font-size: 13px;">${bills.filter(b => b.status === "ready_to_bill").length} events</strong>
+                </div>
+                ${bills.filter(b => b.status === "ready_to_bill").map(b => `
+                  <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px; padding-bottom:4px; border-bottom:1px solid var(--border);">
+                    <div>£${b.amount.toFixed(2)} — ${escapeHtml(b.description)}</div>
+                  </div>
+                `).join("") || '<div class="muted" style="font-size:13px;">None</div>'}
               </div>
-              <div style="display: flex; justify-content: space-between;">
-                <span class="muted" style="font-size: 13px;">Draft / Needs review</span>
-                <strong style="font-size: 13px;">${bills.filter(b => b.status === "draft").length} events</strong>
+              <div style="margin-top: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px;">
+                  <h3 style="font-size:13px; margin-bottom:0;">Draft / Needs review</h3>
+                  <strong style="font-size: 13px;">${bills.filter(b => b.status === "draft").length} events</strong>
+                </div>
+                ${bills.filter(b => b.status === "draft").map(b => `
+                  <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px; padding-bottom:4px; border-bottom:1px solid var(--border);">
+                    <div>£${b.amount.toFixed(2)} — ${escapeHtml(b.description)}</div>
+                  </div>
+                `).join("") || '<div class="muted" style="font-size:13px;">None</div>'}
               </div>
             </article>
 
@@ -348,6 +510,12 @@
 
     const action = actionTarget.getAttribute("data-job-action");
 
+    if (action.startsWith("toast:")) {
+      const msg = action.split(":")[1];
+      if (window.CleanOpsShell?.toast) window.CleanOpsShell.toast(msg);
+      return;
+    }
+
     if (action.startsWith("open-job:")) {
       state.selectedJobId = action.split(":")[1];
       refresh();
@@ -366,6 +534,90 @@
       if (job) job.setup_complete = true;
       if (window.CleanOpsShell?.toast) window.CleanOpsShell.toast("Job setup marked complete.");
       refresh();
+      return;
+    }
+
+    if (action === "close-setup-modal") {
+      state.setupModalOpen = false;
+      refresh();
+      return;
+    }
+
+    if (action === "save-setup") {
+      state.setupModalOpen = false;
+      const job = jobs().find(j => j.id === state.selectedJobId);
+      if (job) job.setup_complete = true;
+      if (window.CleanOpsShell?.toast) window.CleanOpsShell.toast("Job setup saved and marked complete.");
+      refresh();
+      return;
+    }
+
+    if (action === "edit-job") {
+      state.setupModalOpen = true;
+      refresh();
+      return;
+    }
+
+    if (action.startsWith("open-complete-modal:")) {
+      state.completeModalSjId = action.split(":")[1];
+      refresh();
+      return;
+    }
+
+    if (action === "close-complete-modal") {
+      state.completeModalSjId = null;
+      refresh();
+      return;
+    }
+
+    if (action.startsWith("submit-complete-note:")) {
+      const id = action.split(":")[1];
+      const sj = scheduledJobs().find(s => s.id === id);
+      if (sj) {
+        sj.status = "completed";
+        const noteInput = document.getElementById("mock-cleaner-note");
+        const severityInput = document.getElementById("mock-severity");
+        const checklistInput = document.getElementById("mock-checklist-status");
+        
+        const note = noteInput ? noteInput.value : "";
+        const severity = severityInput ? severityInput.value : "Note";
+        const chkStatus = checklistInput ? checklistInput.value : "complete";
+
+        const reportId = "REP-MOCK-" + Date.now();
+        jobReports().push({
+          id: reportId,
+          scheduled_job_id: sj.id,
+          job_id: sj.job_id,
+          completed_at: new Date().toISOString(),
+          completed_by: sj.assigned_staff || "System",
+          checklist_status: chkStatus,
+          cleaner_remarks: note,
+          client_remarks: "",
+          severity: severity === "Note" ? "" : severity,
+          review_status: "needs_review",
+          client_visible_summary: ""
+        });
+
+        const job = jobs().find(j => j.id === sj.job_id);
+        const pricing = job?.pricing_items?.find(p => p.id === sj.pricing_item_id);
+        const amount = pricing ? pricing.amount : 0;
+        
+        billableEvents().push({
+          id: "BE-MOCK-" + Date.now(),
+          source_job_id: sj.job_id,
+          source_scheduled_job_id: sj.id,
+          source_report_id: reportId,
+          pricing_item_id: sj.pricing_item_id,
+          pricing_type: sj.clean_type || "regular",
+          description: `${pricing?.description || 'Cleaning'} - ${sj.date}`,
+          amount: amount,
+          status: "draft"
+        });
+
+        state.completeModalSjId = null;
+        if (window.CleanOpsShell?.toast) window.CleanOpsShell.toast("Clean completed with note. Sent for review.");
+        refresh();
+      }
       return;
     }
 
@@ -403,14 +655,18 @@
         });
 
         const job = jobs().find(j => j.id === sj.job_id);
+        const pricing = job?.pricing_items?.find(p => p.id === sj.pricing_item_id);
+        const amount = pricing ? pricing.amount : 0;
+
         billableEvents().push({
           id: "BE-MOCK-" + Date.now(),
           source_job_id: sj.job_id,
           source_scheduled_job_id: sj.id,
           source_report_id: reportId,
-          catalogue_item_id: "cat-1",
-          description: `${job?.service_type || 'Cleaning'} - ${sj.date}`,
-          amount: parseFloat((job?.billing_basis || "0").replace(/[^0-9.]/g, "")) || 0,
+          pricing_item_id: sj.pricing_item_id,
+          pricing_type: sj.clean_type || "regular",
+          description: `${pricing?.description || 'Cleaning'} - ${sj.date}`,
+          amount: amount,
           status: "ready_to_bill"
         });
 
@@ -437,11 +693,6 @@
 
     if (action === "open-new-job") {
       if (window.CleanOpsShell?.toast) window.CleanOpsShell.toast("New job setup drawer (Mock)");
-      return;
-    }
-
-    if (action === "edit-job") {
-      if (window.CleanOpsShell?.toast) window.CleanOpsShell.toast("Edit job drawer (Mock)");
       return;
     }
   }

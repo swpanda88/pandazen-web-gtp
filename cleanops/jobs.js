@@ -301,8 +301,8 @@
     }
 
     return `
-      <div style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.4); z-index:100; display:flex; justify-content:center; align-items:center;" data-job-modal="true" onclick="document.querySelector('[data-job-action=close-source-preview]').click()">
-        <div style="background:var(--bg); width:600px; max-height:80vh; padding:32px; border-radius:8px; box-shadow:0 10px 40px rgba(0,0,0,0.2); overflow-y:auto;" onclick="event.stopPropagation()">
+      <div style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.4); z-index:100; display:flex; justify-content:center; align-items:center;" data-job-modal="true" onclick="if(event.target === this) document.querySelector('[data-job-action=close-source-preview]').click()">
+        <div style="background:var(--bg); width:600px; max-height:80vh; padding:32px; border-radius:8px; box-shadow:0 10px 40px rgba(0,0,0,0.2); overflow-y:auto;">
           <div style="margin-bottom:24px;">
             ${button("Back to job", "close-source-preview", "small ghost", "← ")}
           </div>
@@ -316,8 +316,8 @@
     const job = jobs().find(j => j.id === state.selectedJobId);
     if (!job) return '';
     return `
-      <div class="quote-modal-backdrop" data-job-action="close-setup-modal" style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:150; display:flex; justify-content:flex-end;">
-        <div style="background:var(--bg); width:400px; height:100%; padding:24px; box-shadow:-5px 0 20px rgba(0,0,0,0.1); overflow-y:auto;" data-job-modal="true" onclick="event.stopPropagation()">
+      <div class="quote-modal-backdrop" onclick="if(event.target === this) document.querySelector('[data-job-action=close-setup-modal]').click()" style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:150; display:flex; justify-content:flex-end;">
+        <div style="background:var(--bg); width:400px; height:100%; padding:24px; box-shadow:-5px 0 20px rgba(0,0,0,0.1); overflow-y:auto;" data-job-modal="true">
           <h2 style="margin-bottom:24px;">Job Setup / Edit</h2>
           <div class="field-row" style="margin-bottom:16px;">
             <label style="display:block; font-size:12px; margin-bottom:4px;">Service Type</label>
@@ -362,8 +362,8 @@
     const sj = scheduledJobs().find(s => s.id === state.completeModalSjId);
     if (!sj) return '';
     return `
-      <div class="quote-modal-backdrop" data-job-action="close-complete-modal" style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:150; display:flex; align-items:center; justify-content:center;">
-        <div style="background:var(--bg); border-radius:8px; width:400px; padding:24px; box-shadow:0 10px 30px rgba(0,0,0,0.2);" data-job-modal="true" onclick="event.stopPropagation()">
+      <div class="quote-modal-backdrop" onclick="if(event.target === this) document.querySelector('[data-job-action=close-complete-modal]').click()" style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:150; display:flex; align-items:center; justify-content:center;">
+        <div style="background:var(--bg); border-radius:8px; width:400px; padding:24px; box-shadow:0 10px 30px rgba(0,0,0,0.2);" data-job-modal="true">
           <h2 style="margin-bottom:16px;">Complete with note</h2>
           <div style="margin-bottom:16px;">
             <label style="display:block; font-size:12px; margin-bottom:4px;">Cleaner remarks</label>

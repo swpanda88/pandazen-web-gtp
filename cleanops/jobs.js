@@ -69,12 +69,13 @@
   function renderInner() {
     const job = jobs().find(j => j.id === state.selectedJobId);
     let html = job ? renderDetail(job) : renderList();
-    if (state.setupModalOpen) html += renderSetupModal();
-    if (state.completeModalSjId) html += renderCompleteModal();
     
     if (state.checklistBuilderOpen) html += renderChecklistModal();
     if (state.selectedScheduledJobId) html += renderScheduledCleanWorkspace();
     if (state.sourcePreviewType) html += renderSourcePreviewWorkspace();
+
+    if (state.setupModalOpen) html += renderSetupModal();
+    if (state.completeModalSjId) html += renderCompleteModal();
     
     return html;
   }
@@ -231,14 +232,31 @@
               </article>
 
               <article class="panel pad">
-                <h3 style="font-size:16px; margin-bottom:16px;">Checklist & Report</h3>
+                <h3 style="font-size:16px; margin-bottom:16px;">Checklist Copy</h3>
                 <div style="font-size:13px; margin-bottom:16px;">
                   Checklist copied from Job Plan: <strong>${sj.clean_type === 'initial' ? 'Initial Clean' : 'Regular Clean'}</strong>
                 </div>
                 <div style="display:flex; gap:8px;">
                   ${button("Open copied checklist", "toast:Opening specific occurrence checklist", "small ghost")}
-                  ${button("Review report", "toast:No report yet", "small ghost")}
                 </div>
+              </article>
+
+              <article class="panel pad">
+                <h3 style="font-size:16px; margin-bottom:16px;">Report / Completion</h3>
+                ${(() => {
+                  const r = jobReports().find(rep => rep.scheduled_job_id === sj.id);
+                  if (!r) return `<div class="muted" style="font-size:13px;">No report yet.</div>`;
+                  
+                  return `
+                    <div style="font-size:13px; margin-bottom:8px;"><strong>Status:</strong> ${escapeHtml(r.checklist_status)}</div>
+                    <div style="font-size:13px; margin-bottom:8px;"><strong>Cleaner remark:</strong> ${escapeHtml(r.cleaner_remarks || "-")}</div>
+                    <div style="font-size:13px; margin-bottom:8px;"><strong>Client remark:</strong> ${escapeHtml(r.client_remarks || "-")}</div>
+                    <div style="font-size:13px; margin-bottom:16px;"><strong>Review:</strong> ${r.review_status === 'needs_review' ? chip("Needs review", "warning") : chip("Reviewed", "success")}</div>
+                    <div style="display:flex; gap:8px;">
+                      ${r.review_status === "needs_review" ? button("Mark reviewed", `review-report:${r.id}`, "small primary") : ""}
+                    </div>
+                  `;
+                })()}
               </article>
             </div>
 
@@ -254,9 +272,11 @@
               <article class="panel pad">
                 <h3 style="font-size:16px; margin-bottom:16px;">Actions</h3>
                 <div class="stack" style="gap:8px;">
-                  ${button("Complete all good", `fast-complete:${sj.id}`, "primary", "✓ ")}
-                  ${button("Complete with note", `open-complete-modal:${sj.id}`, "secondary")}
-                  ${button("Skip / cancel", `skip-sj:${sj.id}`, "danger ghost")}
+                  ${sj.status === "planned" ? `
+                    ${button("Complete all good", `fast-complete:${sj.id}`, "primary", "✓ ")}
+                    ${button("Complete with note", `open-complete-modal:${sj.id}`, "secondary")}
+                    ${button("Skip / cancel", `skip-sj:${sj.id}`, "danger ghost")}
+                  ` : `<div class="muted" style="font-size:13px;">Actions unavailable (${escapeHtml(sj.status)})</div>`}
                 </div>
               </article>
             </div>
@@ -296,7 +316,7 @@
     const job = jobs().find(j => j.id === state.selectedJobId);
     if (!job) return '';
     return `
-      <div class="quote-modal-backdrop" data-job-action="close-setup-modal" style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:100; display:flex; justify-content:flex-end;">
+      <div class="quote-modal-backdrop" data-job-action="close-setup-modal" style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:150; display:flex; justify-content:flex-end;">
         <div style="background:var(--bg); width:400px; height:100%; padding:24px; box-shadow:-5px 0 20px rgba(0,0,0,0.1); overflow-y:auto;" data-job-modal="true" onclick="event.stopPropagation()">
           <h2 style="margin-bottom:24px;">Job Setup / Edit</h2>
           <div class="field-row" style="margin-bottom:16px;">
@@ -342,7 +362,7 @@
     const sj = scheduledJobs().find(s => s.id === state.completeModalSjId);
     if (!sj) return '';
     return `
-      <div class="quote-modal-backdrop" data-job-action="close-complete-modal" style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:100; display:flex; align-items:center; justify-content:center;">
+      <div class="quote-modal-backdrop" data-job-action="close-complete-modal" style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:150; display:flex; align-items:center; justify-content:center;">
         <div style="background:var(--bg); border-radius:8px; width:400px; padding:24px; box-shadow:0 10px 30px rgba(0,0,0,0.2);" data-job-modal="true" onclick="event.stopPropagation()">
           <h2 style="margin-bottom:16px;">Complete with note</h2>
           <div style="margin-bottom:16px;">
@@ -868,17 +888,24 @@
         const pricing = job?.pricing_items?.find(p => p.id === sj.pricing_item_id);
         const amount = pricing ? pricing.amount : 0;
         
-        billableEvents().push({
-          id: "BE-MOCK-" + Date.now(),
-          source_job_id: sj.job_id,
-          source_scheduled_job_id: sj.id,
-          source_report_id: reportId,
-          pricing_item_id: sj.pricing_item_id,
-          pricing_type: sj.clean_type || "regular",
-          description: `${pricing?.description || 'Cleaning'} - ${sj.date}`,
-          amount: amount,
-          status: "draft"
-        });
+        let be = billableEvents().find(b => b.source_scheduled_job_id === sj.id);
+        if (be) {
+          be.status = "draft";
+          be.amount = amount;
+          be.description = `${pricing?.description || 'Cleaning'} - ${sj.date}`;
+        } else {
+          billableEvents().push({
+            id: "BE-MOCK-" + Date.now(),
+            source_job_id: sj.job_id,
+            source_scheduled_job_id: sj.id,
+            source_report_id: reportId,
+            pricing_item_id: sj.pricing_item_id,
+            pricing_type: sj.clean_type || "regular",
+            description: `${pricing?.description || 'Cleaning'} - ${sj.date}`,
+            amount: amount,
+            status: "draft"
+          });
+        }
 
         state.completeModalSjId = null;
         if (window.CleanOpsShell?.toast) window.CleanOpsShell.toast("Clean completed with note. Sent for review.");
@@ -924,17 +951,24 @@
         const pricing = job?.pricing_items?.find(p => p.id === sj.pricing_item_id);
         const amount = pricing ? pricing.amount : 0;
 
-        billableEvents().push({
-          id: "BE-MOCK-" + Date.now(),
-          source_job_id: sj.job_id,
-          source_scheduled_job_id: sj.id,
-          source_report_id: reportId,
-          pricing_item_id: sj.pricing_item_id,
-          pricing_type: sj.clean_type || "regular",
-          description: `${pricing?.description || 'Cleaning'} - ${sj.date}`,
-          amount: amount,
-          status: "ready_to_bill"
-        });
+        let be = billableEvents().find(b => b.source_scheduled_job_id === sj.id);
+        if (be) {
+          be.status = "ready_to_bill";
+          be.amount = amount;
+          be.description = `${pricing?.description || 'Cleaning'} - ${sj.date}`;
+        } else {
+          billableEvents().push({
+            id: "BE-MOCK-" + Date.now(),
+            source_job_id: sj.job_id,
+            source_scheduled_job_id: sj.id,
+            source_report_id: reportId,
+            pricing_item_id: sj.pricing_item_id,
+            pricing_type: sj.clean_type || "regular",
+            description: `${pricing?.description || 'Cleaning'} - ${sj.date}`,
+            amount: amount,
+            status: "ready_to_bill"
+          });
+        }
 
         if (window.CleanOpsShell?.toast) window.CleanOpsShell.toast("Clean completed (All-good fast path).");
         refresh();

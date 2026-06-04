@@ -586,10 +586,6 @@
 
   function renderList() {
     const allQuotes = quotes();
-    const drafts = allQuotes.filter(q => ["draft", "ready_to_send"].includes(q.status));
-    const sent = allQuotes.filter(q => ["sent", "viewed"].includes(q.status));
-    const accepted = allQuotes.filter(q => ["accepted", "converted_to_job"].includes(q.status));
-    const archived = allQuotes.filter(q => ["rejected", "expired", "superseded", "archived"].includes(q.status));
 
     const rowMenuStyles = `
       <style>
@@ -597,81 +593,63 @@
         .quote-dropdown-item:hover { background: var(--surface); }
         .quote-dropdown-item.text-danger { color: #dc2626; }
         .quote-dropdown-divider { height: 1px; background: var(--border); margin: 4px 0; }
-        .quotes-group-table th { padding: 12px 8px; text-align: left; border-bottom: 2px solid var(--border); color: var(--text-muted); font-size: 12px; text-transform: uppercase; font-weight: 600; }
-        .quotes-group-table td { padding: 12px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
       </style>
     `;
 
-    const renderGroup = (title, list) => {
-      if (list.length === 0) return "";
-      const rows = list.map((quote) => {
-        const isSuperseded = quote.status === "superseded" || quote.status === "archived";
-        const style = isSuperseded ? "opacity: 0.6;" : "";
-        const docLabel = documentStatusLabels[quote.document_status || "not_generated"];
-        const docTone = documentStatusTones[quote.document_status || "not_generated"];
-
-        return `
-          <tr class="quote-row" tabindex="0" style="${style}">
-            <td><strong>${escapeHtml(quoteNumber(quote))}</strong><br><span class="muted" style="font-size:12px;">v${escapeHtml(quote.version || 1)}</span></td>
-            <td>${escapeHtml(quote.client)}<br><span class="muted" style="font-size:12px;">${escapeHtml(quote.property)}</span></td>
-            <td>${escapeHtml(quote.service)}</td>
-            <td><strong>${escapeHtml(quote.total)}</strong></td>
-            <td>${quoteStatusChip(quote)}</td>
-            <td>${chip(docLabel, docTone)}</td>
-            <td>${escapeHtml(quote.valid_until || quote.updated_at || quote.created_at || "")}</td>
-            <td style="text-align:right;">
-              ${renderRowActionsMenu(quote)}
-            </td>
-          </tr>
-        `;
-      }).join("");
+    const rows = allQuotes.map((quote) => {
+      const isSuperseded = quote.status === "superseded" || quote.status === "archived";
+      const style = isSuperseded ? "opacity: 0.6;" : "";
+      const docLabel = documentStatusLabels[quote.document_status || "not_generated"];
+      const docTone = documentStatusTones[quote.document_status || "not_generated"];
 
       return `
-        <div style="margin-bottom: 48px; background: var(--surface); border: 1px solid var(--line); border-top: 3px solid var(--line-strong); border-radius: 8px; box-shadow: var(--shadow);">
-          <h3 style="font-size: 15px; margin: 0; padding: 12px 16px; background: var(--surface-soft); border-bottom: 1px solid var(--line); color: var(--text); display: flex; align-items: center; gap: 8px; border-top-left-radius: 5px; border-top-right-radius: 5px;">
-            ${escapeHtml(title)}
-            <span style="background:var(--bg); color:var(--text); padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; border: 1px solid var(--line);">${list.length}</span>
-          </h3>
-          <table class="quotes-group-table" style="width: 100%; border-collapse: collapse; table-layout: fixed;">
-            <thead>
-              <tr>
-                <th style="width: 12%;">Quote ref</th>
-                <th style="width: 25%;">Client / Property</th>
-                <th style="width: 18%;">Scope</th>
-                <th style="width: 12%;">Total</th>
-                <th style="width: 10%;">Status</th>
-                <th style="width: 10%;">Document</th>
-                <th style="width: 10%;">Updated / Valid</th>
-                <th style="width: 8%; text-align:right;">Actions</th>
-              </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </div>
+        <tr class="quote-row" tabindex="0" style="${style}">
+          <td><strong>${escapeHtml(quoteNumber(quote))}</strong><br><span class="muted" style="font-size:12px;">v${escapeHtml(quote.version || 1)}</span></td>
+          <td>${escapeHtml(quote.client)}<br><span class="muted" style="font-size:12px;">${escapeHtml(quote.property)}</span></td>
+          <td>${escapeHtml(quote.service)}</td>
+          <td><strong>${escapeHtml(quote.total)}</strong></td>
+          <td>${quoteStatusChip(quote)}</td>
+          <td>${chip(docLabel, docTone)}</td>
+          <td>${escapeHtml(quote.valid_until || quote.updated_at || quote.created_at || "")}</td>
+          <td style="text-align:right;">
+            ${renderRowActionsMenu(quote)}
+          </td>
+        </tr>
       `;
-    };
+    });
+
+    const headers = ["Quote ref", "Client / Property", "Scope", "Total", "Status", "Document", "Updated / Valid", "Actions"];
 
     return `
+      ${window.CleanOpsShell?.pageHead?.("Quotes", "Quote register and document tracking.", button("New quote", "open-new-quote", "primary")) || `
       <div class="page-head">
         <div>
           <h1>Quotes</h1>
-          <p>Quote register and document tracking.</p>
+          <p class="muted" style="margin-top:10px">Quote register and document tracking.</p>
         </div>
-        ${button("New quote", "open-new-quote", "primary")}
+        <div class="page-actions">${button("New quote", "open-new-quote", "primary")}</div>
       </div>
+      `}
+
       <section class="grid-detail quotes-list-layout">
-        <article class="panel pad" style="grid-column: span 12;">
-          <div class="filters" style="margin-bottom: 24px;">
+        <article class="panel">
+          <div class="filters">
             <span class="inputish">Search quotes</span>
             <span class="selectish">All statuses</span>
             <span class="selectish">This month</span>
           </div>
           ${rowMenuStyles}
-          ${renderGroup("Drafts", drafts)}
-          ${renderGroup("Sent to customer", sent)}
-          ${renderGroup("Accepted / Converted", accepted)}
-          ${renderGroup("Archive", archived)}
-          ${allQuotes.length === 0 ? `<div style="padding: 40px; text-align: center; color: var(--text-muted);">No quotes found.</div>` : ""}
+          ${allQuotes.length === 0
+            ? `<div style="padding: 40px; text-align: center; color: var(--text-muted);">No quotes found.</div>`
+            : (window.CleanOpsShell?.table ? window.CleanOpsShell.table(headers, rows) : `
+                <div class="table-wrapper">
+                  <table class="table">
+                    <thead><tr>${headers.map(h => `<th>${escapeHtml(h)}</th>`).join("")}</tr></thead>
+                    <tbody>${rows.join("")}</tbody>
+                  </table>
+                </div>
+              `)
+          }
         </article>
       </section>
       ${state.newQuoteOpen ? renderNewQuoteLauncherModal() : ""}

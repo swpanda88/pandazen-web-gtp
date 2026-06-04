@@ -228,48 +228,44 @@
       </div>
 
       <section class="grid-detail">
-        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 32px;">
-
-          <!-- Left Column -->
-          <div style="display: flex; flex-direction: column; gap: 40px;">
-            <!-- Setup -->
-            <div class="stack">
-              <h3 style="font-size: 16px; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px;">Cleaning Plan / Setup</h3>
-              <div class="job-section-card">
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
-                  <div>
-                    <div class="muted" style="font-size: 12px;">Recurrence</div>
-                    <div style="font-size: 14px;">${job.recurrence ? `${job.recurrence.frequency} on ${job.recurrence.day}` : "One-off"}</div>
-                  </div>
-                  <div>
-                    <div class="muted" style="font-size: 12px;">Time & Duration</div>
-                    <div style="font-size: 14px;">${job.recurrence?.start_time || "TBD"} (${job.default_duration_minutes} mins)</div>
-                  </div>
-                  <div>
-                    <div class="muted" style="font-size: 12px;">Default Team</div>
-                    <div style="font-size: 14px;">${escapeHtml(job.default_staff || "Unassigned")}</div>
-                  </div>
-                  <div>
-                    <div class="muted" style="font-size: 12px;">Checklist</div>
-                    <div style="font-size: 14px;">${escapeHtml(job.checklist_template_id || "None selected")}</div>
-                  </div>
+        <!-- Left Column -->
+        <div class="stack">
+          <!-- Setup -->
+            <article class="panel pad">
+              <h2 style="margin-bottom: 16px;">Cleaning Plan / Setup</h2>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                <div>
+                  <div class="muted" style="font-size: 12px;">Recurrence</div>
+                  <div style="font-size: 14px;">${job.recurrence ? `${job.recurrence.frequency} on ${job.recurrence.day}` : "One-off"}</div>
                 </div>
-                <div style="margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--border);">
-                  <div class="muted" style="font-size: 12px; margin-bottom: 4px;">Cleaning notes</div>
-                  <div style="font-size: 14px;">${escapeHtml(job.notes?.cleaning || "None")}</div>
+                <div>
+                  <div class="muted" style="font-size: 12px;">Time & Duration</div>
+                  <div style="font-size: 14px;">${job.recurrence?.start_time || "TBD"} (${job.default_duration_minutes} mins)</div>
                 </div>
-                <div style="margin-top: 24px;">
-                  ${job.setup_complete
-                    ? chip("Setup complete", "success")
-                    : button("Mark setup complete", `complete-setup:${job.id}`, "primary")}
+                <div>
+                  <div class="muted" style="font-size: 12px;">Default Team</div>
+                  <div style="font-size: 14px;">${escapeHtml(job.default_staff || "Unassigned")}</div>
+                </div>
+                <div>
+                  <div class="muted" style="font-size: 12px;">Checklist</div>
+                  <div style="font-size: 14px;">${escapeHtml(job.checklist_template_id || "None selected")}</div>
                 </div>
               </div>
-            </div>
+              <div style="margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--border);">
+                <div class="muted" style="font-size: 12px; margin-bottom: 4px;">Cleaning notes</div>
+                <div style="font-size: 14px;">${escapeHtml(job.notes?.cleaning || "None")}</div>
+              </div>
+              <div style="margin-top: 24px;">
+                ${job.setup_complete
+                  ? chip("Setup complete", "success")
+                  : button("Mark setup complete", `complete-setup:${job.id}`, "primary")}
+              </div>
+            </article>
 
             <!-- Scheduled Jobs Table -->
-            <div class="stack">
-              <h3 style="font-size: 16px; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px;">Generated Scheduled Cleans</h3>
-              <div style="background: var(--bg); border-radius: 8px; border: 1px solid var(--border); overflow: hidden;">
+            <article class="panel">
+              <div class="panel-head"><h2>Generated Scheduled Cleans</h2></div>
+              <div class="table-wrapper">
                 ${table(
                   ["Date", "Time", "Cleaner / Team", "Status", "Note / Reason", "Actions"],
                   sjs.map(sj => `
@@ -291,18 +287,18 @@
                   `)
                 )}
               </div>
-            </div>
+            </article>
 
             <!-- Recent Reports -->
-            <div class="stack">
-              <h3 style="font-size: 16px; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px; display: flex; justify-content: space-between;">
-                <span>Recent Reports</span>
+            <article class="panel pad">
+              <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 16px;">
+                <h2>Recent Reports</h2>
                 <span class="muted" style="font-size: 13px;">Showing last ${reports.length}</span>
-              </h3>
+              </div>
               <div class="stack" style="gap: 16px;">
                 ${reports.length === 0 ? `<div class="muted">No reports available.</div>` :
                   reports.map(r => `
-                    <div class="job-section-card" style="display: flex; justify-content: space-between; align-items: flex-start; padding: 16px;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; padding: 16px; border: 1px solid var(--border); border-radius: 6px;">
                       <div>
                         <div style="font-weight: 500; font-size: 14px; margin-bottom: 4px;">Report from ${escapeHtml(r.completed_by)}</div>
                         <div class="muted" style="font-size: 12px; margin-bottom: 8px;">${r.completed_at.replace("T", " ").replace("Z", "")}</div>
@@ -316,34 +312,32 @@
                   `).join("")
                 }
               </div>
-            </div>
+            </article>
 
           </div>
 
           <!-- Right Column -->
-          <div style="display: flex; flex-direction: column; gap: 40px;">
-            <!-- Billing / Notes -->
-            <div class="stack">
-              <div class="job-section-card" style="margin-top: 42px;">
-                <h4>Billing Readiness</h4>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                  <span class="muted" style="font-size: 13px;">Ready to bill</span>
-                  <strong style="font-size: 13px;">${bills.filter(b => b.status === "ready_to_bill").length} events</strong>
-                </div>
-                <div style="display: flex; justify-content: space-between;">
-                  <span class="muted" style="font-size: 13px;">Draft / Needs review</span>
-                  <strong style="font-size: 13px;">${bills.filter(b => b.status === "draft").length} events</strong>
-                </div>
+          <aside class="stack">
+            <!-- Billing Readiness -->
+            <article class="panel pad">
+              <h2>Billing Readiness</h2>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 8px; margin-top: 16px;">
+                <span class="muted" style="font-size: 13px;">Ready to bill</span>
+                <strong style="font-size: 13px;">${bills.filter(b => b.status === "ready_to_bill").length} events</strong>
               </div>
-
-              <div class="job-section-card">
-                <h4>Internal Notes</h4>
-                <div style="font-size: 13px;">${escapeHtml(job.notes?.internal || "None")}</div>
+              <div style="display: flex; justify-content: space-between;">
+                <span class="muted" style="font-size: 13px;">Draft / Needs review</span>
+                <strong style="font-size: 13px;">${bills.filter(b => b.status === "draft").length} events</strong>
               </div>
-            </div>
-          </div>
+            </article>
 
-        </div>
+            <!-- Internal Notes -->
+            <article class="panel pad">
+              <h2>Internal Notes</h2>
+              <p class="muted" style="margin-top:8px">Only visible to your team.</p>
+              <div class="inputish" style="height:auto; min-height:86px; margin-top:14px; align-items:flex-start; padding-top:10px">${escapeHtml(job.notes?.internal || "None")}</div>
+            </article>
+          </aside>
       </section>
     `;
   }

@@ -1185,6 +1185,175 @@ window.CLEANOPS_DATA = {
     { time: "16:30", client: "ABC Offices", service: "Commercial evening", property: "M1", status: "Key held", tone: "info" }
   ],
 
+  jobs: [
+    {
+      id: "JOB-1001",
+      display_name: "24 Hill Road",
+      client_id: "CLIENT-1001",
+      property_id: "PROP-1007",
+      source_quote_id: "Q-2089/01",
+      service_type: "Regular domestic clean",
+      job_type: "recurring",
+      status: "active",
+      recurrence: { frequency: "weekly", day: "Friday", start_time: "09:00", start_date: "2026-06-12", end_date: null, generate_ahead: "3_months" },
+      default_duration_minutes: 120,
+      default_staff: "Panda Cleaner",
+      checklist_template_id: "tpl-reg",
+      billing_basis: "£90.00 / visit",
+      setup_complete: true,
+      notes: { cleaning: "Focus on kitchen.", internal: "" }
+    },
+    {
+      id: "JOB-1002",
+      display_name: "Unit 4 ABC Offices",
+      client_id: "CLIENT-1002",
+      property_id: "PROP-1002",
+      source_quote_id: "Q-2088/01",
+      service_type: "Commercial cleaning",
+      job_type: "commercial",
+      status: "setup",
+      recurrence: { frequency: "monthly", day: "1st", start_time: "18:00", start_date: "2026-07-01", end_date: null, generate_ahead: "3_months" },
+      default_duration_minutes: 240,
+      default_staff: "",
+      checklist_template_id: "",
+      billing_basis: "£650.00 / month",
+      setup_complete: false,
+      notes: { cleaning: "", internal: "Need to confirm access code." }
+    },
+    {
+      id: "JOB-1003",
+      display_name: "Family home",
+      client_id: "CLIENT-1003",
+      property_id: "PROP-1003",
+      source_quote_id: "Q-2087/01",
+      service_type: "End of tenancy clean",
+      job_type: "one_off",
+      status: "active",
+      recurrence: null,
+      default_duration_minutes: 360,
+      default_staff: "Panda Team A",
+      checklist_template_id: "tpl-eot",
+      billing_basis: "£350.00 / one-off",
+      setup_complete: true,
+      notes: { cleaning: "Empty property.", internal: "" }
+    }
+  ],
+
+  scheduledJobs: [
+    {
+      id: "SJ-1001-1",
+      job_id: "JOB-1001",
+      date: "2026-06-12",
+      start_time: "09:00",
+      duration_minutes: 120,
+      assigned_staff: "Panda Cleaner",
+      status: "completed",
+      skip_reason: "",
+      report_id: "REP-1001-1",
+      billable_event_id: "BE-1001-1"
+    },
+    {
+      id: "SJ-1001-2",
+      job_id: "JOB-1001",
+      date: "2026-06-19",
+      start_time: "09:00",
+      duration_minutes: 120,
+      assigned_staff: "Panda Cleaner",
+      status: "planned",
+      skip_reason: "",
+      report_id: null,
+      billable_event_id: null
+    },
+    {
+      id: "SJ-1001-3",
+      job_id: "JOB-1001",
+      date: "2026-06-26",
+      start_time: "09:00",
+      duration_minutes: 120,
+      assigned_staff: "Panda Cleaner",
+      status: "skipped",
+      skip_reason: "Client holiday",
+      report_id: null,
+      billable_event_id: null
+    },
+    {
+      id: "SJ-1001-4",
+      job_id: "JOB-1001",
+      date: "2026-07-03",
+      start_time: "09:00",
+      duration_minutes: 120,
+      assigned_staff: "Panda Cleaner",
+      status: "planned",
+      skip_reason: "",
+      report_id: null,
+      billable_event_id: null
+    },
+    {
+      id: "SJ-1003-1",
+      job_id: "JOB-1003",
+      date: "2026-06-15",
+      start_time: "10:00",
+      duration_minutes: 360,
+      assigned_staff: "Panda Team A",
+      status: "completed",
+      skip_reason: "",
+      report_id: "REP-1003-1",
+      billable_event_id: "BE-1003-1"
+    }
+  ],
+
+  jobReports: [
+    {
+      id: "REP-1001-1",
+      scheduled_job_id: "SJ-1001-1",
+      job_id: "JOB-1001",
+      completed_at: "2026-06-12T11:05:00Z",
+      completed_by: "Panda Cleaner",
+      checklist_status: "complete",
+      cleaner_remarks: "",
+      client_remarks: "",
+      severity: "",
+      review_status: "reviewed",
+      client_visible_summary: "Great clean today."
+    },
+    {
+      id: "REP-1003-1",
+      scheduled_job_id: "SJ-1003-1",
+      job_id: "JOB-1003",
+      completed_at: "2026-06-15T16:10:00Z",
+      completed_by: "Panda Team A",
+      checklist_status: "complete",
+      cleaner_remarks: "Oven took an extra 30 mins as it was heavily soiled.",
+      client_remarks: "",
+      severity: "Extra time",
+      review_status: "needs_review",
+      client_visible_summary: ""
+    }
+  ],
+
+  billableEvents: [
+    {
+      id: "BE-1001-1",
+      source_job_id: "JOB-1001",
+      source_scheduled_job_id: "SJ-1001-1",
+      source_report_id: "REP-1001-1",
+      catalogue_item_id: "cat-1",
+      description: "Regular domestic clean - 12 Jun",
+      amount: 90.00,
+      status: "ready_to_bill"
+    },
+    {
+      id: "BE-1003-1",
+      source_job_id: "JOB-1003",
+      source_scheduled_job_id: "SJ-1003-1",
+      source_report_id: "REP-1003-1",
+      catalogue_item_id: "cat-4",
+      description: "End of tenancy clean - 15 Jun",
+      amount: 350.00,
+      status: "draft"
+    }
+  ],
+
   portal: {
     client: "John Smith",
     property: "24 Hill Road",

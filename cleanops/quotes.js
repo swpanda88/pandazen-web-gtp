@@ -1459,7 +1459,7 @@
       }
       return false;
     }
-    
+
     event.preventDefault();
     event.stopPropagation();
 
@@ -1890,9 +1890,39 @@
       const qId = action.split(":")[1];
       const q = quotes().find(x => x.id === qId);
       if (q) {
-        toast("Convert to job is mocked for this prototype.");
+        q.status = "converted_to_job";
+        q.job_id = "JOB-NEW-" + Date.now();
+
+        // Push a mock job shell
+        if (window.CLEANOPS_DATA && window.CLEANOPS_DATA.jobs) {
+          window.CLEANOPS_DATA.jobs.push({
+            id: q.job_id,
+            display_name: findProperty(q.property_id, q.client_id)?.display_name || "New Job",
+            client_id: q.client_id,
+            property_id: q.property_id,
+            source_quote_id: q.id,
+            service_type: "Cleaning service", // mock
+            job_type: "recurring",
+            status: "setup",
+            recurrence: null,
+            default_duration_minutes: 120,
+            default_staff: "",
+            checklist_template_id: "",
+            billing_basis: "Pending",
+            setup_complete: false,
+            notes: { cleaning: "", internal: "Created from quote conversion." }
+          });
+        }
+
+        toast("Converted to job. Needs setup.");
         state.quoteRowMenuId = null;
-        refresh();
+
+        // Navigate to Jobs
+        if (window.CleanOpsShell?.navigate) {
+          window.CleanOpsShell.navigate("jobs");
+        } else {
+          refresh();
+        }
       }
       return true;
     }

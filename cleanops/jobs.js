@@ -82,86 +82,70 @@
 
   function renderActionPanel() {
     const setupJobs = jobs().filter(j => j.status === "setup" || !j.setup_complete);
-
-    // Needs review: reports where review_status is needs_review
     const reportsToReview = jobReports().filter(r => r.review_status === "needs_review");
-
-    // Ready to bill: billable events that are ready_to_bill
     const billable = billableEvents().filter(b => b.status === "ready_to_bill");
 
-    const renderCard = (title, meta, context, chipHtml, action) => `
-      <div class="jobs-action-card" data-job-action="${action}">
-        <strong>${escapeHtml(title)}</strong>
-        <div class="meta">${escapeHtml(meta)}</div>
-        <div class="context">${escapeHtml(context)}</div>
-        <div>${chipHtml}</div>
-      </div>
+    const renderRow = (title, meta, context, chipHtml, action) => `
+      <tr class="job-row" tabindex="0" role="button" data-job-action="${action}">
+        <td>
+          <strong style="display: block; font-size: 13px; margin-bottom: 4px;">${escapeHtml(title)}</strong>
+          <span class="muted" style="font-size: 12px; display: block; margin-bottom: 6px;">${escapeHtml(meta)}</span>
+          <span style="font-size: 12px; display: block; margin-bottom: 8px;">${escapeHtml(context)}</span>
+          ${chipHtml}
+        </td>
+      </tr>
+    `;
+
+    const renderPanel = (title, count, itemsHtml) => `
+      <article class="panel">
+        <div class="panel-head">
+          <h2 class="panel-title">${escapeHtml(title)}</h2>
+          <span style="background:var(--bg); padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; border: 1px solid var(--line);">${count}</span>
+        </div>
+        <div class="table-wrapper">
+          <table class="table">
+            <tbody>
+              ${itemsHtml || `<tr><td class="muted" style="text-align:center; padding: 24px;">No items</td></tr>`}
+            </tbody>
+          </table>
+        </div>
+      </article>
     `;
 
     return `
       <div class="jobs-action-grid">
-        <!-- Needs Setup -->
-        <div class="jobs-action-column">
-          <h3>
-            <span>Needs setup</span>
-            <span class="muted">${setupJobs.length}</span>
-          </h3>
-          <div>
-            ${setupJobs.length === 0 ? `<div class="muted" style="font-size: 13px;">No jobs need setup.</div>` :
-              setupJobs.map(j => renderCard(
-                j.display_name,
-                `${findClient(j.client_id)?.display_name || ""} · ${j.service_type}`,
-                "Missing plan / recurrence details",
-                chip("Setup required", "warning"),
-                `open-job:${j.id}`
-              )).join("")
-            }
-          </div>
-        </div>
+        ${renderPanel("Needs setup", setupJobs.length, setupJobs.map(j => renderRow(
+            j.display_name,
+            `${findClient(j.client_id)?.display_name || ""} · ${j.service_type}`,
+            "Missing plan / recurrence details",
+            chip("Setup required", "warning"),
+            `open-job:${j.id}`
+          )).join("")
+        )}
 
-        <!-- Needs Review -->
-        <div class="jobs-action-column">
-          <h3>
-            <span>Needs review</span>
-            <span class="muted">${reportsToReview.length}</span>
-          </h3>
-          <div>
-            ${reportsToReview.length === 0 ? `<div class="muted" style="font-size: 13px;">No reports to review.</div>` :
-              reportsToReview.map(r => {
-                const j = jobs().find(job => job.id === r.job_id);
-                return renderCard(
-                  j?.display_name || "Unknown Job",
-                  `Report from ${escapeHtml(r.completed_by)}`,
-                  r.cleaner_remarks || r.client_remarks || "Review requested",
-                  chip(r.severity || "Note", r.severity === "Extra time" || r.severity === "Note" ? "warning" : "danger"),
-                  `open-job:${r.job_id}`
-                );
-              }).join("")
-            }
-          </div>
-        </div>
+        ${renderPanel("Needs review", reportsToReview.length, reportsToReview.map(r => {
+            const j = jobs().find(job => job.id === r.job_id);
+            return renderRow(
+              j?.display_name || "Unknown Job",
+              `Report from ${escapeHtml(r.completed_by)}`,
+              r.cleaner_remarks || r.client_remarks || "Review requested",
+              chip(r.severity || "Note", r.severity === "Extra time" || r.severity === "Note" ? "warning" : "danger"),
+              `open-job:${r.job_id}`
+            );
+          }).join("")
+        )}
 
-        <!-- Ready to Bill -->
-        <div class="jobs-action-column">
-          <h3>
-            <span>Ready to bill</span>
-            <span class="muted">${billable.length}</span>
-          </h3>
-          <div>
-            ${billable.length === 0 ? `<div class="muted" style="font-size: 13px;">Nothing ready to bill.</div>` :
-              billable.map(b => {
-                const j = jobs().find(job => job.id === b.source_job_id);
-                return renderCard(
-                  j?.display_name || "Unknown Job",
-                  `£${b.amount.toFixed(2)}`,
-                  b.description,
-                  chip("Ready", "success"),
-                  `open-job:${b.source_job_id}`
-                );
-              }).join("")
-            }
-          </div>
-        </div>
+        ${renderPanel("Ready to bill", billable.length, billable.map(b => {
+            const j = jobs().find(job => job.id === b.source_job_id);
+            return renderRow(
+              j?.display_name || "Unknown Job",
+              `£${b.amount.toFixed(2)}`,
+              b.description,
+              chip("Ready", "success"),
+              `open-job:${b.source_job_id}`
+            );
+          }).join("")
+        )}
       </div>
     `;
   }

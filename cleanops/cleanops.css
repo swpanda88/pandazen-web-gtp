@@ -842,7 +842,7 @@ tr:last-child td {
   cursor: pointer;
 }
 
-.quote-row:hover td {
+.quote-row:hover td, .job-row:hover td {
   background: #fbfbf8;
 }
 

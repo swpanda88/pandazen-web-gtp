@@ -17,7 +17,11 @@
 
   function escapeHtml(str) { return window.CleanOpsShell?.escapeHtml?.(str) || String(str || "").replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[m]); }
   function iconSvg(name) { return window.CleanOpsShell?.iconSvg?.(name) || ""; }
-  function button(label, action, type = "secondary", icon = "") { return `<button class="btn btn-${type}" data-job-action="${action}">${icon}${label}</button>`; }
+  function button(label, action, variant = "", icon = "") {
+    if (variant === "secondary") variant = "";
+    const classes = ["button", ...variant.split(" ")].filter(Boolean).join(" ");
+    return `<button class="${classes}" type="button" data-job-action="${escapeHtml(action)}">${icon}${escapeHtml(label)}</button>`;
+  }
   function chip(label, tone = "info") { return `<span class="chip ${tone}">${escapeHtml(label)}</span>`; }
   function table(headers, rows) {
     if (!rows.length) return `<div class="banner">No records found.</div>`;

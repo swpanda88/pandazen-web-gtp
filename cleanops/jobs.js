@@ -183,7 +183,7 @@
           </div>
           <div style="display:flex; justify-content:flex-end; gap:8px;">
             ${button("Cancel", "close-complete-modal", "ghost")}
-            ${button("Submit", \`submit-complete-note:\${sj.id}\`, "primary")}
+            ${button("Submit", `submit-complete-note:${sj.id}`, "primary")}
           </div>
         </div>
       </div>
@@ -407,27 +407,27 @@
                   ["Date", "Time", "Clean Type", "Duration", "Cleaner / Team", "Status", "Note", "Actions"],
                   sjs.map(sj => {
                     const pricing = job.pricing_items?.find(p => p.id === sj.pricing_item_id);
-                    const amountLabel = pricing ? \`£\${pricing.amount.toFixed(2)}\` : "-";
-                    return \`
+                    const amountLabel = pricing ? `£${pricing.amount.toFixed(2)}` : "-";
+                    return `
                     <tr>
-                      <td>\${escapeHtml(sj.date)}</td>
-                      <td>\${escapeHtml(sj.start_time)}</td>
-                      <td>\${chip(sj.clean_type || "regular", sj.clean_type === "initial" ? "warning" : "info")}</td>
-                      <td>\${escapeHtml(sj.duration_minutes)}m<br><span class="muted" style="font-size:11px;">\${amountLabel}</span></td>
-                      <td>\${escapeHtml(sj.assigned_staff)}</td>
-                      <td>\${chip(sj.status, getSJTone(sj.status))}</td>
-                      <td class="muted">\${escapeHtml(sj.skip_reason || "-")}</td>
+                      <td>${escapeHtml(sj.date)}</td>
+                      <td>${escapeHtml(sj.start_time)}</td>
+                      <td>${chip(sj.clean_type || "regular", sj.clean_type === "initial" ? "warning" : "info")}</td>
+                      <td>${escapeHtml(sj.duration_minutes)}m<br><span class="muted" style="font-size:11px;">${amountLabel}</span></td>
+                      <td>${escapeHtml(sj.assigned_staff)}</td>
+                      <td>${chip(sj.status, getSJTone(sj.status))}</td>
+                      <td class="muted">${escapeHtml(sj.skip_reason || "-")}</td>
                       <td>
-                        \${sj.status === "planned" ? \`
+                        ${sj.status === "planned" ? `
                           <div style="display: flex; gap: 4px; flex-wrap:wrap;">
-                            \${button("All good", \`fast-complete:\${sj.id}\`, "small ghost")}
-                            \${button("With note", \`open-complete-modal:\${sj.id}\`, "small ghost")}
-                            \${button("Skip", \`skip-sj:\${sj.id}\`, "small ghost danger")}
+                            ${button("All good", `fast-complete:${sj.id}`, "small ghost")}
+                            ${button("With note", `open-complete-modal:${sj.id}`, "small ghost")}
+                            ${button("Skip", `skip-sj:${sj.id}`, "small ghost danger")}
                           </div>
-                        \` : "-"}
+                        ` : "-"}
                       </td>
                     </tr>
-                  \`})
+                  `})
                 )}
               </div>
             </article>
@@ -450,10 +450,10 @@
                       <div style="display: flex; gap: 8px; align-items: center; flex-wrap:wrap; justify-content:flex-end;">
                         ${r.severity ? chip(r.severity, "danger") : chip("All good", "success")}
                         ${r.review_status === "needs_review" ? `
-                          ${button("Mark reviewed", \`review-report:\${r.id}\`, "small primary")}
-                          ${button("Not billable", \`toast:Marked not billable\`, "small ghost")}
-                          ${button("Revisit", \`toast:Revisit created\`, "small ghost")}
-                          ${button("Escalate", \`toast:Escalated to management\`, "small ghost danger")}
+                          ${button("Mark reviewed", `review-report:${r.id}`, "small primary")}
+                          ${button("Not billable", `toast:Marked not billable`, "small ghost")}
+                          ${button("Revisit", `toast:Revisit created`, "small ghost")}
+                          ${button("Escalate", `toast:Escalated to management`, "small ghost danger")}
                         ` : chip("Reviewed", "neutral")}
                       </div>
                     </div>

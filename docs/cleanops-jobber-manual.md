@@ -6,6 +6,9 @@ Scope: Jobber setup, daily operations, field team usage, client communications, 
 
 > Note: This manual is an operational guide, not legal, tax, employment, insurance, or health-and-safety advice. Confirm VAT, employment, insurance, chemical safety, and data-protection obligations with your accountant, solicitor, competent H&S adviser, or official UK guidance where needed.
 
+> [!IMPORTANT]
+> **Active Implementation Note**: This document outlines the original external system workflows. For the active, true state of the custom CleanOps application's data semantics, architectural decisions, and current UI progress, please refer to `docs/cleanops-architecture-and-data.md` as the single source of truth.
+
 ## 1. Executive Review
 
 Jobber is a strong fit for a cleaning company that needs to manage enquiries, quotes, recurring visits, team schedules, client communication, invoices, payments, and job history in one place. Its best use in a cleaning business is as the operating system for the whole service journey:

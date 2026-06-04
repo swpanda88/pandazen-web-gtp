@@ -1,4 +1,62 @@
 window.CLEANOPS_DATA = {
+  catalogue: [
+    { item_id: "cat-1", code: "SRV-REG", name: "Regular domestic clean", default_description: "Standard recurring domestic cleaning service.", default_pricing_type: "per_visit", default_unit: "visit", default_rate: 90, billable: true },
+    { item_id: "cat-2", code: "SRV-INIT", name: "Initial deep clean", default_description: "Comprehensive initial clean to bring the property up to baseline standard before recurring service.", default_pricing_type: "one_off", default_unit: "visit", default_rate: 240, billable: true },
+    { item_id: "cat-3", code: "SRV-DEEP", name: "One-off deep clean", default_description: "Intensive deep clean including all standard areas, skirting boards, inside windows, and deep dusting.", default_pricing_type: "one_off", default_unit: "visit", default_rate: 260, billable: true },
+    { item_id: "cat-4", code: "SRV-EOT", name: "End of tenancy clean", default_description: "Full end of tenancy clean designed to meet inventory check-out standards.", default_pricing_type: "one_off", default_unit: "visit", default_rate: 350, billable: true },
+    { item_id: "cat-5", code: "SRV-COM", name: "Commercial cleaning", default_description: "Commercial cleaning for office or retail spaces.", default_pricing_type: "monthly", default_unit: "month", default_rate: 650, billable: true },
+    { item_id: "cat-6", code: "ADD-OVEN", name: "Oven clean", default_description: "Professional deep cleaning of one standard single or double oven.", default_pricing_type: "one_off", default_unit: "fixed", default_rate: 65, billable: true },
+    { item_id: "cat-7", code: "ADD-FRIDGE", name: "Inside fridge/freezer", default_description: "Deep clean of inside fridge and freezer (must be defrosted).", default_pricing_type: "one_off", default_unit: "fixed", default_rate: 40, billable: true },
+    { item_id: "cat-8", code: "ADD-CUPBOARDS", name: "Inside cupboards", default_description: "Cleaning inside all kitchen and bathroom cupboards (must be emptied).", default_pricing_type: "one_off", default_unit: "fixed", default_rate: 50, billable: true },
+    { item_id: "cat-9", code: "PRD-INC", name: "Cleaning products & equipment", default_description: "PandaZen will supply all required professional cleaning chemicals and equipment.", default_pricing_type: "one_off", default_unit: "fixed", default_rate: 0, billable: false },
+    { item_id: "cat-10", code: "EXP-PARK", name: "Parking/permit allowance", default_description: "Allowance for required paid parking or visitor permits.", default_pricing_type: "one_off", default_unit: "fixed", default_rate: 15, billable: true },
+    { item_id: "cat-11", code: "COM-CONS", name: "Commercial washroom consumables", default_description: "Monthly supply of hand towels, toilet tissue, and hand wash.", default_pricing_type: "monthly", default_unit: "month", default_rate: 85, billable: true }
+  ],
+
+  quoteTemplates: [
+    {
+      id: "tpl-1",
+      name: "Initial clean + weekly domestic",
+      client_facing_summary: "Thank you for enquiring with PandaZen. We are pleased to provide this quote for bringing your home up to a brilliant standard with an initial deep clean, followed by a regular weekly maintenance service.",
+      included_scope: "Initial visit:\n- Deep clean of all rooms\n- Inside windows and frames\n- Skirting boards and doors\n- Deep dusting of all surfaces\n- Full bathroom descaling\n\nWeekly service:\n- Dusting and wiping all accessible surfaces\n- Vacuuming and mopping floors\n- Cleaning bathrooms and kitchen surfaces\n- Emptying bins",
+      exclusions: "Moving heavy furniture\nCleaning exterior windows\nCleaning inside fridge/oven (unless added as extra)",
+      terms: "Initial clean must be completed before weekly service commences.\nRequires 48 hours notice for cancellation to avoid full charge.",
+      items: [
+        { catalogue_id: "cat-2", quantity_or_hours: 1, optional: false, included: true },
+        { catalogue_id: "cat-1", quantity_or_hours: 1, optional: false, included: true },
+        { catalogue_id: "cat-9", quantity_or_hours: 1, optional: false, included: true },
+        { catalogue_id: "cat-6", quantity_or_hours: 1, optional: true, included: false }
+      ]
+    },
+    {
+      id: "tpl-2",
+      name: "One-off deep clean",
+      client_facing_summary: "We are pleased to provide this quote for an intensive one-off deep clean of your property.",
+      included_scope: "Full deep clean of all rooms\nInside windows\nSkirting boards, architraves, and doors\nFull bathroom descaling\nKitchen deep clean (exterior of appliances)",
+      exclusions: "End of tenancy guarantee not applicable for general deep cleans.\nCleaning inside appliances (unless selected).",
+      terms: "Payment due upon completion of service.\nRequires 48 hours notice for cancellation.",
+      items: [
+        { catalogue_id: "cat-3", quantity_or_hours: 1, optional: false, included: true },
+        { catalogue_id: "cat-9", quantity_or_hours: 1, optional: false, included: true },
+        { catalogue_id: "cat-6", quantity_or_hours: 1, optional: true, included: false },
+        { catalogue_id: "cat-8", quantity_or_hours: 1, optional: true, included: false }
+      ]
+    },
+    {
+      id: "tpl-3",
+      name: "Commercial monthly contract",
+      client_facing_summary: "Thank you for the opportunity to quote for your commercial cleaning requirements. Our team will ensure a professional and hygienic environment for your staff and visitors.",
+      included_scope: "Daily/weekly cleaning as per agreed schedule\nWashroom sanitisation\nKitchen area cleaning\nDesks and surfaces (clear areas only)\nFloors vacuumed and mopped\nEmptying recycling and waste bins",
+      exclusions: "Cleaning personal items on desks\nIT equipment cleaning (screens/keyboards)\nDeep carpet extraction (quoted separately)",
+      terms: "Monthly rolling contract with 30 days notice.\nInvoices issued on the 1st of the month, 14 days payment terms.",
+      items: [
+        { catalogue_id: "cat-5", quantity_or_hours: 1, optional: false, included: true },
+        { catalogue_id: "cat-9", quantity_or_hours: 1, optional: false, included: true },
+        { catalogue_id: "cat-11", quantity_or_hours: 1, optional: true, included: false }
+      ]
+    }
+  ],
+
   navItems: [
     { id: "home", label: "Home", icon: "home" },
     { id: "schedule", label: "Schedule", icon: "calendar" },
@@ -17,7 +75,7 @@ window.CLEANOPS_DATA = {
   metrics: [
     { label: "Today's visits", value: "18", chip: "12 confirmed", tone: "success" },
     { label: "Quotes awaiting", value: "7", chip: "3 follow-ups", tone: "warning" },
-    { label: "Ready to invoice", value: "9", chip: "GBP 1,840", tone: "info" },
+    { label: "Ready to invoice", value: "9", chip: "£1,840", tone: "info" },
     { label: "Open issues", value: "2", chip: "1 urgent", tone: "danger" }
   ],
 
@@ -44,7 +102,7 @@ window.CLEANOPS_DATA = {
     source: "Website enquiry",
     email: "john.smith@example.test",
     phone: "07700 900123",
-    balance: "GBP 0.00",
+    balance: "£0.00",
     mainProperty: "24 Hill Road",
     area: "London SW12",
     activeSummary: "Quote required",
@@ -85,7 +143,7 @@ window.CLEANOPS_DATA = {
       { type: "Task", title: "Call to confirm products", status: "Today", tone: "success" }
     ],
     billingHistory: [
-      { invoice: "No billing history", detail: "This client has not been billed yet", amount: "GBP 0.00" }
+      { invoice: "No billing history", detail: "This client has not been billed yet", amount: "£0.00" }
     ]
   },
 
@@ -105,7 +163,7 @@ window.CLEANOPS_DATA = {
       lead_source: "website_enquiry",
       email: "john.smith@example.test",
       phone: "07700 900123",
-      balance: "GBP 0.00",
+      balance: "£0.00",
       mainProperty: "24 Hill Road",
       area: "London SW12",
       activeSummary: "Quote required",
@@ -174,12 +232,12 @@ window.CLEANOPS_DATA = {
         { number: "REQ-1044", title: "Weekly domestic clean", status: "Quote required", tone: "warning", propertyId: "PROP-1007" }
       ],
       quotes: [
-        { number: "Q-2091", title: "Initial deep clean", total: "GBP 260", status: "Draft", tone: "info", propertyId: "PROP-1007" }
+        { number: "Q-2091", title: "Initial deep clean", total: "£260", status: "Draft", tone: "info", propertyId: "PROP-1007" }
       ],
       jobs: [],
       invoices: [],
       billingHistory: [
-        { invoice: "No billing history", detail: "This client has not been billed yet", amount: "GBP 0.00" }
+        { invoice: "No billing history", detail: "This client has not been billed yet", amount: "£0.00" }
       ]
     },
     {
@@ -197,7 +255,7 @@ window.CLEANOPS_DATA = {
       lead_source: "referral",
       email: "olivia.carter@example.test",
       phone: "07700 900214",
-      balance: "GBP 0.00",
+      balance: "£0.00",
       mainProperty: "Family home, Durham",
       area: "Durham",
       activeSummary: "Weekly clean",
@@ -242,7 +300,7 @@ window.CLEANOPS_DATA = {
       ],
       invoices: [],
       billingHistory: [
-        { invoice: "No open balance", detail: "Latest invoice paid", amount: "GBP 0.00" }
+        { invoice: "No open balance", detail: "Latest invoice paid", amount: "£0.00" }
       ]
     },
     {
@@ -260,7 +318,7 @@ window.CLEANOPS_DATA = {
       lead_source: "manual",
       email: "ops@abcoffices.example.test",
       phone: "020 7946 0123",
-      balance: "GBP 125.00",
+      balance: "£125.00",
       mainProperty: "Unit 4",
       area: "M1 business park",
       activeSummary: "Active job",
@@ -305,10 +363,10 @@ window.CLEANOPS_DATA = {
         { number: "JOB-1204", title: "Commercial contract", status: "Recurring", tone: "info", propertyId: "PROP-3001" }
       ],
       invoices: [
-        { number: "INV-3048", title: "Consumables top-up", amount: "GBP 125.00", status: "Sent", tone: "info" }
+        { number: "INV-3048", title: "Consumables top-up", amount: "£125.00", status: "Sent", tone: "info" }
       ],
       billingHistory: [
-        { invoice: "INV-3048", detail: "Consumables top-up sent today", amount: "GBP 125.00" }
+        { invoice: "INV-3048", detail: "Consumables top-up sent today", amount: "£125.00" }
       ]
     },
     {
@@ -326,7 +384,7 @@ window.CLEANOPS_DATA = {
       lead_source: "phone",
       email: "harris@example.test",
       phone: "07700 900545",
-      balance: "GBP 0.00",
+      balance: "£0.00",
       mainProperty: "2-bed flat",
       area: "Ealing",
       activeSummary: "Request open",
@@ -371,25 +429,432 @@ window.CLEANOPS_DATA = {
       jobs: [],
       invoices: [],
       billingHistory: [
-        { invoice: "No billing history", detail: "Prospect has not been billed", amount: "GBP 0.00" }
+        { invoice: "No billing history", detail: "Prospect has not been billed", amount: "£0.00" }
       ]
     }
   ],
 
   requests: [
-    { number: "REQ-1042", client: "W Amman", service: "End-of-tenancy", property: "Flat 4, Camden", preferred: "5 Jun", status: "Quote required", owner: "Office", tone: "warning" },
-    { number: "REQ-1041", client: "Northside Lettings", service: "Deep clean", property: "Flat 8, Finchley", preferred: "7 Jun", status: "Awaiting info", owner: "Amy", tone: "info" },
-    { number: "REQ-1040", client: "Olivia Carter", service: "Regular domestic", property: "Family home, Durham", preferred: "Any Friday", status: "New", owner: "Office", tone: "success" },
-    { number: "REQ-1039", client: "Riverside Blocks", service: "Communal areas", property: "Block B, SE1", preferred: "Monthly", status: "Converted", owner: "Sam", tone: "success" },
-    { number: "REQ-1038", client: "Price checker", service: "Oven clean", property: "Outside service area", preferred: "Tomorrow", status: "Declined", owner: "Office", tone: "danger" }
+    {
+      id: "request-1046",
+      number: "REQ-1046",
+      title: "Weekly clean enquiry",
+      client_id: "client-olivia-carter",
+      property_id: "PROP-2001",
+      request_type: "regular_domestic_clean",
+      status: "new_enquiry",
+      source: "website_enquiry",
+      received_at: "Today",
+      updated_at: "Today",
+      next_action: "Contact customer",
+      customer_message: "We are looking for a weekly domestic clean on Fridays if you have space. Eco products preferred.",
+      service_summary: "Regular weekly domestic clean enquiry for a family home. Confirm rooms, preferred products, and start date before quote.",
+      short_scoping_note: "Likely recurring domestic quote, but call first to confirm room priorities and whether an initial deep clean is needed.",
+      preferred_cadence: "weekly",
+      how_soon: "next_week",
+      preferred_day: "friday",
+      preferred_time_window: "morning",
+      intake_property_type: "domestic_house",
+      approx_size: "large",
+      bedrooms: "4",
+      bathrooms: "2",
+      pets_present: "cat",
+      parking: "driveway",
+      main_priorities: ["kitchen", "bathrooms", "floors"],
+      photos_helpful: "yes",
+      cleaning_products: "mixed_specific_products_required",
+      vacuum_hoover: "client_provides",
+      mop: "client_provides",
+      cleaning_products_state: "suggested",
+      setup_confirmed: false,
+      quote_readiness: "needs_contact",
+      assessment_required: "optional",
+      assessment_state: "suggested",
+      estimated_regular_duration_minutes: 180,
+      regular_duration_state: "suggested",
+      estimated_initial_duration_minutes: 300,
+      initial_duration_state: "suggested",
+      estimated_team_size: 1,
+      team_size_state: "suggested",
+      initial_clean_required: "yes",
+      initial_clean_state: "suggested",
+      pricing_basis: "fixed_per_visit",
+      pricing_basis_state: "suggested",
+      quote_considerations: ["eco_products_preferred", "photos_requested", "initial_deep_clean"],
+      scope_confidence: "medium",
+      property_notes: "Client usually home. Cat indoors, keep front door closed.",
+      cleaning_notes: "Eco products preferred.",
+      internal_notes: "Referral lead. Good fit for recurring route.",
+      owner: "Office"
+    },
+    {
+      id: "request-1045",
+      number: "REQ-1045",
+      title: "Deep clean before guests",
+      client_id: "client-john-smith",
+      property_id: "PROP-1007",
+      request_type: "deep_clean",
+      status: "assessment_needed",
+      source: "website_enquiry",
+      received_at: "Yesterday",
+      updated_at: "Yesterday",
+      next_action: "Book visit",
+      customer_message: "We have family visiting and would like a deep clean before they arrive. Friday morning would be ideal.",
+      service_summary: "Deep clean request before guest visit. Assess whether weekly domestic follow-up is wanted after first clean.",
+      short_scoping_note: "Book assessment or photo review before quote. Customer timing sounds tight, so confirm quote scope before sending.",
+      preferred_cadence: "one_off",
+      how_soon: "this_week",
+      preferred_day: "friday",
+      preferred_time_window: "morning",
+      intake_property_type: "domestic_house",
+      approx_size: "medium",
+      bedrooms: "3",
+      bathrooms: "2",
+      pets_present: "dog",
+      parking: "permit_required",
+      main_priorities: ["kitchen", "bathrooms", "floors", "dusting"],
+      photos_helpful: "requested",
+      cleaning_products: "pandazen_provides",
+      vacuum_hoover: "client_provides",
+      mop: "pandazen_brings",
+      cleaning_products_state: "confirmed",
+      setup_confirmed: false,
+      quote_readiness: "needs_assessment",
+      assessment_required: "yes",
+      assessment_state: "confirmed",
+      estimated_regular_duration_minutes: 180,
+      regular_duration_state: "suggested",
+      estimated_initial_duration_minutes: 300,
+      initial_duration_state: "suggested",
+      estimated_team_size: 1,
+      team_size_state: "suggested",
+      initial_clean_required: "yes",
+      initial_clean_state: "suggested",
+      pricing_basis: "one_off_fixed",
+      pricing_basis_state: "suggested",
+      quote_considerations: ["photos_requested", "initial_deep_clean", "parking_permit_needed"],
+      scope_confidence: "medium",
+      property_notes: "Client home for first visit. Dog present, friendly but excitable.",
+      cleaning_notes: "Focus on kitchen, bathrooms, and hallway floors.",
+      internal_notes: "Potential recurring weekly lead after initial clean.",
+      owner: "Amy"
+    },
+    {
+      id: "request-1044",
+      number: "REQ-1044",
+      title: "Office cleaning quote",
+      client_id: "client-abc-offices",
+      property_id: "PROP-3001",
+      request_type: "commercial_clean",
+      status: "quote_required",
+      source: "manual",
+      received_at: "2 days ago",
+      updated_at: "Today",
+      next_action: "Prepare quote",
+      customer_message: "Please price evening office cleaning and washroom support for Unit 4.",
+      service_summary: "Commercial clean quote for weekly evening office service with washroom/common area focus.",
+      short_scoping_note: "Assessment complete. Quote as monthly commercial contract with optional consumables line item.",
+      preferred_cadence: "weekly",
+      how_soon: "next_week",
+      preferred_day: "flexible",
+      preferred_time_window: "evening",
+      intake_property_type: "commercial_office",
+      approx_size: "commercial_medium",
+      bedrooms: "not_applicable",
+      bathrooms: "not_applicable",
+      pets_present: "not_applicable",
+      parking: "staff_bays",
+      main_priorities: ["washrooms", "common_areas"],
+      photos_helpful: "no",
+      cleaning_products: "pandazen_provides",
+      vacuum_hoover: "pandazen_brings",
+      mop: "pandazen_brings",
+      cleaning_products_state: "confirmed",
+      setup_confirmed: true,
+      quote_readiness: "ready_to_quote",
+      assessment_required: "completed",
+      assessment_state: "confirmed",
+      estimated_regular_duration_minutes: 120,
+      regular_duration_state: "confirmed",
+      estimated_initial_duration_minutes: null,
+      initial_duration_state: "not_estimated",
+      estimated_team_size: 2,
+      team_size_state: "confirmed",
+      initial_clean_required: "not_applicable",
+      initial_clean_state: "confirmed",
+      pricing_basis: "monthly_contract",
+      pricing_basis_state: "confirmed",
+      quote_considerations: ["commercial_consumables_option", "key_holder_access"],
+      scope_confidence: "high",
+      property_notes: "Key held in lockbox. Building manager confirms evening access.",
+      cleaning_notes: "Washrooms and common areas. Consumables reviewed monthly.",
+      internal_notes: "Commercial quote should include consumables option.",
+      owner: "Sam"
+    },
+    {
+      id: "request-1043",
+      number: "REQ-1043",
+      title: "End of tenancy clean",
+      client_id: "client-harris",
+      property_id: "PROP-4001",
+      request_type: "end_of_tenancy",
+      status: "waiting_customer",
+      source: "phone",
+      received_at: "5 days ago",
+      updated_at: "2 days ago",
+      next_action: "Confirm access",
+      customer_message: "Need a price for an end of tenancy clean on a two-bed flat. Access is not confirmed yet.",
+      service_summary: "End of tenancy enquiry. Confirm access, layout, and whether oven/windows are included before quote.",
+      short_scoping_note: "Not quote-ready. Confirm access, bathroom count, photos, and whether oven/windows are expected.",
+      preferred_cadence: "one_off",
+      how_soon: "to_confirm",
+      preferred_day: "to_confirm",
+      preferred_time_window: "to_confirm",
+      intake_property_type: "flat_apartment",
+      approx_size: "medium",
+      bedrooms: "2",
+      bathrooms: "unknown",
+      pets_present: "unknown",
+      parking: "paid_parking",
+      main_priorities: ["move_out_standard", "oven"],
+      photos_helpful: "yes",
+      cleaning_products: "to_confirm",
+      vacuum_hoover: "to_confirm",
+      mop: "to_confirm",
+      cleaning_products_state: "to_confirm",
+      setup_confirmed: false,
+      quote_readiness: "missing_scope",
+      assessment_required: "to_confirm",
+      assessment_state: "to_confirm",
+      estimated_regular_duration_minutes: null,
+      regular_duration_state: "not_estimated",
+      estimated_initial_duration_minutes: null,
+      initial_duration_state: "not_estimated",
+      estimated_team_size: null,
+      team_size_state: "not_estimated",
+      initial_clean_required: "to_confirm",
+      initial_clean_state: "to_confirm",
+      pricing_basis: "to_confirm",
+      pricing_basis_state: "to_confirm",
+      quote_considerations: ["photos_requested", "access_to_confirm", "oven_windows_to_confirm"],
+      scope_confidence: "low",
+      property_notes: "Client to confirm access.",
+      cleaning_notes: "Cleaning scope belongs in this request before quoting.",
+      internal_notes: "Follow up before weekend.",
+      owner: "Office"
+    }
   ],
 
   quotes: [
-    { number: "Q-2088", client: "W Amman", property: "Flat 4, Camden", service: "End-of-tenancy", total: "GBP 420", status: "Sent", validUntil: "9 Jun", tone: "info" },
-    { number: "Q-2087", client: "ABC Offices", property: "Unit 4, M1", service: "Commercial contract", total: "GBP 1,250/mo", status: "Viewed", validUntil: "12 Jun", tone: "warning" },
-    { number: "Q-2086", client: "Olivia Carter", property: "Family home", service: "Regular domestic", total: "GBP 62/visit", status: "Approved", validUntil: "18 Jun", tone: "success" },
-    { number: "Q-2085", client: "Harris", property: "2-bed flat", service: "Deep clean", total: "GBP 260", status: "Converted", validUntil: "Completed", tone: "success" },
-    { number: "Q-2084", client: "Old lead", property: "Unknown", service: "Carpet clean", total: "GBP 140", status: "Declined", validUntil: "Expired", tone: "danger" }
+    {
+      quote_id: "quote-2089",
+      id: "quote-2089",
+      quote_group_id: "qg-1001",
+      quote_number_base: "Q-2089",
+      version: 1,
+      quote_ref: "Q-2089/01",
+      quote_number: "Q-2089/01",
+      number: "Q-2089/01",
+      status: "draft",
+      document_status: "not_generated",
+      client_id: "client-john-smith",
+      property_id: "PROP-1007",
+      request_id: "request-1045",
+      pricing_basis: "fixed_per_visit",
+      valid_until: "18 Jun",
+      validUntil: "18 Jun",
+      client: "John Smith",
+      property: "24 Hill Road",
+      service: "Deep clean before weekly service",
+      total: "£240 one-off",
+      tone: "info",
+      quote_items: [
+        {
+          item_id: "quote-2089-item-1",
+          name: "Initial deep clean",
+          description: "First clean to bring the home up to regular maintenance standard.",
+          quantity_or_hours: 6,
+          rate: 40,
+          amount: 240,
+          type: "one_off",
+          optional: false,
+          included: true
+        },
+        {
+          item_id: "quote-2089-item-2",
+          name: "Weekly domestic clean",
+          description: "Regular weekly visit covering agreed priority areas.",
+          quantity_or_hours: 3,
+          rate: 30,
+          amount: 90,
+          type: "per_visit",
+          optional: false,
+          included: true
+        }
+      ],
+      client_facing_summary: "Initial deep clean followed by weekly domestic cleaning for 24 Hill Road.",
+      included_scope: ["Kitchen surfaces and general clean", "Bathrooms", "Floors", "Dusting", "Bedrooms and living areas as time allows"],
+      exclusions: ["Oven or fridge interior unless added", "Inside cupboards", "Heavy descaling beyond agreed time"],
+      special_notes: "Friday morning preferred, subject to route availability.",
+      terms: "Quote is based on the information currently available and may be updated if the scope changes.",
+      internal_notes: "Request still needs assessment before sending.",
+      created_at: "2026-06-01",
+      updated_at: "2026-06-03"
+    },
+    {
+      quote_id: "quote-2088",
+      id: "quote-2088",
+      quote_group_id: "qg-1002",
+      quote_number_base: "Q-2088",
+      version: 1,
+      quote_ref: "Q-2088/01",
+      quote_number: "Q-2088/01",
+      number: "Q-2088/01",
+      status: "ready_to_send",
+      document_status: "generated",
+      client_id: "client-abc-offices",
+      property_id: "PROP-3001",
+      request_id: "request-1044",
+      pricing_basis: "monthly_contract",
+      valid_until: "12 Jun",
+      validUntil: "12 Jun",
+      client: "ABC Offices",
+      property: "Unit 4, M1",
+      service: "Commercial cleaning contract",
+      total: "£650/mo",
+      tone: "success",
+      quote_items: [
+        {
+          item_id: "quote-2088-item-1",
+          name: "Commercial cleaning contract",
+          description: "Weekly office cleaning covering washrooms, common areas, touchpoints, and agreed office zones.",
+          quantity_or_hours: 1,
+          rate: 650,
+          amount: 650,
+          type: "monthly",
+          optional: false,
+          included: true
+        },
+        {
+          item_id: "quote-2088-item-2",
+          name: "Washroom consumables option",
+          description: "Optional monthly allowance for reviewed commercial washroom consumables.",
+          quantity_or_hours: 1,
+          rate: 125,
+          amount: 125,
+          type: "optional",
+          optional: true,
+          included: true
+        }
+      ],
+      client_facing_summary: "Monthly commercial cleaning for Unit 4, focused on office common areas, washrooms, and agreed routine tasks.",
+      included_scope: ["Washrooms", "Common areas", "High-touch points", "Bins and floors", "Agreed office zones"],
+      exclusions: ["Consumables unless selected", "Specialist carpet cleaning", "Out-of-hours emergency work"],
+      special_notes: "Evening access via building manager with key-holder arrangement.",
+      terms: "Monthly contract price is reviewed if usage, access, or required service frequency changes.",
+      internal_notes: "Ready to send once manager confirms start week.",
+      created_at: "2026-05-31",
+      updated_at: "2026-06-03"
+    },
+    {
+      quote_id: "quote-2087",
+      id: "quote-2087",
+      quote_group_id: "qg-1003",
+      quote_number_base: "Q-2087",
+      version: 1,
+      quote_ref: "Q-2087/01",
+      quote_number: "Q-2087/01",
+      number: "Q-2087/01",
+      status: "sent",
+      document_status: "needs_update",
+      client_id: "client-olivia-carter",
+      property_id: "PROP-2001",
+      request_id: "request-1046",
+      pricing_basis: "fixed_per_visit",
+      valid_until: "15 Jun",
+      validUntil: "15 Jun",
+      client: "Olivia Carter",
+      property: "Family home, Durham",
+      service: "Weekly domestic clean",
+      total: "£90/visit",
+      tone: "info",
+      quote_items: [
+        {
+          item_id: "quote-2087-item-1",
+          name: "Weekly domestic clean",
+          description: "Regular weekly visit covering kitchen, bathrooms, floors, dusting, and agreed priority areas.",
+          quantity_or_hours: 3,
+          rate: 30,
+          amount: 90,
+          type: "per_visit",
+          optional: false,
+          included: true
+        },
+        {
+          item_id: "quote-2087-item-2",
+          name: "Oven clean add-on",
+          description: "Optional oven clean add-on when booked alongside a weekly visit.",
+          quantity_or_hours: 1,
+          rate: 45,
+          amount: 45,
+          type: "optional",
+          optional: true,
+          included: true
+        }
+      ],
+      client_facing_summary: "Weekly domestic cleaning for your family home, focusing on kitchen, bathrooms, floors, and agreed priority areas.",
+      included_scope: ["Kitchen surfaces and general clean", "Bathrooms", "Floors", "Dusting", "Living areas as time allows"],
+      exclusions: ["Inside cupboards", "Fridge interior", "Heavy descaling", "Deep cleaning beyond agreed visit time"],
+      special_notes: "Eco product preferences can be followed where products are available.",
+      terms: "Recurring visit pricing assumes a regular weekly cadence and agreed access.",
+      internal_notes: "Sent after phone confirmation.",
+      created_at: "2026-05-29",
+      updated_at: "2026-06-02"
+    },
+    {
+      quote_id: "quote-2086",
+      id: "quote-2086",
+      quote_group_id: "qg-1004",
+      quote_number_base: "Q-2086",
+      version: 1,
+      quote_ref: "Q-2086/01",
+      quote_number: "Q-2086/01",
+      number: "Q-2086/01",
+      status: "expired",
+      document_status: "not_generated",
+      client_id: "client-harris",
+      property_id: "PROP-4001",
+      request_id: "request-1043",
+      pricing_basis: "one_off_fixed",
+      valid_until: "Expired",
+      validUntil: "Expired",
+      client: "Harris",
+      property: "2-bed flat",
+      service: "End of tenancy clean",
+      total: "£260 one-off",
+      tone: "danger",
+      quote_items: [
+        {
+          item_id: "quote-2086-item-1",
+          name: "End of tenancy clean",
+          description: "One-off clean to move-out standard based on supplied property details.",
+          quantity_or_hours: 1,
+          rate: 260,
+          amount: 260,
+          type: "one_off",
+          optional: false,
+          included: true
+        }
+      ],
+      client_facing_summary: "One-off end of tenancy cleaning for a 2-bed flat.",
+      included_scope: ["Kitchen", "Bathrooms", "Floors", "Dusting", "Move-out standard general clean"],
+      exclusions: ["Oven and windows unless confirmed", "Carpet cleaning", "Heavy waste removal"],
+      special_notes: "Access and exact scope still need confirmation before reissuing.",
+      terms: "Quote validity has expired and should be reviewed before sending again.",
+      internal_notes: "Scope was incomplete when quote expired.",
+      created_at: "2026-05-20",
+      updated_at: "2026-05-28"
+    }
   ],
 
   jobLanes: [
@@ -681,10 +1146,10 @@ window.CLEANOPS_DATA = {
   },
 
   invoices: [
-    { number: "INV-3044", client: "ABC Offices", amount: "GBP 1,250", due: "14 Jun", status: "Sent", action: "View", tone: "info" },
-    { number: "INV-3043", client: "Harris", amount: "GBP 78", due: "1 Jun", status: "Overdue", action: "Remind", tone: "danger" },
-    { number: "INV-3042", client: "Patel", amount: "GBP 260", due: "Paid", status: "Paid", action: "Receipt", tone: "success" },
-    { number: "INV-3041", client: "W Amman", amount: "GBP 210", due: "Draft", status: "Draft", action: "View", tone: "warning" }
+    { number: "INV-3044", client: "ABC Offices", amount: "£1,250", due: "14 Jun", status: "Sent", action: "View", tone: "info" },
+    { number: "INV-3043", client: "Harris", amount: "£78", due: "1 Jun", status: "Overdue", action: "Remind", tone: "danger" },
+    { number: "INV-3042", client: "Patel", amount: "£260", due: "Paid", status: "Paid", action: "Receipt", tone: "success" },
+    { number: "INV-3041", client: "W Amman", amount: "£210", due: "Draft", status: "Draft", action: "View", tone: "warning" }
   ],
 
   team: [
@@ -696,15 +1161,15 @@ window.CLEANOPS_DATA = {
 
   reportMetrics: [
     { label: "Quote conversion", value: "68%", chip: "+8%", tone: "success" },
-    { label: "Revenue per labour hour", value: "GBP 38", chip: "Stable", tone: "info" },
+    { label: "Revenue per labour hour", value: "£38", chip: "Stable", tone: "info" },
     { label: "Revisit rate", value: "2.4%", chip: "Low", tone: "success" },
     { label: "Average collection", value: "5d", chip: "Watch", tone: "warning" }
   ],
 
   serviceRevenue: [
-    { service: "Regular domestic", jobs: "142", revenue: "GBP 9,840", hours: "312", signal: "Good", tone: "success" },
-    { service: "End-of-tenancy", jobs: "18", revenue: "GBP 7,620", hours: "166", signal: "Review", tone: "warning" },
-    { service: "Commercial", jobs: "44", revenue: "GBP 7,400", hours: "198", signal: "Good", tone: "success" }
+    { service: "Regular domestic", jobs: "142", revenue: "£9,840", hours: "312", signal: "Good", tone: "success" },
+    { service: "End-of-tenancy", jobs: "18", revenue: "£7,620", hours: "166", signal: "Review", tone: "warning" },
+    { service: "Commercial", jobs: "44", revenue: "£7,400", hours: "198", signal: "Good", tone: "success" }
   ],
 
   settings: [
@@ -724,8 +1189,8 @@ window.CLEANOPS_DATA = {
     client: "John Smith",
     property: "24 Hill Road",
     upcoming: "Tuesday 9 June, arrival 08:30-09:30",
-    quote: "Deep clean quote Q-2088 for GBP 420",
-    balance: "GBP 0.00",
+    quote: "Deep clean quote Q-2088 for £420",
+    balance: "£0.00",
     receipt: "INV-3042"
   }
 };

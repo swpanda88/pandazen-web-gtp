@@ -64,10 +64,16 @@
       </div>
 
       <section class="grid-detail">
-        <div class="panel-head">
-          <h2 class="panel-title">All Job Plans</h2>
-        </div>
-        ${renderJobsList()}
+        <article class="panel">
+          <div class="panel-head">
+            <h2 class="panel-title">All Job Plans</h2>
+          </div>
+          <div class="filters">
+            <span class="inputish">Search jobs</span>
+            <span class="selectish">All statuses</span>
+          </div>
+          ${renderJobsList()}
+        </article>
       </section>
 
       ${state.selectedJobId ? renderJobWorkspaceModal() : ""}

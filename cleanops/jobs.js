@@ -40,11 +40,13 @@
     return tones[status] || "info";
   }
 
+  let eventBound = false;
   // Render main route
   function render() {
-    setTimeout(() => {
+    if (!eventBound) {
       document.addEventListener("click", handleClick);
-    }, 0);
+      eventBound = true;
+    }
     return `<div data-jobs-root>${renderInner()}</div>`;
   }
 
@@ -55,26 +57,18 @@
 
   function renderInner() {
     return `
-      <header class="page-head" style="margin-bottom: 24px;">
-        <div style="display: flex; justify-content: space-between; align-items: flex-end;">
-          <div>
-            <h1 class="page-title">Jobs</h1>
-            <p class="muted" style="margin-top: 4px;">Manage accepted work, cleaning plans, reports, and billing readiness.</p>
-          </div>
-          <div>
-            ${button("New job plan", "open-new-job", "primary")}
-          </div>
-        </div>
-      </header>
-      
+      ${window.CleanOpsShell?.pageHead?.("Jobs", "Manage accepted work, cleaning plans, reports, and billing readiness.", button("New job", "open-new-job", "primary")) || ""}
+
       <div style="margin-bottom: 32px;">
         ${renderActionPanel()}
       </div>
 
-      <div>
-        <h2 style="font-size: 16px; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border);">All Job Plans</h2>
+      <section class="grid-detail">
+        <div class="panel-head">
+          <h2 class="panel-title">All Job Plans</h2>
+        </div>
         ${renderJobsList()}
-      </div>
+      </section>
 
       ${state.selectedJobId ? renderJobWorkspaceModal() : ""}
     `;
@@ -82,37 +76,37 @@
 
   function renderActionPanel() {
     const setupJobs = jobs().filter(j => j.status === "setup" || !j.setup_complete);
-    
+
     // Needs review: reports where review_status is needs_review
     const reportsToReview = jobReports().filter(r => r.review_status === "needs_review");
-    
+
     // Ready to bill: billable events that are ready_to_bill
     const billable = billableEvents().filter(b => b.status === "ready_to_bill");
 
     const renderCard = (title, meta, context, chipHtml, action) => `
-      <div class="job-card" style="margin-bottom: 12px; cursor: pointer;" data-job-action="${action}">
-        <div style="font-weight: 500; margin-bottom: 4px;">${escapeHtml(title)}</div>
-        <div class="muted" style="font-size: 12px; margin-bottom: 8px;">${escapeHtml(meta)}</div>
-        <div style="font-size: 12px; margin-bottom: 8px;">${escapeHtml(context)}</div>
+      <div class="jobs-action-card" data-job-action="${action}">
+        <strong>${escapeHtml(title)}</strong>
+        <div class="meta">${escapeHtml(meta)}</div>
+        <div class="context">${escapeHtml(context)}</div>
         <div>${chipHtml}</div>
       </div>
     `;
 
     return `
-      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;">
+      <div class="jobs-action-grid">
         <!-- Needs Setup -->
-        <div style="background: var(--surface-soft); padding: 16px; border-radius: 8px; border: 1px solid var(--border);">
-          <h3 style="font-size: 14px; margin-bottom: 16px; display: flex; justify-content: space-between;">
+        <div class="jobs-action-column">
+          <h3>
             <span>Needs setup</span>
             <span class="muted">${setupJobs.length}</span>
           </h3>
           <div>
-            ${setupJobs.length === 0 ? `<div class="muted" style="font-size: 13px;">No jobs need setup.</div>` : 
+            ${setupJobs.length === 0 ? `<div class="muted" style="font-size: 13px;">No jobs need setup.</div>` :
               setupJobs.map(j => renderCard(
-                j.display_name, 
-                `${findClient(j.client_id)?.display_name || ""} · ${j.service_type}`, 
-                "Missing plan / recurrence details", 
-                chip("Setup required", "warning"), 
+                j.display_name,
+                `${findClient(j.client_id)?.display_name || ""} · ${j.service_type}`,
+                "Missing plan / recurrence details",
+                chip("Setup required", "warning"),
                 `open-job:${j.id}`
               )).join("")
             }
@@ -120,20 +114,20 @@
         </div>
 
         <!-- Needs Review -->
-        <div style="background: var(--surface-soft); padding: 16px; border-radius: 8px; border: 1px solid var(--border);">
-          <h3 style="font-size: 14px; margin-bottom: 16px; display: flex; justify-content: space-between;">
+        <div class="jobs-action-column">
+          <h3>
             <span>Needs review</span>
             <span class="muted">${reportsToReview.length}</span>
           </h3>
           <div>
-            ${reportsToReview.length === 0 ? `<div class="muted" style="font-size: 13px;">No reports to review.</div>` : 
+            ${reportsToReview.length === 0 ? `<div class="muted" style="font-size: 13px;">No reports to review.</div>` :
               reportsToReview.map(r => {
                 const j = jobs().find(job => job.id === r.job_id);
                 return renderCard(
-                  j?.display_name || "Unknown Job", 
-                  `Report from ${escapeHtml(r.completed_by)}`, 
-                  r.cleaner_remarks || r.client_remarks || "Review requested", 
-                  chip(r.severity || "Note", r.severity === "Extra time" || r.severity === "Note" ? "warning" : "danger"), 
+                  j?.display_name || "Unknown Job",
+                  `Report from ${escapeHtml(r.completed_by)}`,
+                  r.cleaner_remarks || r.client_remarks || "Review requested",
+                  chip(r.severity || "Note", r.severity === "Extra time" || r.severity === "Note" ? "warning" : "danger"),
                   `open-job:${r.job_id}`
                 );
               }).join("")
@@ -142,20 +136,20 @@
         </div>
 
         <!-- Ready to Bill -->
-        <div style="background: var(--surface-soft); padding: 16px; border-radius: 8px; border: 1px solid var(--border);">
-          <h3 style="font-size: 14px; margin-bottom: 16px; display: flex; justify-content: space-between;">
+        <div class="jobs-action-column">
+          <h3>
             <span>Ready to bill</span>
             <span class="muted">${billable.length}</span>
           </h3>
           <div>
-            ${billable.length === 0 ? `<div class="muted" style="font-size: 13px;">Nothing ready to bill.</div>` : 
+            ${billable.length === 0 ? `<div class="muted" style="font-size: 13px;">Nothing ready to bill.</div>` :
               billable.map(b => {
                 const j = jobs().find(job => job.id === b.source_job_id);
                 return renderCard(
-                  j?.display_name || "Unknown Job", 
-                  `£${b.amount.toFixed(2)}`, 
-                  b.description, 
-                  chip("Ready", "success"), 
+                  j?.display_name || "Unknown Job",
+                  `£${b.amount.toFixed(2)}`,
+                  b.description,
+                  chip("Ready", "success"),
                   `open-job:${b.source_job_id}`
                 );
               }).join("")
@@ -172,7 +166,7 @@
       const client = findClient(job.client_id);
       const nextSJ = scheduledJobs().find(sj => sj.job_id === job.id && sj.status === "planned");
       const latestReports = jobReports().filter(r => r.job_id === job.id).slice(-1);
-      
+
       const nextText = nextSJ ? `Next: ${nextSJ.date} ${nextSJ.start_time} · ${nextSJ.assigned_staff}` : "No planned schedule";
       const reportText = latestReports.length ? (latestReports[0].severity ? `Recent: ${latestReports[0].severity}` : "Recent: All good") : "No reports yet";
 
@@ -192,7 +186,7 @@
       `;
     });
 
-    return table(["Job / Client", "Details", "Status", ""], rows);
+    return table(["Job / Client", "Details", "Status", "Action"], rows);
   }
 
   function renderJobWorkspaceModal() {
@@ -207,8 +201,8 @@
     return `
       <div class="quote-modal-backdrop" data-job-action="close-workspace" style="display: flex; justify-content: flex-end; padding: 0; background: rgba(0,0,0,0.3);">
         <div class="quote-editor-modal" role="dialog" aria-modal="true" data-job-modal style="width: 90vw; max-width: 900px; height: 100vh; margin: 0; border-radius: 0; display: flex; flex-direction: column; background: var(--bg); box-shadow: -4px 0 24px rgba(0,0,0,0.15);">
-          
-          <header class="panel-head" style="background: #fff; border-bottom: 1px solid var(--border); padding: 24px; flex-shrink: 0; display: flex; justify-content: space-between; align-items: flex-start;">
+
+          <header class="panel-head" style="background: var(--surface-soft); border-bottom: 1px solid var(--border); padding: 24px; flex-shrink: 0; display: flex; justify-content: space-between; align-items: flex-start;">
             <div>
               <h2 style="margin: 0; font-size: 24px;">${escapeHtml(job.display_name)}</h2>
               <div class="muted" style="margin-top: 4px; font-size: 14px;">${escapeHtml(client?.display_name || "")} · ${escapeHtml(job.service_type)}</div>
@@ -219,19 +213,19 @@
               </div>
             </div>
             <div style="display: flex; gap: 8px;">
-              ${button("Edit job", "edit-job")}
-              ${button("Close", "close-workspace")}
+              ${button("Edit job", "edit-job", "secondary")}
+              ${button("Close", "close-workspace", "secondary")}
             </div>
           </header>
 
-          <div style="flex: 1; overflow-y: auto; padding: 32px;">
-            
-            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 32px; margin-bottom: 40px;">
-              
+          <div style="flex: 1; overflow-y: auto; padding: 32px; display: flex; flex-direction: column; gap: 40px;">
+
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 32px;">
+
               <!-- Setup -->
-              <div>
+              <div class="stack">
                 <h3 style="font-size: 16px; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px;">Cleaning Plan / Setup</h3>
-                <div style="background: #fff; padding: 20px; border-radius: 8px; border: 1px solid var(--border);">
+                <div class="job-section-card">
                   <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
                     <div>
                       <div class="muted" style="font-size: 12px;">Recurrence</div>
@@ -255,8 +249,8 @@
                     <div style="font-size: 14px;">${escapeHtml(job.notes?.cleaning || "None")}</div>
                   </div>
                   <div style="margin-top: 24px;">
-                    ${job.setup_complete 
-                      ? chip("Setup complete", "success") 
+                    ${job.setup_complete
+                      ? chip("Setup complete", "success")
                       : button("Mark setup complete", `complete-setup:${job.id}`, "primary")}
                   </div>
                 </div>
@@ -264,8 +258,9 @@
 
               <!-- Billing / Notes -->
               <div class="stack">
-                <div style="background: #fff; padding: 20px; border-radius: 8px; border: 1px solid var(--border);">
-                  <h4 style="font-size: 14px; margin-bottom: 12px;">Billing Readiness</h4>
+                <h3 style="font-size: 16px; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px; color: transparent;">-</h3>
+                <div class="job-section-card">
+                  <h4>Billing Readiness</h4>
                   <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
                     <span class="muted" style="font-size: 13px;">Ready to bill</span>
                     <strong style="font-size: 13px;">${bills.filter(b => b.status === "ready_to_bill").length} events</strong>
@@ -276,59 +271,63 @@
                   </div>
                 </div>
 
-                <div style="background: #fff; padding: 20px; border-radius: 8px; border: 1px solid var(--border);">
-                  <h4 style="font-size: 14px; margin-bottom: 12px;">Internal Notes</h4>
+                <div class="job-section-card">
+                  <h4>Internal Notes</h4>
                   <div style="font-size: 13px;">${escapeHtml(job.notes?.internal || "None")}</div>
                 </div>
               </div>
             </div>
 
             <!-- Scheduled Jobs Table -->
-            <h3 style="font-size: 16px; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px;">Generated Scheduled Cleans</h3>
-            <div style="background: #fff; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 40px; overflow: hidden;">
-              ${table(
-                ["Date", "Time", "Cleaner / Team", "Status", "Note / Reason", "Actions"], 
-                sjs.map(sj => `
-                  <tr>
-                    <td>${escapeHtml(sj.date)}</td>
-                    <td>${escapeHtml(sj.start_time)}</td>
-                    <td>${escapeHtml(sj.assigned_staff)}</td>
-                    <td>${chip(sj.status, getSJTone(sj.status))}</td>
-                    <td class="muted">${escapeHtml(sj.skip_reason || "-")}</td>
-                    <td>
-                      ${sj.status === "planned" ? `
-                        <div style="display: flex; gap: 4px;">
-                          ${button("Complete (Fast)", `fast-complete:${sj.id}`, "small ghost")}
-                          ${button("Skip", `skip-sj:${sj.id}`, "small ghost danger")}
-                        </div>
-                      ` : "-"}
-                    </td>
-                  </tr>
-                `)
-              )}
+            <div class="stack">
+              <h3 style="font-size: 16px; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px;">Generated Scheduled Cleans</h3>
+              <div style="background: var(--bg); border-radius: 8px; border: 1px solid var(--border); overflow: hidden;">
+                ${table(
+                  ["Date", "Time", "Cleaner / Team", "Status", "Note / Reason", "Actions"],
+                  sjs.map(sj => `
+                    <tr>
+                      <td>${escapeHtml(sj.date)}</td>
+                      <td>${escapeHtml(sj.start_time)}</td>
+                      <td>${escapeHtml(sj.assigned_staff)}</td>
+                      <td>${chip(sj.status, getSJTone(sj.status))}</td>
+                      <td class="muted">${escapeHtml(sj.skip_reason || "-")}</td>
+                      <td>
+                        ${sj.status === "planned" ? `
+                          <div style="display: flex; gap: 4px;">
+                            ${button("Complete (Fast)", `fast-complete:${sj.id}`, "small ghost")}
+                            ${button("Skip", `skip-sj:${sj.id}`, "small ghost danger")}
+                          </div>
+                        ` : "-"}
+                      </td>
+                    </tr>
+                  `)
+                )}
+              </div>
             </div>
 
             <!-- Recent Reports -->
-            <h3 style="font-size: 16px; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px; display: flex; justify-content: space-between;">
-              <span>Recent Reports</span>
-              <span class="muted" style="font-size: 13px;">Showing last ${reports.length}</span>
-            </h3>
             <div class="stack">
-              ${reports.length === 0 ? `<div class="muted">No reports available.</div>` : 
-                reports.map(r => `
-                  <div style="background: #fff; padding: 16px; border-radius: 8px; border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: flex-start;">
-                    <div>
-                      <div style="font-weight: 500; font-size: 14px; margin-bottom: 4px;">Report from ${escapeHtml(r.completed_by)}</div>
-                      <div class="muted" style="font-size: 12px; margin-bottom: 8px;">${r.completed_at.replace("T", " ").replace("Z", "")}</div>
-                      ${r.cleaner_remarks ? `<div style="font-size: 13px; margin-top: 4px;"><strong>Note:</strong> ${escapeHtml(r.cleaner_remarks)}</div>` : ""}
+              <h3 style="font-size: 16px; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px; display: flex; justify-content: space-between;">
+                <span>Recent Reports</span>
+                <span class="muted" style="font-size: 13px;">Showing last ${reports.length}</span>
+              </h3>
+              <div class="stack" style="gap: 16px;">
+                ${reports.length === 0 ? `<div class="muted">No reports available.</div>` :
+                  reports.map(r => `
+                    <div class="job-section-card" style="display: flex; justify-content: space-between; align-items: flex-start; padding: 16px;">
+                      <div>
+                        <div style="font-weight: 500; font-size: 14px; margin-bottom: 4px;">Report from ${escapeHtml(r.completed_by)}</div>
+                        <div class="muted" style="font-size: 12px; margin-bottom: 8px;">${r.completed_at.replace("T", " ").replace("Z", "")}</div>
+                        ${r.cleaner_remarks ? `<div style="font-size: 13px; margin-top: 4px;"><strong>Note:</strong> ${escapeHtml(r.cleaner_remarks)}</div>` : ""}
+                      </div>
+                      <div style="display: flex; gap: 8px; align-items: center;">
+                        ${r.severity ? chip(r.severity, "danger") : chip("All good", "success")}
+                        ${r.review_status === "needs_review" ? button("Mark reviewed", `review-report:${r.id}`, "small primary") : chip("Reviewed", "neutral")}
+                      </div>
                     </div>
-                    <div style="display: flex; gap: 8px; align-items: center;">
-                      ${r.severity ? chip(r.severity, "danger") : chip("All good", "success")}
-                      ${r.review_status === "needs_review" ? button("Mark reviewed", `review-report:${r.id}`, "small primary") : chip("Reviewed", "neutral")}
-                    </div>
-                  </div>
-                `).join("")
-              }
+                  `).join("")
+                }
+              </div>
             </div>
 
           </div>
@@ -407,7 +406,7 @@
           review_status: "reviewed",
           client_visible_summary: "Completed normally."
         });
-        
+
         const job = jobs().find(j => j.id === sj.job_id);
         billableEvents().push({
           id: "BE-MOCK-" + Date.now(),

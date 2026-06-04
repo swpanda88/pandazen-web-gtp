@@ -216,7 +216,7 @@ Version 1 should include these modules:
 3. Enquiries.
 4. Quotes.
 5. Jobs.
-6. Visits and scheduling.
+6. Schedule and generated scheduled jobs/cleans.
 7. Field staff mobile app.
 8. Checklists and forms.
 9. Invoices and payments.
@@ -240,15 +240,15 @@ Flow:
 6. Optional extras and deposit are added.
 7. Quote is sent to client.
 8. Client approves quote.
-9. Quote is converted to one-off or recurring job.
-10. Visits are scheduled.
+9. Quote is converted to a one-off or recurring Job Plan.
+10. Scheduled jobs/cleans are generated or placed on the Schedule.
 11. Booking confirmation is sent.
 
 Acceptance criteria:
 
 - User can create an enquiry in under 2 minutes.
 - User can convert an enquiry into a quote without retyping client details.
-- User can convert an approved quote into a job without retyping quote line items.
+- User can convert an approved quote into a Job Plan without retyping quote line items.
 - Quote approval status is visible in the client timeline.
 
 ### 6.2 One-Off Cleaning Job
@@ -264,23 +264,23 @@ Used for:
 
 Flow:
 
-1. Create job.
+1. Create Job Plan.
 2. Select client and property.
 3. Select service template.
 4. Add line items and price.
-5. Add visit date, duration, arrival window, and assigned team.
+5. Add scheduled job date, duration, arrival window, and assigned team.
 6. Add access details and internal notes.
 7. Send confirmation.
-8. Cleaner completes visit.
+8. Cleaner completes the scheduled job/clean.
 9. Office reviews completion.
-10. Invoice is issued.
+10. Billable event is created and invoice is issued from billable work.
 
 Acceptance criteria:
 
-- Job can have one or multiple visits.
-- Job can be created from an approved quote.
+- One-off Job Plan can generate one or multiple scheduled jobs/cleans if needed.
+- Job Plan can be created from an approved quote.
 - Internal notes are separated from client-visible notes.
-- Visit completion can trigger invoice draft creation.
+- Scheduled job completion can create a Job Report and billable event.
 
 ### 6.3 Recurring Cleaning Contract
 
@@ -294,49 +294,50 @@ Used for:
 
 Flow:
 
-1. Create recurring job.
+1. Create recurring Job Plan.
 2. Set frequency.
 3. Set start date and optional end date.
 4. Set visit duration and preferred time window.
 5. Assign regular cleaner or team.
 6. Choose invoice schedule.
-7. Generate future visits.
-8. Adjust individual visits when needed.
+7. Preview generated scheduled jobs/cleans for the chosen horizon.
+8. Confirm generation and adjust individual scheduled jobs only when needed.
 
 Acceptance criteria:
 
-- Recurring jobs can repeat daily, weekly, fortnightly, every 4 weeks, monthly, or custom.
-- Individual visits can be rescheduled without changing the whole series.
-- Series changes can apply to future visits only.
-- Public holiday handling can skip, reschedule, or keep visits.
+- Recurring Job Plans can repeat daily, weekly, fortnightly, every 4 weeks, monthly, or custom.
+- Individual scheduled jobs can be rescheduled without changing the whole series.
+- Series changes can apply to future scheduled jobs only.
+- Public holiday handling can skip, reschedule, or keep generated scheduled jobs.
+- Recurring Job Plan setup should generate planned scheduled jobs directly; it must not create dozens of unscheduled items that the Schedule page has to manually sort.
 
 ### 6.4 Daily Cleaner Workflow
 
 Flow:
 
 1. Cleaner opens mobile app.
-2. Cleaner sees today's assigned visits.
-3. Cleaner opens first visit.
+2. Cleaner sees today's assigned scheduled jobs/cleans.
+3. Cleaner opens first scheduled clean.
 4. Cleaner reviews address, arrival window, access notes, hazards, checklist, and client preferences.
 5. Cleaner starts visit.
 6. Cleaner completes checklist.
 7. Cleaner adds photos or notes if required.
 8. Cleaner stops timer.
-9. Cleaner marks visit complete.
-10. Next visit appears.
+9. Cleaner marks the scheduled clean complete.
+10. Next scheduled clean appears.
 
 Acceptance criteria:
 
-- Cleaner can complete a normal visit without using desktop screens.
+- Cleaner can complete a normal scheduled clean without using desktop screens.
 - Cleaner sees only assigned work unless permission allows more.
 - Sensitive access notes are protected by permission and reveal logging.
-- Visit completion records timestamp, user, and optional GPS metadata where lawful and configured.
+- Scheduled job completion records timestamp, user, and optional GPS metadata where lawful and configured.
 
 ### 6.5 Invoice and Payment
 
 Flow:
 
-1. Invoice draft is generated from completed job or billing schedule.
+1. Invoice draft is generated from selected billable events created by completed/approved scheduled jobs.
 2. Office reviews line items, VAT, payment terms, and deposit allocation.
 3. Invoice is sent by email.
 4. Client pays online or by bank transfer.
@@ -346,7 +347,7 @@ Flow:
 
 Acceptance criteria:
 
-- Invoice can be created from a job, quote, or recurring billing schedule.
+- Invoice can be created from selected billable events, including recurring scheduled jobs and approved extras.
 - Deposit payments can be applied to invoices.
 - VAT can be configured for VAT-registered companies.
 - Overdue invoices are visible on dashboard.
@@ -623,6 +624,21 @@ Must include:
 
 ## 12. Jobs Module
 
+Jobs v0 should follow `docs/cleanops-jobs-workflow.md`.
+
+The Jobs module should not be modelled as only a kanban board. It should manage Job Plans, generated scheduled jobs/cleans, recent report summaries, and billable-event readiness.
+
+Preferred user-facing chain:
+
+```text
+Accepted quote
+  -> Job Plan
+    -> Generated Scheduled Jobs / Cleans
+      -> Completed Job Report
+        -> Billable Event
+          -> Invoice
+```
+
 ### Job Types
 
 - One-off.
@@ -635,47 +651,84 @@ Must include:
 ### Job Statuses
 
 - Draft.
-- Scheduled.
-- In progress.
+- Needs setup.
+- Active.
+- Paused.
 - Completed.
-- Ready to invoice.
-- Invoiced.
-- Paid.
 - Cancelled.
-- On hold.
+- Archived.
 
 ### Job Fields
 
-- Job ID.
-- Job title.
-- Client.
-- Property.
+- Job Plan ID.
+- Job display name, preferably address-first.
+- Client ID.
+- Property ID.
+- Source quote ID.
 - Service type.
-- Scope.
-- Line items.
-- Assigned team.
-- Visits.
-- Checklist.
+- One-off or recurring.
+- Cadence / recurrence rule.
+- Preferred day/time.
+- Start date and optional end date.
+- Default duration.
+- Default cleaner/team.
+- Checklist template.
+- Products/equipment rules.
+- Price/billing basis.
 - Internal notes.
-- Client-visible notes.
-- Attachments.
-- Invoice status.
+- Status.
+
+### Jobs Page Layout
+
+Jobs v0 should have three levels:
+
+1. Action panel at top for human/admin action only.
+2. Jobs list/register showing all Job Plans separately.
+3. Job workspace for the selected Job Plan.
+
+The action panel should use:
+
+- Needs setup.
+- Needs review.
+- Ready to bill.
+
+Do not add a separate Issues column in Jobs v0. Issues, complaints, no access, extra time, and cleaner/client remarks should appear in Needs review with severity chips.
 
 ### Job Actions
 
-- Schedule visit.
-- Add visit.
+- Create or edit Job Plan.
+- Generate scheduled jobs/cleans.
+- Preview generated schedule.
+- Pause job plan.
+- Resume job plan.
+- Skip selected scheduled job.
+- Cancel selected scheduled job.
+- Add one-off extra scheduled job.
 - Assign team.
 - Send confirmation.
 - Add note.
-- Add photo.
-- Create invoice.
-- Mark completed.
-- Cancel.
+- Review report.
+- Create billable event.
+- Mark ready to bill.
 - Duplicate.
-- Convert to recurring.
+
+## 12.1 Recurring Job Generation
+
+Recurring Job Plan setup should:
+
+- choose recurrence frequency.
+- choose day/time.
+- choose cleaner/team if known.
+- choose start date.
+- choose optional end date.
+- choose generate-ahead window, e.g. 1 month or 3 months.
+- preview generated scheduled jobs/cleans before or immediately after confirmation.
+
+Generated recurring work should appear in the Schedule as planned/scheduled work. It should not appear as a large pile of unscheduled items that must be manually arranged.
 
 ## 13. Scheduling Module
+
+Schedule is the calendar view of generated scheduled jobs/cleans. It should not duplicate the Jobs workspace.
 
 ### Schedule Views
 
@@ -686,9 +739,9 @@ Required views:
 - Month.
 - Team view.
 - Route/list view.
-- Unscheduled jobs.
+- Unscheduled one-off/ad-hoc work.
 
-### Visit Card Information
+### Scheduled Job Card Information
 
 Show:
 
@@ -702,7 +755,7 @@ Show:
 - Payment/deposit warning.
 - Issue flag.
 
-### Visit Statuses
+### Scheduled Job Statuses
 
 - Unscheduled.
 - Scheduled.
@@ -717,7 +770,7 @@ Show:
 
 ### Scheduling Features
 
-- Drag and drop visits.
+- Drag and drop scheduled jobs.
 - Assign staff.
 - Reassign staff.
 - Recurring schedule generation.
@@ -727,6 +780,23 @@ Show:
 - Area/postcode grouping.
 - Public holiday handling.
 - Schedule notes.
+
+### Schedule Boundary
+
+Schedule should mainly be used for:
+
+- visual calendar view of generated scheduled jobs.
+- alterations/adjustments to existing scheduled jobs.
+- dealing with exceptions.
+- one-off jobs.
+- ad-hoc extra jobs.
+- rescheduling cancelled/skipped work.
+- staff/time changes.
+- capacity checking before accepting new work.
+
+For recurring work, Job Plan setup creates the repeating schedule pattern. Schedule edits exceptions and adjustments.
+
+For one-off work, Schedule may be the main place to choose the date/time because there is no recurring pattern.
 
 ## 14. Field Staff Mobile Experience
 
@@ -1030,13 +1100,13 @@ Log:
 
 ### Operational Reports
 
-- Today's visits.
-- Missed visits.
+- Today's scheduled jobs/cleans.
+- Missed scheduled jobs/cleans.
 - Access failures.
 - Jobs ready to invoice.
-- Unscheduled jobs.
+- Unscheduled one-off/ad-hoc work.
 - Cleaner utilisation.
-- Visit completion rate.
+- Scheduled job completion rate.
 
 ### Sales Reports
 

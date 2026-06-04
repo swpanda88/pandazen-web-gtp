@@ -9,8 +9,8 @@ This document serves as the **single source of truth** for the current PandaZen/
 * **Direction**: `/cleanops` is the future app direction. The old `/admin` cockpit is legacy, fallback, and reference only.
 * **Inspiration**: CleanOps is Jobber-inspired in layout/UX, but it is not a direct clone.
 * **Frontend-led API**: Do not wire real D1, API, or backend services until the key frontend layouts and data semantics are stable. The frontend should define the required API and data shape first; the backend will implement it later.
-* **Current Foundations**: `Schedule v0` and `Clients v0` are the main examples of the desired app style and serve as our current frontend foundations.
-* **Next Priority**: `Requests v0` is the likely next product area after Clients. Dashboards should be built last, only once real queues/data exist.
+* **Current Foundations**: `Schedule v0`, `Clients v0`, `Requests v0`, and `Quote Builder v0` establish the desired app style and frontend-led data semantics.
+* **Next Priority**: `Jobs v0` should follow the Jobs workflow documented in `docs/cleanops-jobs-workflow.md`. Dashboards should be built last, only once real queues/data exist.
 
 ---
 
@@ -23,10 +23,11 @@ Client / Customer
   -> Property / Home / Location
     -> Request / Assessment
       -> Quote
-        -> Job / Work Order
-          -> Visit / Appointment
-            -> Billable Event
-              -> Invoice / Payment
+        -> Job Plan
+          -> Scheduled Job / Clean
+            -> Job Report
+              -> Billable Event
+                -> Invoice / Payment
 ```
 
 ### Definitions
@@ -34,10 +35,17 @@ Client / Customer
 * **Property**: The physical place where work happens.
 * **Request**: An enquiry or work need. Assessment and scoping are part of the Request for now.
 * **Quote**: A commercial offer.
-* **Job**: Accepted, ongoing work.
-* **Visit**: A scheduled appointment.
-* **Billable Event**: Completed, chargeable work before or linked to an invoice.
+* **Job Plan**: The accepted service/control record created from an accepted quote. For recurring work, it defines cadence, defaults, checklist, duration, team, and billing basis.
+* **Scheduled Job / Clean**: A dated occurrence generated from a Job Plan and shown on the Schedule/calendar. User-facing wording should prefer "Scheduled clean" or "Scheduled job" over making "Visit" a heavy separate module.
+* **Job Report**: The completion record showing what happened after a scheduled job/clean.
+* **Billable Event**: Completed, chargeable work created from an approved scheduled job/report before or linked to an invoice.
 * **Invoice**: The accounting/commercial document.
+
+### Jobs and Schedule Boundary
+
+Jobs decides what work exists and under what rules. Schedule is the calendar view of generated scheduled jobs/cleans and the place for visual adjustments, exceptions, one-off placements, staff/time changes, and capacity checking.
+
+For recurring work, the Job Plan setup must create the repeating schedule pattern. Do not design recurring work so it creates dozens of unscheduled items that must be manually arranged on the Schedule page.
 
 ---
 
@@ -125,3 +133,4 @@ A Request is not the same as a Client.
 The following documents serve as external supporting reference for the operational guidelines driving CleanOps:
 * `docs/cleanops-software-specification.md`
 * `docs/cleanops-jobber-manual.md`
+* `docs/cleanops-jobs-workflow.md`

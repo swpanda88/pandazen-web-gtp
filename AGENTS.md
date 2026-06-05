@@ -19,6 +19,8 @@ Use:
 - `docs/pandazen-object-glossary.md` as the stable naming and definition guide.
 - `docs/delivery-billing-v0-spec.md` as the blueprint for Jobs, Visits, Billable Events, and Invoices.
 - `docs/client-property-workspace-v0-spec.md` as the UX and product spec for Client & Property operational boundaries.
+- `docs/cleanops-architecture-and-data.md` as the source of truth for CleanOps data semantics and app direction.
+- `docs/cleanops-ui-design-guide.md` as the source of truth for CleanOps layout, overlay, workspace, button, and interaction patterns.
 - This `AGENTS.md` for stable coding and project rules.
 
 If there is a conflict, ask for clarification or follow the blueprint for product behaviour and this file for coding discipline.
@@ -63,6 +65,11 @@ Future implementation must also follow `docs/pandazen-product-scope-and-principl
 - completed Visit creates Billable Event
 - Invoice Builder must be based on unbilled Billable Events, not the Quote directly
 - reuse proven PandaZen structures before inventing a new module pattern
+
+For `/cleanops` UI work in particular:
+
+- read `docs/cleanops-ui-design-guide.md` before changing page layout, drawers, overlays, modals, cards, action panels, or button patterns
+- do not introduce a new CleanOps layout or interaction pattern unless explicitly requested and the design guide is updated to approve it
 
 Resource/model rules:
 

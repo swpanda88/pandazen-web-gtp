@@ -163,6 +163,13 @@
     return reports().find((report) => report.scheduled_job_id === scheduledId) || null;
   }
 
+  function reportBillable(report) {
+    if (!report) return null;
+    return billableEvents().find((event) => event.source_report_id === report.id)
+      || findBillableForScheduled(report.scheduled_job_id)
+      || null;
+  }
+
   function findBillable(id) {
     return billableEvents().find((event) => event.id === id) || null;
   }
@@ -862,7 +869,10 @@
                 ${chip(report.severity, severityTones[report.severity] || "info")}
               </div>
               <p class="muted">${escapeHtml(report.cleaner_remarks || report.client_remarks || "All good. Stored quietly.")}</p>
-              <span>${escapeHtml(report.completed_by)} - ${escapeHtml(report.completed_at)}</span>
+              <div class="button-row" style="justify-content:space-between">
+                <span>${escapeHtml(report.completed_by)} - ${escapeHtml(report.completed_at)}</span>
+                ${button("Open report", `open-report:${report.id}`, "small")}
+              </div>
             </article>`;
           }).join("") : `<div class="empty mini"><div class="empty-icon">R</div><div><h3>No reports yet</h3><p class="muted">Completed scheduled cleans will appear here.</p></div></div>`}
           ${hidden ? `<div class="request-note-block"><strong>More reports</strong><span>${escapeHtml(`${hidden} older report${hidden === 1 ? "" : "s"} hidden in Jobs v0. View all reports later will open the full Reports history.`)}</span></div>` : ""}
@@ -1009,6 +1019,7 @@
 
   function renderLayer() {
     if (state.layer === "scheduled") return renderScheduledLayer(findScheduled(state.layerId));
+    if (state.layer === "report") return renderReportLayer(findReport(state.layerId));
     if (state.layer === "checklist") return renderChecklistLayer(findJob(state.layerId));
     if (state.layer === "source") return renderSourcePreview(state.layerId);
     if (state.layer === "generate") return renderVisitWizard(findJob(state.layerId));
@@ -1203,6 +1214,87 @@
                 <div class="field-row"><span>Status</span><strong>${escapeHtml(event ? statusLabels[event.status] || event.status : "Not billable yet")}</strong></div>
                 <div class="field-row"><span>Amount</span><strong>${escapeHtml(money(event?.amount || pricing?.amount || 0))}</strong></div>
                 <div class="field-row"><span>Skip reason</span><strong>${escapeHtml(clean.skip_reason || "None")}</strong></div>
+              </article>
+            </aside>
+          </section>
+        </article>
+      </div>
+    `;
+  }
+
+  function renderReportLayer(report) {
+    if (!report) return "";
+    const clean = findScheduled(report.scheduled_job_id);
+    const job = findJob(report.job_id || clean?.job_id);
+    const client = job ? jobClient(job) : null;
+    const property = job ? jobProperty(job) : null;
+    const template = clean ? findTemplate(clean.checklist_template_id) : null;
+    const event = reportBillable(report);
+    const eventStatus = event ? statusLabels[event.status] || event.status : "No billable event";
+    const eventCopy = event?.status === "ready_to_bill"
+      ? "Will be available for invoice creation later."
+      : event?.status === "draft"
+        ? "Draft billable event pending report review."
+        : event?.status === "not_billable"
+          ? "Marked not billable."
+          : "No chargeable event linked yet.";
+    return `
+      <div class="job-layer-backdrop">
+        <article class="job-layer-shell" role="dialog" aria-modal="true">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Visit report preview</p>
+              <h2>${escapeHtml(job?.address_label || "Completed visit report")}</h2>
+              <p class="muted" style="margin-top:6px">Read-only report preview${report.review_status === "needs_review" ? " with review actions" : ""}.</p>
+            </div>
+            ${button("Back to job", "close-layer")}
+          </div>
+          <section class="grid-detail job-layer-content">
+            <div class="stack">
+              <article class="panel pad">
+                <h2>Report summary</h2>
+                <div class="job-plan-grid" style="margin-top:12px">
+                  <div class="request-note-block"><strong>Client</strong><span>${escapeHtml(displayClient(client))}</span></div>
+                  <div class="request-note-block"><strong>Property</strong><span>${escapeHtml(displayProperty(property))}</span></div>
+                  <div class="request-note-block"><strong>Job</strong><span>${escapeHtml(job?.display_name || "No job linked")}</span></div>
+                  <div class="request-note-block"><strong>Clean type</strong><span>${escapeHtml(cleanTypeLabel(clean?.clean_type))}</span></div>
+                  <div class="request-note-block"><strong>Scheduled visit</strong><span>${escapeHtml(clean ? visitDateLabel(clean.date, clean.start_time) : "No scheduled visit")}</span></div>
+                  <div class="request-note-block"><strong>Cleaner/team</strong><span>${escapeHtml(report.completed_by || clean?.assigned_staff || "No team")}</span></div>
+                  <div class="request-note-block"><strong>Checklist source</strong><span>${escapeHtml(template?.name || "Master checklist to confirm")}</span></div>
+                  <div class="request-note-block"><strong>Checklist status</strong><span>${escapeHtml(report.checklist_status || "No checklist status")}</span></div>
+                </div>
+              </article>
+              <article class="panel pad">
+                <h2>Remarks / snapshot</h2>
+                <p class="muted" style="margin-top:8px">This report is the frozen completion snapshot for the scheduled visit.</p>
+                <div class="stack" style="margin-top:12px">
+                  <div class="field-row"><span>Cleaner remarks</span><strong>${escapeHtml(report.cleaner_remarks || "None")}</strong></div>
+                  <div class="field-row"><span>Client remarks</span><strong>${escapeHtml(report.client_remarks || "None")}</strong></div>
+                  <div class="field-row"><span>Severity</span><strong>${escapeHtml(report.severity || "Note")}</strong></div>
+                  <div class="field-row"><span>Review status</span><strong>${escapeHtml(statusLabels[report.review_status] || report.review_status || "No review status")}</strong></div>
+                </div>
+              </article>
+            </div>
+            <aside class="stack">
+              <article class="panel pad">
+                <h2>Billing status</h2>
+                <div class="field-row"><span>Billable event</span><strong>${escapeHtml(event?.id || "Not linked")}</strong></div>
+                <div class="field-row"><span>Status</span><strong>${escapeHtml(eventStatus)}</strong></div>
+                <div class="field-row"><span>Amount</span><strong>${escapeHtml(event ? money(event.amount) : "Not set")}</strong></div>
+                <p class="muted" style="margin-top:10px">${escapeHtml(eventCopy)}</p>
+              </article>
+              <article class="panel pad">
+                <h2>Actions</h2>
+                <div class="stack" style="margin-top:12px">
+                  ${report.review_status === "needs_review" ? `
+                    ${button("Mark reviewed / billable", `confirm-reviewed:${report.id}`, "primary")}
+                    ${button("Mark not billable", `confirm-not-billable:${report.id}`)}
+                    ${button("Revisit required mock", `mock-layer:Revisit required for ${report.id}`)}
+                  ` : `
+                    ${button("View billable event", `view-billable:${report.id}`, "small primary")}
+                    ${button("Print/export later", `mock-layer:Print or export report ${report.id}`, "small")}
+                  `}
+                </div>
               </article>
             </aside>
           </section>
@@ -1557,6 +1649,13 @@
       refresh();
       return true;
     }
+    if (action.startsWith("open-report:")) {
+      state.layer = "report";
+      state.layerId = action.split(":")[1];
+      state.visitWizard = null;
+      refresh();
+      return true;
+    }
     if (action.startsWith("open-checklist:")) {
       state.layer = "checklist";
       state.layerId = action.split(":")[1];
@@ -1685,8 +1784,39 @@
       refresh();
       return true;
     }
+    if (action.startsWith("confirm-not-billable:")) {
+      const report = findReport(action.split(":")[1]);
+      state.modal = {
+        title: "Mark report not billable?",
+        copy: "This will mark the report reviewed and set the linked billable event to not billable. No invoice action will be created.",
+        primaryLabel: "Mark not billable",
+        confirmAction: `mark-not-billable:${report?.id || ""}`
+      };
+      refresh();
+      return true;
+    }
     if (action.startsWith("mark-reviewed:")) {
       markReviewed(action.split(":")[1]);
+      return true;
+    }
+    if (action.startsWith("mark-not-billable:")) {
+      markNotBillable(action.split(":")[1]);
+      return true;
+    }
+    if (action.startsWith("view-billable:")) {
+      const report = findReport(action.split(":")[1]);
+      const event = reportBillable(report);
+      state.modal = {
+        type: "mock",
+        title: event ? `Billable event ${event.id}` : "No billable event linked",
+        copy: event
+          ? `${event.description || "Billable event"} - ${money(event.amount)} - ${statusLabels[event.status] || event.status}.`
+          : "This report does not have a linked billable event yet.",
+        detail: event?.status === "ready_to_bill"
+          ? "This ready billable event will be available for invoice creation later. Jobs does not issue invoices."
+          : "Billable event editing and invoice grouping remain future Invoice/Reports scope."
+      };
+      refresh();
       return true;
     }
     if (action.startsWith("generate-next-visit:") || action.startsWith("generate-next-month:")) {
@@ -1793,6 +1923,23 @@
     }
     state.modal = clean ? { type: "nextVisit", cleanId: clean.id } : null;
     toast("Report reviewed and billable event is ready.");
+    refresh();
+  }
+
+  function markNotBillable(reportId) {
+    const report = findReport(reportId);
+    if (!report) return;
+    const clean = findScheduled(report.scheduled_job_id);
+    report.review_status = "reviewed";
+    if (clean) {
+      clean.status = "completed";
+      const event = reportBillable(report) || createBillableFromScheduled(clean, "not_billable");
+      event.status = "not_billable";
+      event.source_report_id = report.id;
+      clean.billable_event_id = event.id;
+    }
+    state.modal = null;
+    toast("Report reviewed and marked not billable.");
     refresh();
   }
 

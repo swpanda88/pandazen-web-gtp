@@ -511,6 +511,8 @@ It should not become a long historical dump of every completed visit.
 
 Recent Reports is the completed visit history summary inside the Job workspace. In v0 it can show the last 5 completed reports/cleans and a compact `View all reports later` placeholder if there is more history.
 
+Each Recent Reports card may open a read-only report preview/review workspace. Jobs v0 can use that preview to review completed visit reports, mark reviewed/billable, mark not billable, or flag a mock revisit. It must not become the full Reports module.
+
 The full Reports page later owns searchable, filterable, paginated report history.
 
 ## 10. Module Boundaries

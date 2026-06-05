@@ -98,6 +98,7 @@ Pattern:
 
 - page header
 - search/filter row
+- table/register controls that can support sorting and pagination where useful
 - main table/register card
 - aligned columns
 - row action button/menu
@@ -112,6 +113,52 @@ Rules:
 - this is the stable database/register view
 - do not replace the full register with kanban by default
 - columns should be practical, scannable, and aligned
+
+### B.1 Register / table interaction rules
+
+Normal register/list tables should be designed to support:
+
+- search
+- filters
+- sortable columns where useful
+- pagination and page size controls for larger datasets
+- aligned columns
+- compact row actions menu
+- row opens workspace/detail where appropriate
+
+This applies to:
+
+- Jobs register
+- Quotes register
+- Invoices register
+- Clients register
+- Requests register where a table/register view is used
+- Reports/history tables
+- Billable events tables
+- Scheduled cleans list views
+
+Sorting:
+
+- useful columns should visually support sorting later
+- examples: date, client, property, status, amount, updated/valid, next clean
+- do not add sorting indicators to every tiny embedded table if it adds clutter
+
+Pagination:
+
+- any table that may grow beyond roughly 25-50 records should be pagination-ready
+- page size and next/previous controls can be added when real data/backend support exists
+- v0/mock tables may use static controls if full sorting/pagination is not implemented yet
+
+Exceptions:
+
+- kanban/action panels
+- quote builder line items
+- invoice builder line items
+- checklist builder tasks
+- small embedded summary tables
+- forms or editors where sorting would be confusing
+
+Kanban/action panels are not a replacement for the full register/list. Where action panels exist, a register/list should remain available below or nearby.
 
 ### C. Row action menu
 

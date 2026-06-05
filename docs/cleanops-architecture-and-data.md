@@ -1,6 +1,8 @@
 # CleanOps Architecture and Data Semantics
 
-This document serves as the **single source of truth** for the current PandaZen/CleanOps operational model, data semantics, and UI direction. It replaces the legacy `/admin` and Assessment-first workflow architectures.
+This document serves as the **single source of truth** for the current PandaZen/CleanOps operational model, data semantics, and high-level app direction. It replaces the legacy `/admin` and Assessment-first workflow architectures.
+
+For detailed layout, overlay, action-panel, modal, workspace, and button rules, use `docs/cleanops-ui-design-guide.md` as the UI source of truth.
 
 ---
 
@@ -102,10 +104,17 @@ Invoices should be created from billable events produced by completed/approved w
 
 ## 3. UI and UX Patterns
 
-List pages should share a consistent, predictable pattern across the app, as established in the `Clients` and `Quotes` screens:
-* **Page Layout**: Page title -> Subtitle -> Search/Filter row -> Table/Card list.
-* **Right-side Panel**: An optional right-side helper panel for context.
-* **Client Detail**: A workspace view reached from the Clients list.
+CleanOps UI work must follow `docs/cleanops-ui-design-guide.md`.
+
+At architecture level, the main rule is consistency:
+
+- list/register screens should use the approved register pattern
+- record screens should use the approved workspace/detail pattern
+- complex editors should use the approved large overlay or layered workspace patterns
+- small confirmations should use the approved centered modal pattern
+- Jobs, Quotes, Requests, Clients, Invoices, and future Schedule work should reuse the same underlying shell, spacing, cards, buttons, and interaction logic
+
+This file defines the architecture and data semantics. The design guide defines the approved visual and interaction patterns.
 
 ---
 

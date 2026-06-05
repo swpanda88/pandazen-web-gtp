@@ -1,7 +1,7 @@
 # Cleaning Company Management Software Specification
 
 > [!IMPORTANT]
-> **Active Implementation Note**: This document outlines the initial broad requirements and general business goals for CleanOps. For the active, true state of the application's data semantics, architectural decisions, and current UI progress, please refer to `docs/cleanops-architecture-and-data.md` as the single source of truth.
+> **Active Implementation Note**: This document outlines the initial broad requirements and general business goals for CleanOps. For the active, true state of the application's data semantics and architectural decisions, refer to `docs/cleanops-architecture-and-data.md` as the single source of truth. For approved UI layout, workspace, overlay, and interaction patterns, refer to `docs/cleanops-ui-design-guide.md`.
 
 Version: 1.1  
 Prepared for: UK-based cleaning company operations  
@@ -112,6 +112,8 @@ The interface should be:
 - Trustworthy.
 - Operational rather than decorative.
 - Built for repeated daily use.
+
+For active implementation work, the detailed UI pattern rules now live in `docs/cleanops-ui-design-guide.md`. Use this specification for product scope and goals, and use the design guide for approved UI patterns.
 
 The design should prioritise clarity over visual drama. No marketing-style dashboard full of oversized cards. No excessive gradients. No crowded sidebars. No vague labels.
 

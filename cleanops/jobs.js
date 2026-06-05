@@ -213,6 +213,7 @@
 
   function syntheticSkippedReport(clean) {
     if (!clean || !isSkippedOutcome(clean) || !isPastVisit(clean)) return null;
+    const noCharge = clean.fee_decision_status === "no_charge";
     return {
       id: syntheticSkippedReportId(clean),
       scheduled_job_id: clean.id,
@@ -223,7 +224,8 @@
       cleaner_remarks: clean.skip_reason || `${statusLabels[clean.status] || "Skipped"} visit.`,
       client_remarks: "",
       severity: clean.status === "cancelled" ? "Cancelled" : "Skipped",
-      review_status: "reviewed",
+      review_status: noCharge ? "reviewed" : "needs_review",
+      fee_decision_status: clean.fee_decision_status || "pending",
       synthetic_outcome: clean.status
     };
   }
@@ -647,10 +649,15 @@
   }
 
   function needsReviewItems() {
-    return reports()
+    const reportItems = reports()
       .filter((report) => report.review_status === "needs_review")
       .map((report) => ({ report, clean: findScheduled(report.scheduled_job_id), job: findJob(report.job_id) }))
       .filter((item) => item.clean && item.job);
+    const feeDecisionItems = scheduledJobs()
+      .filter((clean) => isSkippedOutcome(clean) && isPastVisit(clean) && clean.fee_decision_status !== "no_charge")
+      .map((clean) => ({ report: syntheticSkippedReport(clean), clean, job: findJob(clean.job_id), feeDecision: true }))
+      .filter((item) => item.report && item.job);
+    return [...reportItems, ...feeDecisionItems];
   }
 
   function readyToBillItems() {
@@ -707,6 +714,16 @@
 
   function renderReviewCard(item) {
     const client = jobClient(item.job);
+    if (item.feeDecision || isSkippedReport(item.report)) {
+      return `
+        <button class="job-action-card" type="button" data-job-open="${escapeHtml(item.job.id)}" data-job-layer-open="report:${escapeHtml(item.report.id)}">
+          <strong>${escapeHtml(item.job.address_label)}</strong>
+          <span>${escapeHtml(displayClient(client))} - ${escapeHtml(visitDateLabel(item.clean.date, item.clean.start_time))}</span>
+          <span class="muted">${escapeHtml(item.clean.skip_reason || `${reportOutcomeLabel(item.report)} needs fee/no-charge decision`)}</span>
+          ${chip("Fee decision", "danger")}
+        </button>
+      `;
+    }
     return `
       <button class="job-action-card" type="button" data-job-open="${escapeHtml(item.job.id)}" data-job-layer-open="scheduled:${escapeHtml(item.clean.id)}">
         <strong>${escapeHtml(item.job.address_label)}</strong>
@@ -1349,12 +1366,17 @@
                 <div class="field-row"><span>Billable event</span><strong>${escapeHtml(event?.id || "Not linked")}</strong></div>
                 <div class="field-row"><span>Status</span><strong>${escapeHtml(eventStatus)}</strong></div>
                 <div class="field-row"><span>Amount</span><strong>${escapeHtml(event ? money(event.amount) : "Not set")}</strong></div>
+                ${skipped ? `<div class="field-row"><span>Fee decision</span><strong>${escapeHtml(report.fee_decision_status === "no_charge" || clean?.fee_decision_status === "no_charge" ? "No charge recorded" : "Needs fee/no-charge decision")}</strong></div>` : ""}
                 <p class="muted" style="margin-top:10px">${escapeHtml(eventCopy)}</p>
               </article>
               <article class="panel pad">
                 <h2>Actions</h2>
                 <div class="stack" style="margin-top:12px">
-                  ${skipped ? `
+                  ${skipped && report.review_status === "needs_review" ? `
+                    ${button("Add cancellation fee", `cancellation-fee:${report.id}`, "small")}
+                    ${button("Mark no charge", `confirm-no-charge:${report.id}`, "small primary")}
+                    ${button("Reinstate / mistake mock", `mock-layer:Reinstate or correct ${report.id}`, "small")}
+                  ` : skipped ? `
                     ${button("Add cancellation fee", `cancellation-fee:${report.id}`, "small")}
                     ${button("Print/export later", `mock-layer:Print or export report ${report.id}`, "small")}
                   ` : report.review_status === "needs_review" ? `
@@ -1866,12 +1888,27 @@
       refresh();
       return true;
     }
+    if (action.startsWith("confirm-no-charge:")) {
+      const report = findReport(action.split(":")[1]);
+      state.modal = {
+        title: "Mark no charge?",
+        copy: "This will remove the skipped/cancelled visit from Needs review and keep it as non-billable history. No billable event or invoice action will be created.",
+        primaryLabel: "Mark no charge",
+        confirmAction: `mark-no-charge:${report?.id || ""}`
+      };
+      refresh();
+      return true;
+    }
     if (action.startsWith("mark-reviewed:")) {
       markReviewed(action.split(":")[1]);
       return true;
     }
     if (action.startsWith("mark-not-billable:")) {
       markNotBillable(action.split(":")[1]);
+      return true;
+    }
+    if (action.startsWith("mark-no-charge:")) {
+      markNoCharge(action.split(":")[1]);
       return true;
     }
     if (action.startsWith("view-billable:")) {
@@ -2025,6 +2062,19 @@
     }
     state.modal = null;
     toast("Report reviewed and marked not billable.");
+    refresh();
+  }
+
+  function markNoCharge(reportId) {
+    const report = findReport(reportId);
+    const clean = findScheduled(report?.scheduled_job_id);
+    if (!clean) return;
+    clean.fee_decision_status = "no_charge";
+    clean.billable_event_id = "";
+    const event = findBillableForScheduled(clean.id);
+    if (event) event.status = "not_billable";
+    state.modal = null;
+    toast("Skipped/cancelled visit marked no charge.");
     refresh();
   }
 

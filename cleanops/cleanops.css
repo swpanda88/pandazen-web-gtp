@@ -2127,6 +2127,9 @@ tr.status-risk td:first-child {
   display: grid;
   align-content: start;
   gap: 10px;
+  max-height: 258px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .job-action-card {

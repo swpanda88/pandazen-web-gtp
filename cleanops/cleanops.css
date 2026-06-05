@@ -2151,6 +2151,37 @@ tr.status-risk td:first-child {
   margin-top: 4px;
 }
 
+.job-sort-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 780;
+  padding: 0;
+  cursor: pointer;
+}
+
+.job-sort-button span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 760;
+  text-transform: uppercase;
+}
+
+.job-register-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--line);
+  background: #fbfbf8;
+  padding: 10px 14px;
+}
+
 .job-register-row,
 .jobs-scheduled-table tr[data-job-layer-open] {
   cursor: pointer;

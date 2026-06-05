@@ -191,7 +191,16 @@
   }
 
   function money(value) {
-    return `GBP ${Number(value || 0).toFixed(2)}`;
+    return new Intl.NumberFormat("en-GB", {
+      style: "currency",
+      currency: "GBP"
+    }).format(Number(value || 0));
+  }
+
+  function moneyText(value) {
+    return String(value || "")
+      .replace(/\u00c2\u00a3/g, "\u00a3")
+      .replace(/\bGBP\s*([0-9]+(?:\.[0-9]{1,2})?)/g, (_, amount) => money(amount));
   }
 
   function minutesLabel(value) {
@@ -402,6 +411,11 @@
   }
 
   function renderJobsRegister() {
+    const sortHeader = (label, action) => `
+      <button class="job-sort-button" type="button" data-job-action="mock-layer:Sort All Job Plans by ${escapeHtml(action)}" title="Mock sort control">
+        ${escapeHtml(label)} <span aria-hidden="true">sort</span>
+      </button>
+    `;
     const rows = jobs().map((job) => {
       const client = jobClient(job);
       const property = jobProperty(job);
@@ -437,11 +451,20 @@
           <span class="selectish">All statuses</span>
           <span class="selectish">All services</span>
           <span class="selectish">All properties</span>
+          <span class="muted">Static v0 controls. Ready for real search/filter wiring.</span>
         </div>
         <table>
-          <thead><tr><th>Address / job</th><th>Client</th><th>Service</th><th>Plan</th><th>Next clean</th><th>Status</th><th>Action</th></tr></thead>
+          <thead><tr><th>${sortHeader("Address / job", "address")}</th><th>${sortHeader("Client", "client")}</th><th>${sortHeader("Service", "service")}</th><th>Plan</th><th>${sortHeader("Next clean", "next clean")}</th><th>${sortHeader("Status", "status")}</th><th>Action</th></tr></thead>
           <tbody>${rows.join("")}</tbody>
         </table>
+        <div class="job-register-footer">
+          <span class="muted">Showing 1-${jobs().length} of ${jobs().length} mock job plans</span>
+          <div class="button-row">
+            <span class="selectish">Page size: 25</span>
+            ${button("Previous", "mock-layer:Previous Jobs register page", "small")}
+            ${button("Next", "mock-layer:Next Jobs register page", "small")}
+          </div>
+        </div>
       </article>
     `;
   }
@@ -846,15 +869,15 @@
     const configs = {
       client: {
         title: "Client preview",
-        rows: [["Name", displayClient(client)], ["Phone", client?.phone || "No phone"], ["Email", client?.email || "No email"], ["Status", client?.status || "No status"]]
+        rows: [["Name", displayClient(client)], ["Phone", client?.phone || "No phone"], ["Email", client?.email || "No email"], ["Status", client?.status || "No status"], ["Billing address", client?.billingAddress || "No billing address"]]
       },
       property: {
         title: "Property preview",
-        rows: [["Address", property?.address || "No address"], ["Type", property?.property_type || "No type"], ["Access", property?.access_method || "No access method"], ["Parking", property?.parking || "No parking"]]
+        rows: [["Address", property?.address || "No address"], ["Type", property?.property_type || "No type"], ["Access", property?.access_method || "No access method"], ["Parking", property?.parking || "No parking"], ["Cleaning notes", property?.cleaning_notes || property?.property_notes || "No cleaning notes"]]
       },
       quote: {
         title: "Quote preview",
-        rows: [["Reference", quote?.quote_ref || quote?.number || "No quote"], ["Service", quote?.service || "No service"], ["Total", quote?.total || "No total"], ["Status", quote?.status || "No status"]]
+        rows: [["Reference", quote?.quote_ref || quote?.number || "No quote"], ["Service", quote?.service || "No service"], ["Total", moneyText(quote?.total) || "No total"], ["Status", quote?.status || "No status"], ["Items", quote?.quote_items?.map((item) => `${item.name} (${money(item.amount)})`).join(", ") || "No quote items"]]
       },
       request: {
         title: "Request preview",
@@ -870,6 +893,10 @@
             ${button("Back to job", "close-layer")}
           </div>
           <div class="panel-body stack">
+            <div class="warning-block request-note-block">
+              <strong>Read-only Jobs v0 preview</strong>
+              <span>This mock preview shows linked source context only. Full editing stays in the source module when real data wiring is built.</span>
+            </div>
             ${config.rows.map(([label, value]) => `<div class="field-row"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}
           </div>
         </article>
@@ -882,7 +909,46 @@
     if (!modal) return "";
     if (modal.type === "note") return renderNoteModal(modal.cleanId);
     if (modal.type === "skip") return renderSkipModal(modal.cleanId);
+    if (modal.type === "newJob") return renderNewJobModal();
+    if (modal.type === "mock") return renderMockModal(modal);
     return renderConfirmModal(modal);
+  }
+
+  function renderNewJobModal() {
+    return `
+      <div class="job-modal-backdrop">
+        <article class="job-confirm-modal" role="dialog" aria-modal="true">
+          <h2>New job plan</h2>
+          <p class="muted" style="margin-top:8px">Jobs v0 is frontend/mock only. A real new job plan should start from an accepted quote once backend persistence is available.</p>
+          <div class="stack" style="margin-top:14px">
+            <div class="request-note-block"><strong>Recommended path</strong><span>Accepted quote -> Job Plan shell -> setup editor -> generated scheduled cleans.</span></div>
+            <div class="request-note-block"><strong>Current spike</strong><span>Use the existing mock job plans to review setup, scheduled clean detail, report review, and billing readiness flows.</span></div>
+          </div>
+          <div class="button-row" style="margin-top:16px">
+            ${button("Close", "close-modal")}
+            ${button("Open Jobs register", "back-to-jobs", "primary")}
+          </div>
+        </article>
+      </div>
+    `;
+  }
+
+  function renderMockModal(modal) {
+    return `
+      <div class="job-modal-backdrop">
+        <article class="job-confirm-modal" role="dialog" aria-modal="true">
+          <h2>${escapeHtml(modal.title || "Mock-only action")}</h2>
+          <p class="muted" style="margin-top:8px">${escapeHtml(modal.copy || "This control is included to show the intended Jobs v0 workflow, but it is not wired to persistence in this spike.")}</p>
+          <div class="request-note-block" style="margin-top:14px">
+            <strong>What happens in the real module</strong>
+            <span>${escapeHtml(modal.detail || "This opens a focused workspace or updates real job data once the backend exists.")}</span>
+          </div>
+          <div class="button-row" style="margin-top:16px">
+            ${button("Close", "close-modal", "primary")}
+          </div>
+        </article>
+      </div>
+    `;
   }
 
   function renderConfirmModal(modal) {
@@ -966,12 +1032,16 @@
 
     const jobOpen = event.target.closest("[data-job-open]");
     if (jobOpen) {
-      state.selectedJobId = jobOpen.dataset.jobOpen;
-      state.rowMenuId = null;
-      state.layer = null;
-      refresh();
-      event.preventDefault();
-      return true;
+      if (event.target.closest("[data-job-action]")) {
+        // Let explicit row/menu buttons handle their own actions.
+      } else {
+        state.selectedJobId = jobOpen.dataset.jobOpen;
+        state.rowMenuId = null;
+        state.layer = null;
+        refresh();
+        event.preventDefault();
+        return true;
+      }
     }
 
     const actionTarget = event.target.closest("[data-job-action]");
@@ -1137,15 +1207,30 @@
       return true;
     }
     if (action.startsWith("mock-layer:")) {
-      toast(`${action.split(":").slice(1).join(":")} is mocked in this spike.`);
+      const label = action.split(":").slice(1).join(":") || "Mock action";
+      state.modal = {
+        type: "mock",
+        title: label,
+        copy: "This is a visible Jobs v0 mock control, not a silent dead button.",
+        detail: "Future work should wire this to the appropriate layered workspace, editor, sorting control, or backend action."
+      };
+      refresh();
       return true;
     }
     if (action.startsWith("mock-unavailable:")) {
-      toast(`${action.split(":").slice(1).join(":")} is not available in Jobs v0.`);
+      const label = action.split(":").slice(1).join(":") || "Unavailable action";
+      state.modal = {
+        type: "mock",
+        title: label,
+        copy: "This action is intentionally unavailable in Jobs v0.",
+        detail: "It is shown only to indicate a future row-action pattern. It does not change mock data or hide the current record."
+      };
+      refresh();
       return true;
     }
     if (action === "open-new-job") {
-      toast("New job plan is mocked in this frontend-only spike.");
+      state.modal = { type: "newJob" };
+      refresh();
       return true;
     }
     return false;

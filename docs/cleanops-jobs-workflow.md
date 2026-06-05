@@ -509,9 +509,13 @@ The Generated Scheduled Cleans section in a Job workspace should stay operationa
 
 It should not become a long historical dump of every completed visit.
 
-Recent Reports is the completed visit history summary inside the Job workspace. In v0 it can show the last 5 completed reports/cleans and a compact `View all reports later` placeholder if there is more history.
+Future skipped/cancelled visits remain operational because they may still be reinstated, rescheduled, or have their reason edited. Past skipped/cancelled visits should move into Recent Reports / history summary as skipped or cancelled visit outcomes.
+
+Recent Reports is the completed and skipped/cancelled visit history summary inside the Job workspace. In v0 it can show the last 5 completed reports/cleans and a compact `View all reports later` placeholder if there is more history.
 
 Each Recent Reports card may open a read-only report preview/review workspace. Jobs v0 can use that preview to review completed visit reports, mark reviewed/billable, mark not billable, or flag a mock revisit. It must not become the full Reports module.
+
+Skipped/cancelled visits are non-billable by default. Cancellation fees are a future controlled billable-event pathway, not an automatic charge. If cancellation fees are added later, a user should explicitly create or approve a cancellation-fee billable event before it becomes available to invoices.
 
 The full Reports page later owns searchable, filterable, paginated report history.
 

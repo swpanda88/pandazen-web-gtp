@@ -156,7 +156,7 @@
   }
 
   function findReport(id) {
-    return reports().find((report) => report.id === id) || null;
+    return reports().find((report) => report.id === id) || findSyntheticSkippedReport(id) || null;
   }
 
   function findReportForScheduled(scheduledId) {
@@ -194,9 +194,49 @@
     return reports().filter((report) => report.job_id === jobId);
   }
 
+  function todayIso() {
+    return isoDate(new Date());
+  }
+
+  function isPastVisit(clean) {
+    if (!clean?.date) return false;
+    return clean.date < todayIso();
+  }
+
+  function isSkippedOutcome(clean) {
+    return clean?.status === "skipped" || clean?.status === "cancelled";
+  }
+
+  function syntheticSkippedReportId(clean) {
+    return `history-${clean.id}`;
+  }
+
+  function syntheticSkippedReport(clean) {
+    if (!clean || !isSkippedOutcome(clean) || !isPastVisit(clean)) return null;
+    return {
+      id: syntheticSkippedReportId(clean),
+      scheduled_job_id: clean.id,
+      job_id: clean.job_id,
+      completed_at: `${clean.date} ${clean.start_time || ""}`.trim(),
+      completed_by: clean.assigned_staff || "Assigned team",
+      checklist_status: clean.status,
+      cleaner_remarks: clean.skip_reason || `${statusLabels[clean.status] || "Skipped"} visit.`,
+      client_remarks: "",
+      severity: clean.status === "cancelled" ? "Cancelled" : "Skipped",
+      review_status: "reviewed",
+      synthetic_outcome: clean.status
+    };
+  }
+
+  function findSyntheticSkippedReport(id) {
+    if (!String(id || "").startsWith("history-")) return null;
+    const cleanId = String(id).replace(/^history-/, "");
+    return syntheticSkippedReport(findScheduled(cleanId));
+  }
+
   function visibleScheduledForWorkspace(jobId) {
     const all = jobScheduled(jobId).sort((a, b) => `${a.date} ${a.start_time}`.localeCompare(`${b.date} ${b.start_time}`));
-    const active = all.filter((clean) => clean.status !== "completed");
+    const active = all.filter((clean) => clean.status !== "completed" && !(isSkippedOutcome(clean) && isPastVisit(clean)));
     const latestCompleted = all
       .filter((clean) => clean.status === "completed")
       .sort((a, b) => `${b.date} ${b.start_time}`.localeCompare(`${a.date} ${a.start_time}`))[0];
@@ -205,13 +245,32 @@
 
   function hiddenCompletedCount(jobId) {
     const completed = jobScheduled(jobId).filter((clean) => clean.status === "completed").length;
-    return Math.max(0, completed - 1);
+    const pastSkipped = jobScheduled(jobId).filter((clean) => isSkippedOutcome(clean) && isPastVisit(clean)).length;
+    return Math.max(0, completed - 1) + pastSkipped;
   }
 
   function recentReportItems(jobId) {
-    return jobReports(jobId)
+    return recentReportCandidates(jobId)
       .sort((a, b) => String(b.completed_at || "").localeCompare(String(a.completed_at || "")))
       .slice(0, 5);
+  }
+
+  function recentReportCandidates(jobId) {
+    const historyReports = jobScheduled(jobId)
+      .map(syntheticSkippedReport)
+      .filter(Boolean);
+    return [...jobReports(jobId), ...historyReports];
+  }
+
+  function isSkippedReport(report) {
+    const clean = findScheduled(report?.scheduled_job_id);
+    return Boolean(report?.synthetic_outcome) || isSkippedOutcome(clean);
+  }
+
+  function reportOutcomeLabel(report) {
+    const clean = findScheduled(report?.scheduled_job_id);
+    if (isSkippedReport(report)) return statusLabels[report.synthetic_outcome || clean?.status] || "Skipped";
+    return "Completed";
   }
 
   function jobBillables(jobId) {
@@ -835,7 +894,7 @@
             ${chip(`${rows.length} shown`, "info")}
           </div>
         </div>
-        ${hiddenCount ? `<div class="panel-body" style="padding-bottom:0"><div class="request-note-block"><strong>Completed history</strong><span>${escapeHtml(`${hiddenCount} older completed visit${hiddenCount === 1 ? "" : "s"} hidden here. Older completed visits are shown in Recent Reports / Reports history later.`)}</span></div></div>` : ""}
+        ${hiddenCount ? `<div class="panel-body" style="padding-bottom:0"><div class="request-note-block"><strong>History</strong><span>${escapeHtml(`${hiddenCount} older completed/skipped visit${hiddenCount === 1 ? "" : "s"} hidden here. Older completed, skipped, and cancelled visits are shown in Recent Reports / Reports history later.`)}</span></div></div>` : ""}
         <div class="quote-table-scroll">
           <table class="jobs-scheduled-table">
             <thead><tr><th>Clean type</th><th>Date/time</th><th>Duration</th><th>Team</th><th>Checklist source</th><th>Pricing source</th><th>Status</th><th>Action</th></tr></thead>
@@ -848,7 +907,7 @@
   }
 
   function renderRecentReports(job) {
-    const allReports = jobReports(job.id);
+    const allReports = recentReportCandidates(job.id);
     const items = recentReportItems(job.id);
     const hidden = Math.max(0, allReports.length - items.length);
     return `
@@ -863,12 +922,14 @@
         <div class="panel-body stack">
           ${items.length ? items.map((report) => {
             const clean = findScheduled(report.scheduled_job_id);
+            const skipped = isSkippedReport(report);
             return `<article class="work-card">
               <div class="button-row" style="justify-content:space-between">
                 <strong>${escapeHtml(clean ? `${cleanTypeLabel(clean.clean_type)} - ${visitDateLabel(clean.date, clean.start_time)}` : report.id)}</strong>
-                ${chip(report.severity, severityTones[report.severity] || "info")}
+                ${chip(skipped ? reportOutcomeLabel(report) : report.severity, skipped ? "muted" : severityTones[report.severity] || "info")}
               </div>
-              <p class="muted">${escapeHtml(report.cleaner_remarks || report.client_remarks || "All good. Stored quietly.")}</p>
+              <p class="muted">${escapeHtml(skipped ? clean?.skip_reason || report.cleaner_remarks || "Skipped/cancelled visit. Not billable by default." : report.cleaner_remarks || report.client_remarks || "All good. Stored quietly.")}</p>
+              ${skipped ? `<div class="field-row"><span>Billing status</span><strong>Not billable by default</strong></div>` : ""}
               <div class="button-row" style="justify-content:space-between">
                 <span>${escapeHtml(report.completed_by)} - ${escapeHtml(report.completed_at)}</span>
                 ${button("Open report", `open-report:${report.id}`, "small")}
@@ -1204,6 +1265,8 @@
                   ${button("Skip / cancel", `open-skip:${clean.id}`)}
                   ${button("Assign/change team", `mock-layer:Assign team for ${clean.id}`)}
                   ${button("Edit schedule details", `mock-layer:Edit schedule for ${clean.id}`)}
+                  ${isSkippedOutcome(clean) && !isPastVisit(clean) ? button("Reinstate mock", `mock-layer:Reinstate ${clean.id}`) : ""}
+                  ${isSkippedOutcome(clean) && !isPastVisit(clean) ? button("Edit reason mock", `mock-layer:Edit skip reason for ${clean.id}`) : ""}
                   ${button("Open master checklist", `open-checklist:${clean.job_id}`)}
                   ${button("View billable details", `mock-layer:Billable details for ${clean.id}`)}
                   ${report?.review_status === "needs_review" ? button("Mark reviewed and billable", `confirm-reviewed:${report.id}`, "primary") : ""}
@@ -1230,13 +1293,16 @@
     const property = job ? jobProperty(job) : null;
     const template = clean ? findTemplate(clean.checklist_template_id) : null;
     const event = reportBillable(report);
-    const eventStatus = event ? statusLabels[event.status] || event.status : "No billable event";
+    const skipped = isSkippedReport(report);
+    const eventStatus = skipped && !event ? "Not billable" : event ? statusLabels[event.status] || event.status : "No billable event";
     const eventCopy = event?.status === "ready_to_bill"
       ? "Will be available for invoice creation later."
       : event?.status === "draft"
         ? "Draft billable event pending report review."
         : event?.status === "not_billable"
           ? "Marked not billable."
+          : skipped
+            ? "Skipped/cancelled visits are non-billable by default. No automatic cancellation fee has been applied."
           : "No chargeable event linked yet.";
     return `
       <div class="job-layer-backdrop">
@@ -1257,6 +1323,7 @@
                   <div class="request-note-block"><strong>Client</strong><span>${escapeHtml(displayClient(client))}</span></div>
                   <div class="request-note-block"><strong>Property</strong><span>${escapeHtml(displayProperty(property))}</span></div>
                   <div class="request-note-block"><strong>Job</strong><span>${escapeHtml(job?.display_name || "No job linked")}</span></div>
+                  <div class="request-note-block"><strong>Visit outcome</strong><span>${escapeHtml(reportOutcomeLabel(report))}</span></div>
                   <div class="request-note-block"><strong>Clean type</strong><span>${escapeHtml(cleanTypeLabel(clean?.clean_type))}</span></div>
                   <div class="request-note-block"><strong>Scheduled visit</strong><span>${escapeHtml(clean ? visitDateLabel(clean.date, clean.start_time) : "No scheduled visit")}</span></div>
                   <div class="request-note-block"><strong>Cleaner/team</strong><span>${escapeHtml(report.completed_by || clean?.assigned_staff || "No team")}</span></div>
@@ -1272,6 +1339,7 @@
                   <div class="field-row"><span>Client remarks</span><strong>${escapeHtml(report.client_remarks || "None")}</strong></div>
                   <div class="field-row"><span>Severity</span><strong>${escapeHtml(report.severity || "Note")}</strong></div>
                   <div class="field-row"><span>Review status</span><strong>${escapeHtml(statusLabels[report.review_status] || report.review_status || "No review status")}</strong></div>
+                  ${skipped ? `<div class="field-row"><span>Skip/cancel reason</span><strong>${escapeHtml(clean?.skip_reason || report.cleaner_remarks || "No reason captured")}</strong></div>` : ""}
                 </div>
               </article>
             </div>
@@ -1286,7 +1354,10 @@
               <article class="panel pad">
                 <h2>Actions</h2>
                 <div class="stack" style="margin-top:12px">
-                  ${report.review_status === "needs_review" ? `
+                  ${skipped ? `
+                    ${button("Add cancellation fee", `cancellation-fee:${report.id}`, "small")}
+                    ${button("Print/export later", `mock-layer:Print or export report ${report.id}`, "small")}
+                  ` : report.review_status === "needs_review" ? `
                     ${button("Mark reviewed / billable", `confirm-reviewed:${report.id}`, "primary")}
                     ${button("Mark not billable", `confirm-not-billable:${report.id}`)}
                     ${button("Revisit required mock", `mock-layer:Revisit required for ${report.id}`)}
@@ -1815,6 +1886,20 @@
         detail: event?.status === "ready_to_bill"
           ? "This ready billable event will be available for invoice creation later. Jobs does not issue invoices."
           : "Billable event editing and invoice grouping remain future Invoice/Reports scope."
+      };
+      refresh();
+      return true;
+    }
+    if (action.startsWith("cancellation-fee:")) {
+      const report = findReport(action.split(":")[1]);
+      const clean = findScheduled(report?.scheduled_job_id);
+      state.modal = {
+        type: "mock",
+        title: "Add cancellation fee later",
+        copy: clean
+          ? `${statusLabels[clean.status] || "Skipped"} visit on ${visitDateLabel(clean.date, clean.start_time)} is not billable by default.`
+          : "Skipped/cancelled visits are not billable by default.",
+        detail: "Cancellation fee rules are future scope. No automatic fee is applied in Jobs v0; future invoices would consume an approved cancellation-fee billable event if the business chooses to create one."
       };
       refresh();
       return true;

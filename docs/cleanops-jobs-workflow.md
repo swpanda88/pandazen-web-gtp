@@ -498,6 +498,21 @@ The job workspace should include:
 
 Do not put everything directly on the Jobs list.
 
+### 9.4 Scheduled Cleans vs Reports History
+
+The Generated Scheduled Cleans section in a Job workspace should stay operational. It should show:
+
+- planned upcoming visits
+- skipped/cancelled future exceptions
+- active visits needing attention
+- optionally the most recent completed visit for context
+
+It should not become a long historical dump of every completed visit.
+
+Recent Reports is the completed visit history summary inside the Job workspace. In v0 it can show the last 5 completed reports/cleans and a compact `View all reports later` placeholder if there is more history.
+
+The full Reports page later owns searchable, filterable, paginated report history.
+
 ## 10. Module Boundaries
 
 Jobs decides what work exists and under what rules.

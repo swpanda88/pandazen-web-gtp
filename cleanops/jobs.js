@@ -187,6 +187,26 @@
     return reports().filter((report) => report.job_id === jobId);
   }
 
+  function visibleScheduledForWorkspace(jobId) {
+    const all = jobScheduled(jobId).sort((a, b) => `${a.date} ${a.start_time}`.localeCompare(`${b.date} ${b.start_time}`));
+    const active = all.filter((clean) => clean.status !== "completed");
+    const latestCompleted = all
+      .filter((clean) => clean.status === "completed")
+      .sort((a, b) => `${b.date} ${b.start_time}`.localeCompare(`${a.date} ${a.start_time}`))[0];
+    return latestCompleted ? [...active, latestCompleted].sort((a, b) => `${a.date} ${a.start_time}`.localeCompare(`${b.date} ${b.start_time}`)) : active;
+  }
+
+  function hiddenCompletedCount(jobId) {
+    const completed = jobScheduled(jobId).filter((clean) => clean.status === "completed").length;
+    return Math.max(0, completed - 1);
+  }
+
+  function recentReportItems(jobId) {
+    return jobReports(jobId)
+      .sort((a, b) => String(b.completed_at || "").localeCompare(String(a.completed_at || "")))
+      .slice(0, 5);
+  }
+
   function jobBillables(jobId) {
     return billableEvents().filter((event) => event.source_job_id === jobId);
   }
@@ -777,7 +797,9 @@
   }
 
   function renderScheduledCleans(job) {
-    const rows = jobScheduled(job.id).map((clean) => {
+    const allCount = jobScheduled(job.id).length;
+    const hiddenCount = hiddenCompletedCount(job.id);
+    const rows = visibleScheduledForWorkspace(job.id).map((clean) => {
       const template = findTemplate(clean.checklist_template_id);
       const pricing = priceFor(job, clean.pricing_item_id);
       return `
@@ -798,41 +820,53 @@
         <div class="panel-head">
           <div>
             <h2>Generated Scheduled Cleans</h2>
-            <p class="muted">Visits use the Job Plan master checklist unless an occurrence has visit-specific overrides.</p>
+            <p class="muted">Upcoming and active scheduled occurrences. Recent completed work is summarised below in Recent Reports.</p>
           </div>
           <div class="button-row">
             ${button("Preview / generate visits", "open-generate-visits", "small primary")}
             ${button("Add one-off clean", "open-one-off-visit", "small")}
-            ${chip(`${rows.length}`, "info")}
+            ${chip(`${rows.length} shown`, "info")}
           </div>
         </div>
+        ${hiddenCount ? `<div class="panel-body" style="padding-bottom:0"><div class="request-note-block"><strong>Completed history</strong><span>${escapeHtml(`${hiddenCount} older completed visit${hiddenCount === 1 ? "" : "s"} hidden here. Older completed visits are shown in Recent Reports / Reports history later.`)}</span></div></div>` : ""}
         <div class="quote-table-scroll">
           <table class="jobs-scheduled-table">
             <thead><tr><th>Clean type</th><th>Date/time</th><th>Duration</th><th>Team</th><th>Checklist source</th><th>Pricing source</th><th>Status</th><th>Action</th></tr></thead>
-            <tbody>${rows.join("")}</tbody>
+            <tbody>${rows.length ? rows.join("") : `<tr><td colspan="8"><span class="muted">No upcoming or active scheduled cleans yet. Use Preview / generate visits to add mock scheduled work.</span></td></tr>`}</tbody>
           </table>
         </div>
+        <div class="job-register-footer"><span class="muted">Showing ${rows.length} active/context rows from ${allCount} scheduled occurrence${allCount === 1 ? "" : "s"}.</span><span class="muted">Full completed history belongs in Reports later.</span></div>
       </article>
     `;
   }
 
   function renderRecentReports(job) {
-    const items = jobReports(job.id).slice(-3).reverse();
+    const allReports = jobReports(job.id);
+    const items = recentReportItems(job.id);
+    const hidden = Math.max(0, allReports.length - items.length);
     return `
       <article class="panel">
-        <div class="panel-head"><h2>Recent Reports</h2>${chip(`${items.length}`, items.length ? "info" : "muted")}</div>
+        <div class="panel-head">
+          <div>
+            <h2>Recent Reports</h2>
+            <p class="muted">Completed visit history summary. Full searchable history belongs in Reports later.</p>
+          </div>
+          ${chip(`${items.length}`, items.length ? "info" : "muted")}
+        </div>
         <div class="panel-body stack">
           ${items.length ? items.map((report) => {
             const clean = findScheduled(report.scheduled_job_id);
             return `<article class="work-card">
               <div class="button-row" style="justify-content:space-between">
-                <strong>${escapeHtml(clean ? `${cleanTypeLabel(clean.clean_type)} - ${clean.date}` : report.id)}</strong>
+                <strong>${escapeHtml(clean ? `${cleanTypeLabel(clean.clean_type)} - ${visitDateLabel(clean.date, clean.start_time)}` : report.id)}</strong>
                 ${chip(report.severity, severityTones[report.severity] || "info")}
               </div>
               <p class="muted">${escapeHtml(report.cleaner_remarks || report.client_remarks || "All good. Stored quietly.")}</p>
               <span>${escapeHtml(report.completed_by)} - ${escapeHtml(report.completed_at)}</span>
             </article>`;
           }).join("") : `<div class="empty mini"><div class="empty-icon">R</div><div><h3>No reports yet</h3><p class="muted">Completed scheduled cleans will appear here.</p></div></div>`}
+          ${hidden ? `<div class="request-note-block"><strong>More reports</strong><span>${escapeHtml(`${hidden} older report${hidden === 1 ? "" : "s"} hidden in Jobs v0. View all reports later will open the full Reports history.`)}</span></div>` : ""}
+          ${allReports.length > 5 ? `<div class="button-row" style="justify-content:flex-start">${button("View all reports later", "mock-layer:View all Reports history", "small")}</div>` : ""}
         </div>
       </article>
     `;

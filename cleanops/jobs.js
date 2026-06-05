@@ -254,29 +254,63 @@
   }
 
   function parseDate(value) {
-    const parsed = new Date(`${value || isoDate(new Date())}T00:00:00`);
-    return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+    const [year, month, day] = String(value || isoDate(new Date())).split("-").map(Number);
+    if (!year || !month || !day) return new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate()));
+    return new Date(Date.UTC(year, month - 1, day));
   }
 
   function addDays(value, days) {
     const next = parseDate(value);
-    next.setDate(next.getDate() + days);
+    next.setUTCDate(next.getUTCDate() + days);
     return isoDate(next);
   }
 
   function addMonths(value, months) {
     const next = parseDate(value);
-    next.setMonth(next.getMonth() + months);
+    next.setUTCMonth(next.getUTCMonth() + months);
     return isoDate(next);
   }
 
   function dayNameFromDate(value) {
-    return parseDate(value).toLocaleDateString("en-GB", { weekday: "long" });
+    return parseDate(value).toLocaleDateString("en-GB", { weekday: "long", timeZone: "UTC" });
+  }
+
+  function shortDayName(value) {
+    return parseDate(value).toLocaleDateString("en-GB", { weekday: "short", timeZone: "UTC" });
+  }
+
+  function visitDateLabel(date, time = "") {
+    return `${date} - ${shortDayName(date)}${time ? ` - ${time}` : ""}`;
+  }
+
+  function alignDateToDay(value, dayName) {
+    const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const target = days.indexOf(dayName);
+    if (target < 0) return value;
+    const date = parseDate(value);
+    const current = date.getUTCDay();
+    const offset = (target - current + 7) % 7;
+    date.setUTCDate(date.getUTCDate() + offset);
+    return isoDate(date);
   }
 
   function frequencyDays(value) {
     const days = { weekly: 7, fortnightly: 14, "4-weekly": 28, monthly: 30, one_off: 0 };
     return days[value] ?? 7;
+  }
+
+  function frequencyForJob(job) {
+    return job?.recurrence?.toLowerCase().includes("fortnight")
+      ? "fortnightly"
+      : job?.recurrence?.toLowerCase().includes("4-week")
+        ? "4-weekly"
+        : job?.recurrence?.toLowerCase().includes("month")
+          ? "monthly"
+          : "weekly";
+  }
+
+  function nextDateForFrequency(value, frequency) {
+    return frequency === "monthly" ? addMonths(value, 1) : addDays(value, frequencyDays(frequency) || 7);
   }
 
   function latestScheduled(jobId) {
@@ -303,7 +337,7 @@
       mode,
       startDate: defaultStart,
       startTime: last?.start_time || "09:00",
-      frequency: mode === "one_off" || job.job_type === "one_off" ? "one_off" : job.recurrence?.toLowerCase().includes("fortnight") ? "fortnightly" : job.recurrence?.toLowerCase().includes("month") ? "monthly" : "weekly",
+      frequency: mode === "one_off" || job.job_type === "one_off" ? "one_off" : frequencyForJob(job),
       dayOfWeek: dayNameFromDate(defaultStart),
       duration: job.default_duration_minutes || 120,
       team: job.default_staff || "Unassigned",
@@ -363,7 +397,7 @@
           : 5;
     const endDate = wizard.window === "custom" ? wizard.customEndDate : addMonths(wizard.startDate, wizard.window === "next_3_months" ? 3 : 1);
     const visits = [];
-    let date = wizard.startDate;
+    let date = wizard.frequency === "one_off" ? wizard.startDate : alignDateToDay(wizard.startDate, wizard.dayOfWeek);
     for (let index = 0; index < limit; index += 1) {
       if (wizard.window === "custom" && date > endDate) break;
       visits.push({
@@ -382,7 +416,7 @@
         reason: ""
       });
       if (!stepDays) break;
-      date = addDays(date, stepDays);
+      date = wizard.frequency === "monthly" ? addMonths(date, 1) : addDays(date, stepDays);
     }
     return visits;
   }
@@ -425,11 +459,12 @@
 
   function suggestNextVisits(job, clean, months = 0) {
     const baseDate = latestScheduled(job.id)?.date || clean?.date || isoDate(new Date());
-    const startDate = addDays(baseDate, frequencyDays(job.recurrence?.toLowerCase().includes("fortnight") ? "fortnightly" : job.recurrence?.toLowerCase().includes("month") ? "monthly" : "weekly") || 7);
+    const frequency = frequencyForJob(job);
+    const startDate = nextDateForFrequency(baseDate, frequency);
     const wizard = {
       startDate,
       startTime: clean?.start_time || "09:00",
-      frequency: job.recurrence?.toLowerCase().includes("fortnight") ? "fortnightly" : job.recurrence?.toLowerCase().includes("month") ? "monthly" : "weekly",
+      frequency,
       dayOfWeek: dayNameFromDate(startDate),
       duration: job.default_duration_minutes || clean?.duration_minutes || 120,
       team: job.default_staff || clean?.assigned_staff || "Unassigned",
@@ -624,7 +659,7 @@
           <td>${escapeHtml(displayClient(client))}</td>
           <td>${escapeHtml(job.service_type)}<br><span class="muted">${escapeHtml(jobTypeLabel(job.job_type))}</span></td>
           <td>${escapeHtml(job.recurrence)}<br><span class="muted">${escapeHtml(minutesLabel(job.default_duration_minutes))}</span></td>
-          <td>${nextClean ? `${escapeHtml(nextClean.date)} ${escapeHtml(nextClean.start_time)}` : "No scheduled cleans"}<br><span class="muted">${escapeHtml(nextClean?.assigned_staff || "")}</span></td>
+          <td>${nextClean ? escapeHtml(visitDateLabel(nextClean.date, nextClean.start_time)) : "No scheduled cleans"}<br><span class="muted">${escapeHtml(nextClean?.assigned_staff || "")}</span></td>
           <td>${statusChip(job.status)} ${job.setup_complete ? chip("Setup complete", "success") : chip("Setup needed", "warning")}</td>
           <td>
             <div class="row-menu-wrap">
@@ -748,7 +783,7 @@
       return `
         <tr data-job-layer-open="scheduled:${escapeHtml(clean.id)}" tabindex="0" role="button">
           <td><strong>${escapeHtml(cleanTypeLabel(clean.clean_type))}</strong><br><span class="muted">${escapeHtml(clean.id)}</span></td>
-          <td>${escapeHtml(clean.date)}<br><span class="muted">${escapeHtml(clean.start_time)}</span></td>
+          <td>${escapeHtml(visitDateLabel(clean.date, clean.start_time))}</td>
           <td>${escapeHtml(minutesLabel(clean.duration_minutes))}</td>
           <td>${escapeHtml(clean.assigned_staff)}</td>
           <td>${escapeHtml(template?.name || "Master checklist to confirm")}<br><span class="muted">${escapeHtml(clean.visit_overrides ? "Visit overrides" : "Job Plan master checklist")}</span></td>
@@ -1051,7 +1086,7 @@
               <thead><tr><th>Date</th><th>Time</th><th>Clean type</th><th>Team</th><th>Checklist source</th><th>Pricing source</th><th>Flags</th><th>Skip</th><th>Reason</th></tr></thead>
               <tbody>${visits.map((visit) => `
                 <tr>
-                  <td>${escapeHtml(visit.date)}</td>
+                  <td>${escapeHtml(`${visit.date} - ${shortDayName(visit.date)}`)}</td>
                   <td>${escapeHtml(visit.start_time)}</td>
                   <td>${escapeHtml(cleanTypeLabel(visit.clean_type))}</td>
                   <td>${escapeHtml(visit.assigned_staff)}</td>
@@ -1095,7 +1130,7 @@
               <article class="panel pad">
                 <h2>${escapeHtml(cleanTypeLabel(clean.clean_type))}</h2>
                 <div class="job-plan-grid" style="margin-top:12px">
-                  <div class="request-note-block"><strong>Date/time</strong><span>${escapeHtml(clean.date)} ${escapeHtml(clean.start_time)}</span></div>
+                  <div class="request-note-block"><strong>Date/time</strong><span>${escapeHtml(visitDateLabel(clean.date, clean.start_time))}</span></div>
                   <div class="request-note-block"><strong>Duration</strong><span>${escapeHtml(minutesLabel(clean.duration_minutes))}</span></div>
                   <div class="request-note-block"><strong>Team</strong><span>${escapeHtml(clean.assigned_staff)}</span></div>
                   <div class="request-note-block"><strong>Status</strong><span>${statusChip(clean.status)}</span></div>
@@ -1265,7 +1300,7 @@
           <p class="muted" style="margin-top:8px">This mock prompt is based on the Job Plan recurrence and the latest scheduled clean date.</p>
           <div class="request-note-block" style="margin-top:14px">
             <strong>Suggested next visit</strong>
-            <span>${escapeHtml(suggested?.date || "No date")} at ${escapeHtml(suggested?.start_time || "No time")} - ${escapeHtml(suggested?.assigned_staff || "No team")} - ${escapeHtml(minutesLabel(suggested?.duration_minutes || 0))}</span>
+            <span>${escapeHtml(suggested ? visitDateLabel(suggested.date, suggested.start_time) : "No date")} - ${escapeHtml(suggested?.assigned_staff || "No team")} - ${escapeHtml(minutesLabel(suggested?.duration_minutes || 0))}</span>
           </div>
           <div class="button-row" style="margin-top:16px">
             ${button("Generate next visit", `generate-next-visit:${cleanId}`, "primary")}
@@ -1628,6 +1663,8 @@
         const visits = suggestNextVisits(job, clean, action.startsWith("generate-next-month:") ? 1 : 0);
         addGeneratedVisits(job, visits);
         state.modal = null;
+        state.layer = null;
+        state.layerId = null;
         state.visitWizard = null;
         toast(`${visits.length} suggested visit${visits.length === 1 ? "" : "s"} generated.`);
         refresh();

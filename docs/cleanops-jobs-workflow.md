@@ -276,7 +276,7 @@ A Billable Event is the chargeable work output created from a completed and appr
 
 ### Billable Event Status Examples
 
-- Ready to invoice
+- Ready to bill
 - Invoiced
 - Written off
 

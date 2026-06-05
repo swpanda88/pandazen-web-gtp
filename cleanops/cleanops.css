@@ -2112,6 +2112,213 @@ tr.status-risk td:first-child {
   margin-bottom: 9px;
 }
 
+.jobs-action-panel {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 13px;
+  margin-bottom: 18px;
+}
+
+.jobs-action-column {
+  min-height: 258px;
+}
+
+.jobs-action-list {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  max-height: 258px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.job-action-card {
+  width: 100%;
+  display: grid;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  padding: 12px;
+}
+
+.job-action-card:hover,
+.job-register-row:hover td,
+.jobs-scheduled-table tr:hover td {
+  background: #fbfbf8;
+}
+
+.jobs-register-panel {
+  margin-top: 4px;
+}
+
+.job-sort-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 780;
+  padding: 0;
+  cursor: pointer;
+}
+
+.job-sort-button span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 760;
+  text-transform: uppercase;
+}
+
+.job-register-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--line);
+  background: #fbfbf8;
+  padding: 10px 14px;
+}
+
+.job-register-row,
+.jobs-scheduled-table tr[data-job-layer-open] {
+  cursor: pointer;
+}
+
+.row-menu-wrap {
+  position: relative;
+  display: inline-flex;
+  justify-content: flex-end;
+}
+
+.job-row-menu {
+  top: calc(100% + 7px);
+}
+
+.job-workspace-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+  margin-bottom: 16px;
+}
+
+.job-plan-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.job-plan-grid .wide {
+  grid-column: 1 / -1;
+}
+
+.warning-block {
+  border-color: #e5d3aa;
+  background: #fff9ea;
+}
+
+.warning-block ul {
+  display: grid;
+  gap: 5px;
+  margin: 6px 0 0 18px;
+  padding: 0;
+}
+
+.billing-line {
+  display: grid;
+  gap: 5px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+  padding: 10px;
+}
+
+.job-layer-backdrop,
+.job-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 44;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  overflow: auto;
+  background: rgba(18, 50, 53, .18);
+  padding: 34px 18px;
+}
+
+.job-layer-shell,
+.job-editor-shell {
+  width: min(1280px, 100%);
+  max-height: calc(100vh - 68px);
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg);
+  box-shadow: 0 20px 70px rgba(18, 50, 53, .18);
+}
+
+.job-source-preview,
+.job-confirm-modal {
+  width: min(560px, 100%);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 20px 70px rgba(18, 50, 53, .18);
+}
+
+.job-source-preview {
+  margin-top: 44px;
+}
+
+.job-confirm-modal {
+  padding: 18px;
+  margin-top: 80px;
+}
+
+.job-confirm-modal.note-modal {
+  width: min(720px, 100%);
+}
+
+.job-layer-content,
+.job-editor-grid {
+  padding: 16px;
+}
+
+.job-editor-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 16px;
+  align-items: start;
+}
+
+.job-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.job-editor-actions {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid var(--line);
+  background: rgba(251, 250, 246, .96);
+  padding: 12px 16px;
+}
+
+.job-layer-content > .job-editor-actions {
+  grid-column: 1 / -1;
+}
+
 .settings-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2303,7 +2510,10 @@ tr.status-risk td:first-child {
   .map-shell,
   .quote-builder-grid,
   .quote-assist-grid,
-  .quote-totals-footer {
+  .quote-totals-footer,
+  .jobs-action-panel,
+  .job-plan-grid,
+  .job-editor-grid {
     grid-template-columns: 1fr;
   }
 
@@ -2399,6 +2609,15 @@ tr.status-risk td:first-child {
 
   .quote-modal-backdrop {
     padding: 18px 12px;
+  }
+
+  .job-layer-backdrop,
+  .job-modal-backdrop {
+    padding: 18px 12px;
+  }
+
+  .job-form-grid {
+    grid-template-columns: 1fr;
   }
 }
 

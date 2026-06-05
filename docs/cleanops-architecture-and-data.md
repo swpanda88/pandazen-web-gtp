@@ -18,6 +18,8 @@ For detailed layout, overlay, action-panel, modal, workspace, and button rules, 
   * **Clients / Properties v0**: Built and refined.
   * **Requests v0**: Features request list/detail, client enquiry vs internal quote prep separation, Request Review drawer, Quote Assist, missing-info checklist, and request → quote readiness flow.
   * **Quotes v0**: Built. Features a quote register, overlay editor, catalogue item selection, templates, and document status tracking.
+  * **Jobs v0**: Frontend/mock Jobs control centre with Job Plans, generated scheduled cleans, report review, and billable-event readiness.
+  * **Invoices v0**: Frontend/mock money control centre documented in `docs/cleanops-invoices-workflow.md`, consuming ready billable events into invoice drafts/documents and manual status tracking.
 * **Known Limitations / Not Implemented Yet**:
 
   * Everything is currently frontend/mock-only with no real persistence after reload.
@@ -48,8 +50,10 @@ For detailed layout, overlay, action-panel, modal, workspace, and button rules, 
   5. **Billable event / invoice foundation**:
 
      * Completed/approved scheduled jobs create billable events.
-     * Billable events later become invoice lines.
+     * Invoices creates invoice drafts/documents from selected billable events.
      * Invoice line items should derive from the same catalogue as quote items.
+     * Invoice creation is manual in v0; no automatic invoice generation, real email sending, stored PDFs, Stripe/payment links, or accounting export.
+     * VAT settings must support `VAT: Not applicable` where the business is not VAT registered.
   6. **Later backend/API/D1 wiring** only after frontend/data semantics are stable.
   7. **Later Settings/library**:
 
@@ -99,6 +103,10 @@ Normal recurring cleans should follow an all-good fast path: if the clean is com
 Jobs v0 should use only three action-panel groups: Needs setup, Needs review, and Ready to bill. Issues, complaints, no access, and urgent problems belong inside Needs review with severity chips rather than a separate Issues column.
 
 Invoices should be created from billable events produced by completed/approved work. Do not invoice directly from the parent Job Plan unless a later explicit contract/monthly billing model supports that behaviour.
+
+Invoices is the money control centre. Jobs creates billable events; Invoices consumes selected ready billable events, creates invoice drafts/documents, and tracks sent, paid, part-paid, overdue, and void status. Billing setup mainly belongs under Client and Service Address / Property; Job-level billing overrides are for exceptions.
+
+For not-VAT-registered businesses, invoice previews should show `VAT: Not applicable`, not `VAT: Â£0.00` or wording that implies a 0% VAT-rated sale.
 
 ---
 

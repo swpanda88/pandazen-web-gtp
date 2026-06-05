@@ -933,31 +933,37 @@ Optionally send selected client-facing completion summaries.
 
 ## 16. Invoices and Payments
 
+Active Invoices v0 workflow details live in `docs/cleanops-invoices-workflow.md`. Treat that document as the source of truth for the current frontend/mock Invoices build.
+
+Invoices is the money control centre: Jobs creates billable events from completed/reviewed work, and Invoices selects ready billable events to create invoice drafts/documents and track sent, paid, part-paid, overdue, and void status.
+
+Billing setup mainly belongs under Client and Service Address / Property. Job-level billing overrides should be used only for exceptions.
+
 ### Invoice Statuses
 
 - Draft.
+- Ready to send.
 - Sent.
-- Viewed.
 - Part paid.
 - Paid.
 - Overdue.
-- Written off.
-- Cancelled.
+- Void.
 
 ### Invoice Features
 
 - Create from selected billable events.
 - Group multiple billable events onto one invoice.
 - Link each billable event back to completed/approved work.
+- Create manual invoices without quote/job where needed.
 - Apply deposit.
 - Add VAT.
 - Add discounts.
 - Add expenses or charges.
-- Send by email.
-- Payment link.
 - Manual payment recording.
-- Receipts.
-- Automatic reminders.
+- Document preview.
+- Mock/manual mark sent, paid, part-paid, and void in v0.
+
+For v0, do not build real email sending, real payment links, real PDF file storage, bank reconciliation, accounting export, full credit notes, statements of account, or automatic reminders.
 
 Do not create invoices directly from the parent Job Plan without completed/approved work unless a later explicit contract/monthly billing model supports that behaviour.
 
@@ -975,7 +981,9 @@ If VAT registered, invoice templates must support:
 
 If not VAT registered:
 
-- VAT must not appear as a separate charge.
+- Invoice preview must show `VAT: Not applicable`.
+- Do not show `VAT: Â£0.00`.
+- Do not imply the sale is 0% VAT-rated.
 
 ### Payment Integrations
 

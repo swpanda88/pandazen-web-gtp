@@ -422,6 +422,7 @@
   }
 
   function renderInvoices() {
+    if (window.CleanOpsInvoices?.render) return window.CleanOpsInvoices.render();
     const rows = data.invoices.map((invoice) => `
       <tr>
         <td>${escapeHtml(invoice.number)}</td>

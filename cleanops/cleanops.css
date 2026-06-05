@@ -2154,6 +2154,41 @@ tr.status-risk td:first-child {
   margin-top: 4px;
 }
 
+.invoice-kpis {
+  margin-bottom: 18px;
+}
+
+.invoice-action-panel {
+  margin-bottom: 18px;
+}
+
+.invoices-register-panel {
+  margin-top: 4px;
+}
+
+.invoices-register-table tr[data-invoice-row] {
+  cursor: pointer;
+}
+
+.invoices-register-table tr[data-invoice-row]:hover td {
+  background: #fbfbf8;
+}
+
+.invoice-layer-shell {
+  max-width: 1180px;
+}
+
+.invoice-document-preview {
+  max-width: 820px;
+}
+
+.invoice-preview-totals {
+  display: grid;
+  gap: 8px;
+  max-width: 310px;
+  margin: 18px 0 18px auto;
+}
+
 .job-sort-button {
   display: inline-flex;
   align-items: center;

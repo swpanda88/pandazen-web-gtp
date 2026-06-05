@@ -396,6 +396,7 @@
   }
 
   function renderJobs() {
+    if (window.CleanOpsJobs?.render) return window.CleanOpsJobs.render();
     const lanes = data.jobLanes.map((lane) => `
       <section class="lane">
         <h2>${escapeHtml(lane.title)}</h2>

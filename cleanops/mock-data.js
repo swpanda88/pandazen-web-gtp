@@ -886,6 +886,245 @@ window.CLEANOPS_DATA = {
     }
   ],
 
+  jobsV0: {
+    jobPlans: [
+      {
+        id: "job-1001",
+        display_name: "24 Hill Road - initial + weekly domestic",
+        address_label: "24 Hill Road",
+        client_id: "client-john-smith",
+        property_id: "PROP-1007",
+        source_quote_id: "quote-2089",
+        source_request_id: "request-1044",
+        service_type: "Regular domestic clean",
+        job_type: "recurring",
+        status: "setup",
+        setup_complete: false,
+        missing_setup_items: ["Confirm regular cleaner", "Select regular checklist", "Review first 4 generated cleans"],
+        recurrence: "Weekly Fridays, 09:00",
+        default_duration_minutes: 120,
+        default_staff: "Flexible team",
+        checklist_template_ids: ["check-initial-domestic", "check-regular-domestic"],
+        pricing_items: [
+          { id: "price-1001-initial", label: "Initial clean", amount: 240, billing_type: "initial", catalogue_id: "cat-2" },
+          { id: "price-1001-regular", label: "Weekly domestic clean", amount: 90, billing_type: "recurring", catalogue_id: "cat-1" }
+        ],
+        products_equipment_notes: "PandaZen products, client vacuum, PandaZen mop.",
+        internal_notes: "Client prefers Friday mornings. Dog is friendly but excitable.",
+        setup_note: "Accepted quote includes both initial deep clean and regular weekly cleans."
+      },
+      {
+        id: "job-1002",
+        display_name: "Family home - weekly domestic clean",
+        address_label: "Family home",
+        client_id: "client-olivia-carter",
+        property_id: "PROP-2001",
+        source_quote_id: "quote-2087",
+        source_request_id: "request-1046",
+        service_type: "Regular domestic clean",
+        job_type: "recurring",
+        status: "active",
+        setup_complete: true,
+        missing_setup_items: [],
+        recurrence: "Weekly Fridays, 10:00",
+        default_duration_minutes: 120,
+        default_staff: "Marta",
+        checklist_template_ids: ["check-regular-domestic"],
+        pricing_items: [
+          { id: "price-1002-regular", label: "Weekly domestic clean", amount: 90, billing_type: "recurring", catalogue_id: "cat-1" },
+          { id: "price-1002-oven", label: "Oven clean add-on", amount: 45, billing_type: "extra", catalogue_id: "cat-6" }
+        ],
+        products_equipment_notes: "Eco products preferred. Client provides vacuum and mop.",
+        internal_notes: "Normal recurring job. No action needed when all-good reports complete.",
+        setup_note: "Standing weekly domestic plan."
+      },
+      {
+        id: "job-1003",
+        display_name: "Unit 4 - commercial monthly cleaning",
+        address_label: "Unit 4",
+        client_id: "client-abc-offices",
+        property_id: "PROP-3001",
+        source_quote_id: "quote-2088",
+        source_request_id: "request-1044",
+        service_type: "Commercial cleaning",
+        job_type: "commercial",
+        status: "setup",
+        setup_complete: false,
+        missing_setup_items: ["Confirm billing basis", "Select washroom checklist", "Confirm evening key-holder contact"],
+        recurrence: "Mon/Wed/Fri evenings",
+        default_duration_minutes: 150,
+        default_staff: "Team 1",
+        checklist_template_ids: ["check-commercial-office"],
+        pricing_items: [
+          { id: "price-1003-monthly", label: "Commercial cleaning contract", amount: 650, billing_type: "monthly", catalogue_id: "cat-5" },
+          { id: "price-1003-consumables", label: "Washroom consumables option", amount: 125, billing_type: "monthly", catalogue_id: "cat-11" }
+        ],
+        products_equipment_notes: "PandaZen provides products and equipment. Consumables reviewed monthly.",
+        internal_notes: "Building manager confirms evening access. Billing basis still needs final review.",
+        setup_note: "Commercial monthly job shell from accepted quote."
+      },
+      {
+        id: "job-1004",
+        display_name: "2-bed flat - end-of-tenancy clean",
+        address_label: "2-bed flat",
+        client_id: "client-harris",
+        property_id: "PROP-4001",
+        source_quote_id: "quote-2086",
+        source_request_id: "request-1043",
+        service_type: "End of tenancy clean",
+        job_type: "one_off",
+        status: "setup",
+        setup_complete: false,
+        missing_setup_items: ["Confirm access time", "Assign team", "Select end-of-tenancy checklist"],
+        recurrence: "One-off",
+        default_duration_minutes: 300,
+        default_staff: "Unassigned",
+        checklist_template_ids: ["check-end-tenancy"],
+        pricing_items: [
+          { id: "price-1004-oneoff", label: "End-of-tenancy clean", amount: 260, billing_type: "one_off", catalogue_id: "cat-4" }
+        ],
+        products_equipment_notes: "Products and equipment to confirm.",
+        internal_notes: "Scope was incomplete when quote expired. Treat as mock one-off setup case.",
+        setup_note: "One-off job shell needing practical setup."
+      },
+      {
+        id: "job-1005",
+        display_name: "Unit 4 - monthly deep clean",
+        address_label: "Unit 4",
+        client_id: "client-abc-offices",
+        property_id: "PROP-3001",
+        source_quote_id: "quote-2088",
+        source_request_id: "request-1044",
+        service_type: "Monthly deep clean",
+        job_type: "recurring",
+        status: "active",
+        setup_complete: true,
+        missing_setup_items: [],
+        recurrence: "Monthly, first Friday",
+        default_duration_minutes: 240,
+        default_staff: "Team 1",
+        checklist_template_ids: ["check-initial-domestic", "check-commercial-office"],
+        pricing_items: [
+          { id: "price-1005-monthly", label: "Monthly deep clean", amount: 220, billing_type: "monthly", catalogue_id: "cat-3" }
+        ],
+        products_equipment_notes: "Deep clean kit and machine mop required.",
+        internal_notes: "Separate job for same client/property as the commercial contract.",
+        setup_note: "Separate recurring service package for deeper monthly work."
+      },
+      {
+        id: "job-1006",
+        display_name: "Family home - oven extra",
+        address_label: "Family home",
+        client_id: "client-olivia-carter",
+        property_id: "PROP-2001",
+        source_quote_id: "quote-2087",
+        source_request_id: "request-1046",
+        service_type: "Oven clean extra",
+        job_type: "one_off",
+        status: "active",
+        setup_complete: true,
+        missing_setup_items: [],
+        recurrence: "One-off extra",
+        default_duration_minutes: 60,
+        default_staff: "Marta",
+        checklist_template_ids: ["check-extra-oven"],
+        pricing_items: [
+          { id: "price-1006-extra", label: "Oven clean add-on", amount: 45, billing_type: "extra", catalogue_id: "cat-6" }
+        ],
+        products_equipment_notes: "Oven kit required. Client will clear oven trays.",
+        internal_notes: "Separate one-off extra for same client/property as regular job.",
+        setup_note: "One-off add-on job."
+      },
+      {
+        id: "job-1007",
+        display_name: "Garden Studio - fortnightly regular clean",
+        address_label: "Garden Studio",
+        client_id: "client-john-smith",
+        property_id: "PROP-1011",
+        source_quote_id: "quote-2089",
+        source_request_id: "request-1044",
+        service_type: "Regular domestic clean",
+        job_type: "recurring",
+        status: "active",
+        setup_complete: true,
+        missing_setup_items: [],
+        recurrence: "Fortnightly Wednesdays, 14:00",
+        default_duration_minutes: 90,
+        default_staff: "Daniel",
+        checklist_template_ids: ["check-regular-domestic"],
+        pricing_items: [
+          { id: "price-1007-regular", label: "Fortnightly studio clean", amount: 65, billing_type: "recurring", catalogue_id: "cat-1" }
+        ],
+        products_equipment_notes: "Client provides vacuum. PandaZen brings products and mop.",
+        internal_notes: "Normal active recurring job. It should stay out of the action panel unless an exception occurs.",
+        setup_note: "Standing fortnightly plan, currently no admin action needed."
+      },
+      {
+        id: "job-1008",
+        display_name: "2-bed flat - one-off sparkle clean",
+        address_label: "2-bed flat",
+        client_id: "client-harris",
+        property_id: "PROP-4001",
+        source_quote_id: "quote-2086",
+        source_request_id: "request-1043",
+        service_type: "One-off deep clean",
+        job_type: "one_off",
+        status: "completed",
+        setup_complete: true,
+        missing_setup_items: [],
+        recurrence: "One-off completed",
+        default_duration_minutes: 180,
+        default_staff: "Amy + Marta",
+        checklist_template_ids: ["check-initial-domestic"],
+        pricing_items: [
+          { id: "price-1008-oneoff", label: "One-off sparkle clean", amount: 180, billing_type: "one_off", catalogue_id: "cat-3" }
+        ],
+        products_equipment_notes: "PandaZen products and equipment supplied.",
+        internal_notes: "Completed one-off example already ready to bill.",
+        setup_note: "Completed one-off job used for billing readiness."
+      }
+    ],
+    scheduledJobs: [
+      { id: "clean-1001-a", job_id: "job-1001", clean_type: "initial", date: "2026-06-12", start_time: "09:00", duration_minutes: 360, assigned_staff: "Marta + Daniel", status: "planned", checklist_template_id: "check-initial-domestic", pricing_item_id: "price-1001-initial", skip_reason: "", report_id: "", billable_event_id: "" },
+      { id: "clean-1001-b", job_id: "job-1001", clean_type: "regular", date: "2026-06-19", start_time: "09:00", duration_minutes: 120, assigned_staff: "Flexible team", status: "planned", checklist_template_id: "check-regular-domestic", pricing_item_id: "price-1001-regular", skip_reason: "", report_id: "", billable_event_id: "" },
+      { id: "clean-1001-c", job_id: "job-1001", clean_type: "regular", date: "2026-06-26", start_time: "09:00", duration_minutes: 120, assigned_staff: "Flexible team", status: "planned", checklist_template_id: "check-regular-domestic", pricing_item_id: "price-1001-regular", skip_reason: "", report_id: "", billable_event_id: "" },
+      { id: "clean-1002-a", job_id: "job-1002", clean_type: "regular", date: "2026-06-05", start_time: "10:00", duration_minutes: 120, assigned_staff: "Marta", status: "completed", checklist_template_id: "check-regular-domestic", pricing_item_id: "price-1002-regular", skip_reason: "", report_id: "report-1002-a", billable_event_id: "bill-1002-a" },
+      { id: "clean-1002-b", job_id: "job-1002", clean_type: "regular", date: "2026-06-12", start_time: "10:00", duration_minutes: 120, assigned_staff: "Marta", status: "planned", checklist_template_id: "check-regular-domestic", pricing_item_id: "price-1002-regular", skip_reason: "", report_id: "", billable_event_id: "" },
+      { id: "clean-1002-c", job_id: "job-1002", clean_type: "extra", date: "2026-06-12", start_time: "12:15", duration_minutes: 60, assigned_staff: "Marta", status: "needs_review", checklist_template_id: "check-extra-oven", pricing_item_id: "price-1002-oven", skip_reason: "", report_id: "report-1002-c", billable_event_id: "bill-1002-c" },
+      { id: "clean-1003-a", job_id: "job-1003", clean_type: "regular", date: "2026-06-10", start_time: "18:00", duration_minutes: 150, assigned_staff: "Team 1", status: "needs_review", checklist_template_id: "check-commercial-office", pricing_item_id: "price-1003-monthly", skip_reason: "", report_id: "report-1003-a", billable_event_id: "bill-1003-a" },
+      { id: "clean-1004-a", job_id: "job-1004", clean_type: "one_off", date: "2026-06-16", start_time: "09:30", duration_minutes: 300, assigned_staff: "Unassigned", status: "planned", checklist_template_id: "check-end-tenancy", pricing_item_id: "price-1004-oneoff", skip_reason: "", report_id: "", billable_event_id: "" },
+      { id: "clean-1005-a", job_id: "job-1005", clean_type: "regular", date: "2026-06-06", start_time: "17:30", duration_minutes: 240, assigned_staff: "Team 1", status: "completed", checklist_template_id: "check-commercial-office", pricing_item_id: "price-1005-monthly", skip_reason: "", report_id: "report-1005-a", billable_event_id: "bill-1005-a" },
+      { id: "clean-1005-b", job_id: "job-1005", clean_type: "regular", date: "2026-07-03", start_time: "17:30", duration_minutes: 240, assigned_staff: "Team 1", status: "planned", checklist_template_id: "check-commercial-office", pricing_item_id: "price-1005-monthly", skip_reason: "", report_id: "", billable_event_id: "" },
+      { id: "clean-1006-a", job_id: "job-1006", clean_type: "extra", date: "2026-06-09", start_time: "12:00", duration_minutes: 60, assigned_staff: "Marta", status: "needs_review", checklist_template_id: "check-extra-oven", pricing_item_id: "price-1006-extra", skip_reason: "", report_id: "report-1006-a", billable_event_id: "bill-1006-a" },
+      { id: "clean-1007-a", job_id: "job-1007", clean_type: "regular", date: "2026-06-17", start_time: "14:00", duration_minutes: 90, assigned_staff: "Daniel", status: "planned", checklist_template_id: "check-regular-domestic", pricing_item_id: "price-1007-regular", skip_reason: "", report_id: "", billable_event_id: "" },
+      { id: "clean-1007-b", job_id: "job-1007", clean_type: "regular", date: "2026-07-01", start_time: "14:00", duration_minutes: 90, assigned_staff: "Daniel", status: "planned", checklist_template_id: "check-regular-domestic", pricing_item_id: "price-1007-regular", skip_reason: "", report_id: "", billable_event_id: "" },
+      { id: "clean-1008-a", job_id: "job-1008", clean_type: "one_off", date: "2026-06-04", start_time: "09:00", duration_minutes: 180, assigned_staff: "Amy + Marta", status: "completed", checklist_template_id: "check-initial-domestic", pricing_item_id: "price-1008-oneoff", skip_reason: "", report_id: "report-1008-a", billable_event_id: "bill-1008-a" }
+    ],
+    checklistTemplates: [
+      { id: "check-initial-domestic", name: "Initial/deep clean", clean_type: "initial", sections: 3, tasks: 13, summary: "Reset clean covering kitchen, bathrooms, floors, dusting, and first-visit detail." },
+      { id: "check-regular-domestic", name: "Regular domestic clean", clean_type: "regular", sections: 4, tasks: 13, summary: "Recurring maintenance clean for agreed priority areas." },
+      { id: "check-commercial-office", name: "Commercial office clean", clean_type: "regular", sections: 4, tasks: 16, summary: "Washrooms, common areas, bins, floors, and touchpoints." },
+      { id: "check-end-tenancy", name: "End-of-tenancy clean", clean_type: "one_off", sections: 5, tasks: 22, summary: "Move-out clean structure for kitchens, bathrooms, rooms, floors, and final checks." },
+      { id: "check-extra-oven", name: "Oven extra", clean_type: "extra", sections: 2, tasks: 6, summary: "Oven add-on checklist and completion notes." }
+    ],
+    jobReports: [
+      { id: "report-1002-a", scheduled_job_id: "clean-1002-a", job_id: "job-1002", completed_at: "2026-06-05 12:05", completed_by: "Marta", checklist_status: "complete", cleaner_remarks: "", client_remarks: "", severity: "Note", review_status: "reviewed" },
+      { id: "report-1002-c", scheduled_job_id: "clean-1002-c", job_id: "job-1002", completed_at: "2026-06-12 13:05", completed_by: "Marta", checklist_status: "partial", cleaner_remarks: "Oven needs extra degreaser time. Recommend billing add-on after review.", client_remarks: "", severity: "Extra time", review_status: "needs_review" },
+      { id: "report-1003-a", scheduled_job_id: "clean-1003-a", job_id: "job-1003", completed_at: "2026-06-10 20:35", completed_by: "Team 1", checklist_status: "complete", cleaner_remarks: "Building manager said washroom stock is low.", client_remarks: "", severity: "Note", review_status: "needs_review" },
+      { id: "report-1005-a", scheduled_job_id: "clean-1005-a", job_id: "job-1005", completed_at: "2026-06-06 21:25", completed_by: "Team 1", checklist_status: "complete", cleaner_remarks: "", client_remarks: "", severity: "Note", review_status: "reviewed" },
+      { id: "report-1006-a", scheduled_job_id: "clean-1006-a", job_id: "job-1006", completed_at: "2026-06-09 13:15", completed_by: "Marta", checklist_status: "issue", cleaner_remarks: "Client reported oven bulb cover loose before clean.", client_remarks: "Please call before invoice.", severity: "Complaint", review_status: "needs_review" },
+      { id: "report-1008-a", scheduled_job_id: "clean-1008-a", job_id: "job-1008", completed_at: "2026-06-04 12:20", completed_by: "Amy + Marta", checklist_status: "complete", cleaner_remarks: "", client_remarks: "", severity: "Note", review_status: "reviewed" }
+    ],
+    billableEvents: [
+      { id: "bill-1002-a", source_job_id: "job-1002", source_scheduled_job_id: "clean-1002-a", source_report_id: "report-1002-a", pricing_item_id: "price-1002-regular", description: "Regular clean - Family home", amount: 90, status: "ready_to_bill", billing_type: "recurring" },
+      { id: "bill-1002-c", source_job_id: "job-1002", source_scheduled_job_id: "clean-1002-c", source_report_id: "report-1002-c", pricing_item_id: "price-1002-oven", description: "Oven extra - Family home", amount: 45, status: "draft", billing_type: "extra" },
+      { id: "bill-1003-a", source_job_id: "job-1003", source_scheduled_job_id: "clean-1003-a", source_report_id: "report-1003-a", pricing_item_id: "price-1003-consumables", description: "Washroom consumables review", amount: 125, status: "draft", billing_type: "monthly" },
+      { id: "bill-1005-a", source_job_id: "job-1005", source_scheduled_job_id: "clean-1005-a", source_report_id: "report-1005-a", pricing_item_id: "price-1005-monthly", description: "Monthly deep clean - Unit 4", amount: 220, status: "ready_to_bill", billing_type: "monthly" },
+      { id: "bill-1006-a", source_job_id: "job-1006", source_scheduled_job_id: "clean-1006-a", source_report_id: "report-1006-a", pricing_item_id: "price-1006-extra", description: "Oven extra - review needed", amount: 45, status: "draft", billing_type: "extra" },
+      { id: "bill-1008-a", source_job_id: "job-1008", source_scheduled_job_id: "clean-1008-a", source_report_id: "report-1008-a", pricing_item_id: "price-1008-oneoff", description: "One-off sparkle clean - 2-bed flat", amount: 180, status: "ready_to_bill", billing_type: "one_off" }
+    ]
+  },
+
   scheduleDays: ["Mon", "Tue", "Wed", "Thu", "Fri"],
   scheduleRows: [
     {

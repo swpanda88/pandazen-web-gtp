@@ -6,7 +6,8 @@
     layer: null,
     layerId: null,
     modal: null,
-    rowMenuId: null
+    rowMenuId: null,
+    visitWizard: null
   };
 
   const serviceTypeLabels = {
@@ -246,6 +247,203 @@
 
   function priceFor(job, pricingItemId) {
     return job.pricing_items?.find((item) => item.id === pricingItemId) || null;
+  }
+
+  function isoDate(date) {
+    return date.toISOString().slice(0, 10);
+  }
+
+  function parseDate(value) {
+    const parsed = new Date(`${value || isoDate(new Date())}T00:00:00`);
+    return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+  }
+
+  function addDays(value, days) {
+    const next = parseDate(value);
+    next.setDate(next.getDate() + days);
+    return isoDate(next);
+  }
+
+  function addMonths(value, months) {
+    const next = parseDate(value);
+    next.setMonth(next.getMonth() + months);
+    return isoDate(next);
+  }
+
+  function dayNameFromDate(value) {
+    return parseDate(value).toLocaleDateString("en-GB", { weekday: "long" });
+  }
+
+  function frequencyDays(value) {
+    const days = { weekly: 7, fortnightly: 14, "4-weekly": 28, monthly: 30, one_off: 0 };
+    return days[value] ?? 7;
+  }
+
+  function latestScheduled(jobId) {
+    return jobScheduled(jobId).sort((a, b) => `${b.date} ${b.start_time}`.localeCompare(`${a.date} ${a.start_time}`))[0] || null;
+  }
+
+  function defaultTemplateFor(job, cleanType = "regular") {
+    const preferred = job.checklist_template_ids?.map(findTemplate).find((template) => template?.clean_type === cleanType);
+    return preferred || job.checklist_template_ids?.map(findTemplate).filter(Boolean)[0] || null;
+  }
+
+  function defaultPricingFor(job, cleanType = "regular") {
+    return job.pricing_items?.find((item) => item.billing_type === "recurring" || item.billing_type === cleanType) || job.pricing_items?.[0] || null;
+  }
+
+  function initVisitWizard(job, mode = "recurring") {
+    const last = latestScheduled(job.id);
+    const defaultStart = last ? addDays(last.date, job.job_type === "recurring" ? 7 : 1) : isoDate(new Date());
+    const cleanType = mode === "one_off" || job.job_type === "one_off" ? "one_off" : "regular";
+    const template = defaultTemplateFor(job, cleanType);
+    const pricing = defaultPricingFor(job, cleanType);
+    state.visitWizard = {
+      step: 1,
+      mode,
+      startDate: defaultStart,
+      startTime: last?.start_time || "09:00",
+      frequency: mode === "one_off" || job.job_type === "one_off" ? "one_off" : job.recurrence?.toLowerCase().includes("fortnight") ? "fortnightly" : job.recurrence?.toLowerCase().includes("month") ? "monthly" : "weekly",
+      dayOfWeek: dayNameFromDate(defaultStart),
+      duration: job.default_duration_minutes || 120,
+      team: job.default_staff || "Unassigned",
+      window: mode === "one_off" ? "one_off" : "next_1_month",
+      customEndDate: addMonths(defaultStart, 1),
+      attachChecklist: true,
+      usePricing: true,
+      checklistTemplateId: template?.id || "",
+      pricingItemId: pricing?.id || "",
+      preview: []
+    };
+    return state.visitWizard;
+  }
+
+  function wizardFromDom() {
+    const current = state.visitWizard || {};
+    const value = (name, fallback = "") => document.querySelector(`[data-visit-wizard="${name}"]`)?.value || current[name] || fallback;
+    const checked = (name) => Boolean(document.querySelector(`[data-visit-wizard="${name}"]`)?.checked);
+    state.visitWizard = {
+      ...current,
+      startDate: value("startDate", isoDate(new Date())),
+      startTime: value("startTime", "09:00"),
+      frequency: value("frequency", "weekly"),
+      dayOfWeek: value("dayOfWeek", "Friday"),
+      duration: Number(value("duration", "120")) || 120,
+      team: value("team", "Unassigned"),
+      window: value("window", "next_1_month"),
+      customEndDate: value("customEndDate", addMonths(value("startDate", isoDate(new Date())), 1)),
+      attachChecklist: checked("attachChecklist"),
+      usePricing: checked("usePricing")
+    };
+    return state.visitWizard;
+  }
+
+  function mockFlagsForVisit(job, date, index) {
+    const flags = [];
+    if (date.endsWith("-12")) flags.push("Already booked");
+    if (date.endsWith("-25") || date.endsWith("-26")) flags.push("Bank holiday");
+    if (job.default_staff === "Unassigned" || index === 2) flags.push("Team unavailable");
+    if ((state.visitWizard?.startTime || "").startsWith("18")) flags.push("Outside normal hours");
+    if (index === 3) flags.push("Client holiday note");
+    return flags;
+  }
+
+  function buildVisitPreview(job) {
+    const wizard = state.visitWizard || initVisitWizard(job);
+    const cleanType = wizard.frequency === "one_off" ? "one_off" : "regular";
+    const template = wizard.attachChecklist ? findTemplate(wizard.checklistTemplateId) || defaultTemplateFor(job, cleanType) : null;
+    const pricing = wizard.usePricing ? priceFor(job, wizard.pricingItemId) || defaultPricingFor(job, cleanType) : null;
+    const stepDays = frequencyDays(wizard.frequency);
+    const limit = wizard.frequency === "one_off"
+      ? 1
+      : wizard.window === "next_3_months"
+        ? 12
+        : wizard.window === "custom"
+          ? 16
+          : 5;
+    const endDate = wizard.window === "custom" ? wizard.customEndDate : addMonths(wizard.startDate, wizard.window === "next_3_months" ? 3 : 1);
+    const visits = [];
+    let date = wizard.startDate;
+    for (let index = 0; index < limit; index += 1) {
+      if (wizard.window === "custom" && date > endDate) break;
+      visits.push({
+        index,
+        date,
+        start_time: wizard.startTime,
+        clean_type: cleanType,
+        assigned_staff: wizard.team,
+        duration_minutes: wizard.duration,
+        checklist_template_id: template?.id || "",
+        checklist_label: template?.name || "No checklist attached",
+        pricing_item_id: pricing?.id || "",
+        pricing_label: pricing?.label || "No pricing item",
+        flags: mockFlagsForVisit(job, date, index),
+        skip: false,
+        reason: ""
+      });
+      if (!stepDays) break;
+      date = addDays(date, stepDays);
+    }
+    return visits;
+  }
+
+  function readGeneratedVisitDecisions() {
+    const wizard = state.visitWizard;
+    if (!wizard?.preview) return [];
+    return wizard.preview.map((visit) => {
+      const skip = Boolean(document.querySelector(`[data-generated-skip="${visit.index}"]`)?.checked);
+      const reason = document.querySelector(`[data-generated-reason="${visit.index}"]`)?.value || "";
+      return { ...visit, skip, reason };
+    });
+  }
+
+  function addGeneratedVisits(job, visits) {
+    const created = [];
+    visits.forEach((visit) => {
+      const record = {
+        id: `clean-${job.id}-${Date.now()}-${visit.index}`,
+        job_id: job.id,
+        clean_type: visit.clean_type,
+        date: visit.date,
+        start_time: visit.start_time,
+        duration_minutes: visit.duration_minutes,
+        assigned_staff: visit.assigned_staff,
+        status: visit.skip ? "skipped" : "planned",
+        checklist_template_id: visit.checklist_template_id,
+        checklist_source: visit.checklist_template_id ? "job_plan_master" : "none",
+        visit_overrides: visit.skip ? `Skipped in generation preview: ${visit.reason || "No reason"}` : "",
+        pricing_item_id: visit.pricing_item_id,
+        skip_reason: visit.skip ? visit.reason || "Skipped in generation preview" : "",
+        report_id: "",
+        billable_event_id: ""
+      };
+      scheduledJobs().push(record);
+      created.push(record);
+    });
+    return created;
+  }
+
+  function suggestNextVisits(job, clean, months = 0) {
+    const baseDate = latestScheduled(job.id)?.date || clean?.date || isoDate(new Date());
+    const startDate = addDays(baseDate, frequencyDays(job.recurrence?.toLowerCase().includes("fortnight") ? "fortnightly" : job.recurrence?.toLowerCase().includes("month") ? "monthly" : "weekly") || 7);
+    const wizard = {
+      startDate,
+      startTime: clean?.start_time || "09:00",
+      frequency: job.recurrence?.toLowerCase().includes("fortnight") ? "fortnightly" : job.recurrence?.toLowerCase().includes("month") ? "monthly" : "weekly",
+      dayOfWeek: dayNameFromDate(startDate),
+      duration: job.default_duration_minutes || clean?.duration_minutes || 120,
+      team: job.default_staff || clean?.assigned_staff || "Unassigned",
+      window: months ? "next_1_month" : "one_off",
+      customEndDate: addMonths(startDate, months || 1),
+      attachChecklist: true,
+      usePricing: true,
+      checklistTemplateId: defaultTemplateFor(job, "regular")?.id || "",
+      pricingItemId: defaultPricingFor(job, "regular")?.id || "",
+      preview: []
+    };
+    state.visitWizard = wizard;
+    const preview = buildVisitPreview(job);
+    return months ? preview : preview.slice(0, 1);
   }
 
   function createBillableFromScheduled(clean, status = "ready_to_bill") {
@@ -553,7 +751,7 @@
           <td>${escapeHtml(clean.date)}<br><span class="muted">${escapeHtml(clean.start_time)}</span></td>
           <td>${escapeHtml(minutesLabel(clean.duration_minutes))}</td>
           <td>${escapeHtml(clean.assigned_staff)}</td>
-          <td>${escapeHtml(template?.name || "Checklist to confirm")}</td>
+          <td>${escapeHtml(template?.name || "Master checklist to confirm")}<br><span class="muted">${escapeHtml(clean.visit_overrides ? "Visit overrides" : "Job Plan master checklist")}</span></td>
           <td>${escapeHtml(pricing?.label || "Pricing to confirm")}<br><span class="muted">${escapeHtml(money(pricing?.amount || 0))}</span></td>
           <td>${statusChip(clean.status)}</td>
           <td>${button("Open", `open-scheduled:${clean.id}`, "small")}</td>
@@ -562,10 +760,20 @@
     });
     return `
       <article class="panel">
-        <div class="panel-head"><h2>Generated Scheduled Cleans</h2>${chip(`${rows.length}`, "info")}</div>
+        <div class="panel-head">
+          <div>
+            <h2>Generated Scheduled Cleans</h2>
+            <p class="muted">Visits use the Job Plan master checklist unless an occurrence has visit-specific overrides.</p>
+          </div>
+          <div class="button-row">
+            ${button("Preview / generate visits", "open-generate-visits", "small primary")}
+            ${button("Add one-off clean", "open-one-off-visit", "small")}
+            ${chip(`${rows.length}`, "info")}
+          </div>
+        </div>
         <div class="quote-table-scroll">
           <table class="jobs-scheduled-table">
-            <thead><tr><th>Clean type</th><th>Date/time</th><th>Duration</th><th>Team</th><th>Checklist</th><th>Pricing source</th><th>Status</th><th>Action</th></tr></thead>
+            <thead><tr><th>Clean type</th><th>Date/time</th><th>Duration</th><th>Team</th><th>Checklist source</th><th>Pricing source</th><th>Status</th><th>Action</th></tr></thead>
             <tbody>${rows.join("")}</tbody>
           </table>
         </div>
@@ -734,7 +942,135 @@
     if (state.layer === "scheduled") return renderScheduledLayer(findScheduled(state.layerId));
     if (state.layer === "checklist") return renderChecklistLayer(findJob(state.layerId));
     if (state.layer === "source") return renderSourcePreview(state.layerId);
+    if (state.layer === "generate") return renderVisitWizard(findJob(state.layerId));
     return "";
+  }
+
+  function option(value, label, selected) {
+    return `<option value="${escapeHtml(value)}"${value === selected ? " selected" : ""}>${escapeHtml(label)}</option>`;
+  }
+
+  function renderVisitWizard(job) {
+    if (!job) return "";
+    const wizard = state.visitWizard || initVisitWizard(job);
+    return `
+      <div class="job-layer-backdrop">
+        <article class="job-layer-shell" role="dialog" aria-modal="true">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Visit generation wizard</p>
+              <h2>${escapeHtml(job.address_label)}</h2>
+              <p class="muted" style="margin-top:6px">${escapeHtml(wizard.step === 2 ? "Step 2 of 2 - Preview generated visits" : "Step 1 of 2 - Generation setup")}</p>
+            </div>
+            ${button("Cancel", "close-layer")}
+          </div>
+          ${wizard.step === 2 ? renderVisitWizardPreview(job, wizard) : renderVisitWizardSetup(job, wizard)}
+        </article>
+      </div>
+    `;
+  }
+
+  function renderVisitWizardSetup(job, wizard) {
+    const templatesForJob = job.checklist_template_ids?.map(findTemplate).filter(Boolean) || [];
+    return `
+      <section class="grid-detail job-layer-content">
+        <div class="stack">
+          <article class="panel pad">
+            <h2>Generation setup</h2>
+            <div class="job-form-grid">
+              <label class="client-field"><span>Start date</span><input type="date" data-visit-wizard="startDate" value="${escapeHtml(wizard.startDate)}"></label>
+              <label class="client-field"><span>Start time</span><input type="time" data-visit-wizard="startTime" value="${escapeHtml(wizard.startTime)}"></label>
+              <label class="client-field"><span>Frequency</span><select data-visit-wizard="frequency">
+                ${option("weekly", "Weekly", wizard.frequency)}
+                ${option("fortnightly", "Fortnightly", wizard.frequency)}
+                ${option("4-weekly", "4-weekly", wizard.frequency)}
+                ${option("monthly", "Monthly", wizard.frequency)}
+                ${option("one_off", "One-off", wizard.frequency)}
+              </select></label>
+              <label class="client-field"><span>Day of week</span><select data-visit-wizard="dayOfWeek">
+                ${["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((day) => option(day, day, wizard.dayOfWeek)).join("")}
+              </select></label>
+              <label class="client-field"><span>Duration</span><input type="number" min="15" step="15" data-visit-wizard="duration" value="${escapeHtml(wizard.duration)}"></label>
+              <label class="client-field"><span>Team / cleaner</span><select data-visit-wizard="team">
+                ${["Flexible team", "Marta", "Daniel", "Amy + Marta", "Team 1", "Unassigned"].map((team) => option(team, team, wizard.team)).join("")}
+              </select></label>
+              <label class="client-field"><span>Generate window</span><select data-visit-wizard="window">
+                ${option("next_1_month", "Next 1 month", wizard.window)}
+                ${option("next_3_months", "Next 3 months", wizard.window)}
+                ${option("custom", "Custom end date", wizard.window)}
+                ${option("one_off", "One visit only", wizard.window)}
+              </select></label>
+              <label class="client-field"><span>Custom end date</span><input type="date" data-visit-wizard="customEndDate" value="${escapeHtml(wizard.customEndDate)}"></label>
+              <label class="client-field"><span>Master checklist</span><select data-visit-wizard="checklistTemplateId">
+                ${(templatesForJob.length ? templatesForJob : templates()).map((template) => option(template.id, template.name, wizard.checklistTemplateId)).join("")}
+              </select></label>
+              <label class="client-field"><span>Pricing item</span><select data-visit-wizard="pricingItemId">
+                ${job.pricing_items?.map((item) => option(item.id, `${item.label} - ${money(item.amount)}`, wizard.pricingItemId)).join("") || option("", "No pricing item", wizard.pricingItemId)}
+              </select></label>
+              <label class="client-field"><span>Attach master checklist</span><span class="inputish"><input type="checkbox" data-visit-wizard="attachChecklist"${wizard.attachChecklist ? " checked" : ""}> Use Job Plan master checklist</span></label>
+              <label class="client-field"><span>Use standard pricing</span><span class="inputish"><input type="checkbox" data-visit-wizard="usePricing"${wizard.usePricing ? " checked" : ""}> Use selected pricing item</span></label>
+            </div>
+          </article>
+        </div>
+        <aside class="stack">
+          <article class="panel pad">
+            <h2>Job Plan defaults</h2>
+            <div class="field-row"><span>Recurrence</span><strong>${escapeHtml(job.recurrence)}</strong></div>
+            <div class="field-row"><span>Default team</span><strong>${escapeHtml(job.default_staff)}</strong></div>
+            <div class="field-row"><span>Default duration</span><strong>${escapeHtml(minutesLabel(job.default_duration_minutes))}</strong></div>
+            <div class="field-row"><span>Master checklist</span><strong>${escapeHtml(templatesForJob.map((template) => template.name).join(", ") || "To confirm")}</strong></div>
+          </article>
+          <article class="panel pad">
+            <h2>Schedule relationship</h2>
+            <p class="muted" style="margin-top:8px">Generate recurring visits from the Job workspace. Schedule should mainly show planned work, changes, exceptions, one-offs, and capacity checks.</p>
+          </article>
+        </aside>
+        <div class="job-editor-actions">
+          ${button("Cancel", "close-layer")}
+          ${button("Preview visits", "preview-generated-visits", "primary")}
+        </div>
+      </section>
+    `;
+  }
+
+  function renderVisitWizardPreview(job, wizard) {
+    const visits = wizard.preview || [];
+    const reasons = ["", "Client holiday", "Staff unavailable", "Bank holiday", "Access issue", "Other"];
+    return `
+      <section class="job-layer-content">
+        <article class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Preview generated visits</h2>
+              <p class="muted">Mock flags help spot exceptions before adding visits to this frontend-only Jobs state.</p>
+            </div>
+            ${chip(`${visits.length} visits`, "info")}
+          </div>
+          <div class="quote-table-scroll">
+            <table class="jobs-scheduled-table">
+              <thead><tr><th>Date</th><th>Time</th><th>Clean type</th><th>Team</th><th>Checklist source</th><th>Pricing source</th><th>Flags</th><th>Skip</th><th>Reason</th></tr></thead>
+              <tbody>${visits.map((visit) => `
+                <tr>
+                  <td>${escapeHtml(visit.date)}</td>
+                  <td>${escapeHtml(visit.start_time)}</td>
+                  <td>${escapeHtml(cleanTypeLabel(visit.clean_type))}</td>
+                  <td>${escapeHtml(visit.assigned_staff)}</td>
+                  <td>${escapeHtml(visit.checklist_label)}<br><span class="muted">Job Plan master checklist</span></td>
+                  <td>${escapeHtml(visit.pricing_label)}</td>
+                  <td>${visit.flags.length ? visit.flags.map((flag) => chip(flag, flag === "Bank holiday" || flag === "Team unavailable" ? "warning" : "info")).join(" ") : `<span class="muted">No flags</span>`}</td>
+                  <td><input type="checkbox" data-generated-skip="${visit.index}"></td>
+                  <td><select class="selectish" data-generated-reason="${visit.index}">${reasons.map((reason) => option(reason, reason || "No reason", visit.reason)).join("")}</select></td>
+                </tr>
+              `).join("")}</tbody>
+            </table>
+          </div>
+        </article>
+        <div class="job-editor-actions">
+          ${button("Back", "back-generation-setup")}
+          ${button("Generate visits", "confirm-generate-visits", "primary")}
+        </div>
+      </section>
+    `;
   }
 
   function renderScheduledLayer(clean) {
@@ -763,12 +1099,14 @@
                   <div class="request-note-block"><strong>Duration</strong><span>${escapeHtml(minutesLabel(clean.duration_minutes))}</span></div>
                   <div class="request-note-block"><strong>Team</strong><span>${escapeHtml(clean.assigned_staff)}</span></div>
                   <div class="request-note-block"><strong>Status</strong><span>${statusChip(clean.status)}</span></div>
-                  <div class="request-note-block"><strong>Checklist</strong><span>${escapeHtml(template?.name || "Checklist to confirm")}</span></div>
+                  <div class="request-note-block"><strong>Checklist source</strong><span>${escapeHtml(template?.name || "Master checklist to confirm")} - Job Plan master checklist</span></div>
+                  <div class="request-note-block"><strong>Visit overrides</strong><span>${escapeHtml(clean.visit_overrides || "None")}</span></div>
                   <div class="request-note-block"><strong>Billing source</strong><span>${escapeHtml(pricing?.label || "Pricing to confirm")} - ${escapeHtml(money(pricing?.amount || 0))}</span></div>
                 </div>
               </article>
               <article class="panel pad">
                 <h2>Report / completion</h2>
+                <p class="muted" style="margin-top:8px">Completed reports store the frozen snapshot of what was actually completed, separate from later master checklist edits.</p>
                 <div class="stack" style="margin-top:12px">
                   <div class="field-row"><span>Report status</span><strong>${escapeHtml(report?.review_status || "No report yet")}</strong></div>
                   <div class="field-row"><span>Checklist status</span><strong>${escapeHtml(report?.checklist_status || "Not completed")}</strong></div>
@@ -786,7 +1124,7 @@
                   ${button("Skip / cancel", `open-skip:${clean.id}`)}
                   ${button("Assign/change team", `mock-layer:Assign team for ${clean.id}`)}
                   ${button("Edit schedule details", `mock-layer:Edit schedule for ${clean.id}`)}
-                  ${button("Open copied checklist", `open-checklist:${clean.job_id}`)}
+                  ${button("Open master checklist", `open-checklist:${clean.job_id}`)}
                   ${button("View billable details", `mock-layer:Billable details for ${clean.id}`)}
                   ${report?.review_status === "needs_review" ? button("Mark reviewed and billable", `confirm-reviewed:${report.id}`, "primary") : ""}
                 </div>
@@ -841,7 +1179,7 @@
             </div>
             <aside class="panel pad">
               <h2>Cleaner-facing / report basis</h2>
-              <p class="muted" style="margin-top:8px">This mock builder shows how source data shapes the copied checklist for scheduled cleans. Full settings/library editing is intentionally not built in this spike.</p>
+              <p class="muted" style="margin-top:8px">This mock builder shows how source data shapes the Job Plan master checklist. Visits use that master checklist by default; temporary changes belong in visit overrides, and completed reports store frozen snapshots.</p>
               <div class="stack" style="margin-top:14px">
                 ${button("Mock add section", "mock-layer:Add checklist section")}
                 ${button("Mock reorder tasks", "mock-layer:Reorder checklist tasks")}
@@ -911,7 +1249,32 @@
     if (modal.type === "skip") return renderSkipModal(modal.cleanId);
     if (modal.type === "newJob") return renderNewJobModal();
     if (modal.type === "mock") return renderMockModal(modal);
+    if (modal.type === "nextVisit") return renderNextVisitModal(modal.cleanId);
     return renderConfirmModal(modal);
+  }
+
+  function renderNextVisitModal(cleanId) {
+    const clean = findScheduled(cleanId);
+    const job = clean ? findJob(clean.job_id) : selectedJob();
+    if (!job) return "";
+    const suggested = suggestNextVisits(job, clean, 0)[0];
+    return `
+      <div class="job-modal-backdrop">
+        <article class="job-confirm-modal" role="dialog" aria-modal="true">
+          <h2>Generate next visit?</h2>
+          <p class="muted" style="margin-top:8px">This mock prompt is based on the Job Plan recurrence and the latest scheduled clean date.</p>
+          <div class="request-note-block" style="margin-top:14px">
+            <strong>Suggested next visit</strong>
+            <span>${escapeHtml(suggested?.date || "No date")} at ${escapeHtml(suggested?.start_time || "No time")} - ${escapeHtml(suggested?.assigned_staff || "No team")} - ${escapeHtml(minutesLabel(suggested?.duration_minutes || 0))}</span>
+          </div>
+          <div class="button-row" style="margin-top:16px">
+            ${button("Generate next visit", `generate-next-visit:${cleanId}`, "primary")}
+            ${button("Generate next month", `generate-next-month:${cleanId}`)}
+            ${button("Not now", "close-modal")}
+          </div>
+        </article>
+      </div>
+    `;
   }
 
   function renderNewJobModal() {
@@ -1066,6 +1429,7 @@
       state.selectedJobId = null;
       state.editorOpen = false;
       state.layer = null;
+      state.visitWizard = null;
       state.modal = null;
       state.rowMenuId = null;
       refresh();
@@ -1120,6 +1484,7 @@
     if (action.startsWith("open-scheduled:")) {
       state.layer = "scheduled";
       state.layerId = action.split(":")[1];
+      state.visitWizard = null;
       refresh();
       return true;
     }
@@ -1127,19 +1492,73 @@
       state.layer = "checklist";
       state.layerId = action.split(":")[1];
       state.rowMenuId = null;
+      state.visitWizard = null;
       refresh();
       return true;
     }
     if (action === "preview-client" || action === "preview-property" || action === "preview-quote" || action === "preview-request") {
       state.layer = "source";
       state.layerId = action.replace("preview-", "");
+      state.visitWizard = null;
       refresh();
       return true;
     }
     if (action === "close-layer") {
       state.layer = null;
       state.layerId = null;
+      state.visitWizard = null;
       refresh();
+      return true;
+    }
+    if (action === "open-generate-visits" || action === "open-one-off-visit") {
+      const job = selectedJob();
+      if (job) {
+        state.layer = "generate";
+        state.layerId = job.id;
+        initVisitWizard(job, action === "open-one-off-visit" ? "one_off" : "recurring");
+        refresh();
+      }
+      return true;
+    }
+    if (action === "preview-generated-visits") {
+      const job = selectedJob();
+      if (job) {
+        wizardFromDom();
+        state.visitWizard.step = 2;
+        state.visitWizard.preview = buildVisitPreview(job);
+        refresh();
+      }
+      return true;
+    }
+    if (action === "back-generation-setup") {
+      if (state.visitWizard) state.visitWizard.step = 1;
+      refresh();
+      return true;
+    }
+    if (action === "confirm-generate-visits") {
+      const visits = readGeneratedVisitDecisions();
+      state.visitWizard.preview = visits;
+      state.modal = {
+        title: "Generate visits?",
+        copy: `This will add ${visits.length} mock scheduled clean${visits.length === 1 ? "" : "s"} to this Job Plan. Skipped rows will be added as skipped visits with reasons.`,
+        primaryLabel: "Generate visits",
+        confirmAction: "generate-visits"
+      };
+      refresh();
+      return true;
+    }
+    if (action === "generate-visits") {
+      const job = selectedJob();
+      const visits = state.visitWizard?.preview || [];
+      if (job && visits.length) {
+        addGeneratedVisits(job, visits);
+        state.modal = null;
+        state.layer = null;
+        state.layerId = null;
+        state.visitWizard = null;
+        toast(`${visits.length} mock scheduled clean${visits.length === 1 ? "" : "s"} generated.`);
+        refresh();
+      }
       return true;
     }
     if (action.startsWith("confirm-complete:")) {
@@ -1162,7 +1581,7 @@
         clean.status = "completed";
         clean.report_id = report.id;
         createBillableFromScheduled(clean, "ready_to_bill");
-        state.modal = null;
+        state.modal = { type: "nextVisit", cleanId: clean.id };
         toast("All-good report stored and one billable event created.");
         refresh();
       }
@@ -1201,8 +1620,23 @@
       markReviewed(action.split(":")[1]);
       return true;
     }
+    if (action.startsWith("generate-next-visit:") || action.startsWith("generate-next-month:")) {
+      const cleanId = action.split(":")[1];
+      const clean = findScheduled(cleanId);
+      const job = clean ? findJob(clean.job_id) : selectedJob();
+      if (job) {
+        const visits = suggestNextVisits(job, clean, action.startsWith("generate-next-month:") ? 1 : 0);
+        addGeneratedVisits(job, visits);
+        state.modal = null;
+        state.visitWizard = null;
+        toast(`${visits.length} suggested visit${visits.length === 1 ? "" : "s"} generated.`);
+        refresh();
+      }
+      return true;
+    }
     if (action === "close-modal") {
       state.modal = null;
+      state.visitWizard = state.layer === "generate" ? state.visitWizard : null;
       refresh();
       return true;
     }
@@ -1286,7 +1720,7 @@
       const event = createBillableFromScheduled(clean, "ready_to_bill");
       event.source_report_id = report.id;
     }
-    state.modal = null;
+    state.modal = clean ? { type: "nextVisit", cleanId: clean.id } : null;
     toast("Report reviewed and billable event is ready.");
     refresh();
   }

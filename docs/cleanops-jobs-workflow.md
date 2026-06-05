@@ -38,6 +38,51 @@ The chargeable output created from a completed and approved scheduled job/report
 **Invoice**  
 The accounting document created from selected billable events.
 
+## 1.1 Master Plan, Visit, Checklist, and Billing Model
+
+Jobs v0 should keep a clear separation between the parent plan, generated dated work, completed reports, and billing source records.
+
+**Job Plan = master operational truth**
+
+The Job Plan owns:
+
+- recurrence
+- default team
+- default duration
+- pricing items
+- master checklist
+- products/equipment notes
+
+**Scheduled Visit / Scheduled Clean = dated occurrence**
+
+A generated visit owns:
+
+- date/time
+- assigned team
+- status
+- optional visit-specific overrides
+- optional skip/cancel reason
+
+The visit should refer back to the Job Plan defaults unless an occurrence-specific exception is needed.
+
+**Checklist model**
+
+- visits use the Job Plan master checklist by default
+- visits should not duplicate full checklist data unless needed
+- temporary changes are stored as visit-specific overrides
+- permanent scope changes update the Job Plan master checklist
+- completed reports store a frozen snapshot of what was actually completed
+
+**Report = frozen completion record**
+
+The report records what happened on the dated visit. It is the historical evidence of completion, notes, issue state, and checklist outcome.
+
+**Billable Event = invoice source**
+
+The Billable Event is created from completed/reviewed work and is the source item for future Invoice Builder.
+
+Recurring jobs should generate visits from the Job workspace. The Schedule page is mainly for calendar view, alterations, exceptions, one-offs, and capacity checks. Recurring jobs must not dump large piles of unscheduled work into Schedule.
+
 ## 2. Job Plan
 
 A Job Plan is the agreed service record. It controls what work exists and under what rules.
@@ -59,7 +104,7 @@ For a one-off clean, the Job Plan may generate one Scheduled Job. For recurring 
 - optional end date
 - default duration
 - default cleaner/team if known
-- checklist template
+- master checklist
 - products/equipment rules
 - price/billing basis
 - internal notes
@@ -129,7 +174,8 @@ A Scheduled Job is one dated occurrence generated from a Job Plan. It is what ap
 - end time / duration
 - assigned cleaner/team
 - status
-- checklist copy
+- checklist source
+- visit-specific checklist overrides if needed
 - skip/cancel flag
 - skip/cancel reason
 - completion/report link
@@ -147,7 +193,7 @@ A Scheduled Job is one dated occurrence generated from a Job Plan. It is what ap
 - Needs review
 - Approved
 
-The checklist should be copied onto the Scheduled Job at generation time or start time so later checklist template edits do not accidentally rewrite historical work.
+Scheduled visits should normally reference the Job Plan master checklist. Temporary differences should be stored as visit-specific overrides. Completed reports should store a frozen checklist/report snapshot so later Job Plan checklist edits do not rewrite historical completion records.
 
 ## 3.1 All-Good Fast Path
 
@@ -405,7 +451,7 @@ Example:
 55 Castle Road
 John Smith - Regular domestic clean - Weekly
 Next: Fri 09:00 - Panda Cleaner
-Price: GBP 90 per clean
+Price: £90 per clean
 Recent: All good - Cleaner note - Skipped holiday
 ```
 
@@ -415,7 +461,7 @@ Example:
 Unit 5 All Saints
 ABC Ltd - Commercial clean - Mon/Wed/Fri
 Next: Today 18:00 - Team 1
-Price: GBP 650/month
+Price: £650/month
 Recent: Note left
 ```
 

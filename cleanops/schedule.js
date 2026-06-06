@@ -139,6 +139,15 @@
     return chips.join("");
   }
 
+  function cardStatusChip(item) {
+    if (isCompleted(item)) return chip("Completed", "muted");
+    if (item.statusGroup === "Overdue" || item.status === "Overdue") return chip("Overdue", "danger");
+    if (isUnassigned(item) || item.statusGroup === "Unassigned" || item.status === "Unassigned") return chip("Unassigned", "danger");
+    if (item.type === "Issue / revisit") return chip("Issue", "danger");
+    if (item.statusGroup === "Issue / warning") return chip(normaliseWarning(item.warnings?.[0] || item.status || "Check"), "warning");
+    return "";
+  }
+
   function button(label, action, variant = "") {
     const classes = ["button", variant].filter(Boolean).join(" ");
     return `<button class="${classes}" type="button" data-schedule-action="${escapeHtml(action || label)}">${escapeHtml(label)}</button>`;
@@ -358,12 +367,12 @@
       <aside class="unscheduled-panel" data-unscheduled-drop="true">
         <div class="unscheduled-head">
           <div>
-            <p class="eyebrow">Right rail</p>
-            <h2>Unscheduled</h2>
+            <p class="eyebrow">Schedule queue</p>
+            <h2>Unscheduled work</h2>
           </div>
           ${chip(`${items.length}`, "info")}
         </div>
-        <p class="muted">Drag cards into a valid time slot to schedule them in this mock view.</p>
+        <p class="muted">Mock holding area for work that still needs a date, time, or team.</p>
         <div class="unscheduled-list">
           ${items.map((item) => unscheduledCard(item)).join("") || `<div class="empty mini"><div class="empty-icon">OK</div><div><h3>No unscheduled work</h3><p class="muted">Everything visible is placed.</p></div></div>`}
         </div>
@@ -372,16 +381,19 @@
   }
 
   function unscheduledCard(item) {
+    const status = cardStatusChip(item);
     return `
       <article class="unscheduled-card ${escapeHtml(scheduleItemClasses(item))}" draggable="true" data-unscheduled-id="${escapeHtml(item.id)}" title="Drag into schedule">
-        <div class="button-row" style="justify-content:space-between">
+        <div class="schedule-card-top">
           <strong>${escapeHtml(item.client)}</strong>
-          ${chip(item.status, item.tone)}
+          ${status || chip(item.status, item.tone)}
         </div>
-        ${typePill(item.type)}
-        <span class="muted">${escapeHtml(item.property)}</span>
-        <span>${escapeHtml(item.service)}</span>
-        ${item.warnings?.length ? `<div class="button-row" style="justify-content:flex-start">${item.warnings.map((warning) => chip(warning, "warning")).join("")}</div>` : ""}
+        <span class="schedule-card-location">${escapeHtml(item.property)}</span>
+        <div class="schedule-card-meta">
+          ${typePill(item.type)}
+          <span>${escapeHtml(item.service)}</span>
+        </div>
+        ${item.warnings?.length ? `<div class="schedule-card-warning">${escapeHtml(normaliseWarning(item.warnings[0]))}</div>` : ""}
       </article>
     `;
   }
@@ -392,17 +404,24 @@
     const overlapStyle = layout.columnCount > 1
       ? `left:calc(8px + ${layout.columnIndex} * ((100% - 16px) / ${layout.columnCount}));width:calc((100% - 16px) / ${layout.columnCount} - 4px);right:auto;`
       : "left:8px;right:8px;";
+    const status = cardStatusChip(visit);
     return `
       <article class="schedule-visit-card ${escapeHtml(scheduleItemClasses(visit))} ${mode}" draggable="true"
         data-visit-id="${escapeHtml(visit.id)}"
         data-overlap-count="${layout.columnCount}"
         style="top:${top}px;height:${height}px;${overlapStyle}"
         title="${escapeHtml(visit.client)} ${escapeHtml(timeRange(visit))}">
-        <strong>${escapeHtml(timeRange(visit))}</strong>
-        <span>${escapeHtml(visit.client)}</span>
-        <span class="muted">${escapeHtml(visit.property)}</span>
-        <span class="muted">${escapeHtml(visit.service)}</span>
-        ${visit.warnings?.length ? `<span class="schedule-warning">${escapeHtml(visit.warnings[0])}</span>` : ""}
+        <div class="schedule-card-top">
+          <strong>${escapeHtml(timeRange(visit))}</strong>
+          ${status}
+        </div>
+        <span class="schedule-card-title">${escapeHtml(visit.client)}</span>
+        <span class="schedule-card-location">${escapeHtml(visit.property)}</span>
+        <div class="schedule-card-meta">
+          ${typePill(visit.type)}
+          <span>${escapeHtml(visit.service)}</span>
+        </div>
+        ${visit.warnings?.length && !status ? `<span class="schedule-card-warning">${escapeHtml(normaliseWarning(visit.warnings[0]))}</span>` : ""}
         <span class="resize-handle top" data-resize-id="${escapeHtml(visit.id)}" data-resize-edge="top" title="Resize start time" aria-hidden="true"></span>
         <span class="resize-handle bottom" data-resize-id="${escapeHtml(visit.id)}" data-resize-edge="bottom" title="Resize end time" aria-hidden="true"></span>
       </article>

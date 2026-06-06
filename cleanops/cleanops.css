@@ -1234,24 +1234,25 @@ tr:last-child td {
 
 .schedule-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 270px;
+  grid-template-columns: minmax(0, 1fr) 286px;
   gap: 16px;
   align-items: start;
 }
 
 .schedule-main {
   min-width: 0;
+  box-shadow: 0 1px 0 rgba(18, 50, 53, .015);
 }
 
 .schedule-toolbar {
-  min-height: 50px;
+  min-height: 58px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 10px 12px;
+  padding: 11px 14px;
   border-bottom: 1px solid var(--line);
-  background: var(--surface);
+  background: #fbfbf8;
 }
 
 .schedule-toolbar-group {
@@ -1262,7 +1263,8 @@ tr:last-child td {
 }
 
 .schedule-date-button {
-  min-width: 172px;
+  min-width: 186px;
+  justify-content: center;
 }
 
 .icon-only-button {
@@ -1421,24 +1423,25 @@ tr:last-child td {
 
 .week-calendar {
   display: grid;
-  grid-template-columns: 66px repeat(var(--day-count), minmax(130px, 1fr));
+  grid-template-columns: 70px repeat(var(--day-count), minmax(136px, 1fr));
   overflow: auto;
   background: var(--surface);
 }
 
 .week-head {
-  min-height: 47px;
+  min-height: 52px;
   display: grid;
   align-content: center;
   gap: 2px;
-  padding: 8px 10px;
+  padding: 9px 11px;
   border-right: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
-  background: #fbfbf8;
+  background: #fcfcfa;
 }
 
 .week-head strong {
-  font-size: 12px;
+  font-size: 12.5px;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
@@ -1449,7 +1452,7 @@ tr:last-child td {
 
 .week-head.today,
 .schedule-day-column.today {
-  background: rgba(251, 239, 217, .58);
+  background: rgba(231, 242, 227, .35);
 }
 
 .time-spacer {
@@ -1458,15 +1461,18 @@ tr:last-child td {
 
 .time-rail {
   border-right: 1px solid var(--line);
-  background: #fbfbf8;
+  background: #fcfcfa;
 }
 
 .time-label {
   height: 31.5px;
-  padding: 8px 8px 0;
-  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: 7px 9px 0 5px;
+  border-bottom: 1px solid rgba(225, 228, 219, .62);
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 650;
 }
 
@@ -1484,13 +1490,13 @@ tr:last-child td {
       to bottom,
       transparent 0,
       transparent 62px,
-      var(--line) 63px
+      rgba(225, 228, 219, .62) 63px
     );
 }
 
 .schedule-drop-slot {
   height: 31.5px;
-  border-bottom: 1px solid rgba(225, 228, 219, .52);
+  border-bottom: 1px solid rgba(225, 228, 219, .38);
 }
 
 .schedule-drop-slot.half-hour {
@@ -1508,15 +1514,15 @@ tr:last-child td {
   z-index: 2;
   display: grid;
   align-content: start;
-  gap: 2px;
+  gap: 3px;
   min-height: 34px;
   overflow: hidden;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--line);
   border-left: 4px solid var(--green);
   border-radius: 7px;
   background: #f8fcf6;
   color: var(--text);
-  padding: 7px 8px 12px;
+  padding: 7px 8px 13px;
   box-shadow: 0 1px 2px rgba(18, 50, 53, .055);
   font-size: 12px;
 }
@@ -1584,8 +1590,8 @@ tr:last-child td {
 
 .schedule-visit-card.type-commercial-special,
 .unscheduled-card.type-commercial-special {
-  border-left-color: #60777c;
-  background: #edf2f2;
+  border-left-color: #60728a;
+  background: #eef2f6;
 }
 
 .schedule-visit-card.status-completed,
@@ -1598,8 +1604,8 @@ tr:last-child td {
 
 .schedule-visit-card.status-risk,
 .unscheduled-card.status-risk {
-  outline: 1px solid var(--red);
-  outline-offset: -1px;
+  border-color: rgba(181, 68, 62, .58);
+  box-shadow: inset 0 0 0 1px rgba(181, 68, 62, .15);
 }
 
 tr.status-completed .type-pill {
@@ -1618,7 +1624,7 @@ tr.status-risk td:first-child {
   box-shadow: inset 3px 0 0 var(--red);
 }
 
-.schedule-visit-card.type-issue-revisit .schedule-warning {
+.schedule-visit-card.type-issue-revisit .schedule-card-warning {
   color: var(--red);
 }
 
@@ -1660,8 +1666,8 @@ tr.status-risk td:first-child {
 .schedule-type-dot.type-commercial-special,
 .type-pill.type-commercial-special,
 .month-summary.type-commercial-special {
-  border-color: #60777c;
-  background: #edf2f2;
+  border-color: #60728a;
+  background: #eef2f6;
 }
 
 .month-summary {
@@ -1674,11 +1680,63 @@ tr.status-risk td:first-child {
   padding: 4px 7px;
 }
 
-.schedule-visit-card strong {
+.schedule-card-top {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+}
+
+.schedule-card-top strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 11.5px;
+  font-weight: 780;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.schedule-card-top .chip {
+  min-height: 18px;
+  padding-inline: 6px;
+  font-size: 10.5px;
+}
+
+.schedule-card-title {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 740;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.schedule-card-location {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.schedule-card-meta {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
   font-size: 11.5px;
 }
 
-.schedule-warning {
+.schedule-card-meta > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.schedule-card-warning {
   color: var(--amber);
   font-size: 11px;
   font-weight: 720;
@@ -1733,12 +1791,13 @@ tr.status-risk td:first-child {
   top: 70px;
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
-  gap: 11px;
+  gap: 12px;
   max-height: calc(100vh - 86px);
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
+  box-shadow: 0 1px 0 rgba(18, 50, 53, .015);
   padding: 14px;
 }
 
@@ -1763,8 +1822,8 @@ tr.status-risk td:first-child {
   border: 1px solid var(--line);
   border-left-width: 4px;
   border-radius: var(--radius);
-  background: var(--surface-soft);
-  padding: 11px;
+  background: var(--surface);
+  padding: 11px 12px;
 }
 
 .unscheduled-card:hover {

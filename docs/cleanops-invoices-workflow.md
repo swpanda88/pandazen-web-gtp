@@ -92,9 +92,11 @@ Manual invoice flow:
 ```text
 New invoice
   -> Manual invoice
-  -> choose client/property or manual customer
-  -> add manual lines
+  -> choose existing customer/property or + New customer
+  -> review/edit billing and customer details
+  -> create blank manual draft
   -> invoice editor
+  -> add manual lines, discounts, adjustments, or cancellation fees
 ```
 
 ## 4. Invoice Status Model

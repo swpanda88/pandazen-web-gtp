@@ -291,6 +291,82 @@
     setup.po_reference = details.reference;
   }
 
+  function manualCustomerOptions() {
+    const options = [];
+    clients().forEach((client) => {
+      const properties = client.properties?.length ? client.properties : [{ id: "", label: client.mainProperty || "Service address", address: client.billingAddress || "" }];
+      properties.forEach((property) => {
+        options.push({
+          value: `${client.id}|${property.id || ""}`,
+          client,
+          property,
+          label: `${displayClientById(client.id)} - ${property.label || property.name || property.address || "Service address"}`
+        });
+      });
+    });
+    options.push({ value: "new_customer", label: "+ New customer" });
+    return options;
+  }
+
+  function manualSelectionParts(value) {
+    if (!value || value === "new_customer") return { clientId: "manual", propertyId: "" };
+    const [clientId, propertyId = ""] = value.split("|");
+    return { clientId, propertyId };
+  }
+
+  function manualBillingDetailsForSelection(value) {
+    if (value === "new_customer") {
+      return {
+        client_id: "manual",
+        property_id: "",
+        billing_name: "",
+        invoice_email: "",
+        phone: "",
+        billing_address: "",
+        service_address: "",
+        payment_terms: "",
+        delivery_method: "Email",
+        reference: "",
+        vat_label: financeSettings().vat_label || "VAT: Not applicable"
+      };
+    }
+    const { clientId, propertyId } = manualSelectionParts(value);
+    const client = findClient(clientId) || {};
+    const property = client.properties?.find((item) => item.id === propertyId) || client.properties?.[0] || {};
+    const setup = findBillingSetup(clientId, propertyId) || {};
+    return {
+      client_id: clientId,
+      property_id: propertyId,
+      billing_name: setup.billing_name || displayClientById(clientId),
+      invoice_email: setup.invoice_email || client.email || "",
+      phone: client.phone || "",
+      billing_address: setup.billing_address || client.billingAddress || property.address || "",
+      service_address: setup.service_address || property.address || client.mainProperty || "",
+      payment_terms: setup.payment_terms || `${financeSettings().default_payment_terms_days || 14} days`,
+      delivery_method: setup.delivery_method || "Email",
+      reference: setup.po_reference || setup.reference || "",
+      vat_label: financeSettings().vat_label || "VAT: Not applicable"
+    };
+  }
+
+  function writeManualBillingFields(details) {
+    const map = {
+      "invoice-manual-bill-to": details.billing_name,
+      "invoice-manual-email": details.invoice_email,
+      "invoice-manual-phone": details.phone,
+      "invoice-manual-billing-address": details.billing_address,
+      "invoice-manual-service-address": details.service_address,
+      "invoice-manual-terms": details.payment_terms,
+      "invoice-manual-reference": details.reference
+    };
+    Object.entries(map).forEach(([id, value]) => {
+      const field = document.getElementById(id);
+      if (field) field.value = value || "";
+    });
+    const delivery = document.getElementById("invoice-manual-delivery-method");
+    if (delivery) delivery.value = details.delivery_method || "Email";
+  }
+
   function invoiceTotal(invoice) {
     return (invoice?.lines || []).reduce((total, line) => total + Number(line.amount ?? (Number(line.quantity || 0) * Number(line.rate || 0))), 0);
   }
@@ -457,12 +533,11 @@
   }
 
   function createManualInvoice() {
-    const clientId = document.getElementById("invoice-manual-client")?.value || "manual";
-    const client = findClient(clientId);
-    const propertyId = client?.properties?.[0]?.id || "";
+    const selection = document.getElementById("invoice-manual-customer")?.value || manualCustomerOptions()[0]?.value || "new_customer";
+    const { clientId, propertyId } = manualSelectionParts(selection);
     const setup = findBillingSetup(clientId, propertyId) || {};
     const settings = financeSettings();
-    const manualName = document.getElementById("invoice-manual-customer-name")?.value || "Manual customer";
+    const billTo = document.getElementById("invoice-manual-bill-to")?.value || (clientId === "manual" ? "Manual customer" : displayClientById(clientId));
     const manualPhone = document.getElementById("invoice-manual-phone")?.value || "";
     const deliveryMethod = document.getElementById("invoice-manual-delivery-method")?.value || setup.delivery_method || "Email";
     const invoice = {
@@ -472,14 +547,14 @@
       property_id: propertyId,
       billing_setup_id: setup.id || "",
       manual_billing: {
-        billing_name: clientId === "manual" ? "Manual customer" : displayClientById(clientId),
+        billing_name: billTo,
         billing_address: document.getElementById("invoice-manual-billing-address")?.value || setup.billing_address || "Manual billing address",
         invoice_email: document.getElementById("invoice-manual-email")?.value || setup.invoice_email || "manual@example.test",
         service_address: document.getElementById("invoice-manual-service-address")?.value || displayProperty(clientId, propertyId)
       },
       status: "draft",
       source: "manual",
-      period: document.getElementById("invoice-manual-period")?.value || "Manual invoice",
+      period: "Manual invoice draft",
       invoice_date: document.getElementById("invoice-manual-date")?.value || todayIso(),
       issued_date: "",
       due_date: document.getElementById("invoice-manual-due-date")?.value || addDays(todayIso(), settings.default_payment_terms_days || 14),
@@ -487,26 +562,10 @@
       paid_amount: 0,
       payment_terms: document.getElementById("invoice-manual-terms")?.value || `${settings.default_payment_terms_days || 14} days`,
       reference: document.getElementById("invoice-manual-reference")?.value || "",
-      notes: document.getElementById("invoice-manual-notes")?.value || "Manual invoice draft.",
+      notes: "Manual invoice draft. Add invoice lines in the editor.",
       source_billable_event_ids: [],
-      lines: [
-        {
-          id: `line-${Date.now()}-manual`,
-          type: document.getElementById("invoice-manual-line-type")?.value || "manual",
-          source_billable_event_id: "",
-          description: document.getElementById("invoice-manual-description")?.value || "Manual service charge",
-          service_date: document.getElementById("invoice-manual-service-date")?.value || "",
-          service_dates: document.getElementById("invoice-manual-service-date")?.value ? [document.getElementById("invoice-manual-service-date").value] : [],
-          property_label: document.getElementById("invoice-manual-service-address")?.value || displayProperty(clientId, propertyId),
-          service_type: document.getElementById("invoice-manual-period")?.value || "Manual invoice",
-          source_reference: document.getElementById("invoice-manual-reference")?.value || "Manual source",
-          quantity: 1,
-          rate: Number(document.getElementById("invoice-manual-amount")?.value || 120),
-          amount: Number(document.getElementById("invoice-manual-amount")?.value || 120)
-        }
-      ]
+      lines: []
     };
-    invoice.manual_billing.billing_name = clientId === "manual" ? manualName : (document.getElementById("invoice-manual-bill-to")?.value || displayClientById(clientId));
     invoice.manual_billing.phone = manualPhone;
     invoice.manual_billing.delivery_method = deliveryMethod;
     invoices().unshift(invoice);
@@ -674,7 +733,18 @@
   }
 
   function renderRegister() {
-    const rows = invoices().map((invoice) => `
+    const active = invoices().filter((invoice) => !["paid", "void"].includes(invoiceStatus(invoice)));
+    const closed = invoices().filter((invoice) => ["paid", "void"].includes(invoiceStatus(invoice)));
+    return `
+      <section class="stack invoices-register-stack">
+        ${renderInvoiceRegisterSection("Active invoices", "Draft, ready-to-send, sent, part-paid, and overdue invoices needing live tracking.", active, "primary")}
+        ${renderInvoiceRegisterSection("Closed invoices", "Paid and void invoices remain available as history.", closed, "secondary")}
+      </section>
+    `;
+  }
+
+  function renderInvoiceRegisterSection(title, description, items, tone = "primary") {
+    const rows = items.map((invoice) => `
       <tr data-invoice-row="${escapeHtml(invoice.id)}" data-invoice-action="open-editor:${escapeHtml(invoice.id)}" tabindex="0" role="button">
         <td><strong>${escapeHtml(invoice.invoice_ref)}</strong><br><span class="muted">${escapeHtml(invoice.source === "manual" ? "Manual" : "Billable events")}</span></td>
         <td>${escapeHtml(displayClientById(invoice.client_id))}<br><span class="muted">${escapeHtml(invoiceServiceAddress(invoice))}</span></td>
@@ -693,14 +763,14 @@
       </tr>
     `).join("");
     return `
-      <article class="panel invoices-register-panel">
+      <article class="panel invoices-register-panel${tone === "secondary" ? " secondary-register" : ""}">
         <div class="panel-head">
-          <div><h2>Invoice register</h2><p class="muted">Search/filter/sort/page-ready register for all invoice documents.</p></div>
-          ${chip(`${invoices().length} invoices`, "info")}
+          <div><h2>${escapeHtml(title)}</h2><p class="muted">${escapeHtml(description)} Search/filter/sort/page-ready.</p></div>
+          ${chip(`${items.length} invoices`, tone === "secondary" ? "muted" : "info")}
         </div>
         <div class="filters">
           <span class="inputish">Search invoices</span>
-          <span class="selectish">All statuses</span>
+          <span class="selectish">${tone === "secondary" ? "Paid / void" : "Active statuses"}</span>
           <span class="selectish">Sort: due date</span>
           <span class="selectish">Page size: 25</span>
           <span class="selectish">Prev / Next</span>
@@ -708,7 +778,7 @@
         <div class="quote-table-scroll">
           <table class="jobs-scheduled-table invoices-register-table">
             <thead><tr><th>Invoice ref</th><th>Client / property</th><th>Period / source</th><th>Amount</th><th>Status</th><th>Issued</th><th>Due</th><th>Paid</th><th>Actions</th></tr></thead>
-            <tbody>${rows}</tbody>
+            <tbody>${rows || `<tr><td colspan="9"><span class="muted">No ${escapeHtml(title.toLowerCase())}.</span></td></tr>`}</tbody>
           </table>
         </div>
       </article>
@@ -836,54 +906,32 @@
   }
 
   function renderManualInvoice() {
-    const clientOptions = clients().map((client) => `<option value="${escapeHtml(client.id)}">${escapeHtml(displayClientById(client.id))}</option>`).join("");
-    const defaultClient = clients()[0] || {};
-    const defaultProperty = defaultClient.properties?.[0] || {};
-    const defaultSetup = findBillingSetup(defaultClient.id, defaultProperty.id) || billingSetups()[0] || {};
-    const defaultBilling = billingDetailsFromSetup(defaultSetup, {
-      client_id: defaultClient.id || "",
-      property_id: defaultProperty.id || ""
-    });
+    const options = manualCustomerOptions();
+    const defaultValue = options[0]?.value || "new_customer";
+    const defaultBilling = manualBillingDetailsForSelection(defaultValue);
+    const customerOptions = options.map((option) => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`).join("");
     return `
       <section class="job-layer-content">
         <article class="panel pad">
           <h2>Manual invoice setup</h2>
-          <div class="invoice-route-grid" style="margin-top:14px">
-            <div class="request-note-block"><strong>Existing client/property</strong><span>Select a known client and service address, then review the copied billing fields before creating the draft.</span></div>
-            <div class="request-note-block"><strong>New/manual customer</strong><span>Enter customer, contact, billing, and work-location details for this invoice only. No backend client is created in v0.</span></div>
-          </div>
+          <p class="muted" style="margin-top:6px">Choose an existing customer/property or + New customer, then review billing details before opening the editor.</p>
           <div class="job-plan-grid" style="margin-top:14px">
-            <label class="client-field"><span>Manual invoice path</span><select id="invoice-manual-path"><option value="existing">Existing client/property</option><option value="manual">New/manual customer</option></select></label>
-            <label class="client-field"><span>Client / customer</span><select id="invoice-manual-client">${clientOptions}<option value="manual">Manual customer</option></select></label>
+            <label class="client-field wide"><span>Customer / property</span><select id="invoice-manual-customer" data-invoice-manual-customer="true">${customerOptions}</select></label>
             <label class="client-field"><span>Bill-to / customer name</span><input id="invoice-manual-bill-to" value="${escapeHtml(defaultBilling.billing_name)}"></label>
-            <label class="client-field"><span>Manual customer name</span><input id="invoice-manual-customer-name" value="Manual customer"></label>
             <label class="client-field"><span>Invoice email / contact</span><input id="invoice-manual-email" value="${escapeHtml(defaultBilling.invoice_email)}"></label>
-            <label class="client-field"><span>Phone optional</span><input id="invoice-manual-phone" value=""></label>
+            <label class="client-field"><span>Phone optional</span><input id="invoice-manual-phone" value="${escapeHtml(defaultBilling.phone)}"></label>
             <label class="client-field wide"><span>Service address / work location</span><input id="invoice-manual-service-address" value="${escapeHtml(defaultBilling.service_address)}"></label>
             <label class="client-field wide"><span>Billing address</span><input id="invoice-manual-billing-address" value="${escapeHtml(defaultBilling.billing_address)}"></label>
-            <label class="client-field"><span>Invoice date</span><input id="invoice-manual-date" type="date" value="${todayIso()}"></label>
-            <label class="client-field"><span>Due date</span><input id="invoice-manual-due-date" type="date" value="${addDays(todayIso(), financeSettings().default_payment_terms_days || 14)}"></label>
             <label class="client-field"><span>Payment terms</span><input id="invoice-manual-terms" value="${escapeHtml(defaultBilling.payment_terms)}"></label>
-            <label class="client-field"><span>Delivery method</span><select id="invoice-manual-delivery-method"><option>Email</option><option>Print / post later</option><option>Customer portal later</option></select></label>
-            <label class="client-field"><span>Service date</span><input id="invoice-manual-service-date" type="date" value="${todayIso()}"></label>
-            <label class="client-field"><span>Service period / source</span><input id="invoice-manual-period" value="Manual charge"></label>
-            <label class="client-field"><span>Reference / PO / source</span><input id="invoice-manual-reference" value="Manual source"></label>
-            <label class="client-field wide"><span>Line description</span><input id="invoice-manual-description" value="Manual service charge"></label>
-            <label class="client-field"><span>Amount</span><input id="invoice-manual-amount" type="number" value="120"></label>
-            <label class="client-field"><span>Line type</span><select id="invoice-manual-line-type"><option value="manual">Manual</option><option value="correction">Correction</option><option value="adjustment">Adjustment</option><option value="cancellation_fee">Cancellation fee</option></select></label>
-            <label class="client-field wide"><span>Notes / invoice reference</span><textarea id="invoice-manual-notes" rows="3">Manual invoice draft. No quote, job, or billable event linked.</textarea></label>
-          </div>
-          <div class="job-plan-grid" style="margin-top:14px">
-            <div class="request-note-block"><strong>Existing client/property</strong><span>Uses selected client/property billing data as editable mock defaults. Nothing is persisted back automatically.</span></div>
-            <div class="request-note-block"><strong>New/manual customer</strong><span>Use the manual fields above for invoice-only customer details, or choose the mock client creation option below.</span></div>
+            <label class="client-field"><span>Delivery method</span><select id="invoice-manual-delivery-method"><option${defaultBilling.delivery_method === "Email" ? " selected" : ""}>Email</option><option${defaultBilling.delivery_method === "Print / post later" ? " selected" : ""}>Print / post later</option><option${defaultBilling.delivery_method === "Customer portal later" ? " selected" : ""}>Customer portal later</option></select></label>
+            <label class="client-field"><span>Reference / PO if needed</span><input id="invoice-manual-reference" value="${escapeHtml(defaultBilling.reference)}"></label>
             <div class="request-note-block"><strong>VAT status</strong><span>${escapeHtml(financeSettings().vat_label || "VAT: Not applicable")}</span></div>
           </div>
-          <div class="request-note-block" style="margin-top:14px"><strong>Manual route</strong><span>For non-cleaning one-off service, sundry work, deposits, corrections, or work without quote/job.</span></div>
+          <div class="request-note-block" style="margin-top:14px"><strong>Line items happen next</strong><span>This setup creates a blank manual draft. Add service lines, discounts, adjustments, or cancellation fees in the invoice editor.</span></div>
         </article>
         <div class="job-editor-actions">
           ${button("Back", "open-create")}
-          ${button("Create invoice only", "confirm-create-manual", "primary")}
-          ${button("Create new client + invoice mock", "confirm-create-manual-client-mock")}
+          ${button("Create manual draft", "confirm-create-manual", "primary")}
         </div>
       </section>
     `;
@@ -942,7 +990,7 @@
                         <td>${escapeHtml(money(line.rate))}</td>
                         <td>${escapeHtml(money(line.amount))}</td>
                       </tr>
-                    `).join("")}</tbody>
+                    `).join("") || `<tr><td colspan="5"><span class="muted">No invoice lines yet. Add a line to build this invoice.</span></td></tr>`}</tbody>
                   </table>
                 </div>
               </article>
@@ -1285,16 +1333,6 @@
       refresh();
       return true;
     }
-    if (action === "confirm-create-manual-client-mock") {
-      state.modal = {
-        title: "Create new client + invoice mock?",
-        copy: "This creates the invoice draft and demonstrates the future new-client path only. No real client/property record is persisted in v0.",
-        primaryLabel: "Create mock draft",
-        confirmAction: "create-manual-draft"
-      };
-      refresh();
-      return true;
-    }
     if (action === "create-manual-draft") {
       createManualInvoice();
       state.modal = null;
@@ -1450,10 +1488,21 @@
     return false;
   }
 
+  function handleChange(event) {
+    const target = event.target;
+    if (target?.matches?.("[data-invoice-manual-customer]")) {
+      writeManualBillingFields(manualBillingDetailsForSelection(target.value));
+      return true;
+    }
+    return false;
+  }
+
   document.addEventListener("click", handleClick);
+  document.addEventListener("change", handleChange);
 
   window.CleanOpsInvoices = {
     render,
-    handleClick
+    handleClick,
+    handleChange
   };
 })();

@@ -2196,6 +2196,15 @@ tr.status-risk td:first-child {
   margin-top: 4px;
 }
 
+.invoices-register-stack {
+  gap: 14px;
+}
+
+.secondary-register {
+  background: #fcfcfa;
+  box-shadow: none;
+}
+
 .invoices-register-table tr[data-invoice-row] {
   cursor: pointer;
 }

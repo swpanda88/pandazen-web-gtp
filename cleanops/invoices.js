@@ -98,6 +98,29 @@
     return next.toISOString().slice(0, 10);
   }
 
+  function formatDate(value) {
+    if (!value) return "";
+    const [year, month, day] = String(value).split("-").map(Number);
+    if (!year || !month || !day) return value;
+    return new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "2-digit", month: "short", year: "numeric" })
+      .format(new Date(Date.UTC(year, month - 1, day)));
+  }
+
+  function formatVisitDate(clean) {
+    if (!clean?.date) return "Date not linked";
+    return `${formatDate(clean.date)}${clean.start_time ? ` ${clean.start_time}` : ""}`;
+  }
+
+  function cleanTypeLabel(value) {
+    const labels = {
+      initial: "Initial clean",
+      regular: "Regular domestic clean",
+      extra: "Extra clean",
+      one_off: "One-off clean"
+    };
+    return labels[value] || value || "Cleaning service";
+  }
+
   function invoices() {
     return source().invoices;
   }
@@ -221,6 +244,26 @@
     return chip(statusLabels[status] || status, statusTones[status] || "info");
   }
 
+  function lineMeta(line, invoice) {
+    const sourceEventId = line.source_billable_event_id || line.source_billable_event_ids?.[0];
+    const sourceEvent = sourceEventId ? findBillable(sourceEventId) : null;
+    const sourceContext = sourceEvent ? eventContext(sourceEvent) : {};
+    const sourceDate = sourceContext.clean?.date || sourceContext.report?.completed_at?.slice(0, 10) || "";
+    const dates = (line.service_dates || []).length ? line.service_dates.map(formatDate).join(", ") : (line.service_date ? formatDate(line.service_date) : (sourceDate ? formatDate(sourceDate) : ""));
+    const parts = [
+      dates,
+      line.property_label || sourceContext.job?.address_label || displayProperty(invoice.client_id, invoice.property_id),
+      line.service_type || cleanTypeLabel(sourceContext.clean?.clean_type),
+      line.source_reference ? `Source: ${line.source_reference}` : (sourceEvent ? `Source: ${sourceEvent.source_report_id || sourceEvent.source_scheduled_job_id || sourceEvent.id}` : "")
+    ].filter(Boolean);
+    return parts.join(" - ");
+  }
+
+  function lineCell(line, invoice) {
+    const meta = lineMeta(line, invoice);
+    return `<strong>${escapeHtml(line.description || "Invoice line")}</strong>${meta ? `<br><span class="muted">${escapeHtml(meta)}</span>` : ""}`;
+  }
+
   function nextInvoiceRef() {
     const settings = financeSettings();
     return `${settings.invoice_prefix || "INV"}-${settings.next_invoice_number || 3052}`;
@@ -244,15 +287,54 @@
   }
 
   function lineFromEvent(event) {
+    const { job, clean, report } = eventContext(event);
+    const serviceDate = clean?.date || report?.completed_at?.slice(0, 10) || "";
+    const property = job?.address_label || (job ? displayProperty(job.client_id, job.property_id) : "");
+    const serviceType = cleanTypeLabel(clean?.clean_type) || job?.service_type || "Cleaning service";
     return {
       id: `line-${Date.now()}-${event.id}`,
       type: event.billing_type === "extra" ? "extra" : "service",
       source_billable_event_id: event.id,
-      description: event.description || "Billable event",
+      source_billable_event_ids: [event.id],
+      description: event.description || serviceType || "Billable event",
+      service_date: serviceDate,
+      service_dates: serviceDate ? [serviceDate] : [],
+      property_label: property,
+      service_type: serviceType,
+      source_reference: event.source_report_id || event.source_scheduled_job_id || "",
       quantity: 1,
       rate: Number(event.amount || 0),
       amount: Number(event.amount || 0)
     };
+  }
+
+  function groupLineKey(line) {
+    return [line.type, line.description, line.property_label, line.service_type, line.rate].join("|");
+  }
+
+  function linesFromEvents(events) {
+    const groups = new Map();
+    events.map(lineFromEvent).forEach((line) => {
+      const key = groupLineKey(line);
+      if (!groups.has(key)) {
+        groups.set(key, { ...line });
+        return;
+      }
+      const group = groups.get(key);
+      group.quantity = Number(group.quantity || 1) + Number(line.quantity || 1);
+      group.amount = Number(group.amount || 0) + Number(line.amount || 0);
+      group.source_billable_event_ids = [...(group.source_billable_event_ids || []), ...(line.source_billable_event_ids || [])];
+      group.service_dates = [...(group.service_dates || []), ...(line.service_dates || [])];
+      group.source_reference = [...new Set([group.source_reference, line.source_reference].filter(Boolean))].join(", ");
+      group.source_billable_event_id = "";
+    });
+    return Array.from(groups.values()).map((line) => {
+      if ((line.service_dates || []).length > 1) {
+        const dates = line.service_dates.map(formatDate).join(", ");
+        return { ...line, description: `${line.description} - ${line.quantity} visits - ${dates}` };
+      }
+      return line;
+    });
   }
 
   function createInvoiceFromEvents() {
@@ -278,7 +360,7 @@
       payment_terms: `${settings.default_payment_terms_days || 14} days`,
       notes: "Draft created from ready billable events.",
       source_billable_event_ids: events.map((event) => event.id),
-      lines: events.map(lineFromEvent)
+      lines: linesFromEvents(events)
     };
     invoices().unshift(invoice);
     settings.next_invoice_number = Number(settings.next_invoice_number || 3052) + 1;
@@ -470,7 +552,7 @@
         <td>${escapeHtml(invoice.due_date || "Not set")}</td>
         <td>${escapeHtml(invoice.paid_date || (invoice.paid_amount ? "Part-paid" : "-"))}</td>
         <td>
-          <div class="row-actions">
+          <div class="row-menu-wrap">
             <button class="button small" type="button" data-invoice-action="toggle-row-menu:${escapeHtml(invoice.id)}">Actions v</button>
             ${state.rowMenuId === invoice.id ? renderRowMenu(invoice) : ""}
           </div>
@@ -503,7 +585,7 @@
   function renderRowMenu(invoice) {
     const locked = invoice.status === "void";
     return `
-      <div class="row-action-menu">
+      <div class="client-more-menu job-row-menu invoice-row-menu">
         <button type="button" data-invoice-action="open-editor:${escapeHtml(invoice.id)}">Open editor</button>
         <button type="button" data-invoice-action="preview:${escapeHtml(invoice.id)}">Preview document</button>
         ${!locked ? `<button type="button" data-invoice-action="confirm-ready:${escapeHtml(invoice.id)}">Mark ready to send</button>` : ""}
@@ -535,15 +617,17 @@
 
   function renderCreateLauncher() {
     return `
-      <section class="grid-detail job-layer-content">
-        <article class="panel pad">
+      <section class="invoice-route-grid job-layer-content">
+        <article class="panel pad invoice-route-card">
           <h2>Create from billable events</h2>
           <p class="muted" style="margin-top:8px">Select completed/approved billable events and create a draft invoice document.</p>
+          <div class="request-note-block"><strong>Best for</strong><span>Recurring cleans, completed one-offs, approved extras, and reviewed reports.</span></div>
           <div class="button-row" style="margin-top:14px">${button("Select billable events", "create-events", "primary")}</div>
         </article>
-        <article class="panel pad">
+        <article class="panel pad invoice-route-card">
           <h2>Manual invoice</h2>
           <p class="muted" style="margin-top:8px">Create a draft for a manual charge, deposit, correction, sundry work, or work without a quote/job.</p>
+          <div class="request-note-block"><strong>Best for</strong><span>Non-cleaning charges, deposits, corrections, sundry work, or owner-approved manual billing.</span></div>
           <div class="button-row" style="margin-top:14px">${button("Start manual invoice", "create-manual")}</div>
         </article>
       </section>
@@ -552,13 +636,16 @@
 
   function renderEventSelection() {
     const ready = readyBillableEvents();
+    const previewEvents = state.selectedEventIds.length ? selectedEvents() : ready;
+    const previewContext = previewEvents[0] ? eventContext(previewEvents[0]) : {};
+    const previewSetup = previewContext.setup || billingSetups()[0] || {};
     const rows = ready.map((event) => {
       const context = eventContext(event);
       const checked = state.selectedEventIds.includes(event.id);
       return `
         <tr>
           <td><input type="checkbox" data-invoice-event="${escapeHtml(event.id)}"${checked ? " checked" : ""}></td>
-          <td>${escapeHtml(context.clean ? `${context.clean.date} ${context.clean.start_time}` : "Completed work")}</td>
+          <td>${escapeHtml(context.clean ? formatVisitDate(context.clean) : "Completed work")}</td>
           <td>${escapeHtml(context.job?.address_label || "No job")}<br><span class="muted">${escapeHtml(displayClientById(context.job?.client_id))}</span></td>
           <td>${escapeHtml(event.description)}</td>
           <td>${escapeHtml(money(event.amount))}</td>
@@ -584,6 +671,16 @@
               <thead><tr><th>Select</th><th>Date</th><th>Job / property</th><th>Description</th><th>Amount</th><th>Source</th><th>Status</th></tr></thead>
               <tbody>${rows || `<tr><td colspan="7"><span class="muted">No un-invoiced ready billable events.</span></td></tr>`}</tbody>
             </table>
+          </div>
+        </article>
+        <article class="panel pad">
+          <h2>Billing setup context</h2>
+          <div class="job-plan-grid" style="margin-top:12px">
+            <div class="request-note-block"><strong>Frequency / timing</strong><span>${escapeHtml(`${previewSetup.billing_frequency || "Manual"} - ${previewSetup.invoice_timing || "Review before invoicing"}`)}</span></div>
+            <div class="request-note-block"><strong>Payment terms</strong><span>${escapeHtml(previewSetup.payment_terms || `${financeSettings().default_payment_terms_days || 14} days`)}</span></div>
+            <div class="request-note-block"><strong>Delivery</strong><span>${escapeHtml(previewSetup.delivery_method || "Email")}</span></div>
+            <div class="request-note-block"><strong>Grouping</strong><span>${escapeHtml(previewSetup.grouping_rule || "Manual grouping")}</span></div>
+            <div class="request-note-block wide"><strong>VAT status</strong><span>${escapeHtml(financeSettings().vat_label || "VAT: Not applicable")}</span></div>
           </div>
         </article>
         <div class="job-editor-actions">
@@ -650,7 +747,7 @@
                     <tbody>${(invoice.lines || []).map((line) => `
                       <tr>
                         <td>${escapeHtml(lineTypeLabels[line.type] || line.type || "Line")}</td>
-                        <td>${escapeHtml(line.description)}</td>
+                        <td>${lineCell(line, invoice)}</td>
                         <td>${escapeHtml(line.quantity || 1)}</td>
                         <td>${escapeHtml(money(line.rate))}</td>
                         <td>${escapeHtml(money(line.amount))}</td>
@@ -713,18 +810,30 @@
     const settings = financeSettings();
     return `
       <div class="a4-document-backdrop">
+        <div class="invoice-preview-shell">
+          <div class="invoice-preview-toolbar no-print">
+            <div>
+              <p class="eyebrow">Invoice preview</p>
+              <h2>${escapeHtml(invoice.invoice_ref)}</h2>
+            </div>
+            <div class="button-row">
+              ${button("Print/export later", "mock:Print/export invoice document")}
+              ${button("Close", "close-preview", "primary")}
+            </div>
+          </div>
         <article class="a4-document invoice-document-preview">
           <div class="a4-header">
             <div>
               <h1>${escapeHtml(settings.trading_name || "PandaZen Cleaning")}</h1>
               <p>${escapeHtml(settings.registered_address || "")}</p>
               <p>${escapeHtml(settings.email || "")} - ${escapeHtml(settings.phone || "")}</p>
+              <p>${escapeHtml(settings.legal_name || "")}${settings.company_number ? ` - Company no. ${escapeHtml(settings.company_number)}` : ""}</p>
             </div>
-            <div>
+            <div class="invoice-preview-meta">
               <h2>Invoice</h2>
               <p><strong>${escapeHtml(invoice.invoice_ref)}</strong></p>
-              <p>Date: ${escapeHtml(invoice.invoice_date || todayIso())}</p>
-              <p>Due: ${escapeHtml(invoice.due_date || "Not set")}</p>
+              <p>Invoice date: ${escapeHtml(invoice.invoice_date || todayIso())}</p>
+              <p>Due date: ${escapeHtml(invoice.due_date || "Not set")}</p>
             </div>
           </div>
           <div class="a4-client-block">
@@ -732,29 +841,31 @@
               <h3>Bill to</h3>
               <p>${escapeHtml(setup.billing_name || displayClientById(invoice.client_id))}</p>
               <p>${escapeHtml(setup.billing_address || displayProperty(invoice.client_id, invoice.property_id))}</p>
+              <p>${escapeHtml(setup.invoice_email || "")}</p>
             </div>
             <div>
               <h3>Service address / reference</h3>
               <p>${escapeHtml(displayProperty(invoice.client_id, invoice.property_id))}</p>
               <p>${escapeHtml(invoice.period || "Current period")}</p>
+              <p>${escapeHtml(invoice.source === "manual" ? "Manual invoice" : "From approved billable events")}</p>
             </div>
           </div>
-          <table>
+          <table class="invoice-preview-lines">
             <thead><tr><th>Description</th><th>Qty</th><th>Rate</th><th>Amount</th></tr></thead>
-            <tbody>${(invoice.lines || []).map((line) => `<tr><td>${escapeHtml(line.description)}</td><td>${escapeHtml(line.quantity || 1)}</td><td>${escapeHtml(money(line.rate))}</td><td>${escapeHtml(money(line.amount))}</td></tr>`).join("")}</tbody>
+            <tbody>${(invoice.lines || []).map((line) => `<tr><td>${lineCell(line, invoice)}</td><td>${escapeHtml(line.quantity || 1)}</td><td>${escapeHtml(money(line.rate))}</td><td>${escapeHtml(money(line.amount))}</td></tr>`).join("")}</tbody>
           </table>
           <div class="invoice-preview-totals">
             <div class="field-row"><span>Subtotal</span><strong>${escapeHtml(money(invoiceTotal(invoice)))}</strong></div>
             <div class="field-row"><span>VAT</span><strong>${escapeHtml(settings.vat_label || "VAT: Not applicable")}</strong></div>
             <div class="field-row"><span>Total</span><strong>${escapeHtml(money(invoiceTotal(invoice)))}</strong></div>
           </div>
-          <div class="request-note-block"><strong>Payment instructions</strong><span>${escapeHtml(settings.payment_instructions || "Payment instructions not set")}</span></div>
-          <p class="muted" style="margin-top:14px">${escapeHtml(settings.footer_text || "")}</p>
-          <div class="button-row" style="justify-content:flex-end; margin-top:18px">
-            ${button("Print/export later", "mock:Print/export invoice document")}
-            ${button("Close", "close-preview", "primary")}
-          </div>
+          <section class="invoice-preview-payment">
+            <h3>Payment instructions</h3>
+            <p>${escapeHtml(settings.payment_instructions || "Payment instructions not set")}</p>
+          </section>
+          <p class="invoice-preview-footer">${escapeHtml(settings.footer_text || "")}</p>
         </article>
+        </div>
       </div>
     `;
   }
@@ -897,6 +1008,16 @@
     }
     if (action === "confirm-create-events") {
       readSelectedEvents();
+      if (!state.selectedEventIds.length) {
+        state.modal = {
+          type: "mock",
+          title: "Select billable events first",
+          copy: "Choose one or more ready billable events before creating an invoice draft.",
+          detail: "Invoices v0 keeps selection manual so one billable event cannot accidentally be placed on two active invoices."
+        };
+        refresh();
+        return true;
+      }
       state.modal = {
         title: "Create invoice draft?",
         copy: `This will create one invoice draft from ${state.selectedEventIds.length} selected billable event${state.selectedEventIds.length === 1 ? "" : "s"}.`,

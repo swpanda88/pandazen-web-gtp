@@ -2155,7 +2155,57 @@ tr.status-risk td:first-child {
 }
 
 .invoice-kpis {
-  margin-bottom: 18px;
+  align-items: stretch;
+  margin-bottom: 14px;
+}
+
+.invoice-kpi-card {
+  min-height: 0;
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+}
+
+.invoice-kpi-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.invoice-kpi-main strong {
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 780;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.invoice-kpi-hint {
+  width: fit-content;
+  border-radius: 999px;
+  background: #f3f5f1;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 760;
+  padding: 3px 7px;
+}
+
+.invoice-kpi-hint.danger {
+  background: #fde8e8;
+  color: #9a2f2f;
+}
+
+.invoice-kpi-hint.success {
+  background: #e6f2e5;
+  color: #214d34;
+}
+
+.panel.pad > .compact-head {
+  min-height: 0;
+  border-bottom: 1px solid var(--line);
+  margin: -2px 0 12px;
+  padding: 0 0 10px;
 }
 
 .invoice-action-panel {
@@ -2197,6 +2247,11 @@ tr.status-risk td:first-child {
 
 .invoice-row-menu {
   width: 220px;
+}
+
+.invoice-billing-modal {
+  width: min(760px, calc(100vw - 32px));
+  max-width: 760px;
 }
 
 .invoice-preview-shell {

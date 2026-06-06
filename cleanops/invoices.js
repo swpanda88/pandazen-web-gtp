@@ -8,6 +8,7 @@
     selectedEventIds: [],
     rowMenuId: null,
     modal: null,
+    pendingBillingDetails: null,
     partPaidInvoiceId: null
   };
 
@@ -195,6 +196,26 @@
       || null;
   }
 
+  function ensureBillingSetupForInvoice(invoice) {
+    if (!invoice || invoice.client_id === "manual") return null;
+    let setup = findBillingSetup(invoice.client_id, invoice.property_id)
+      || billingSetups().find((item) => item.id === invoice.billing_setup_id)
+      || null;
+    if (!setup) {
+      setup = {
+        id: `billing-${Date.now()}`,
+        client_id: invoice.client_id,
+        property_id: invoice.property_id,
+        delivery_method: "Email",
+        grouping_rule: "Manual grouping",
+        extras_handling: "Review manually"
+      };
+      billingSetups().push(setup);
+      invoice.billing_setup_id = setup.id;
+    }
+    return setup;
+  }
+
   function displayClientById(id) {
     const client = findClient(id);
     return client?.display_name || client?.name || client?.company_name || client?.company || "Manual customer";
@@ -211,10 +232,63 @@
   }
 
   function invoiceBillingSetup(invoice) {
-    return findBillingSetup(invoice.client_id, invoice.property_id)
+    return invoice.manual_billing
+      || findBillingSetup(invoice.client_id, invoice.property_id)
       || billingSetups().find((item) => item.id === invoice.billing_setup_id)
-      || invoice.manual_billing
       || {};
+  }
+
+  function billingDetailsFromSetup(setup = {}, invoice = {}) {
+    return {
+      billing_name: setup.billing_name || invoice.manual_billing?.billing_name || displayClientById(invoice.client_id) || "Billing name not set",
+      invoice_email: setup.invoice_email || invoice.manual_billing?.invoice_email || "invoice@example.test",
+      billing_address: setup.billing_address || invoice.manual_billing?.billing_address || "Billing address not set",
+      service_address: setup.service_address || invoice.manual_billing?.service_address || invoiceServiceAddress(invoice),
+      payment_terms: invoice.payment_terms || setup.payment_terms || `${financeSettings().default_payment_terms_days || 14} days`,
+      due_date: invoice.due_date || addDays(todayIso(), financeSettings().default_payment_terms_days || 14),
+      invoice_date: invoice.invoice_date || todayIso(),
+      reference: invoice.reference || setup.po_reference || setup.reference || "",
+      vat_label: financeSettings().vat_label || "VAT: Not applicable"
+    };
+  }
+
+  function readBillingDetails(prefix) {
+    return {
+      billing_name: document.getElementById(`${prefix}-bill-to`)?.value || "Billing name not set",
+      invoice_email: document.getElementById(`${prefix}-email`)?.value || "invoice@example.test",
+      billing_address: document.getElementById(`${prefix}-billing-address`)?.value || "Billing address not set",
+      service_address: document.getElementById(`${prefix}-service-address`)?.value || "Service address not set",
+      payment_terms: document.getElementById(`${prefix}-terms`)?.value || `${financeSettings().default_payment_terms_days || 14} days`,
+      due_date: document.getElementById(`${prefix}-due-date`)?.value || addDays(todayIso(), financeSettings().default_payment_terms_days || 14),
+      invoice_date: document.getElementById(`${prefix}-invoice-date`)?.value || todayIso(),
+      reference: document.getElementById(`${prefix}-reference`)?.value || "",
+      vat_label: financeSettings().vat_label || "VAT: Not applicable"
+    };
+  }
+
+  function applyBillingDetailsToInvoice(invoice, details) {
+    if (!invoice || !details) return;
+    invoice.manual_billing = {
+      ...(invoice.manual_billing || {}),
+      billing_name: details.billing_name,
+      invoice_email: details.invoice_email,
+      billing_address: details.billing_address,
+      service_address: details.service_address
+    };
+    invoice.payment_terms = details.payment_terms;
+    invoice.due_date = details.due_date;
+    invoice.invoice_date = details.invoice_date || invoice.invoice_date;
+    invoice.reference = details.reference;
+  }
+
+  function applyBillingDetailsToSetup(setup, details) {
+    if (!setup || !details) return;
+    setup.billing_name = details.billing_name;
+    setup.invoice_email = details.invoice_email;
+    setup.billing_address = details.billing_address;
+    setup.service_address = details.service_address;
+    setup.payment_terms = details.payment_terms;
+    setup.po_reference = details.reference;
   }
 
   function invoiceTotal(invoice) {
@@ -334,36 +408,49 @@
     return events.map(lineFromEvent);
   }
 
-  function createInvoiceFromEvents() {
+  function createInvoiceFromEvents(scope = "invoice_only") {
     const events = selectedEvents();
     if (!events.length) return null;
     const first = eventContext(events[0]);
     const setup = first.setup || billingSetups()[0] || {};
     const settings = financeSettings();
+    const billingDetails = state.pendingBillingDetails || billingDetailsFromSetup(setup, {
+      client_id: first.job?.client_id || setup.client_id || "",
+      property_id: first.job?.property_id || setup.property_id || ""
+    });
     const invoice = {
       id: `inv-${Date.now()}`,
       invoice_ref: nextInvoiceRef(),
       client_id: first.job?.client_id || setup.client_id || "",
       property_id: first.job?.property_id || setup.property_id || "",
       billing_setup_id: setup.id || "",
+      manual_billing: {
+        billing_name: billingDetails.billing_name,
+        invoice_email: billingDetails.invoice_email,
+        billing_address: billingDetails.billing_address,
+        service_address: billingDetails.service_address
+      },
       status: "draft",
       source: "billable_events",
       period: "Selected billable events",
-      invoice_date: todayIso(),
+      invoice_date: billingDetails.invoice_date || todayIso(),
       issued_date: "",
-      due_date: addDays(todayIso(), settings.default_payment_terms_days || 14),
+      due_date: billingDetails.due_date || addDays(todayIso(), settings.default_payment_terms_days || 14),
       paid_date: "",
       paid_amount: 0,
-      payment_terms: `${settings.default_payment_terms_days || 14} days`,
+      payment_terms: billingDetails.payment_terms || `${settings.default_payment_terms_days || 14} days`,
+      reference: billingDetails.reference || "",
       notes: "Draft created from ready billable events.",
       source_billable_event_ids: events.map((event) => event.id),
       lines: linesFromEvents(events)
     };
+    if (scope === "update_setup") applyBillingDetailsToSetup(setup.id ? setup : ensureBillingSetupForInvoice(invoice), billingDetails);
     invoices().unshift(invoice);
     settings.next_invoice_number = Number(settings.next_invoice_number || 3052) + 1;
     state.selectedInvoiceId = invoice.id;
     state.createMode = null;
     state.selectedEventIds = [];
+    state.pendingBillingDetails = null;
     state.editorOpen = true;
     toast("Invoice draft created from billable events.");
     return invoice;
@@ -375,6 +462,9 @@
     const propertyId = client?.properties?.[0]?.id || "";
     const setup = findBillingSetup(clientId, propertyId) || {};
     const settings = financeSettings();
+    const manualName = document.getElementById("invoice-manual-customer-name")?.value || "Manual customer";
+    const manualPhone = document.getElementById("invoice-manual-phone")?.value || "";
+    const deliveryMethod = document.getElementById("invoice-manual-delivery-method")?.value || setup.delivery_method || "Email";
     const invoice = {
       id: `inv-${Date.now()}`,
       invoice_ref: nextInvoiceRef(),
@@ -396,6 +486,7 @@
       paid_date: "",
       paid_amount: 0,
       payment_terms: document.getElementById("invoice-manual-terms")?.value || `${settings.default_payment_terms_days || 14} days`,
+      reference: document.getElementById("invoice-manual-reference")?.value || "",
       notes: document.getElementById("invoice-manual-notes")?.value || "Manual invoice draft.",
       source_billable_event_ids: [],
       lines: [
@@ -415,6 +506,9 @@
         }
       ]
     };
+    invoice.manual_billing.billing_name = clientId === "manual" ? manualName : (document.getElementById("invoice-manual-bill-to")?.value || displayClientById(clientId));
+    invoice.manual_billing.phone = manualPhone;
+    invoice.manual_billing.delivery_method = deliveryMethod;
     invoices().unshift(invoice);
     settings.next_invoice_number = Number(settings.next_invoice_number || 3052) + 1;
     state.selectedInvoiceId = invoice.id;
@@ -437,10 +531,10 @@
         return total + Number(item?.amount || 0);
       }, 0);
     return [
-      { label: "Ready to invoice", value: money(ready), chip: `${readyBillableEvents().length} events`, tone: "success" },
-      { label: "Sent / unpaid", value: money(sentUnpaid), chip: "Manual chase", tone: "info" },
-      { label: "Overdue", value: money(overdue), chip: `${overdueItems().length} invoices`, tone: overdue ? "danger" : "muted" },
-      { label: "Next 30 days forecast", value: money(forecast), chip: "From scheduled cleans", tone: "info" }
+      { label: "Ready to invoice", value: money(ready), hint: `${readyBillableEvents().length} events`, tone: "success" },
+      { label: "Sent / unpaid", value: money(sentUnpaid), hint: "", tone: "info" },
+      { label: "Overdue", value: money(overdue), hint: overdueItems().length ? `${overdueItems().length} overdue` : "", tone: overdue ? "danger" : "muted" },
+      { label: "Next 30 days forecast", value: money(forecast), hint: "", tone: "info" }
     ];
   }
 
@@ -489,10 +583,12 @@
 
   function renderKpis() {
     return `<section class="grid-4 invoice-kpis">${kpis().map((item) => `
-      <article class="metric">
-        <p class="muted">${escapeHtml(item.label)}</p>
-        <div class="metric-value">${escapeHtml(item.value)}</div>
-        ${chip(item.chip, item.tone)}
+      <article class="metric invoice-kpi-card">
+        <div class="invoice-kpi-main">
+          <span class="muted">${escapeHtml(item.label)}</span>
+          <strong>${escapeHtml(item.value)}</strong>
+        </div>
+        ${item.hint ? `<span class="invoice-kpi-hint ${escapeHtml(item.tone)}">${escapeHtml(item.hint)}</span>` : ""}
       </article>
     `).join("")}</section>`;
   }
@@ -677,6 +773,10 @@
     const previewEvents = state.selectedEventIds.length ? selectedEvents() : ready;
     const previewContext = previewEvents[0] ? eventContext(previewEvents[0]) : {};
     const previewSetup = previewContext.setup || billingSetups()[0] || {};
+    const billingDefaults = billingDetailsFromSetup(previewSetup, {
+      client_id: previewContext.job?.client_id || previewSetup.client_id || "",
+      property_id: previewContext.job?.property_id || previewSetup.property_id || ""
+    });
     const rows = ready.map((event) => {
       const context = eventContext(event);
       const checked = state.selectedEventIds.includes(event.id);
@@ -712,13 +812,20 @@
           </div>
         </article>
         <article class="panel pad">
-          <h2>Billing setup context</h2>
+          <h2>Billing / invoice details</h2>
+          <p class="muted" style="margin-top:6px">Review or edit these details before creating the draft. Changes are not pushed back to the client/property unless you choose that in the confirmation.</p>
           <div class="job-plan-grid" style="margin-top:12px">
-            <div class="request-note-block"><strong>Frequency / timing</strong><span>${escapeHtml(`${previewSetup.billing_frequency || "Manual"} - ${previewSetup.invoice_timing || "Review before invoicing"}`)}</span></div>
-            <div class="request-note-block"><strong>Payment terms</strong><span>${escapeHtml(previewSetup.payment_terms || `${financeSettings().default_payment_terms_days || 14} days`)}</span></div>
+            <label class="client-field"><span>Bill-to name</span><input id="invoice-create-bill-to" value="${escapeHtml(billingDefaults.billing_name)}"></label>
+            <label class="client-field"><span>Invoice email/contact</span><input id="invoice-create-email" value="${escapeHtml(billingDefaults.invoice_email)}"></label>
+            <label class="client-field wide"><span>Billing address</span><input id="invoice-create-billing-address" value="${escapeHtml(billingDefaults.billing_address)}"></label>
+            <label class="client-field wide"><span>Service address / work location</span><input id="invoice-create-service-address" value="${escapeHtml(billingDefaults.service_address)}"></label>
+            <label class="client-field"><span>Invoice date</span><input id="invoice-create-invoice-date" type="date" value="${escapeHtml(billingDefaults.invoice_date)}"></label>
+            <label class="client-field"><span>Due date</span><input id="invoice-create-due-date" type="date" value="${escapeHtml(billingDefaults.due_date)}"></label>
+            <label class="client-field"><span>Payment terms</span><input id="invoice-create-terms" value="${escapeHtml(billingDefaults.payment_terms)}"></label>
+            <label class="client-field"><span>Reference / PO / source</span><input id="invoice-create-reference" value="${escapeHtml(billingDefaults.reference)}"></label>
             <div class="request-note-block"><strong>Delivery</strong><span>${escapeHtml(previewSetup.delivery_method || "Email")}</span></div>
             <div class="request-note-block"><strong>Grouping</strong><span>${escapeHtml(previewSetup.grouping_rule || "Manual grouping")}</span></div>
-            <div class="request-note-block wide"><strong>VAT status</strong><span>${escapeHtml(financeSettings().vat_label || "VAT: Not applicable")}</span></div>
+            <div class="request-note-block wide"><strong>VAT status</strong><span>${escapeHtml(billingDefaults.vat_label)}</span></div>
           </div>
         </article>
         <div class="job-editor-actions">
@@ -731,18 +838,34 @@
 
   function renderManualInvoice() {
     const clientOptions = clients().map((client) => `<option value="${escapeHtml(client.id)}">${escapeHtml(displayClientById(client.id))}</option>`).join("");
+    const defaultClient = clients()[0] || {};
+    const defaultProperty = defaultClient.properties?.[0] || {};
+    const defaultSetup = findBillingSetup(defaultClient.id, defaultProperty.id) || billingSetups()[0] || {};
+    const defaultBilling = billingDetailsFromSetup(defaultSetup, {
+      client_id: defaultClient.id || "",
+      property_id: defaultProperty.id || ""
+    });
     return `
       <section class="job-layer-content">
         <article class="panel pad">
           <h2>Manual invoice setup</h2>
+          <div class="invoice-route-grid" style="margin-top:14px">
+            <div class="request-note-block"><strong>Existing client/property</strong><span>Select a known client and service address, then review the copied billing fields before creating the draft.</span></div>
+            <div class="request-note-block"><strong>New/manual customer</strong><span>Enter customer, contact, billing, and work-location details for this invoice only. No backend client is created in v0.</span></div>
+          </div>
           <div class="job-plan-grid" style="margin-top:14px">
+            <label class="client-field"><span>Manual invoice path</span><select id="invoice-manual-path"><option value="existing">Existing client/property</option><option value="manual">New/manual customer</option></select></label>
             <label class="client-field"><span>Client / customer</span><select id="invoice-manual-client">${clientOptions}<option value="manual">Manual customer</option></select></label>
-            <label class="client-field"><span>Invoice email / contact</span><input id="invoice-manual-email" value="manual@example.test"></label>
-            <label class="client-field wide"><span>Service address / work location</span><input id="invoice-manual-service-address" value="Manual service address"></label>
-            <label class="client-field wide"><span>Billing address</span><input id="invoice-manual-billing-address" value="Same as service address"></label>
+            <label class="client-field"><span>Bill-to / customer name</span><input id="invoice-manual-bill-to" value="${escapeHtml(defaultBilling.billing_name)}"></label>
+            <label class="client-field"><span>Manual customer name</span><input id="invoice-manual-customer-name" value="Manual customer"></label>
+            <label class="client-field"><span>Invoice email / contact</span><input id="invoice-manual-email" value="${escapeHtml(defaultBilling.invoice_email)}"></label>
+            <label class="client-field"><span>Phone optional</span><input id="invoice-manual-phone" value=""></label>
+            <label class="client-field wide"><span>Service address / work location</span><input id="invoice-manual-service-address" value="${escapeHtml(defaultBilling.service_address)}"></label>
+            <label class="client-field wide"><span>Billing address</span><input id="invoice-manual-billing-address" value="${escapeHtml(defaultBilling.billing_address)}"></label>
             <label class="client-field"><span>Invoice date</span><input id="invoice-manual-date" type="date" value="${todayIso()}"></label>
             <label class="client-field"><span>Due date</span><input id="invoice-manual-due-date" type="date" value="${addDays(todayIso(), financeSettings().default_payment_terms_days || 14)}"></label>
-            <label class="client-field"><span>Payment terms</span><input id="invoice-manual-terms" value="${financeSettings().default_payment_terms_days || 14} days"></label>
+            <label class="client-field"><span>Payment terms</span><input id="invoice-manual-terms" value="${escapeHtml(defaultBilling.payment_terms)}"></label>
+            <label class="client-field"><span>Delivery method</span><select id="invoice-manual-delivery-method"><option>Email</option><option>Print / post later</option><option>Customer portal later</option></select></label>
             <label class="client-field"><span>Service date</span><input id="invoice-manual-service-date" type="date" value="${todayIso()}"></label>
             <label class="client-field"><span>Service period / source</span><input id="invoice-manual-period" value="Manual charge"></label>
             <label class="client-field"><span>Reference / PO / source</span><input id="invoice-manual-reference" value="Manual source"></label>
@@ -752,14 +875,16 @@
             <label class="client-field wide"><span>Notes / invoice reference</span><textarea id="invoice-manual-notes" rows="3">Manual invoice draft. No quote, job, or billable event linked.</textarea></label>
           </div>
           <div class="job-plan-grid" style="margin-top:14px">
-            <div class="request-note-block"><strong>Manual customer fields</strong><span>Name, email, service address, and billing address are shown here as v0 mock setup fields. They do not require a quote, job, or billable event.</span></div>
+            <div class="request-note-block"><strong>Existing client/property</strong><span>Uses selected client/property billing data as editable mock defaults. Nothing is persisted back automatically.</span></div>
+            <div class="request-note-block"><strong>New/manual customer</strong><span>Use the manual fields above for invoice-only customer details, or choose the mock client creation option below.</span></div>
             <div class="request-note-block"><strong>VAT status</strong><span>${escapeHtml(financeSettings().vat_label || "VAT: Not applicable")}</span></div>
           </div>
           <div class="request-note-block" style="margin-top:14px"><strong>Manual route</strong><span>For non-cleaning one-off service, sundry work, deposits, corrections, or work without quote/job.</span></div>
         </article>
         <div class="job-editor-actions">
           ${button("Back", "open-create")}
-          ${button("Create manual draft", "confirm-create-manual", "primary")}
+          ${button("Create invoice only", "confirm-create-manual", "primary")}
+          ${button("Create new client + invoice mock", "confirm-create-manual-client-mock")}
         </div>
       </section>
     `;
@@ -781,12 +906,18 @@
           <section class="grid-detail job-layer-content">
             <div class="stack">
               <article class="panel pad">
-                <h2>Client / billing details</h2>
+                <div class="panel-head compact-head">
+                  <h2>Client / billing details</h2>
+                  ${button("Edit billing details", `edit-billing:${invoice.id}`, "small")}
+                </div>
                 <div class="job-plan-grid" style="margin-top:12px">
                   <div class="request-note-block"><strong>Bill to</strong><span>${escapeHtml(setup.billing_name || displayClientById(invoice.client_id))}</span></div>
                   <div class="request-note-block"><strong>Invoice email</strong><span>${escapeHtml(setup.invoice_email || "Not set")}</span></div>
                   <div class="request-note-block wide"><strong>Billing address</strong><span>${escapeHtml(setup.billing_address || "Billing address not set")}</span></div>
+                  <div class="request-note-block wide"><strong>Service address</strong><span>${escapeHtml(setup.service_address || invoiceServiceAddress(invoice))}</span></div>
                   <div class="request-note-block"><strong>Payment terms</strong><span>${escapeHtml(invoice.payment_terms || setup.payment_terms || "14 days")}</span></div>
+                  <div class="request-note-block"><strong>Due date</strong><span>${escapeHtml(invoice.due_date || "Not set")}</span></div>
+                  <div class="request-note-block"><strong>Reference / PO</strong><span>${escapeHtml(invoice.reference || setup.po_reference || "Not set")}</span></div>
                   <div class="request-note-block"><strong>VAT status</strong><span>${escapeHtml(financeSettings().vat_label || "VAT: Not applicable")}</span></div>
                 </div>
               </article>
@@ -933,6 +1064,8 @@
   function renderModal() {
     const modal = state.modal;
     if (modal.type === "partPaid") return renderPartPaidModal(modal.invoiceId);
+    if (modal.type === "billingChoice") return renderBillingChoiceModal(modal);
+    if (modal.type === "billingEdit") return renderBillingEditModal(modal);
     if (modal.type === "mock") return renderMockModal(modal);
     return `
       <div class="job-modal-backdrop">
@@ -959,6 +1092,52 @@
           <div class="button-row" style="margin-top:16px">
             ${button("Cancel", "close-modal")}
             ${button("Record part payment", `mark-part-paid:${invoiceId}`, "primary")}
+          </div>
+        </article>
+      </div>
+    `;
+  }
+
+  function renderBillingChoiceModal(modal) {
+    return `
+      <div class="job-modal-backdrop">
+        <article class="job-confirm-modal" role="dialog" aria-modal="true">
+          <h2>${escapeHtml(modal.title || "Use edited billing details?")}</h2>
+          <p class="muted" style="margin-top:8px">${escapeHtml(modal.copy || "Choose whether these mock billing details apply to this invoice only or also update the client/property billing setup mock.")}</p>
+          <div class="request-note-block" style="margin-top:14px"><strong>Boundary</strong><span>No backend or real client/property record is updated in Invoices v0.</span></div>
+          <div class="button-row" style="margin-top:16px">
+            ${button("Cancel", "close-modal")}
+            ${button("Use for this invoice only", `${modal.invoiceOnlyAction}`, "primary")}
+            ${button("Update client/property billing setup mock", `${modal.updateSetupAction}`)}
+          </div>
+        </article>
+      </div>
+    `;
+  }
+
+  function renderBillingEditModal(modal) {
+    const invoice = findInvoice(modal.invoiceId);
+    const details = billingDetailsFromSetup(invoice ? invoiceBillingSetup(invoice) : {}, invoice || {});
+    return `
+      <div class="job-modal-backdrop">
+        <article class="job-confirm-modal invoice-billing-modal" role="dialog" aria-modal="true">
+          <h2>Edit billing details</h2>
+          <p class="muted" style="margin-top:8px">Mock edit only. Choose whether changes apply to this invoice or also update the client/property billing setup mock.</p>
+          <div class="job-plan-grid" style="margin-top:14px">
+            <label class="client-field"><span>Bill-to</span><input id="invoice-edit-bill-to" value="${escapeHtml(details.billing_name)}"></label>
+            <label class="client-field"><span>Invoice email</span><input id="invoice-edit-email" value="${escapeHtml(details.invoice_email)}"></label>
+            <label class="client-field wide"><span>Billing address</span><input id="invoice-edit-billing-address" value="${escapeHtml(details.billing_address)}"></label>
+            <label class="client-field wide"><span>Service address</span><input id="invoice-edit-service-address" value="${escapeHtml(details.service_address)}"></label>
+            <label class="client-field"><span>Invoice date</span><input id="invoice-edit-invoice-date" type="date" value="${escapeHtml(details.invoice_date)}"></label>
+            <label class="client-field"><span>Due date</span><input id="invoice-edit-due-date" type="date" value="${escapeHtml(details.due_date)}"></label>
+            <label class="client-field"><span>Payment terms</span><input id="invoice-edit-terms" value="${escapeHtml(details.payment_terms)}"></label>
+            <label class="client-field"><span>Reference / PO</span><input id="invoice-edit-reference" value="${escapeHtml(details.reference)}"></label>
+            <div class="request-note-block wide"><strong>VAT status</strong><span>${escapeHtml(details.vat_label)}</span></div>
+          </div>
+          <div class="button-row" style="margin-top:16px">
+            ${button("Cancel", "close-modal")}
+            ${button("Apply to this invoice only", `apply-billing-invoice:${escapeHtml(modal.invoiceId)}`, "primary")}
+            ${button("Update client/property billing setup mock", `apply-billing-setup:${escapeHtml(modal.invoiceId)}`)}
           </div>
         </article>
       </div>
@@ -1063,6 +1242,7 @@
     if (action === "close-create") {
       state.createMode = null;
       state.selectedEventIds = [];
+      state.pendingBillingDetails = null;
       refresh();
       return true;
     }
@@ -1078,17 +1258,20 @@
         refresh();
         return true;
       }
+      state.pendingBillingDetails = readBillingDetails("invoice-create");
       state.modal = {
-        title: "Create invoice draft?",
-        copy: `This will create one invoice draft from ${state.selectedEventIds.length} selected billable event${state.selectedEventIds.length === 1 ? "" : "s"}.`,
-        primaryLabel: "Create draft",
-        confirmAction: "create-events-draft"
+        type: "billingChoice",
+        title: "Use edited billing details?",
+        copy: `Create one invoice draft from ${state.selectedEventIds.length} selected billable event${state.selectedEventIds.length === 1 ? "" : "s"} using the billing details currently shown.`,
+        invoiceOnlyAction: "create-events-draft:invoice_only",
+        updateSetupAction: "create-events-draft:update_setup"
       };
       refresh();
       return true;
     }
-    if (action === "create-events-draft") {
-      createInvoiceFromEvents();
+    if (action.startsWith("create-events-draft")) {
+      const scope = action.split(":")[1] || "invoice_only";
+      createInvoiceFromEvents(scope);
       state.modal = null;
       refresh();
       return true;
@@ -1098,6 +1281,16 @@
         title: "Create manual invoice draft?",
         copy: "This creates a manual draft only. No quote, job, billable event, email, PDF storage, or payment link is created.",
         primaryLabel: "Create manual draft",
+        confirmAction: "create-manual-draft"
+      };
+      refresh();
+      return true;
+    }
+    if (action === "confirm-create-manual-client-mock") {
+      state.modal = {
+        title: "Create new client + invoice mock?",
+        copy: "This creates the invoice draft and demonstrates the future new-client path only. No real client/property record is persisted in v0.",
+        primaryLabel: "Create mock draft",
         confirmAction: "create-manual-draft"
       };
       refresh();
@@ -1148,6 +1341,29 @@
     }
     if (action === "save-editor") {
       toast("Invoice draft saved in mock state.");
+      refresh();
+      return true;
+    }
+    if (action.startsWith("edit-billing:")) {
+      state.modal = { type: "billingEdit", invoiceId: action.split(":")[1] };
+      refresh();
+      return true;
+    }
+    if (action.startsWith("apply-billing-invoice:")) {
+      const invoice = findInvoice(action.split(":")[1]);
+      applyBillingDetailsToInvoice(invoice, readBillingDetails("invoice-edit"));
+      state.modal = null;
+      toast("Billing details applied to this invoice only.");
+      refresh();
+      return true;
+    }
+    if (action.startsWith("apply-billing-setup:")) {
+      const invoice = findInvoice(action.split(":")[1]);
+      const details = readBillingDetails("invoice-edit");
+      applyBillingDetailsToInvoice(invoice, details);
+      if (invoice) applyBillingDetailsToSetup(ensureBillingSetupForInvoice(invoice), details);
+      state.modal = null;
+      toast("Billing details applied to this invoice and billing setup mock.");
       refresh();
       return true;
     }

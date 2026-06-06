@@ -67,6 +67,7 @@ Rules:
 
 - one billable event can belong to only one active invoice
 - selected billable events become invoice lines
+- each selected billable event remains traceable as its own invoice line in v0
 - invoice lines retain source event/report/job references
 - if the invoice is voided, linked billable events return to `ready_to_bill`
 - invoice creation is manual; no automatic invoice generation in v0
@@ -182,10 +183,12 @@ Use the approved CleanOps patterns:
 Action panel columns:
 
 - Ready to invoice
-- Needs billing review
+- Needs action
 - Overdue / chase
 
 Do not add a `sent but not due` column. Sent/unpaid invoices belong in the register and KPI strip unless they require action.
+
+The Needs action column should include draft invoices needing review, ready-to-send invoices, part-paid follow-up, billing review items, disputed/correction items, cancellation-fee decisions, and missing-price decisions. Sent invoices should leave Needs action unless they become overdue or otherwise require attention.
 
 The Invoice register is the stable database view and must be search/filter/sort/pagination-ready.
 

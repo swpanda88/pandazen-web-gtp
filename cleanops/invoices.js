@@ -206,6 +206,17 @@
     return property?.label || property?.name || property?.address || "Property not linked";
   }
 
+  function invoiceServiceAddress(invoice) {
+    return invoice?.manual_billing?.service_address || displayProperty(invoice?.client_id, invoice?.property_id);
+  }
+
+  function invoiceBillingSetup(invoice) {
+    return findBillingSetup(invoice.client_id, invoice.property_id)
+      || billingSetups().find((item) => item.id === invoice.billing_setup_id)
+      || invoice.manual_billing
+      || {};
+  }
+
   function invoiceTotal(invoice) {
     return (invoice?.lines || []).reduce((total, line) => total + Number(line.amount ?? (Number(line.quantity || 0) * Number(line.rate || 0))), 0);
   }
@@ -233,6 +244,17 @@
     });
   }
 
+  function needsActionItems() {
+    const invoiceItems = invoices()
+      .filter((invoice) => {
+        const status = invoiceStatus(invoice);
+        return status === "ready_to_send" || status === "draft" || status === "part_paid";
+      })
+      .map((invoice) => ({ type: "invoice", invoice }));
+    const eventItems = billingReviewEvents().map((event) => ({ type: "billable_event", event }));
+    return [...invoiceItems, ...eventItems];
+  }
+
   function invoiceStatus(invoice) {
     if (!invoice) return "draft";
     if (invoice.status === "sent" && invoice.due_date && invoice.due_date < todayIso() && invoiceBalance(invoice) > 0) return "overdue";
@@ -252,7 +274,7 @@
     const dates = (line.service_dates || []).length ? line.service_dates.map(formatDate).join(", ") : (line.service_date ? formatDate(line.service_date) : (sourceDate ? formatDate(sourceDate) : ""));
     const parts = [
       dates,
-      line.property_label || sourceContext.job?.address_label || displayProperty(invoice.client_id, invoice.property_id),
+      line.property_label || sourceContext.job?.address_label || invoiceServiceAddress(invoice),
       line.service_type || cleanTypeLabel(sourceContext.clean?.clean_type),
       line.source_reference ? `Source: ${line.source_reference}` : (sourceEvent ? `Source: ${sourceEvent.source_report_id || sourceEvent.source_scheduled_job_id || sourceEvent.id}` : "")
     ].filter(Boolean);
@@ -308,33 +330,8 @@
     };
   }
 
-  function groupLineKey(line) {
-    return [line.type, line.description, line.property_label, line.service_type, line.rate].join("|");
-  }
-
   function linesFromEvents(events) {
-    const groups = new Map();
-    events.map(lineFromEvent).forEach((line) => {
-      const key = groupLineKey(line);
-      if (!groups.has(key)) {
-        groups.set(key, { ...line });
-        return;
-      }
-      const group = groups.get(key);
-      group.quantity = Number(group.quantity || 1) + Number(line.quantity || 1);
-      group.amount = Number(group.amount || 0) + Number(line.amount || 0);
-      group.source_billable_event_ids = [...(group.source_billable_event_ids || []), ...(line.source_billable_event_ids || [])];
-      group.service_dates = [...(group.service_dates || []), ...(line.service_dates || [])];
-      group.source_reference = [...new Set([group.source_reference, line.source_reference].filter(Boolean))].join(", ");
-      group.source_billable_event_id = "";
-    });
-    return Array.from(groups.values()).map((line) => {
-      if ((line.service_dates || []).length > 1) {
-        const dates = line.service_dates.map(formatDate).join(", ");
-        return { ...line, description: `${line.description} - ${line.quantity} visits - ${dates}` };
-      }
-      return line;
-    });
+    return events.map(lineFromEvent);
   }
 
   function createInvoiceFromEvents() {
@@ -384,19 +381,38 @@
       client_id: clientId,
       property_id: propertyId,
       billing_setup_id: setup.id || "",
+      manual_billing: {
+        billing_name: clientId === "manual" ? "Manual customer" : displayClientById(clientId),
+        billing_address: document.getElementById("invoice-manual-billing-address")?.value || setup.billing_address || "Manual billing address",
+        invoice_email: document.getElementById("invoice-manual-email")?.value || setup.invoice_email || "manual@example.test",
+        service_address: document.getElementById("invoice-manual-service-address")?.value || displayProperty(clientId, propertyId)
+      },
       status: "draft",
       source: "manual",
       period: document.getElementById("invoice-manual-period")?.value || "Manual invoice",
-      invoice_date: todayIso(),
+      invoice_date: document.getElementById("invoice-manual-date")?.value || todayIso(),
       issued_date: "",
-      due_date: addDays(todayIso(), settings.default_payment_terms_days || 14),
+      due_date: document.getElementById("invoice-manual-due-date")?.value || addDays(todayIso(), settings.default_payment_terms_days || 14),
       paid_date: "",
       paid_amount: 0,
-      payment_terms: `${settings.default_payment_terms_days || 14} days`,
-      notes: "Manual invoice draft.",
+      payment_terms: document.getElementById("invoice-manual-terms")?.value || `${settings.default_payment_terms_days || 14} days`,
+      notes: document.getElementById("invoice-manual-notes")?.value || "Manual invoice draft.",
       source_billable_event_ids: [],
       lines: [
-        { id: `line-${Date.now()}-manual`, type: "manual", source_billable_event_id: "", description: document.getElementById("invoice-manual-description")?.value || "Manual service charge", quantity: 1, rate: Number(document.getElementById("invoice-manual-amount")?.value || 120), amount: Number(document.getElementById("invoice-manual-amount")?.value || 120) }
+        {
+          id: `line-${Date.now()}-manual`,
+          type: document.getElementById("invoice-manual-line-type")?.value || "manual",
+          source_billable_event_id: "",
+          description: document.getElementById("invoice-manual-description")?.value || "Manual service charge",
+          service_date: document.getElementById("invoice-manual-service-date")?.value || "",
+          service_dates: document.getElementById("invoice-manual-service-date")?.value ? [document.getElementById("invoice-manual-service-date").value] : [],
+          property_label: document.getElementById("invoice-manual-service-address")?.value || displayProperty(clientId, propertyId),
+          service_type: document.getElementById("invoice-manual-period")?.value || "Manual invoice",
+          source_reference: document.getElementById("invoice-manual-reference")?.value || "Manual source",
+          quantity: 1,
+          rate: Number(document.getElementById("invoice-manual-amount")?.value || 120),
+          amount: Number(document.getElementById("invoice-manual-amount")?.value || 120)
+        }
       ]
     };
     invoices().unshift(invoice);
@@ -485,7 +501,7 @@
     return `
       <section class="jobs-action-panel invoice-action-panel">
         ${renderActionColumn("Ready to invoice", groupedReadyCards(), renderReadyCard)}
-        ${renderActionColumn("Needs billing review", billingReviewEvents(), renderReviewCard)}
+        ${renderActionColumn("Needs action", needsActionItems(), renderNeedsActionCard)}
         ${renderActionColumn("Overdue / chase", overdueItems(), renderOverdueCard)}
       </section>
     `;
@@ -517,6 +533,28 @@
     `;
   }
 
+  function renderNeedsActionCard(item) {
+    if (item.type === "invoice") return renderInvoiceActionCard(item.invoice);
+    return renderReviewCard(item.event);
+  }
+
+  function renderInvoiceActionCard(invoice) {
+    const status = invoiceStatus(invoice);
+    const labels = {
+      ready_to_send: "Ready to send",
+      draft: "Draft needs review",
+      part_paid: "Part-paid follow-up"
+    };
+    return `
+      <button class="job-action-card" type="button" data-invoice-action="open-editor:${escapeHtml(invoice.id)}">
+        <strong>${escapeHtml(invoice.invoice_ref)}</strong>
+        <span>${escapeHtml(displayClientById(invoice.client_id))} - ${escapeHtml(invoiceServiceAddress(invoice))}</span>
+        <span class="muted">${escapeHtml(`${money(invoiceTotal(invoice))} - ${labels[status] || statusLabels[status] || status}`)}</span>
+        ${chip(labels[status] || statusLabels[status] || "Action", status === "ready_to_send" ? "info" : "warning")}
+      </button>
+    `;
+  }
+
   function renderReviewCard(event) {
     const context = eventContext(event);
     return `
@@ -533,7 +571,7 @@
     return `
       <button class="job-action-card" type="button" data-invoice-action="open-editor:${escapeHtml(invoice.id)}">
         <strong>${escapeHtml(invoice.invoice_ref)}</strong>
-        <span>${escapeHtml(displayClientById(invoice.client_id))} - ${escapeHtml(displayProperty(invoice.client_id, invoice.property_id))}</span>
+        <span>${escapeHtml(displayClientById(invoice.client_id))} - ${escapeHtml(invoiceServiceAddress(invoice))}</span>
         <span class="muted">${escapeHtml(`${money(invoiceBalance(invoice))} outstanding, due ${invoice.due_date || "not set"}`)}</span>
         ${chip("Chase", "danger")}
       </button>
@@ -544,7 +582,7 @@
     const rows = invoices().map((invoice) => `
       <tr data-invoice-row="${escapeHtml(invoice.id)}" data-invoice-action="open-editor:${escapeHtml(invoice.id)}" tabindex="0" role="button">
         <td><strong>${escapeHtml(invoice.invoice_ref)}</strong><br><span class="muted">${escapeHtml(invoice.source === "manual" ? "Manual" : "Billable events")}</span></td>
-        <td>${escapeHtml(displayClientById(invoice.client_id))}<br><span class="muted">${escapeHtml(displayProperty(invoice.client_id, invoice.property_id))}</span></td>
+        <td>${escapeHtml(displayClientById(invoice.client_id))}<br><span class="muted">${escapeHtml(invoiceServiceAddress(invoice))}</span></td>
         <td>${escapeHtml(invoice.period || "Current period")}</td>
         <td>${escapeHtml(money(invoiceTotal(invoice)))}</td>
         <td>${statusChip(invoice)}</td>
@@ -699,10 +737,23 @@
           <h2>Manual invoice setup</h2>
           <div class="job-plan-grid" style="margin-top:14px">
             <label class="client-field"><span>Client / customer</span><select id="invoice-manual-client">${clientOptions}<option value="manual">Manual customer</option></select></label>
-            <label class="client-field"><span>Period / source</span><input id="invoice-manual-period" value="Manual charge"></label>
+            <label class="client-field"><span>Invoice email / contact</span><input id="invoice-manual-email" value="manual@example.test"></label>
+            <label class="client-field wide"><span>Service address / work location</span><input id="invoice-manual-service-address" value="Manual service address"></label>
+            <label class="client-field wide"><span>Billing address</span><input id="invoice-manual-billing-address" value="Same as service address"></label>
+            <label class="client-field"><span>Invoice date</span><input id="invoice-manual-date" type="date" value="${todayIso()}"></label>
+            <label class="client-field"><span>Due date</span><input id="invoice-manual-due-date" type="date" value="${addDays(todayIso(), financeSettings().default_payment_terms_days || 14)}"></label>
+            <label class="client-field"><span>Payment terms</span><input id="invoice-manual-terms" value="${financeSettings().default_payment_terms_days || 14} days"></label>
+            <label class="client-field"><span>Service date</span><input id="invoice-manual-service-date" type="date" value="${todayIso()}"></label>
+            <label class="client-field"><span>Service period / source</span><input id="invoice-manual-period" value="Manual charge"></label>
+            <label class="client-field"><span>Reference / PO / source</span><input id="invoice-manual-reference" value="Manual source"></label>
             <label class="client-field wide"><span>Line description</span><input id="invoice-manual-description" value="Manual service charge"></label>
             <label class="client-field"><span>Amount</span><input id="invoice-manual-amount" type="number" value="120"></label>
-            <label class="client-field"><span>Line type</span><select><option>Manual</option><option>Correction</option><option>Deposit</option><option>Cancellation fee</option></select></label>
+            <label class="client-field"><span>Line type</span><select id="invoice-manual-line-type"><option value="manual">Manual</option><option value="correction">Correction</option><option value="adjustment">Adjustment</option><option value="cancellation_fee">Cancellation fee</option></select></label>
+            <label class="client-field wide"><span>Notes / invoice reference</span><textarea id="invoice-manual-notes" rows="3">Manual invoice draft. No quote, job, or billable event linked.</textarea></label>
+          </div>
+          <div class="job-plan-grid" style="margin-top:14px">
+            <div class="request-note-block"><strong>Manual customer fields</strong><span>Name, email, service address, and billing address are shown here as v0 mock setup fields. They do not require a quote, job, or billable event.</span></div>
+            <div class="request-note-block"><strong>VAT status</strong><span>${escapeHtml(financeSettings().vat_label || "VAT: Not applicable")}</span></div>
           </div>
           <div class="request-note-block" style="margin-top:14px"><strong>Manual route</strong><span>For non-cleaning one-off service, sundry work, deposits, corrections, or work without quote/job.</span></div>
         </article>
@@ -715,7 +766,7 @@
   }
 
   function renderEditor(invoice) {
-    const setup = findBillingSetup(invoice.client_id, invoice.property_id) || billingSetups().find((item) => item.id === invoice.billing_setup_id) || {};
+    const setup = invoiceBillingSetup(invoice);
     return `
       <div class="job-layer-backdrop">
         <article class="job-layer-shell invoice-layer-shell" role="dialog" aria-modal="true">
@@ -723,7 +774,7 @@
             <div>
               <p class="eyebrow">Invoice editor</p>
               <h2>${escapeHtml(invoice.invoice_ref)}</h2>
-              <p class="muted" style="margin-top:6px">${escapeHtml(displayClientById(invoice.client_id))} - ${escapeHtml(displayProperty(invoice.client_id, invoice.property_id))}</p>
+              <p class="muted" style="margin-top:6px">${escapeHtml(displayClientById(invoice.client_id))} - ${escapeHtml(invoiceServiceAddress(invoice))}</p>
             </div>
             ${button("Close", "close-editor")}
           </div>
@@ -740,7 +791,16 @@
                 </div>
               </article>
               <article class="panel">
-                <div class="panel-head"><h2>Invoice lines</h2>${chip(`${(invoice.lines || []).length} lines`, "info")}</div>
+                <div class="panel-head">
+                  <div><h2>Invoice lines</h2><p class="muted">Each billable event stays traceable as its own invoice line.</p></div>
+                  ${chip(`${(invoice.lines || []).length} lines`, "info")}
+                </div>
+                <div class="filters">
+                  ${button("Add line", "mock:Add invoice line", "small")}
+                  ${button("Add discount", "mock:Add invoice discount", "small")}
+                  ${button("Add adjustment", "mock:Add invoice adjustment", "small")}
+                  ${button("Add cancellation fee", "mock:Add cancellation fee", "small")}
+                </div>
                 <div class="quote-table-scroll">
                   <table class="jobs-scheduled-table">
                     <thead><tr><th>Type</th><th>Description</th><th>Qty</th><th>Rate</th><th>Amount</th></tr></thead>
@@ -806,7 +866,7 @@
   }
 
   function renderPreview(invoice) {
-    const setup = findBillingSetup(invoice.client_id, invoice.property_id) || {};
+    const setup = invoiceBillingSetup(invoice);
     const settings = financeSettings();
     return `
       <div class="a4-document-backdrop">
@@ -845,7 +905,7 @@
             </div>
             <div>
               <h3>Service address / reference</h3>
-              <p>${escapeHtml(displayProperty(invoice.client_id, invoice.property_id))}</p>
+              <p>${escapeHtml(invoiceServiceAddress(invoice))}</p>
               <p>${escapeHtml(invoice.period || "Current period")}</p>
               <p>${escapeHtml(invoice.source === "manual" ? "Manual invoice" : "From approved billable events")}</p>
             </div>

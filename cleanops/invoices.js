@@ -531,10 +531,10 @@
         return total + Number(item?.amount || 0);
       }, 0);
     return [
-      { label: "Ready to invoice", value: money(ready), hint: `${readyBillableEvents().length} events`, tone: "success" },
-      { label: "Sent / unpaid", value: money(sentUnpaid), hint: "", tone: "info" },
-      { label: "Overdue", value: money(overdue), hint: overdueItems().length ? `${overdueItems().length} overdue` : "", tone: overdue ? "danger" : "muted" },
-      { label: "Next 30 days forecast", value: money(forecast), hint: "", tone: "info" }
+      { label: "Ready to invoice", value: money(ready) },
+      { label: "Sent / unpaid", value: money(sentUnpaid) },
+      { label: "Overdue", value: money(overdue) },
+      { label: "Next 30 days forecast", value: money(forecast) }
     ];
   }
 
@@ -588,7 +588,6 @@
           <span class="muted">${escapeHtml(item.label)}</span>
           <strong>${escapeHtml(item.value)}</strong>
         </div>
-        ${item.hint ? `<span class="invoice-kpi-hint ${escapeHtml(item.tone)}">${escapeHtml(item.hint)}</span>` : ""}
       </article>
     `).join("")}</section>`;
   }

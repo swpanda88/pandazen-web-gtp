@@ -2238,6 +2238,17 @@ tr.status-risk td:first-child {
   width: 220px;
 }
 
+.invoice-row-menu-layer {
+  position: fixed;
+  z-index: 120;
+}
+
+.invoice-row-menu-layer .invoice-row-menu {
+  position: static;
+  top: auto;
+  right: auto;
+}
+
 .invoice-billing-modal {
   width: min(760px, calc(100vw - 32px));
   max-width: 760px;

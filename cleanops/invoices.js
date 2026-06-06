@@ -7,6 +7,7 @@
     createMode: null,
     selectedEventIds: [],
     rowMenuId: null,
+    rowMenuPosition: null,
     modal: null,
     pendingBillingDetails: null,
     partPaidInvoiceId: null
@@ -620,6 +621,7 @@
         ${renderKpis()}
         ${renderActionPanel()}
         ${renderRegister()}
+        ${renderRowMenuOverlay()}
         ${state.createMode ? renderCreateLayer() : ""}
         ${state.editorOpen && selectedInvoice() ? renderEditor(selectedInvoice()) : ""}
         ${state.previewOpen && selectedInvoice() ? renderPreview(selectedInvoice()) : ""}
@@ -757,7 +759,6 @@
         <td>
           <div class="row-menu-wrap">
             <button class="button small" type="button" data-invoice-action="toggle-row-menu:${escapeHtml(invoice.id)}">Actions v</button>
-            ${state.rowMenuId === invoice.id ? renderRowMenu(invoice) : ""}
           </div>
         </td>
       </tr>
@@ -797,6 +798,19 @@
         ${!locked ? `<button type="button" data-invoice-action="part-paid:${escapeHtml(invoice.id)}">Mark part-paid</button>` : ""}
         ${!locked ? `<button type="button" data-invoice-action="confirm-void:${escapeHtml(invoice.id)}">Void</button>` : ""}
         <button type="button" data-invoice-action="mock:Duplicate invoice">Duplicate mock</button>
+      </div>
+    `;
+  }
+
+  function renderRowMenuOverlay() {
+    const invoice = state.rowMenuId ? findInvoice(state.rowMenuId) : null;
+    if (!invoice) return "";
+    const position = state.rowMenuPosition || {};
+    const top = Number(position.top || 0);
+    const left = Number(position.left || 0);
+    return `
+      <div class="invoice-row-menu-layer" style="top:${escapeHtml(top)}px;left:${escapeHtml(left)}px">
+        ${renderRowMenu(invoice)}
       </div>
     `;
   }
@@ -1251,22 +1265,46 @@
     refresh();
   }
 
+  function rowMenuPositionFor(target) {
+    const rect = target?.getBoundingClientRect?.();
+    if (!rect) return { top: 0, left: 0 };
+    const menuWidth = 220;
+    const viewportWidth = window.innerWidth || document.documentElement?.clientWidth || 1200;
+    const left = Math.max(8, Math.min(rect.right - menuWidth, viewportWidth - menuWidth - 8));
+    return { top: Math.round(rect.bottom + 6), left: Math.round(left) };
+  }
+
+  function closeRowMenu() {
+    state.rowMenuId = null;
+    state.rowMenuPosition = null;
+  }
+
   function handleClick(event) {
     const row = event.target.closest("[data-invoice-row]");
     if (row && !event.target.closest("[data-invoice-action]")) {
       state.selectedInvoiceId = row.dataset.invoiceRow;
       state.editorOpen = true;
-      state.rowMenuId = null;
+      closeRowMenu();
       refresh();
       event.preventDefault();
       return true;
     }
 
     const target = event.target.closest("[data-invoice-action]");
-    if (!target) return false;
+    if (!target) {
+      if (state.rowMenuId) {
+        closeRowMenu();
+        refresh();
+      }
+      return false;
+    }
     const action = target.dataset.invoiceAction;
     event.preventDefault();
     event.stopPropagation();
+
+    if (!action.startsWith("toggle-row-menu:") && state.rowMenuId) {
+      closeRowMenu();
+    }
 
     if (action === "open-create") {
       state.createMode = "choose";
@@ -1359,7 +1397,12 @@
     }
     if (action.startsWith("toggle-row-menu:")) {
       const id = action.split(":")[1];
-      state.rowMenuId = state.rowMenuId === id ? null : id;
+      if (state.rowMenuId === id) {
+        closeRowMenu();
+      } else {
+        state.rowMenuId = id;
+        state.rowMenuPosition = rowMenuPositionFor(target);
+      }
       refresh();
       return true;
     }
@@ -1367,7 +1410,7 @@
       state.selectedInvoiceId = action.split(":")[1];
       state.editorOpen = true;
       state.previewOpen = false;
-      state.rowMenuId = null;
+      closeRowMenu();
       refresh();
       return true;
     }
@@ -1407,7 +1450,7 @@
     if (action.startsWith("preview:")) {
       state.selectedInvoiceId = action.split(":")[1];
       state.previewOpen = true;
-      state.rowMenuId = null;
+      closeRowMenu();
       refresh();
       return true;
     }

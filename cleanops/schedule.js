@@ -148,6 +148,14 @@
     return "";
   }
 
+  function gridStatusChip(item) {
+    if (isCompleted(item)) return chip("Completed", "muted");
+    if (item.statusGroup === "Overdue" || item.status === "Overdue") return chip("Overdue", "danger");
+    if (isUnassigned(item) || item.statusGroup === "Unassigned" || item.status === "Unassigned") return chip("Unassigned", "danger");
+    if (item.type === "Issue / revisit" || item.statusGroup === "Issue / warning") return chip("Issue", "danger");
+    return "";
+  }
+
   function button(label, action, variant = "") {
     const classes = ["button", variant].filter(Boolean).join(" ");
     return `<button class="${classes}" type="button" data-schedule-action="${escapeHtml(action || label)}">${escapeHtml(label)}</button>`;
@@ -404,7 +412,7 @@
     const overlapStyle = layout.columnCount > 1
       ? `left:calc(8px + ${layout.columnIndex} * ((100% - 16px) / ${layout.columnCount}));width:calc((100% - 16px) / ${layout.columnCount} - 4px);right:auto;`
       : "left:8px;right:8px;";
-    const status = cardStatusChip(visit);
+    const status = gridStatusChip(visit);
     return `
       <article class="schedule-visit-card ${escapeHtml(scheduleItemClasses(visit))} ${mode}" draggable="true"
         data-visit-id="${escapeHtml(visit.id)}"
@@ -417,10 +425,7 @@
         </div>
         <span class="schedule-card-title">${escapeHtml(visit.client)}</span>
         <span class="schedule-card-location">${escapeHtml(visit.property)}</span>
-        <div class="schedule-card-meta">
-          ${typePill(visit.type)}
-          <span>${escapeHtml(visit.service)}</span>
-        </div>
+        <span class="schedule-card-meta">${escapeHtml(visit.service)}</span>
         ${visit.warnings?.length && !status ? `<span class="schedule-card-warning">${escapeHtml(normaliseWarning(visit.warnings[0]))}</span>` : ""}
         <span class="resize-handle top" data-resize-id="${escapeHtml(visit.id)}" data-resize-edge="top" title="Resize start time" aria-hidden="true"></span>
         <span class="resize-handle bottom" data-resize-id="${escapeHtml(visit.id)}" data-resize-edge="bottom" title="Resize end time" aria-hidden="true"></span>

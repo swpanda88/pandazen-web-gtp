@@ -270,7 +270,6 @@
   }
 
   function controls() {
-    const viewLabel = state.view.charAt(0).toUpperCase() + state.view.slice(1);
     return `
       <div class="schedule-toolbar">
         <div class="schedule-toolbar-group">
@@ -280,10 +279,7 @@
           <button class="button small schedule-date-button" type="button" data-schedule-action="date-range" title="Date range">${escapeHtml(state.rangeLabel)}</button>
         </div>
         <div class="schedule-toolbar-group">
-          <div class="schedule-menu-wrap">
-            <button class="button small" type="button" data-schedule-action="toggle-view-menu" aria-expanded="${state.viewMenuOpen}" title="Choose schedule view">${escapeHtml(viewLabel)} <span aria-hidden="true">v</span></button>
-            ${state.viewMenuOpen ? viewMenu() : ""}
-          </div>
+          ${viewSwitch()}
           <div class="schedule-menu-wrap">
             <button class="button small" type="button" data-schedule-action="toggle-filters" aria-expanded="${state.filtersOpen}" title="Schedule filters">Filters ${chip(filtersActiveLabel(), "success")} <span aria-hidden="true">v</span></button>
             ${state.filtersOpen ? filtersMenu() : ""}
@@ -300,6 +296,18 @@
 
   function filtersActiveLabel() {
     return state.showWeekends ? "On" : "Weekdays";
+  }
+
+  function viewSwitch() {
+    return `
+      <div class="schedule-view-switch" aria-label="Schedule view">
+        ${["week", "day", "workload"].map((view) => `
+          <button type="button" class="${state.view === view ? "selected" : ""}" data-schedule-view="${view}" aria-pressed="${state.view === view}">
+            ${escapeHtml(view.charAt(0).toUpperCase() + view.slice(1))}
+          </button>
+        `).join("")}
+      </div>
+    `;
   }
 
   function viewMenu() {
@@ -635,7 +643,7 @@
       if (bookedMinutes > 0) summary += ` · ${bookedHours}h`;
 
       return `
-        <tr class="gantt-row workload-group-header ${isCollapsed ? "collapsed" : ""}" data-schedule-action="toggle-workload-group" data-group-key="${escapeHtml(groupKey)}">
+        <tr class="gantt-row workload-group-header ${isNeedsAction ? "needs-action" : ""} ${isCollapsed ? "collapsed" : ""}" data-schedule-action="toggle-workload-group" data-group-key="${escapeHtml(groupKey)}">
           <td class="gantt-left">
             <div class="workload-group-header-text">
               <span class="group-chevron" aria-hidden="true">${isCollapsed ? "›" : "v"}</span>
@@ -763,7 +771,7 @@
     `;
 
     return `
-      <section class="panel">
+      <section class="panel workload-panel">
         ${controls()}
         ${tableHtml}
       </section>
@@ -787,7 +795,7 @@
   }
 
   function findVisit(id) {
-    return state.visits.find((visit) => visit.id === id);
+    return state.visits.find((visit) => visit.id === id) || state.unscheduled.find((visit) => visit.id === id);
   }
 
   function scheduleUnscheduled(id, dayIndex, time) {
@@ -845,6 +853,7 @@
     const rect = target.getBoundingClientRect();
     const left = Math.min(rect.left + window.scrollX + 12, window.scrollX + window.innerWidth - 310);
     const top = rect.top + window.scrollY - 10;
+    const hasTime = Boolean(visit.start);
     root.innerHTML = `
       <aside class="visit-popover" style="left:${Math.max(12, left)}px;top:${Math.max(74, top)}px" role="dialog" aria-label="${escapeHtml(visit.client)} visit">
         <div class="visit-popover-bar" data-popover-drag="true">
@@ -855,10 +864,10 @@
           <label class="schedule-check"><input type="checkbox" data-schedule-complete="${escapeHtml(visit.id)}" ${visit.completed ? "checked" : ""}><span>Completed</span></label>
           <div class="field-row"><span>Type</span><strong>${typePill(visit.type)}</strong></div>
           <div class="field-row"><span>Details</span><strong>${escapeHtml(visit.service)}</strong></div>
-          <div class="field-row"><span>Team</span><strong>${escapeHtml(visit.team)}</strong></div>
+          <div class="field-row"><span>Team</span><strong>${escapeHtml(visit.team || "Unassigned")}</strong></div>
           <div class="field-row"><span>Location</span><strong>${escapeHtml(visit.property)}</strong></div>
-          <div class="field-row"><span>Starts</span><strong>${escapeHtml(displayTime(visit.start))}</strong></div>
-          <div class="field-row"><span>Ends</span><strong>${escapeHtml(displayTime(minutesToTime(timeToMinutes(visit.start) + visit.duration)))}</strong></div>
+          <div class="field-row"><span>Starts</span><strong>${hasTime ? escapeHtml(displayTime(visit.start)) : "Unscheduled"}</strong></div>
+          <div class="field-row"><span>Ends</span><strong>${hasTime ? escapeHtml(displayTime(minutesToTime(timeToMinutes(visit.start) + visit.duration))) : "Needs time"}</strong></div>
           ${statusChips ? `<div class="button-row popover-chip-row">${statusChips}</div>` : ""}
           <div class="button-row">
             ${button("Edit", "edit-visit")}
@@ -959,6 +968,8 @@
     if (viewButton) {
       state.view = viewButton.dataset.scheduleView;
       state.viewMenuOpen = false;
+      state.filtersOpen = false;
+      state.moreMenuOpen = false;
       refresh();
       return;
     }
@@ -980,7 +991,7 @@
 
     const action = event.target.closest("[data-schedule-action]");
     if (action) {
-      handleAction(action.dataset.scheduleAction);
+      handleAction(action.dataset.scheduleAction, event);
       return;
     }
 
@@ -990,7 +1001,7 @@
     }
   }
 
-  function handleAction(action) {
+  function handleAction(action, event) {
     if (action === "toggle-view-menu") {
       state.viewMenuOpen = !state.viewMenuOpen;
       state.filtersOpen = false;

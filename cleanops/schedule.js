@@ -27,7 +27,10 @@
     visits: structuredCloneSafe(source.scheduledVisits),
     unscheduled: structuredCloneSafe(source.unscheduled),
     resizing: null,
-    popoverDrag: null
+    popoverDrag: null,
+    workloadGroup: "cleaner",
+    workloadSort: "start",
+    collapsedGroups: new Set()
   };
 
   function structuredCloneSafe(value) {
@@ -302,7 +305,7 @@
   function viewMenu() {
     return `
       <div class="schedule-dropdown compact" role="menu">
-        ${["month", "week", "day", "map", "list"].map((view) => `
+        ${["month", "week", "day", "workload", "map", "list"].map((view) => `
           <button type="button" class="${state.view === view ? "selected" : ""}" data-schedule-view="${view}">
             ${escapeHtml(view.charAt(0).toUpperCase() + view.slice(1))}
           </button>
@@ -589,7 +592,187 @@
     `;
   }
 
+  function workloadView() {
+    const allVisits = visibleVisits();
+    const unscheduledItems = visibleUnscheduled();
+    const scheduledUnassigned = allVisits.filter(v => isUnassigned(v) || !v.start || !v.dayIndex);
+    const scheduledNormal = allVisits.filter(v => !isUnassigned(v) && v.start && v.dayIndex);
+
+    const needsScheduling = [...unscheduledItems, ...scheduledUnassigned];
+
+    const groups = new Map();
+    scheduledNormal.forEach(visit => {
+      let key = "Other";
+      if (state.workloadGroup === "cleaner") key = visit.team || "Unknown Team";
+      else if (state.workloadGroup === "day") {
+        const day = source.days.find(d => d.index === visit.dayIndex);
+        key = day ? day.label : "Unknown Day";
+      } else if (state.workloadGroup === "client") {
+        key = visit.client || "Unknown Client";
+      }
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(visit);
+    });
+
+    const sortByStart = (a, b) => timeToMinutes(a.start || "00:00") - timeToMinutes(b.start || "00:00");
+    needsScheduling.sort(sortByStart);
+    for (let [key, items] of groups.entries()) {
+      items.sort(sortByStart);
+    }
+
+    const days = visibleDays();
+    const workHours = [];
+    for (let h = startHour; h <= endHour; h++) workHours.push(h);
+    const HOUR_WIDTH = 40;
+    const DAY_WIDTH = workHours.length * HOUR_WIDTH;
+    const TOTAL_TIMELINE_WIDTH = days.length * DAY_WIDTH;
+
+    function renderGroupHeader(groupKey, items, isNeedsAction = false) {
+      const isCollapsed = state.collapsedGroups.has(groupKey);
+      const bookedMinutes = items.reduce((sum, v) => sum + (v.duration || 0), 0);
+      const bookedHours = (bookedMinutes / 60).toFixed(1).replace(".0", "");
+      let summary = `${items.length} visit${items.length === 1 ? "" : "s"}`;
+      if (bookedMinutes > 0) summary += ` · ${bookedHours}h`;
+      
+      return `
+        <tr class="gantt-row workload-group-header ${isCollapsed ? "collapsed" : ""}" data-schedule-action="toggle-workload-group" data-group-key="${escapeHtml(groupKey)}">
+          <td class="gantt-left">
+            <div class="workload-group-header-text">
+              <span class="group-chevron" aria-hidden="true">${isCollapsed ? "›" : "v"}</span>
+              <span class="${isNeedsAction ? "text-danger" : ""}">${escapeHtml(groupKey)}</span>
+              <span class="workload-group-meta">${escapeHtml(summary)}</span>
+            </div>
+          </td>
+          <td style="padding:0; background:var(--surface);"></td>
+        </tr>
+      `;
+    }
+
+    function renderRows(items) {
+      return items.map(job => {
+        const day = source.days.find(d => d.index === job.dayIndex);
+        const dayStr = day ? day.short : "Unscheduled";
+        const timeStr = job.start ? `${job.start}–${minutesToTime(timeToMinutes(job.start) + (job.duration || 0))}` : "";
+        const dateTimeStr = (dayStr !== "Unscheduled" || timeStr) ? `${dayStr} ${timeStr}` : "Unscheduled";
+        
+        let timelineBarsHtml = "";
+        const dayIndexInVisible = days.findIndex(d => d.index === job.dayIndex);
+        if (dayIndexInVisible !== -1 && job.start) {
+          const dayOffset = dayIndexInVisible * DAY_WIDTH;
+          const leftOffset = dayOffset + ((timeToMinutes(job.start) - startHour * 60) / 60) * HOUR_WIDTH;
+          const width = ((job.duration || 30) / 60) * HOUR_WIDTH;
+          
+          timelineBarsHtml = `
+            <div class="workload-bar ${escapeHtml(typeClass(job.type))}" 
+                 style="left: ${leftOffset}px; width: ${width}px;" 
+                 title="${escapeHtml(job.client)} | ${escapeHtml(job.start)}">
+            </div>
+          `;
+        }
+
+        return `
+          <tr class="gantt-row workload-item-row" data-visit-id="${escapeHtml(job.id)}">
+            <td class="gantt-left">
+              <div class="left-grid">
+                <div class="left-cell" title="${escapeHtml(job.service || job.title)}">
+                  <span class="chip ${escapeHtml(typeClass(job.type))}" title="${escapeHtml(job.type)}"></span>
+                  ${escapeHtml(job.client)}
+                </div>
+                <div class="left-cell" title="${escapeHtml(job.property)}">${escapeHtml(job.property)}</div>
+                <div class="left-cell ${isUnassigned(job) ? "text-danger" : ""}" title="${escapeHtml(job.team || "Unassigned")}">${escapeHtml(job.team || "Unassigned")}</div>
+                <div class="left-cell muted" style="font-size:11px;">${escapeHtml(dateTimeStr)}</div>
+              </div>
+            </td>
+            <td class="timeline-cell" style="width: ${TOTAL_TIMELINE_WIDTH}px;">
+              <div class="timeline-bg"></div><div class="timeline-bg-hours"></div>
+              <div class="bars-container">${timelineBarsHtml}</div>
+            </td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    let tableHtml = `
+      <div class="workload-planner">
+        <div class="planner-controls">
+          <div class="control-group">
+            <select data-workload-select="group" aria-label="Group by">
+              <option value="cleaner" ${state.workloadGroup === "cleaner" ? "selected" : ""}>Group by Cleaner</option>
+              <option value="day" ${state.workloadGroup === "day" ? "selected" : ""}>Group by Day</option>
+              <option value="client" ${state.workloadGroup === "client" ? "selected" : ""}>Group by Client</option>
+            </select>
+            <select data-workload-select="sort" aria-label="Sort by">
+              <option value="start" ${state.workloadSort === "start" ? "selected" : ""}>Sort: Start Time</option>
+            </select>
+          </div>
+          <div class="planner-meta">
+            Needs scheduling · ${needsScheduling.length}
+          </div>
+        </div>
+
+        <div class="gantt-scroll">
+          <table class="gantt-table">
+            <thead>
+              <tr>
+                <th class="gantt-left">
+                  <div class="left-grid left-header">
+                    <div class="left-cell">Job / Visit</div>
+                    <div class="left-cell">Location</div>
+                    <div class="left-cell">Cleaner / Team</div>
+                    <div class="left-cell">Date / Time</div>
+                  </div>
+                </th>
+                <th style="padding:0; border-bottom:none;">
+                  <div class="timeline-header-container" style="width: ${TOTAL_TIMELINE_WIDTH}px;">
+                    ${days.map(d => `
+                      <div class="day-block" style="width: ${DAY_WIDTH}px;">
+                        <div class="day-label">${escapeHtml(d.label)}</div>
+                        <div class="hours-row">
+                          ${workHours.map(h => `<div class="hour-tick" style="width:${HOUR_WIDTH}px">${h}</div>`).join("")}
+                        </div>
+                      </div>
+                    `).join("")}
+                  </div>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+    `;
+
+    if (needsScheduling.length > 0) {
+      tableHtml += renderGroupHeader("Needs scheduling", needsScheduling, true);
+      if (!state.collapsedGroups.has("Needs scheduling")) {
+        tableHtml += renderRows(needsScheduling);
+      }
+    }
+
+    const sortedGroups = Array.from(groups.keys()).sort();
+    sortedGroups.forEach(key => {
+      const items = groups.get(key);
+      tableHtml += renderGroupHeader(key, items);
+      if (!state.collapsedGroups.has(key)) {
+        tableHtml += renderRows(items);
+      }
+    });
+
+    tableHtml += `
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+
+    return `
+      <section class="panel">
+        ${controls()}
+        ${tableHtml}
+      </section>
+      <div id="schedule-popover-root"></div>
+    `;
+  }
+
   function render() {
+    if (state.view === "workload") return workloadView();
     if (state.view === "month") return monthView();
     if (state.view === "day") return dayView();
     if (state.view === "list") return listView();
@@ -829,6 +1012,13 @@
       refresh();
       return;
     }
+    if (action === "toggle-workload-group") {
+      const groupKey = event.target.closest("[data-group-key]").dataset.groupKey;
+      if (state.collapsedGroups.has(groupKey)) state.collapsedGroups.delete(groupKey);
+      else state.collapsedGroups.add(groupKey);
+      refresh();
+      return;
+    }
     if (action === "previous" || action === "next" || action === "today") {
       state.rangeLabel = action === "today" ? source.rangeLabel : `${action === "previous" ? "Previous" : "Next"} mock range`;
       toast(action === "today" ? "Returned to this week" : `${state.rangeLabel} selected`);
@@ -891,6 +1081,14 @@
         if (filter.checked) set.add(filter.value);
         else set.delete(filter.value);
       }
+      refresh();
+      return;
+    }
+
+    const workloadSelect = event.target.closest("[data-workload-select]");
+    if (workloadSelect) {
+      if (workloadSelect.dataset.workloadSelect === "group") state.workloadGroup = workloadSelect.value;
+      if (workloadSelect.dataset.workloadSelect === "sort") state.workloadSort = workloadSelect.value;
       refresh();
       return;
     }

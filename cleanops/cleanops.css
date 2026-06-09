@@ -3004,7 +3004,7 @@ th.gantt-left { z-index: 30; top: 0; border-bottom: 1px solid var(--line-strong)
 }
 .workload-group-header:hover td { background: #f0f3ec !important; }
 
-.workload-group-header-text { 
+.workload-group-header-text {
   padding-left: 12px; display: flex; align-items: center; height: 100%; gap: 6px;
 }
 .workload-group-meta { color: var(--muted); font-weight: 500; font-size: 11px; margin-left: auto; padding-right: 12px; }

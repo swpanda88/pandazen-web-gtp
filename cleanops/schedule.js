@@ -633,7 +633,7 @@
       const bookedHours = (bookedMinutes / 60).toFixed(1).replace(".0", "");
       let summary = `${items.length} visit${items.length === 1 ? "" : "s"}`;
       if (bookedMinutes > 0) summary += ` · ${bookedHours}h`;
-      
+
       return `
         <tr class="gantt-row workload-group-header ${isCollapsed ? "collapsed" : ""}" data-schedule-action="toggle-workload-group" data-group-key="${escapeHtml(groupKey)}">
           <td class="gantt-left">
@@ -654,17 +654,17 @@
         const dayStr = day ? day.short : "Unscheduled";
         const timeStr = job.start ? `${job.start}–${minutesToTime(timeToMinutes(job.start) + (job.duration || 0))}` : "";
         const dateTimeStr = (dayStr !== "Unscheduled" || timeStr) ? `${dayStr} ${timeStr}` : "Unscheduled";
-        
+
         let timelineBarsHtml = "";
         const dayIndexInVisible = days.findIndex(d => d.index === job.dayIndex);
         if (dayIndexInVisible !== -1 && job.start) {
           const dayOffset = dayIndexInVisible * DAY_WIDTH;
           const leftOffset = dayOffset + ((timeToMinutes(job.start) - startHour * 60) / 60) * HOUR_WIDTH;
           const width = ((job.duration || 30) / 60) * HOUR_WIDTH;
-          
+
           timelineBarsHtml = `
-            <div class="workload-bar ${escapeHtml(typeClass(job.type))}" 
-                 style="left: ${leftOffset}px; width: ${width}px;" 
+            <div class="workload-bar ${escapeHtml(typeClass(job.type))}"
+                 style="left: ${leftOffset}px; width: ${width}px;"
                  title="${escapeHtml(job.client)} | ${escapeHtml(job.start)}">
             </div>
           `;

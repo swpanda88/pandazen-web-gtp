@@ -301,7 +301,7 @@
   function viewSwitch() {
     return `
       <div class="schedule-view-switch" aria-label="Schedule view">
-        ${["week", "day", "workload"].map((view) => `
+        ${["month", "week", "day", "workload"].map((view) => `
           <button type="button" class="${state.view === view ? "selected" : ""}" data-schedule-view="${view}" aria-pressed="${state.view === view}">
             ${escapeHtml(view.charAt(0).toUpperCase() + view.slice(1))}
           </button>
@@ -420,12 +420,13 @@
   function scheduledCard(visit, mode = "week", layout = { columnIndex: 0, columnCount: 1 }) {
     const top = Math.max(0, (timeToMinutes(visit.start) - startHour * 60) * minuteHeight);
     const height = Math.max(34, visit.duration * minuteHeight - 4);
+    const sizeClass = height <= 46 ? "card-small" : height <= 78 ? "card-medium" : "card-large";
     const overlapStyle = layout.columnCount > 1
       ? `left:calc(8px + ${layout.columnIndex} * ((100% - 16px) / ${layout.columnCount}));width:calc((100% - 16px) / ${layout.columnCount} - 4px);right:auto;`
       : "left:8px;right:8px;";
     const status = gridStatusChip(visit);
     return `
-      <article class="schedule-visit-card ${escapeHtml(scheduleItemClasses(visit))} ${mode}" draggable="true"
+      <article class="schedule-visit-card ${escapeHtml(scheduleItemClasses(visit))} ${mode} ${sizeClass}" draggable="true"
         data-visit-id="${escapeHtml(visit.id)}"
         data-overlap-count="${layout.columnCount}"
         style="top:${top}px;height:${height}px;${overlapStyle}"
@@ -505,11 +506,18 @@
       <div class="schedule-layout">
         <section class="schedule-main panel">
           ${controls()}
+          <div class="month-title">
+            <div>
+              <h2>Month overview</h2>
+              <span class="muted">Clean count, appointment mix, and unscheduled work at a glance.</span>
+            </div>
+            ${chip(`${visibleUnscheduled().length} unscheduled`, "info")}
+          </div>
           <div class="month-grid" style="--month-cols:${weekdays.length}">
             ${weekdays.map((day) => `<div class="month-weekday">${day}</div>`).join("")}
             ${cells.map((day) => {
               const item = monthItems.get(day);
-              return `<div class="month-cell ${day === 11 ? "today" : ""}">
+              return `<div class="month-cell ${day === 11 ? "today" : ""}" data-month-day="${day}">
                 <strong>${day}</strong>
                 ${item ? `<div class="month-summary ${escapeHtml(typeClass(item.type))}"><span>${escapeHtml(item.text)}</span>${item.count > 1 ? chip(`${item.count}`, "info") : ""}</div>` : ""}
               </div>`;
@@ -631,7 +639,7 @@
     const days = visibleDays();
     const workHours = [];
     for (let h = startHour; h <= endHour; h++) workHours.push(h);
-    const HOUR_WIDTH = 40;
+    const HOUR_WIDTH = 30;
     const DAY_WIDTH = workHours.length * HOUR_WIDTH;
     const TOTAL_TIMELINE_WIDTH = days.length * DAY_WIDTH;
 
@@ -971,6 +979,20 @@
       state.filtersOpen = false;
       state.moreMenuOpen = false;
       refresh();
+      return;
+    }
+
+    const monthDay = event.target.closest("[data-month-day]");
+    if (monthDay) {
+      const selected = source.days.find((day) => day.label.split(" ")[1] === monthDay.dataset.monthDay);
+      if (selected) {
+        state.selectedDayIndex = selected.index;
+        state.view = "day";
+        toast(`${selected.label} opened in Day view`);
+        refresh();
+      } else {
+        toast("Month day preview is mocked for Schedule v0.");
+      }
       return;
     }
 

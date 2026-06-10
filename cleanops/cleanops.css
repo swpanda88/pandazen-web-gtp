@@ -1275,7 +1275,7 @@ tr:last-child td {
 
 .schedule-view-switch button {
   height: 28px;
-  min-width: 72px;
+  min-width: 76px;
   border: 0;
   border-radius: 6px;
   background: transparent;
@@ -1569,6 +1569,23 @@ tr:last-child td {
   gap: 1px;
   padding-inline: 6px;
   font-size: 11px;
+}
+
+.schedule-visit-card.card-small {
+  gap: 1px;
+  padding-top: 5px;
+}
+
+.schedule-visit-card.card-small .schedule-card-top .chip,
+.schedule-visit-card.card-small .schedule-card-location,
+.schedule-visit-card.card-small .schedule-card-meta,
+.schedule-visit-card.card-small .schedule-card-warning {
+  display: none;
+}
+
+.schedule-visit-card.card-medium .schedule-card-location,
+.schedule-visit-card.card-medium .schedule-card-warning {
+  display: none;
 }
 
 .schedule-visit-card[data-overlap-count="2"] .muted,
@@ -1886,7 +1903,8 @@ tr.status-risk td:first-child {
   display: grid;
 }
 
-.day-title {
+.day-title,
+.month-title {
   min-height: 48px;
   display: flex;
   align-items: center;
@@ -1895,6 +1913,16 @@ tr.status-risk td:first-child {
   padding: 10px 14px;
   border-bottom: 1px solid var(--line);
   background: #fbfbf8;
+}
+
+.day-title h2,
+.month-title h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.month-title .chip {
+  white-space: nowrap;
 }
 
 .day-grid {
@@ -1911,6 +1939,7 @@ tr.status-risk td:first-child {
   display: grid;
   grid-template-columns: repeat(var(--month-cols, 7), minmax(100px, 1fr));
   overflow: auto;
+  background: var(--surface);
 }
 
 .month-weekday,
@@ -1932,6 +1961,12 @@ tr.status-risk td:first-child {
   display: grid;
   align-content: start;
   gap: 7px;
+  cursor: pointer;
+  background: var(--surface);
+}
+
+.month-cell:hover {
+  background: var(--bg);
 }
 
 .month-cell.today {
@@ -3201,14 +3236,14 @@ th.gantt-left {
 }
 .timeline-bg {
   position: absolute; top: 0; left: 0; height: 100%; width: 100%;
-  background-size: 20px 100%;
-  background-image: linear-gradient(to right, transparent 19px, rgba(225, 228, 219, .55) 20px);
+  background-size: 15px 100%;
+  background-image: linear-gradient(to right, transparent 14px, rgba(225, 228, 219, .55) 15px);
   z-index: 1; pointer-events: none; opacity: .78;
 }
 .timeline-bg-hours {
   position: absolute; top: 0; left: 0; height: 100%; width: 100%;
-  background-size: 40px 100%;
-  background-image: linear-gradient(to right, transparent 39px, rgba(202, 207, 198, .72) 40px);
+  background-size: 30px 100%;
+  background-image: linear-gradient(to right, transparent 29px, rgba(202, 207, 198, .72) 30px);
   z-index: 1; pointer-events: none; opacity: .66;
 }
 

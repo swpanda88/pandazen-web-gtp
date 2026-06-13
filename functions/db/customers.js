@@ -31,7 +31,7 @@ export async function listCustomers(db, options = {}) {
   }
   if (options.search) {
     query += ` AND (company_name LIKE ? OR first_name LIKE ? OR last_name LIKE ? OR email LIKE ?)`;
-    const term = \`%\${options.search}%\`;
+    const term = `%${options.search}%`;
     params.push(term, term, term, term);
   }
 

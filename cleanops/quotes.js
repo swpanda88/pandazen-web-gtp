@@ -10,7 +10,10 @@
     historyModalOpen: false,
     newQuoteRequestId: "",
     quoteRowMenuId: null,
-    confirmAction: null
+    confirmAction: null,
+    quotesLoading: true,
+    quotesError: false,
+    apiQuotes: []
   };
 
   const quoteStatusLabels = {
@@ -50,12 +53,13 @@
   };
 
   function isQuoteLocked(quote) {
-    return !["draft", "ready_to_send"].includes(quote.status);
+    return !["draft", "ready_to_send"].includes(quote.status || quote.quoteStatus);
   }
 
   function markDocumentNeedsUpdate(quote) {
-    if (quote && quote.document_status === "generated") {
+    if (quote && (quote.document_status === "generated" || quote.documentStatus === "generated")) {
       quote.document_status = "needs_update";
+      quote.documentStatus = "needs_update";
     }
   }
 
@@ -176,7 +180,7 @@
   };
 
   function quotes() {
-    return data.quotes || [];
+    return state.apiQuotes || [];
   }
 
   function requests() {
@@ -375,7 +379,7 @@
   }
 
   function quoteStatusChip(quote) {
-    return chip(labelFrom(quoteStatusLabels, quote.status, "Draft"), quoteStatusTones[quote.status] || "info");
+    return chip(labelFrom(quoteStatusLabels, quote.status || quote.quoteStatus, "Draft"), quoteStatusTones[quote.status || quote.quoteStatus] || "info");
   }
 
   function itemAmount(item) {
@@ -423,6 +427,22 @@
   }
 
   function updateQuoteCompatibility(quote) {
+    if (quote.displayRef && quote.quoteStatus) {
+      // API format
+      quote.id = quote.id;
+      quote.number = quote.displayRef || "Draft quote";
+      const nameParts = [quote.firstName, quote.lastName].filter(Boolean).join(" ");
+      quote.client = quote.companyName || nameParts || "Unknown customer";
+      quote.property = "Property details pending";
+      quote.service = (quote.incomeCategory || "Quote draft").replace(/_/g, " ");
+      quote.total = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format((Number(quote.grossTotalPence) || 0) / 100);
+      quote.status = quote.quoteStatus;
+      quote.document_status = quote.documentStatus || "not_generated";
+      quote.validUntil = quote.validUntil || quote.valid_until || "To confirm";
+      quote.tone = quoteStatusTones[quote.status] || "info";
+      return;
+    }
+
     const client = findClient(quote.client_id);
     const property = findProperty(quote.property_id, quote.client_id);
     quote.number = quoteNumber(quote);
@@ -629,6 +649,24 @@
   }
 
   function renderInner() {
+    if (state.quotesLoading) {
+      return `
+        <div class="page-head"><div class="title-row"><h1>Quotes</h1></div></div>
+        <div class="empty mini"><h3>Loading quotes...</h3><p class="muted">Fetching real data...</p></div>
+      `;
+    }
+    if (state.quotesError) {
+      return `
+        <div class="page-head"><div class="title-row"><h1>Quotes</h1></div></div>
+        <div class="empty mini"><h3>Could not load quotes.</h3></div>
+      `;
+    }
+    if (!quotes().length) {
+      return `
+        <div class="page-head"><div class="title-row"><h1>Quotes</h1></div></div>
+        <div class="empty mini"><h3>No quotes found.</h3></div>
+      `;
+    }
     return renderDocumentControlPage();
   }
 
@@ -2575,6 +2613,24 @@
   document.addEventListener("click", handleClick);
   document.addEventListener("change", handleChange);
 
+  async function loadQuotes() {
+    state.quotesLoading = true;
+    state.quotesError = false;
+    if (document.querySelector("[data-quotes-root]")) refresh();
+
+    try {
+      const { fetchQuotes } = await import("./api.js");
+      state.apiQuotes = await fetchQuotes();
+      state.quotesLoading = false;
+    } catch (err) {
+      console.error("Failed to load quotes", err);
+      state.quotesError = true;
+      state.quotesLoading = false;
+    }
+    
+    if (document.querySelector("[data-quotes-root]")) refresh();
+  }
+
   window.CleanOpsQuotes = {
     render,
     handleClick,
@@ -2584,4 +2640,6 @@
       quoteStatusTones
     }
   };
+
+  loadQuotes();
 })();

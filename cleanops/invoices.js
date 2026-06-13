@@ -637,9 +637,9 @@
   }
 
   function render() {
-    if (state.invoicesLoading) return `<div class="pad"><span class="muted">Loading invoices...</span></div>`;
-    if (state.invoicesError) return `<div class="pad"><span class="muted">Could not load invoices.</span></div>`;
-    if (invoices().length === 0) return `<div class="pad"><span class="muted">No invoices found.</span></div>`;
+    if (state.invoicesLoading) return `<div class="pad" data-invoices-root="true"><span class="muted">Loading invoices...</span></div>`;
+    if (state.invoicesError) return `<div class="pad" data-invoices-root="true"><span class="muted">Could not load invoices.</span></div>`;
+    if (invoices().length === 0) return `<div class="pad" data-invoices-root="true"><span class="muted">No invoices found.</span></div>`;
 
     return `
       <section class="invoices-root" data-invoices-root="true">

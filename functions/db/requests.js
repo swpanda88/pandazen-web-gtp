@@ -57,7 +57,7 @@ export async function listRequests(db, options = {}) {
       c.email LIKE ? OR 
       c.phone LIKE ?
     )`;
-    const term = \`%\${options.search}%\`;
+    const term = `%${options.search}%`;
     params.push(term, term, term, term, term, term);
   }
 

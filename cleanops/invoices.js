@@ -411,6 +411,9 @@
 
   function invoiceStatus(invoice) {
     if (!invoice) return "draft";
+    if (invoice.isApiBacked) {
+      return invoice.paymentState || invoice.invoiceStatus || invoice.status || "unknown";
+    }
     if (invoice.status === "sent" && invoice.due_date && invoice.due_date < todayIso() && invoiceBalance(invoice) > 0) return "overdue";
     return invoice.status || "draft";
   }
@@ -645,7 +648,7 @@
           <div class="title-row"><h1>Invoices</h1></div>
           <p class="muted" style="margin-top:10px">Create invoices from ready billable events, review draft documents, and track payment status.</p>
         </div>
-        <div class="page-actions">${isApiBackedInvoices ? "" : button("New invoice", "open-create", "primary")} ${button("Finance settings", "finance-settings")}</div>
+        <div class="page-actions">${isApiBackedInvoices ? "" : `${button("New invoice", "open-create", "primary")} ${button("Finance settings", "finance-settings")}`}</div>
       </div>
     `;
   }
@@ -1629,8 +1632,20 @@
       const api = await import("./api.js");
       const fetched = await api.fetchInvoices();
       state.apiInvoices = fetched.map(inv => {
-        inv.isApiBacked = true;
-        return inv;
+        return {
+          ...inv,
+          isApiBacked: true,
+          status: inv.paymentState || inv.invoiceStatus || "unknown",
+          invoice_ref: inv.invoiceNumber,
+          client_id: inv.customerId,
+          property_id: inv.propertyId,
+          invoice_date: inv.createdAt ? inv.createdAt.substring(0, 10) : "",
+          issued_date: inv.createdAt ? inv.createdAt.substring(0, 10) : "",
+          due_date: inv.dueDate || "",
+          paid_date: (inv.paymentState === "paid" || inv.invoiceStatus === "paid") ? (inv.updatedAt ? inv.updatedAt.substring(0, 10) : "") : "",
+          paid_amount: (inv.paymentState === "paid" || inv.invoiceStatus === "paid") ? Number(inv.grossTotal || 0) : 0,
+          lines: []
+        };
       });
       state.invoicesError = false;
     } catch (err) {

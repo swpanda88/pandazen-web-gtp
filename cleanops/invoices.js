@@ -10,7 +10,10 @@
     rowMenuPosition: null,
     modal: null,
     pendingBillingDetails: null,
-    partPaidInvoiceId: null
+    partPaidInvoiceId: null,
+    invoicesLoading: true,
+    invoicesError: false,
+    apiInvoices: []
   };
 
   const statusLabels = {
@@ -124,7 +127,7 @@
   }
 
   function invoices() {
-    return source().invoices;
+    return state.apiInvoices || [];
   }
 
   function financeSettings() {
@@ -615,6 +618,10 @@
   }
 
   function render() {
+    if (state.invoicesLoading) return `<div class="pad"><span class="muted">Loading invoices...</span></div>`;
+    if (state.invoicesError) return `<div class="pad"><span class="muted">Could not load invoices.</span></div>`;
+    if (invoices().length === 0) return `<div class="pad"><span class="muted">No invoices found.</span></div>`;
+
     return `
       <section class="invoices-root" data-invoices-root="true">
         ${pageHead()}
@@ -631,13 +638,14 @@
   }
 
   function pageHead() {
+    const isApiBackedInvoices = invoices().some(invoice => invoice.isApiBacked);
     return `
       <div class="page-head">
         <div>
           <div class="title-row"><h1>Invoices</h1></div>
           <p class="muted" style="margin-top:10px">Create invoices from ready billable events, review draft documents, and track payment status.</p>
         </div>
-        <div class="page-actions">${button("New invoice", "open-create", "primary")} ${button("Finance settings", "finance-settings")}</div>
+        <div class="page-actions">${isApiBackedInvoices ? "" : button("New invoice", "open-create", "primary")} ${button("Finance settings", "finance-settings")}</div>
       </div>
     `;
   }
@@ -654,6 +662,14 @@
   }
 
   function renderActionPanel() {
+    const isApiBackedInvoices = invoices().some(invoice => invoice.isApiBacked);
+    if (isApiBackedInvoices) {
+      return `
+        <section class="panel pad" style="margin-bottom: 24px;">
+          <p class="muted">API invoices are read-only in this stage.</p>
+        </section>
+      `;
+    }
     return `
       <section class="jobs-action-panel invoice-action-panel">
         ${renderActionColumn("Ready to invoice", groupedReadyCards(), renderReadyCard)}
@@ -746,7 +762,36 @@
   }
 
   function renderInvoiceRegisterSection(title, description, items, tone = "primary") {
-    const rows = items.map((invoice) => `
+    const rows = items.map((invoice) => {
+      if (invoice.isApiBacked) {
+        const nameParts = [invoice.firstName, invoice.lastName].filter(Boolean).join(" ");
+        const clientName = invoice.companyName || nameParts || "Unknown customer";
+        const total = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format((Number(invoice.grossTotalPence) || 0) / 100);
+        const sourceLabel = invoice.sourceType === "manual" ? "Manual" : (invoice.incomeCategory || "Billable events").replace(/_/g, " ");
+        const status = invoice.paymentState || invoice.invoiceStatus || "unknown";
+        const dateStr = invoice.createdAt ? invoice.createdAt.split("T")[0] : "Draft";
+        const dueDateStr = invoice.dueDate ? invoice.dueDate.split("T")[0] : "Not set";
+
+        return `
+          <tr data-invoice-row="${escapeHtml(invoice.id)}" tabindex="0" role="button">
+            <td><strong>${escapeHtml(invoice.invoiceNumber)}</strong><br><span class="muted">${escapeHtml(sourceLabel)}</span></td>
+            <td>${escapeHtml(clientName)}<br><span class="muted">Property pending</span></td>
+            <td>${escapeHtml("Current period")}</td>
+            <td>${escapeHtml(total)}</td>
+            <td>${chip(statusLabels[status] || status, statusTones[status] || "info")}</td>
+            <td>${escapeHtml(dateStr)}</td>
+            <td>${escapeHtml(dueDateStr)}</td>
+            <td>${escapeHtml(invoice.paymentState === "paid" ? "Paid" : "-")}</td>
+            <td>
+              <div class="row-menu-wrap">
+                <span class="muted">Read-only</span>
+              </div>
+            </td>
+          </tr>
+        `;
+      }
+
+      return `
       <tr data-invoice-row="${escapeHtml(invoice.id)}" data-invoice-action="open-editor:${escapeHtml(invoice.id)}" tabindex="0" role="button">
         <td><strong>${escapeHtml(invoice.invoice_ref)}</strong><br><span class="muted">${escapeHtml(invoice.source === "manual" ? "Manual" : "Billable events")}</span></td>
         <td>${escapeHtml(displayClientById(invoice.client_id))}<br><span class="muted">${escapeHtml(invoiceServiceAddress(invoice))}</span></td>
@@ -762,7 +807,8 @@
           </div>
         </td>
       </tr>
-    `).join("");
+      `;
+    }).join("");
     return `
       <article class="panel invoices-register-panel${tone === "secondary" ? " secondary-register" : ""}">
         <div class="panel-head">
@@ -1282,7 +1328,13 @@
   function handleClick(event) {
     const row = event.target.closest("[data-invoice-row]");
     if (row && !event.target.closest("[data-invoice-action]")) {
-      state.selectedInvoiceId = row.dataset.invoiceRow;
+      const invoiceId = row.dataset.invoiceRow;
+      const invoice = invoices().find(i => String(i.id) === String(invoiceId));
+      if (invoice && invoice.isApiBacked) {
+        toast("API invoices are read-only in this view.");
+        return true;
+      }
+      state.selectedInvoiceId = invoiceId;
       state.editorOpen = true;
       closeRowMenu();
       refresh();
@@ -1300,6 +1352,29 @@
     }
     const action = target.dataset.invoiceAction;
     event.preventDefault();
+
+    if (action.includes(":")) {
+      const parts = action.split(":");
+      const prefix = parts[0] + ":";
+      const iId = parts.slice(1).join(":");
+      const guardedPrefixes = [
+        "open-editor:",
+        "preview:",
+        "confirm-ready:",
+        "confirm-sent:",
+        "confirm-paid:",
+        "part-paid:",
+        "confirm-void:",
+        "duplicate-invoice:"
+      ];
+      if (guardedPrefixes.includes(prefix)) {
+        const i = invoices().find(x => String(x.id) === String(iId));
+        if (i && i.isApiBacked) {
+          toast("API invoices are read-only in this view.");
+          return true;
+        }
+      }
+    }
     event.stopPropagation();
 
     if (!action.startsWith("toggle-row-menu:") && state.rowMenuId) {
@@ -1548,4 +1623,28 @@
     handleClick,
     handleChange
   };
+
+  async function loadInvoices() {
+    try {
+      const api = await import("./api.js");
+      const fetched = await api.fetchInvoices();
+      state.apiInvoices = fetched.map(inv => {
+        inv.isApiBacked = true;
+        return inv;
+      });
+      state.invoicesError = false;
+    } catch (err) {
+      console.error("Failed to load invoices", err);
+      state.invoicesError = true;
+      state.apiInvoices = [];
+    } finally {
+      state.invoicesLoading = false;
+      const root = document.querySelector("[data-invoices-root]");
+      if (root) {
+        root.outerHTML = render();
+      }
+    }
+  }
+
+  loadInvoices();
 })();

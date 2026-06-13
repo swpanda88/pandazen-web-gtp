@@ -1092,6 +1092,7 @@ window.CLEANOPS_DATA = {
       { id: "clean-1002-a", job_id: "job-1002", clean_type: "regular", date: "2026-06-05", start_time: "10:00", duration_minutes: 120, assigned_staff: "Marta", status: "completed", checklist_template_id: "check-regular-domestic", pricing_item_id: "price-1002-regular", skip_reason: "", report_id: "report-1002-a", billable_event_id: "bill-1002-a" },
       { id: "clean-1002-b", job_id: "job-1002", clean_type: "regular", date: "2026-06-12", start_time: "10:00", duration_minutes: 120, assigned_staff: "Marta", status: "planned", checklist_template_id: "check-regular-domestic", pricing_item_id: "price-1002-regular", skip_reason: "", report_id: "", billable_event_id: "" },
       { id: "clean-1002-c", job_id: "job-1002", clean_type: "extra", date: "2026-06-12", start_time: "12:15", duration_minutes: 60, assigned_staff: "Marta", status: "needs_review", checklist_template_id: "check-extra-oven", pricing_item_id: "price-1002-oven", skip_reason: "", report_id: "report-1002-c", billable_event_id: "bill-1002-c" },
+      { id: "clean-1002-d", job_id: "job-1002", clean_type: "regular", date: "2026-06-19", start_time: "10:00", duration_minutes: 120, assigned_staff: "Marta", status: "completed", checklist_template_id: "check-regular-domestic", pricing_item_id: "price-1002-regular", skip_reason: "", report_id: "report-1002-d", billable_event_id: "bill-1002-d" },
       { id: "clean-1003-a", job_id: "job-1003", clean_type: "regular", date: "2026-06-10", start_time: "18:00", duration_minutes: 150, assigned_staff: "Team 1", status: "needs_review", checklist_template_id: "check-commercial-office", pricing_item_id: "price-1003-monthly", skip_reason: "", report_id: "report-1003-a", billable_event_id: "bill-1003-a" },
       { id: "clean-1004-a", job_id: "job-1004", clean_type: "one_off", date: "2026-06-16", start_time: "09:30", duration_minutes: 300, assigned_staff: "Unassigned", status: "planned", checklist_template_id: "check-end-tenancy", pricing_item_id: "price-1004-oneoff", skip_reason: "", report_id: "", billable_event_id: "" },
       { id: "clean-1005-a", job_id: "job-1005", clean_type: "regular", date: "2026-06-06", start_time: "17:30", duration_minutes: 240, assigned_staff: "Team 1", status: "completed", checklist_template_id: "check-commercial-office", pricing_item_id: "price-1005-monthly", skip_reason: "", report_id: "report-1005-a", billable_event_id: "bill-1005-a" },
@@ -1111,6 +1112,7 @@ window.CLEANOPS_DATA = {
     jobReports: [
       { id: "report-1002-a", scheduled_job_id: "clean-1002-a", job_id: "job-1002", completed_at: "2026-06-05 12:05", completed_by: "Marta", checklist_status: "complete", cleaner_remarks: "", client_remarks: "", severity: "Note", review_status: "reviewed" },
       { id: "report-1002-c", scheduled_job_id: "clean-1002-c", job_id: "job-1002", completed_at: "2026-06-12 13:05", completed_by: "Marta", checklist_status: "partial", cleaner_remarks: "Oven needs extra degreaser time. Recommend billing add-on after review.", client_remarks: "", severity: "Extra time", review_status: "needs_review" },
+      { id: "report-1002-d", scheduled_job_id: "clean-1002-d", job_id: "job-1002", completed_at: "2026-06-19 12:10", completed_by: "Marta", checklist_status: "complete", cleaner_remarks: "", client_remarks: "", severity: "Note", review_status: "reviewed" },
       { id: "report-1003-a", scheduled_job_id: "clean-1003-a", job_id: "job-1003", completed_at: "2026-06-10 20:35", completed_by: "Team 1", checklist_status: "complete", cleaner_remarks: "Building manager said washroom stock is low.", client_remarks: "", severity: "Note", review_status: "needs_review" },
       { id: "report-1005-a", scheduled_job_id: "clean-1005-a", job_id: "job-1005", completed_at: "2026-06-06 21:25", completed_by: "Team 1", checklist_status: "complete", cleaner_remarks: "", client_remarks: "", severity: "Note", review_status: "reviewed" },
       { id: "report-1006-a", scheduled_job_id: "clean-1006-a", job_id: "job-1006", completed_at: "2026-06-09 13:15", completed_by: "Marta", checklist_status: "issue", cleaner_remarks: "Client reported oven bulb cover loose before clean.", client_remarks: "Please call before invoice.", severity: "Complaint", review_status: "needs_review" },
@@ -1118,6 +1120,7 @@ window.CLEANOPS_DATA = {
     ],
     billableEvents: [
       { id: "bill-1002-a", source_job_id: "job-1002", source_scheduled_job_id: "clean-1002-a", source_report_id: "report-1002-a", pricing_item_id: "price-1002-regular", description: "Regular clean - Family home", amount: 90, status: "ready_to_bill", billing_type: "recurring" },
+      { id: "bill-1002-d", source_job_id: "job-1002", source_scheduled_job_id: "clean-1002-d", source_report_id: "report-1002-d", pricing_item_id: "price-1002-regular", description: "Regular clean - Family home", amount: 90, status: "ready_to_bill", billing_type: "recurring" },
       { id: "bill-1002-c", source_job_id: "job-1002", source_scheduled_job_id: "clean-1002-c", source_report_id: "report-1002-c", pricing_item_id: "price-1002-oven", description: "Oven extra - Family home", amount: 45, status: "draft", billing_type: "extra" },
       { id: "bill-1003-a", source_job_id: "job-1003", source_scheduled_job_id: "clean-1003-a", source_report_id: "report-1003-a", pricing_item_id: "price-1003-consumables", description: "Washroom consumables review", amount: 125, status: "draft", billing_type: "monthly" },
       { id: "bill-1005-a", source_job_id: "job-1005", source_scheduled_job_id: "clean-1005-a", source_report_id: "report-1005-a", pricing_item_id: "price-1005-monthly", description: "Monthly deep clean - Unit 4", amount: 220, status: "ready_to_bill", billing_type: "monthly" },
@@ -1391,6 +1394,36 @@ window.CLEANOPS_DATA = {
     { number: "INV-3042", client: "Patel", amount: "£260", due: "Paid", status: "Paid", action: "Receipt", tone: "success" },
     { number: "INV-3041", client: "W Amman", amount: "£210", due: "Draft", status: "Draft", action: "View", tone: "warning" }
   ],
+
+  invoicesV0: {
+    financeSettings: {
+      invoice_prefix: "INV",
+      next_invoice_number: 3052,
+      trading_name: "PandaZen Cleaning",
+      legal_name: "PandaZen Ltd",
+      company_number: "Not applicable in mock",
+      registered_address: "12 Bamboo Yard, Durham DH1 1AA",
+      email: "hello@pandazen.example",
+      phone: "0191 000 0000",
+      vat_status: "not_registered",
+      vat_label: "VAT: Not applicable",
+      default_payment_terms_days: 14,
+      payment_instructions: "Bank transfer to PandaZen Cleaning, sort code 00-00-00, account 00000000. Please quote the invoice number.",
+      footer_text: "Thank you for choosing PandaZen. Please contact us within 7 days if anything on this invoice looks wrong.",
+      rounding_rule: "Round to nearest penny"
+    },
+    billingSetups: [
+      { id: "billing-carter-home", client_id: "client-olivia-carter", property_id: "PROP-2001", billing_name: "Olivia Carter", billing_address: "Family home, Durham DH1 2AB", invoice_email: "olivia.carter@example.test", payment_terms: "14 days", delivery_method: "Email", po_required: false, billing_frequency: "Monthly", invoice_timing: "After last regular clean of month", grouping_rule: "Group regular visits by property/job", extras_handling: "Add approved extras to next invoice", cancellation_fee_policy: "Review manually before charging" },
+      { id: "billing-abc-offices", client_id: "client-abc-offices", property_id: "PROP-3001", billing_name: "ABC Offices Ltd", billing_address: "Unit 5 All Saints, Durham DH1 3QA", invoice_email: "accounts@abc-offices.example", payment_terms: "14 days", delivery_method: "Email", po_required: true, billing_frequency: "Monthly", invoice_timing: "Month end", grouping_rule: "Group commercial contract and consumables", extras_handling: "Require office approval before invoice", cancellation_fee_policy: "Contracted monthly service; cancellation fee not normally used" },
+      { id: "billing-harris-flat", client_id: "client-harris", property_id: "PROP-4001", billing_name: "S Harris", billing_address: "2-bed flat, Newcastle NE1 4AB", invoice_email: "harris@example.test", payment_terms: "7 days", delivery_method: "Email", po_required: false, billing_frequency: "Per one-off clean", invoice_timing: "On completion", grouping_rule: "One invoice per completed one-off", extras_handling: "Manual adjustment if needed", cancellation_fee_policy: "Manual cancellation fee only after owner review" }
+    ],
+    invoices: [
+      { id: "inv-3050", invoice_ref: "INV-3050", client_id: "client-abc-offices", property_id: "PROP-3001", billing_setup_id: "billing-abc-offices", status: "sent", source: "billable_events", period: "June commercial extras", invoice_date: "2026-06-01", issued_date: "2026-06-01", due_date: "2026-06-15", paid_date: "", paid_amount: 0, payment_terms: "14 days", notes: "Commercial consumables and monthly clean.", source_billable_event_ids: ["bill-1005-a"], lines: [{ id: "line-3050-a", type: "service", source_billable_event_id: "bill-1005-a", description: "Monthly deep clean - Unit 4", quantity: 1, rate: 220, amount: 220 }] },
+      { id: "inv-3049", invoice_ref: "INV-3049", client_id: "client-harris", property_id: "PROP-4001", billing_setup_id: "billing-harris-flat", status: "overdue", source: "manual", period: "One-off sparkle clean", invoice_date: "2026-05-18", issued_date: "2026-05-18", due_date: "2026-05-25", paid_date: "", paid_amount: 0, payment_terms: "7 days", notes: "Manual overdue example for chase queue.", source_billable_event_ids: [], lines: [{ id: "line-3049-a", type: "manual", source_billable_event_id: "", description: "One-off sparkle clean", quantity: 1, rate: 180, amount: 180 }] },
+      { id: "inv-3048", invoice_ref: "INV-3048", client_id: "client-olivia-carter", property_id: "PROP-2001", billing_setup_id: "billing-carter-home", status: "part_paid", source: "manual", period: "Goodwill correction", invoice_date: "2026-05-20", issued_date: "2026-05-20", due_date: "2026-06-03", paid_date: "2026-06-02", paid_amount: 45, payment_terms: "14 days", notes: "Part-paid mock invoice.", source_billable_event_ids: [], lines: [{ id: "line-3048-a", type: "manual", source_billable_event_id: "", description: "Manual correction", quantity: 1, rate: 90, amount: 90 }, { id: "line-3048-b", type: "discount", source_billable_event_id: "", description: "Goodwill reduction", quantity: 1, rate: -15, amount: -15 }] },
+      { id: "inv-3047", invoice_ref: "INV-3047", client_id: "client-olivia-carter", property_id: "PROP-2001", billing_setup_id: "billing-carter-home", status: "paid", source: "billable_events", period: "Regular clean", invoice_date: "2026-05-10", issued_date: "2026-05-10", due_date: "2026-05-24", paid_date: "2026-05-18", paid_amount: 90, payment_terms: "14 days", notes: "Paid invoice example.", source_billable_event_ids: [], lines: [{ id: "line-3047-a", type: "service", source_billable_event_id: "", description: "Regular domestic clean", quantity: 1, rate: 90, amount: 90 }] }
+    ]
+  },
 
   team: [
     { name: "Amy", role: "Supervisor, North London", status: "Available", tone: "success", initials: "AM" },

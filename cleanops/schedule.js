@@ -1,7 +1,13 @@
 (function () {
   const source = window.CLEANOPS_DATA.scheduleV0;
-  const startHour = 6;
-  const endHour = 18;
+  // Mock Settings hook: later this will be controlled from CleanOps Settings.
+  const scheduleSettings = {
+    dayStartHour: 6,
+    dayEndHour: 18,
+    ...(source.scheduleSettings || {})
+  };
+  const startHour = scheduleSettings.dayStartHour;
+  const endHour = scheduleSettings.dayEndHour;
   const minuteHeight = 1.05;
   const minDuration = 30;
   const scheduleTypes = [
@@ -17,6 +23,7 @@
     view: "week",
     rangeLabel: source.rangeLabel,
     selectedDayIndex: source.selectedDayIndex,
+    selectedDay: null,
     showWeekends: true,
     filtersOpen: false,
     viewMenuOpen: false,
@@ -27,7 +34,10 @@
     visits: structuredCloneSafe(source.scheduledVisits),
     unscheduled: structuredCloneSafe(source.unscheduled),
     resizing: null,
-    popoverDrag: null
+    popoverDrag: null,
+    workloadGroup: "cleaner",
+    workloadSort: "start",
+    collapsedGroups: new Set()
   };
 
   function structuredCloneSafe(value) {
@@ -103,6 +113,13 @@
     return String(warning || "").trim() === "No cleaner" ? "Unassigned" : String(warning || "").trim();
   }
 
+  function shortScheduleNote(item) {
+    const note = normaliseWarning(item.warnings?.[0] || "");
+    if (!note || ["No cleaner", "Unassigned", "Overdue", "Completed"].includes(note)) return "";
+    if (note === item.type || note === item.status || note === item.statusGroup) return "";
+    return note.length > 54 ? `${note.slice(0, 51).trim()}...` : note;
+  }
+
   function visitPopoverChips(visit) {
     const chips = [];
     const seen = new Set();
@@ -139,6 +156,23 @@
     return chips.join("");
   }
 
+  function cardStatusChip(item) {
+    if (isCompleted(item)) return chip("Completed", "muted");
+    if (item.statusGroup === "Overdue" || item.status === "Overdue") return chip("Overdue", "danger");
+    if (isUnassigned(item) || item.statusGroup === "Unassigned" || item.status === "Unassigned") return chip("Unassigned", "danger");
+    if (item.type === "Issue / revisit") return chip("Issue", "danger");
+    if (item.statusGroup === "Issue / warning") return chip("Issue", "warning");
+    return "";
+  }
+
+  function gridStatusChip(item) {
+    if (isCompleted(item)) return chip("Completed", "muted");
+    if (item.statusGroup === "Overdue" || item.status === "Overdue") return chip("Overdue", "danger");
+    if (isUnassigned(item) || item.statusGroup === "Unassigned" || item.status === "Unassigned") return chip("Unassigned", "danger");
+    if (item.type === "Issue / revisit" || item.statusGroup === "Issue / warning") return chip("Issue", "danger");
+    return "";
+  }
+
   function button(label, action, variant = "") {
     const classes = ["button", variant].filter(Boolean).join(" ");
     return `<button class="${classes}" type="button" data-schedule-action="${escapeHtml(action || label)}">${escapeHtml(label)}</button>`;
@@ -169,6 +203,25 @@
   function timeRange(visit) {
     const start = timeToMinutes(visit.start);
     return `${displayTime(visit.start)} - ${displayTime(minutesToTime(start + visit.duration))}`;
+  }
+
+  function visitDay(visit) {
+    return source.days.find((day) => day.index === visit.dayIndex);
+  }
+
+  function dayNumber(day) {
+    return day?.label?.match(/\d+/)?.[0] || "";
+  }
+
+  function monthDayLabel(monthDay) {
+    const firstKnownDay = source.days[0];
+    const firstKnownDate = firstKnownDay?.date ? new Date(`${firstKnownDay.date}T00:00:00Z`) : null;
+    const firstKnownNumber = Number(dayNumber(firstKnownDay)) || 1;
+    if (!firstKnownDate || Number.isNaN(firstKnownDate.getTime())) return `Day ${monthDay}`;
+    const date = new Date(firstKnownDate);
+    date.setUTCDate(firstKnownDate.getUTCDate() + Number(monthDay) - firstKnownNumber);
+    const short = date.toLocaleDateString("en-GB", { weekday: "short", timeZone: "UTC" });
+    return `${short} ${monthDay}`;
   }
 
   function visibleDays() {
@@ -250,7 +303,6 @@
   }
 
   function controls() {
-    const viewLabel = state.view.charAt(0).toUpperCase() + state.view.slice(1);
     return `
       <div class="schedule-toolbar">
         <div class="schedule-toolbar-group">
@@ -260,10 +312,7 @@
           <button class="button small schedule-date-button" type="button" data-schedule-action="date-range" title="Date range">${escapeHtml(state.rangeLabel)}</button>
         </div>
         <div class="schedule-toolbar-group">
-          <div class="schedule-menu-wrap">
-            <button class="button small" type="button" data-schedule-action="toggle-view-menu" aria-expanded="${state.viewMenuOpen}" title="Choose schedule view">${escapeHtml(viewLabel)} <span aria-hidden="true">v</span></button>
-            ${state.viewMenuOpen ? viewMenu() : ""}
-          </div>
+          ${viewSwitch()}
           <div class="schedule-menu-wrap">
             <button class="button small" type="button" data-schedule-action="toggle-filters" aria-expanded="${state.filtersOpen}" title="Schedule filters">Filters ${chip(filtersActiveLabel(), "success")} <span aria-hidden="true">v</span></button>
             ${state.filtersOpen ? filtersMenu() : ""}
@@ -282,10 +331,22 @@
     return state.showWeekends ? "On" : "Weekdays";
   }
 
+  function viewSwitch() {
+    return `
+      <div class="schedule-view-switch" aria-label="Schedule view">
+        ${["month", "week", "day", "workload"].map((view) => `
+          <button type="button" class="${state.view === view ? "selected" : ""}" data-schedule-view="${view}" aria-pressed="${state.view === view}">
+            ${escapeHtml(view.charAt(0).toUpperCase() + view.slice(1))}
+          </button>
+        `).join("")}
+      </div>
+    `;
+  }
+
   function viewMenu() {
     return `
       <div class="schedule-dropdown compact" role="menu">
-        ${["month", "week", "day", "map", "list"].map((view) => `
+        ${["month", "week", "day", "workload", "map", "list"].map((view) => `
           <button type="button" class="${state.view === view ? "selected" : ""}" data-schedule-view="${view}">
             ${escapeHtml(view.charAt(0).toUpperCase() + view.slice(1))}
           </button>
@@ -358,12 +419,12 @@
       <aside class="unscheduled-panel" data-unscheduled-drop="true">
         <div class="unscheduled-head">
           <div>
-            <p class="eyebrow">Right rail</p>
-            <h2>Unscheduled</h2>
+            <p class="eyebrow">Schedule queue</p>
+            <h2>Unscheduled work</h2>
           </div>
           ${chip(`${items.length}`, "info")}
         </div>
-        <p class="muted">Drag cards into a valid time slot to schedule them in this mock view.</p>
+        <p class="muted">Mock holding area for work that still needs a date, time, or team.</p>
         <div class="unscheduled-list">
           ${items.map((item) => unscheduledCard(item)).join("") || `<div class="empty mini"><div class="empty-icon">OK</div><div><h3>No unscheduled work</h3><p class="muted">Everything visible is placed.</p></div></div>`}
         </div>
@@ -372,16 +433,19 @@
   }
 
   function unscheduledCard(item) {
+    const status = cardStatusChip(item);
+    const note = shortScheduleNote(item);
     return `
       <article class="unscheduled-card ${escapeHtml(scheduleItemClasses(item))}" draggable="true" data-unscheduled-id="${escapeHtml(item.id)}" title="Drag into schedule">
-        <div class="button-row" style="justify-content:space-between">
+        <div class="queue-card-main">
           <strong>${escapeHtml(item.client)}</strong>
-          ${chip(item.status, item.tone)}
+          <span>${escapeHtml(item.property)}</span>
         </div>
-        ${typePill(item.type)}
-        <span class="muted">${escapeHtml(item.property)}</span>
-        <span>${escapeHtml(item.service)}</span>
-        ${item.warnings?.length ? `<div class="button-row" style="justify-content:flex-start">${item.warnings.map((warning) => chip(warning, "warning")).join("")}</div>` : ""}
+        <div class="queue-card-tags">
+          ${typePill(item.type)}
+          ${status}
+        </div>
+        ${note ? `<div class="queue-card-note">${escapeHtml(note)}</div>` : ""}
       </article>
     `;
   }
@@ -389,20 +453,24 @@
   function scheduledCard(visit, mode = "week", layout = { columnIndex: 0, columnCount: 1 }) {
     const top = Math.max(0, (timeToMinutes(visit.start) - startHour * 60) * minuteHeight);
     const height = Math.max(34, visit.duration * minuteHeight - 4);
+    const sizeClass = height <= 46 ? "card-small" : height <= 78 ? "card-medium" : "card-large";
     const overlapStyle = layout.columnCount > 1
       ? `left:calc(8px + ${layout.columnIndex} * ((100% - 16px) / ${layout.columnCount}));width:calc((100% - 16px) / ${layout.columnCount} - 4px);right:auto;`
       : "left:8px;right:8px;";
+    const status = gridStatusChip(visit);
+    const extraLine = visit.team && !isUnassigned(visit) ? visit.team : "";
     return `
-      <article class="schedule-visit-card ${escapeHtml(scheduleItemClasses(visit))} ${mode}" draggable="true"
+      <article class="schedule-visit-card ${escapeHtml(scheduleItemClasses(visit))} ${mode} ${sizeClass}" draggable="true"
         data-visit-id="${escapeHtml(visit.id)}"
         data-overlap-count="${layout.columnCount}"
         style="top:${top}px;height:${height}px;${overlapStyle}"
         title="${escapeHtml(visit.client)} ${escapeHtml(timeRange(visit))}">
-        <strong>${escapeHtml(timeRange(visit))}</strong>
-        <span>${escapeHtml(visit.client)}</span>
-        <span class="muted">${escapeHtml(visit.property)}</span>
-        <span class="muted">${escapeHtml(visit.service)}</span>
-        ${visit.warnings?.length ? `<span class="schedule-warning">${escapeHtml(visit.warnings[0])}</span>` : ""}
+        <div class="schedule-card-top">
+          <strong>${escapeHtml(timeRange(visit))}</strong>
+          ${status}
+        </div>
+        <span class="schedule-card-title">${escapeHtml(visit.client)}</span>
+        ${extraLine ? `<span class="schedule-card-extra">${escapeHtml(extraLine)}</span>` : ""}
         <span class="resize-handle top" data-resize-id="${escapeHtml(visit.id)}" data-resize-edge="top" title="Resize start time" aria-hidden="true"></span>
         <span class="resize-handle bottom" data-resize-id="${escapeHtml(visit.id)}" data-resize-edge="bottom" title="Resize end time" aria-hidden="true"></span>
       </article>
@@ -442,7 +510,7 @@
   }
 
   function dayView() {
-    const day = source.days.find((item) => item.index === state.selectedDayIndex) || source.days[3];
+    const day = state.selectedDay || source.days.find((item) => item.index === state.selectedDayIndex) || source.days[3];
     return `
       <div class="schedule-layout">
         <section class="schedule-main panel">
@@ -470,11 +538,18 @@
       <div class="schedule-layout">
         <section class="schedule-main panel">
           ${controls()}
+          <div class="month-title">
+            <div>
+              <h2>Month overview</h2>
+              <span class="muted">Clean count, appointment mix, and unscheduled work at a glance.</span>
+            </div>
+            ${chip(`${visibleUnscheduled().length} unscheduled`, "info")}
+          </div>
           <div class="month-grid" style="--month-cols:${weekdays.length}">
             ${weekdays.map((day) => `<div class="month-weekday">${day}</div>`).join("")}
             ${cells.map((day) => {
               const item = monthItems.get(day);
-              return `<div class="month-cell ${day === 11 ? "today" : ""}">
+              return `<div class="month-cell ${day === 11 ? "today" : ""} is-clickable" data-month-day="${day}">
                 <strong>${day}</strong>
                 ${item ? `<div class="month-summary ${escapeHtml(typeClass(item.type))}"><span>${escapeHtml(item.text)}</span>${item.count > 1 ? chip(`${item.count}`, "info") : ""}</div>` : ""}
               </div>`;
@@ -565,7 +640,188 @@
     `;
   }
 
+  function workloadView() {
+    const allVisits = visibleVisits();
+    const unscheduledItems = visibleUnscheduled();
+    const scheduledUnassigned = allVisits.filter(v => isUnassigned(v) || !v.start || !v.dayIndex);
+    const scheduledNormal = allVisits.filter(v => !isUnassigned(v) && v.start && v.dayIndex);
+
+    const needsScheduling = [...unscheduledItems, ...scheduledUnassigned];
+
+    const groups = new Map();
+    scheduledNormal.forEach(visit => {
+      let key = "Other";
+      if (state.workloadGroup === "cleaner") key = visit.team || "Unknown Team";
+      else if (state.workloadGroup === "day") {
+        const day = source.days.find(d => d.index === visit.dayIndex);
+        key = day ? day.label : "Unknown Day";
+      } else if (state.workloadGroup === "client") {
+        key = visit.client || "Unknown Client";
+      }
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(visit);
+    });
+
+    const sortByStart = (a, b) => timeToMinutes(a.start || "00:00") - timeToMinutes(b.start || "00:00");
+    needsScheduling.sort(sortByStart);
+    for (let [key, items] of groups.entries()) {
+      items.sort(sortByStart);
+    }
+
+    const days = visibleDays();
+    const workHours = [];
+    for (let h = startHour; h <= endHour; h++) workHours.push(h);
+    const HOUR_WIDTH = 30;
+    const DAY_WIDTH = workHours.length * HOUR_WIDTH;
+    const TOTAL_TIMELINE_WIDTH = days.length * DAY_WIDTH;
+
+    function renderGroupHeader(groupKey, items, isNeedsAction = false) {
+      const isCollapsed = state.collapsedGroups.has(groupKey);
+      const bookedMinutes = items.reduce((sum, v) => sum + (v.duration || 0), 0);
+      const bookedHours = (bookedMinutes / 60).toFixed(1).replace(".0", "");
+      let summary = `${items.length} visit${items.length === 1 ? "" : "s"}`;
+      if (bookedMinutes > 0) summary += ` · ${bookedHours}h`;
+
+      return `
+        <tr class="gantt-row workload-group-header ${isNeedsAction ? "needs-action" : ""} ${isCollapsed ? "collapsed" : ""}" data-schedule-action="toggle-workload-group" data-group-key="${escapeHtml(groupKey)}">
+          <td class="gantt-left">
+            <div class="workload-group-header-text">
+              <span class="group-chevron" aria-hidden="true">${isCollapsed ? "›" : "v"}</span>
+              <span class="${isNeedsAction ? "text-danger" : ""}">${escapeHtml(groupKey)}</span>
+              <span class="workload-group-meta">${escapeHtml(summary)}</span>
+            </div>
+          </td>
+          <td style="padding:0; background:var(--surface);"></td>
+        </tr>
+      `;
+    }
+
+    function renderRows(items) {
+      return items.map(job => {
+        const day = visitDay(job);
+        const dayStr = day ? day.short : "Unscheduled";
+        const timeStr = job.start ? `${job.start}–${minutesToTime(timeToMinutes(job.start) + (job.duration || 0))}` : "";
+        const dateTimeStr = (dayStr !== "Unscheduled" || timeStr) ? `${dayStr} ${timeStr}` : "Unscheduled";
+
+        let timelineBarsHtml = "";
+        const dayIndexInVisible = days.findIndex(d => d.index === job.dayIndex);
+        if (dayIndexInVisible !== -1 && job.start) {
+          const dayOffset = dayIndexInVisible * DAY_WIDTH;
+          const leftOffset = dayOffset + ((timeToMinutes(job.start) - startHour * 60) / 60) * HOUR_WIDTH;
+          const width = ((job.duration || 30) / 60) * HOUR_WIDTH;
+
+          timelineBarsHtml = `
+            <button type="button" class="workload-bar ${escapeHtml(typeClass(job.type))}"
+                 data-visit-id="${escapeHtml(job.id)}"
+                 style="left: ${leftOffset}px; width: ${width}px;"
+                 title="${escapeHtml(job.client)} | ${escapeHtml(job.start)}">
+            </button>
+          `;
+        }
+
+        return `
+          <tr class="gantt-row workload-item-row" data-visit-id="${escapeHtml(job.id)}">
+            <td class="gantt-left">
+              <div class="left-grid">
+                <div class="left-cell" title="${escapeHtml(job.service || job.title)}">
+                  <span class="chip ${escapeHtml(typeClass(job.type))}" title="${escapeHtml(job.type)}"></span>
+                  ${escapeHtml(job.client)}
+                </div>
+                <div class="left-cell" title="${escapeHtml(job.property)}">${escapeHtml(job.property)}</div>
+                <div class="left-cell ${isUnassigned(job) ? "text-danger" : ""}" title="${escapeHtml(job.team || "Unassigned")}">${escapeHtml(job.team || "Unassigned")}</div>
+                <div class="left-cell muted" style="font-size:11px;">${escapeHtml(dateTimeStr)}</div>
+              </div>
+            </td>
+            <td class="timeline-cell" style="width: ${TOTAL_TIMELINE_WIDTH}px;">
+              <div class="timeline-bg"></div><div class="timeline-bg-hours"></div>
+              <div class="bars-container">${timelineBarsHtml}</div>
+            </td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    let tableHtml = `
+      <div class="workload-planner">
+        <div class="planner-controls">
+          <div class="control-group">
+            <select data-workload-select="group" aria-label="Group by">
+              <option value="cleaner" ${state.workloadGroup === "cleaner" ? "selected" : ""}>Group by Cleaner</option>
+              <option value="day" ${state.workloadGroup === "day" ? "selected" : ""}>Group by Day</option>
+              <option value="client" ${state.workloadGroup === "client" ? "selected" : ""}>Group by Client</option>
+            </select>
+            <select data-workload-select="sort" aria-label="Sort by">
+              <option value="start" ${state.workloadSort === "start" ? "selected" : ""}>Sort: Start Time</option>
+            </select>
+          </div>
+          <div class="planner-meta">
+            Needs scheduling · ${needsScheduling.length}
+          </div>
+        </div>
+
+        <div class="gantt-scroll">
+          <table class="gantt-table">
+            <thead>
+              <tr>
+                <th class="gantt-left">
+                  <div class="left-grid left-header">
+                    <div class="left-cell">Job / Visit</div>
+                    <div class="left-cell">Location</div>
+                    <div class="left-cell">Cleaner / Team</div>
+                    <div class="left-cell">Date / Time</div>
+                  </div>
+                </th>
+                <th style="padding:0; border-bottom:none;">
+                  <div class="timeline-header-container" style="width: ${TOTAL_TIMELINE_WIDTH}px;">
+                    ${days.map(d => `
+                      <div class="day-block" style="width: ${DAY_WIDTH}px;">
+                        <div class="day-label">${escapeHtml(d.label)}</div>
+                        <div class="hours-row">
+                          ${workHours.map(h => `<div class="hour-tick" style="width:${HOUR_WIDTH}px">${h}</div>`).join("")}
+                        </div>
+                      </div>
+                    `).join("")}
+                  </div>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+    `;
+
+    if (needsScheduling.length > 0) {
+      tableHtml += renderGroupHeader("Needs scheduling", needsScheduling, true);
+      if (!state.collapsedGroups.has("Needs scheduling")) {
+        tableHtml += renderRows(needsScheduling);
+      }
+    }
+
+    const sortedGroups = Array.from(groups.keys()).sort();
+    sortedGroups.forEach(key => {
+      const items = groups.get(key);
+      tableHtml += renderGroupHeader(key, items);
+      if (!state.collapsedGroups.has(key)) {
+        tableHtml += renderRows(items);
+      }
+    });
+
+    tableHtml += `
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+
+    return `
+      <section class="panel workload-panel">
+        ${controls()}
+        ${tableHtml}
+      </section>
+      <div id="schedule-popover-root"></div>
+    `;
+  }
+
   function render() {
+    if (state.view === "workload") return workloadView();
     if (state.view === "month") return monthView();
     if (state.view === "day") return dayView();
     if (state.view === "list") return listView();
@@ -580,7 +836,7 @@
   }
 
   function findVisit(id) {
-    return state.visits.find((visit) => visit.id === id);
+    return state.visits.find((visit) => visit.id === id) || state.unscheduled.find((visit) => visit.id === id);
   }
 
   function scheduleUnscheduled(id, dayIndex, time) {
@@ -630,32 +886,109 @@
     return source.days.find((day) => day.index === Number(dayIndex))?.short || "day";
   }
 
+  function monthDayToScheduleDay(monthDay) {
+    const matchedDay = source.days.find((day) => dayNumber(day) === String(monthDay));
+    if (matchedDay) return matchedDay;
+    return {
+      index: `month-${monthDay}`,
+      short: monthDayLabel(monthDay).split(" ")[0],
+      label: monthDayLabel(monthDay),
+      date: "",
+      weekend: false
+    };
+  }
+
+  function fieldValue(...values) {
+    return values.find((value) => String(value || "").trim()) || "";
+  }
+
+  function dispatchValue(value, fallback = "Not available") {
+    return escapeHtml(fieldValue(value, fallback));
+  }
+
+  function schedulingAccess(visit) {
+    const access = fieldValue(visit.access, visit.accessMethod, visit.access_method);
+    if (access) return access;
+    const accessWarning = (visit.warnings || []).find((warning) => /access|key|gate|lockbox/i.test(warning));
+    return accessWarning || "";
+  }
+
+  function schedulingParking(visit) {
+    return fieldValue(visit.parking, visit.parking_notes, visit.parkingNote);
+  }
+
+  function schedulingProducts(visit) {
+    return fieldValue(visit.productsEquipment, visit.products_equipment_notes, visit.cleaning_products, visit.equipment);
+  }
+
+  function schedulingNote(visit) {
+    return fieldValue(visit.schedulingNote, visit.property_notes, visit.propertyNote, shortScheduleNote(visit));
+  }
+
+  function dispatchDateTime(visit) {
+    const day = visitDay(visit);
+    if (!day || !visit.start) return "Unscheduled / needs time";
+    return `${day.label} ${timeRange(visit)}`;
+  }
+
+  function dispatchMissingItems(visit) {
+    const missing = [];
+    if (!visitDay(visit) || !visit.start) missing.push("Needs date/time");
+    if (isUnassigned(visit)) missing.push("Needs cleaner/team");
+    if (!schedulingAccess(visit)) missing.push("Access missing");
+    if (!schedulingParking(visit)) missing.push("Parking unknown");
+    return missing;
+  }
+
   function openPopover(visitId, target) {
     const visit = findVisit(visitId);
     const root = document.getElementById("schedule-popover-root");
     if (!visit || !root || !target) return;
     const statusChips = visitPopoverChips(visit);
     const rect = target.getBoundingClientRect();
-    const left = Math.min(rect.left + window.scrollX + 12, window.scrollX + window.innerWidth - 310);
+    const left = Math.min(rect.left + window.scrollX + 12, window.scrollX + window.innerWidth - 374);
     const top = rect.top + window.scrollY - 10;
+    const access = schedulingAccess(visit);
+    const parking = schedulingParking(visit);
+    const products = schedulingProducts(visit);
+    const note = schedulingNote(visit);
+    const missingItems = dispatchMissingItems(visit);
+    const readiness = missingItems.length
+      ? `<ul class="popover-missing-list">${missingItems.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`
+      : `<div class="popover-ready">Scheduling ready</div>`;
     root.innerHTML = `
       <aside class="visit-popover" style="left:${Math.max(12, left)}px;top:${Math.max(74, top)}px" role="dialog" aria-label="${escapeHtml(visit.client)} visit">
         <div class="visit-popover-bar" data-popover-drag="true">
-          <strong>${escapeHtml(visit.client)}</strong>
+          <div class="visit-popover-title">
+            <strong>${escapeHtml(visit.client || visit.title || "Scheduled work")}</strong>
+            <span>${escapeHtml(visit.property || "Location not set")}</span>
+          </div>
           <button type="button" data-popover-close="true" aria-label="Close visit popover" title="Close">X</button>
         </div>
         <div class="visit-popover-body">
-          <label class="schedule-check"><input type="checkbox" data-schedule-complete="${escapeHtml(visit.id)}" ${visit.completed ? "checked" : ""}><span>Completed</span></label>
-          <div class="field-row"><span>Type</span><strong>${typePill(visit.type)}</strong></div>
-          <div class="field-row"><span>Details</span><strong>${escapeHtml(visit.service)}</strong></div>
-          <div class="field-row"><span>Team</span><strong>${escapeHtml(visit.team)}</strong></div>
-          <div class="field-row"><span>Location</span><strong>${escapeHtml(visit.property)}</strong></div>
-          <div class="field-row"><span>Starts</span><strong>${escapeHtml(displayTime(visit.start))}</strong></div>
-          <div class="field-row"><span>Ends</span><strong>${escapeHtml(displayTime(minutesToTime(timeToMinutes(visit.start) + visit.duration)))}</strong></div>
           ${statusChips ? `<div class="button-row popover-chip-row">${statusChips}</div>` : ""}
+          <div class="field-row"><span>Client</span><strong>${dispatchValue(visit.client)}</strong></div>
+          <div class="field-row"><span>Property</span><strong>${dispatchValue(visit.property)}</strong></div>
+          <div class="field-row"><span>Location / address</span><strong>${dispatchValue(visit.address, visit.property)}</strong></div>
+          <div class="field-row"><span>Work type</span><strong>${typePill(visit.type)}</strong></div>
+          <div class="field-row"><span>Date / time</span><strong>${escapeHtml(dispatchDateTime(visit))}</strong></div>
+          <div class="field-row"><span>Cleaner / team</span><strong>${dispatchValue(visit.team, "Unassigned")}</strong></div>
+          <div class="field-row"><span>Duration</span><strong>${escapeHtml(visit.duration ? `${visit.duration} min` : "Duration missing")}</strong></div>
+          <div class="popover-section">
+            <strong>Practical scheduling</strong>
+            <div class="field-row"><span>Access</span><strong>${dispatchValue(access, "Access missing")}</strong></div>
+            <div class="field-row"><span>Parking</span><strong>${dispatchValue(parking, "Parking unknown")}</strong></div>
+            ${products ? `<div class="field-row"><span>Products/equipment</span><strong>${escapeHtml(products)}</strong></div>` : ""}
+            ${note ? `<p class="popover-note">${escapeHtml(note)}</p>` : ""}
+          </div>
+          <div class="popover-section">
+            <strong>Scheduling readiness</strong>
+            ${readiness}
+          </div>
           <div class="button-row">
-            ${button("Edit", "edit-visit")}
-            ${button("View details", "view-details", "primary")}
+            ${button("Edit time", "edit-time")}
+            ${button("Assign cleaner/team", "assign-cleaner-team")}
+            ${button("Open details", "open-details", "primary")}
           </div>
         </div>
       </aside>
@@ -737,7 +1070,7 @@
   }
 
   function onDocumentClick(event) {
-    const scheduleRoot = event.target.closest(".schedule-toolbar, .schedule-main, .unscheduled-panel, .visit-popover, .map-shell");
+    const scheduleRoot = event.target.closest(".schedule-toolbar, .schedule-main, .workload-panel, .unscheduled-panel, .visit-popover, .map-shell");
     if (!scheduleRoot) {
       const needsRefresh = state.filtersOpen || state.viewMenuOpen || state.moreMenuOpen;
       closePopover();
@@ -751,8 +1084,32 @@
     const viewButton = event.target.closest("[data-schedule-view]");
     if (viewButton) {
       state.view = viewButton.dataset.scheduleView;
+      if (state.view !== "day") state.selectedDay = null;
       state.viewMenuOpen = false;
+      state.filtersOpen = false;
+      state.moreMenuOpen = false;
       refresh();
+      return;
+    }
+
+    const monthDay = event.target.closest("[data-month-day]");
+    if (monthDay) {
+      const selected = monthDayToScheduleDay(monthDay.dataset.monthDay);
+      if (selected) {
+        state.selectedDay = selected;
+        state.selectedDayIndex = selected.index;
+        state.view = "day";
+        toast(`${selected.label} opened in Day view`);
+        refresh();
+      } else {
+        toast("Month day preview is mocked for Schedule v0.");
+      }
+      return;
+    }
+
+    const visitTarget = event.target.closest("[data-visit-id]");
+    if (visitTarget && !event.target.closest(".resize-handle")) {
+      openPopover(visitTarget.dataset.visitId, visitTarget);
       return;
     }
 
@@ -773,17 +1130,13 @@
 
     const action = event.target.closest("[data-schedule-action]");
     if (action) {
-      handleAction(action.dataset.scheduleAction);
+      handleAction(action.dataset.scheduleAction, event);
       return;
     }
 
-    const visitTarget = event.target.closest("[data-visit-id]");
-    if (visitTarget && !event.target.closest(".resize-handle")) {
-      openPopover(visitTarget.dataset.visitId, visitTarget);
-    }
   }
 
-  function handleAction(action) {
+  function handleAction(action, event) {
     if (action === "toggle-view-menu") {
       state.viewMenuOpen = !state.viewMenuOpen;
       state.filtersOpen = false;
@@ -802,6 +1155,13 @@
       state.moreMenuOpen = !state.moreMenuOpen;
       state.viewMenuOpen = false;
       state.filtersOpen = false;
+      refresh();
+      return;
+    }
+    if (action === "toggle-workload-group") {
+      const groupKey = event.target.closest("[data-group-key]").dataset.groupKey;
+      if (state.collapsedGroups.has(groupKey)) state.collapsedGroups.delete(groupKey);
+      else state.collapsedGroups.add(groupKey);
       refresh();
       return;
     }
@@ -867,6 +1227,14 @@
         if (filter.checked) set.add(filter.value);
         else set.delete(filter.value);
       }
+      refresh();
+      return;
+    }
+
+    const workloadSelect = event.target.closest("[data-workload-select]");
+    if (workloadSelect) {
+      if (workloadSelect.dataset.workloadSelect === "group") state.workloadGroup = workloadSelect.value;
+      if (workloadSelect.dataset.workloadSelect === "sort") state.workloadSort = workloadSelect.value;
       refresh();
       return;
     }

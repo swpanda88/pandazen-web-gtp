@@ -106,6 +106,13 @@
     return String(warning || "").trim() === "No cleaner" ? "Unassigned" : String(warning || "").trim();
   }
 
+  function shortScheduleNote(item) {
+    const note = normaliseWarning(item.warnings?.[0] || "");
+    if (!note || ["No cleaner", "Unassigned", "Overdue", "Completed"].includes(note)) return "";
+    if (note === item.type || note === item.status || note === item.statusGroup) return "";
+    return note.length > 54 ? `${note.slice(0, 51).trim()}...` : note;
+  }
+
   function visitPopoverChips(visit) {
     const chips = [];
     const seen = new Set();
@@ -147,7 +154,7 @@
     if (item.statusGroup === "Overdue" || item.status === "Overdue") return chip("Overdue", "danger");
     if (isUnassigned(item) || item.statusGroup === "Unassigned" || item.status === "Unassigned") return chip("Unassigned", "danger");
     if (item.type === "Issue / revisit") return chip("Issue", "danger");
-    if (item.statusGroup === "Issue / warning") return chip(normaliseWarning(item.warnings?.[0] || item.status || "Check"), "warning");
+    if (item.statusGroup === "Issue / warning") return chip("Issue", "warning");
     return "";
   }
 
@@ -401,18 +408,18 @@
 
   function unscheduledCard(item) {
     const status = cardStatusChip(item);
+    const note = shortScheduleNote(item);
     return `
       <article class="unscheduled-card ${escapeHtml(scheduleItemClasses(item))}" draggable="true" data-unscheduled-id="${escapeHtml(item.id)}" title="Drag into schedule">
-        <div class="schedule-card-top">
+        <div class="queue-card-main">
           <strong>${escapeHtml(item.client)}</strong>
-          ${status || chip(item.status, item.tone)}
+          <span>${escapeHtml(item.property)}</span>
         </div>
-        <span class="schedule-card-location">${escapeHtml(item.property)}</span>
-        <div class="schedule-card-meta">
+        <div class="queue-card-tags">
           ${typePill(item.type)}
-          <span>${escapeHtml(item.service)}</span>
+          ${status}
         </div>
-        ${item.warnings?.length ? `<div class="schedule-card-warning">${escapeHtml(normaliseWarning(item.warnings[0]))}</div>` : ""}
+        ${note ? `<div class="queue-card-note">${escapeHtml(note)}</div>` : ""}
       </article>
     `;
   }
@@ -425,6 +432,7 @@
       ? `left:calc(8px + ${layout.columnIndex} * ((100% - 16px) / ${layout.columnCount}));width:calc((100% - 16px) / ${layout.columnCount} - 4px);right:auto;`
       : "left:8px;right:8px;";
     const status = gridStatusChip(visit);
+    const extraLine = visit.team && !isUnassigned(visit) ? visit.team : "";
     return `
       <article class="schedule-visit-card ${escapeHtml(scheduleItemClasses(visit))} ${mode} ${sizeClass}" draggable="true"
         data-visit-id="${escapeHtml(visit.id)}"
@@ -436,9 +444,7 @@
           ${status}
         </div>
         <span class="schedule-card-title">${escapeHtml(visit.client)}</span>
-        <span class="schedule-card-location">${escapeHtml(visit.property)}</span>
-        <span class="schedule-card-meta">${escapeHtml(visit.service)}</span>
-        ${visit.warnings?.length && !status ? `<span class="schedule-card-warning">${escapeHtml(normaliseWarning(visit.warnings[0]))}</span>` : ""}
+        ${extraLine ? `<span class="schedule-card-extra">${escapeHtml(extraLine)}</span>` : ""}
         <span class="resize-handle top" data-resize-id="${escapeHtml(visit.id)}" data-resize-edge="top" title="Resize start time" aria-hidden="true"></span>
         <span class="resize-handle bottom" data-resize-id="${escapeHtml(visit.id)}" data-resize-edge="bottom" title="Resize end time" aria-hidden="true"></span>
       </article>

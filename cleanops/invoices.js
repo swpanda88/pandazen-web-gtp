@@ -589,6 +589,18 @@
   }
 
   function kpis() {
+    const isApiBackedInvoices = invoices().some(invoice => invoice.isApiBacked);
+    if (isApiBackedInvoices) {
+      const sentUnpaid = invoices().filter((invoice) => ["sent", "part_paid"].includes(invoiceStatus(invoice))).reduce((total, invoice) => total + invoiceBalance(invoice), 0);
+      const overdue = invoices().filter((invoice) => invoiceStatus(invoice) === "overdue").reduce((total, invoice) => total + invoiceBalance(invoice), 0);
+      return [
+        { label: "Ready to invoice", value: money(0) },
+        { label: "Sent / unpaid", value: money(sentUnpaid) },
+        { label: "Overdue", value: money(overdue) },
+        { label: "Next 30 days forecast", value: money(0) }
+      ];
+    }
+
     const ready = readyBillableEvents().reduce((total, event) => total + Number(event.amount || 0), 0);
     const sentUnpaid = invoices().filter((invoice) => ["sent", "part_paid"].includes(invoice.status)).reduce((total, invoice) => total + invoiceBalance(invoice), 0);
     const overdue = invoices().filter((invoice) => invoiceStatus(invoice) === "overdue").reduce((total, invoice) => total + invoiceBalance(invoice), 0);

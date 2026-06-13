@@ -127,7 +127,7 @@
   }
 
   function invoices() {
-    return state.apiInvoices || [];
+    return state.apiInvoices && state.apiInvoices.length ? state.apiInvoices : source().invoices;
   }
 
   function financeSettings() {
@@ -372,6 +372,10 @@
   }
 
   function invoiceTotal(invoice) {
+    if (invoice?.isApiBacked) {
+      if (invoice.grossTotal !== undefined && invoice.grossTotal !== null) return Number(invoice.grossTotal || 0);
+      if (invoice.grossTotalPence !== undefined && invoice.grossTotalPence !== null) return Number(invoice.grossTotalPence || 0) / 100;
+    }
     return (invoice?.lines || []).reduce((total, line) => total + Number(line.amount ?? (Number(line.quantity || 0) * Number(line.rate || 0))), 0);
   }
 
@@ -1643,7 +1647,7 @@
           issued_date: inv.createdAt ? inv.createdAt.substring(0, 10) : "",
           due_date: inv.dueDate || "",
           paid_date: (inv.paymentState === "paid" || inv.invoiceStatus === "paid") ? (inv.updatedAt ? inv.updatedAt.substring(0, 10) : "") : "",
-          paid_amount: (inv.paymentState === "paid" || inv.invoiceStatus === "paid") ? Number(inv.grossTotal || 0) : 0,
+          paid_amount: (inv.paymentState === "paid" || inv.invoiceStatus === "paid") ? (inv.grossTotal !== undefined ? Number(inv.grossTotal || 0) : Number(inv.grossTotalPence || 0) / 100) : 0,
           lines: []
         };
       });

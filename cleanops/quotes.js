@@ -151,6 +151,17 @@
     monthly: "Monthly"
   };
 
+  const quoteScopeLabels = {
+    "": "Select quote type...",
+    regular_domestic_clean: "Regular domestic clean",
+    initial_deep_clean: "Initial deep clean",
+    one_off_deep_clean: "One-off deep clean",
+    end_of_tenancy_clean: "End of tenancy clean",
+    commercial_clean: "Commercial cleaning",
+    add_on_extras_only: "Add-on / extras only",
+    custom_service: "Custom service"
+  };
+
   const considerationLabels = {
     eco_products_preferred: "Eco products preferred",
     include_initial_deep_clean: "Initial clean likely",
@@ -207,6 +218,61 @@
 
   function optionList(map, selected) {
     return Object.entries(map).map(([value, label]) => `<option value="${escapeHtml(value)}"${value === selected ? " selected" : ""}>${escapeHtml(label)}</option>`).join("");
+  }
+
+  function quoteScopeKey(quote) {
+    return quote.quote_scope || quote.scope_type || "";
+  }
+
+  function quoteScopeDisplay(quote) {
+    const key = quoteScopeKey(quote);
+    if (key === "custom_service") return quote.custom_scope || "Custom service";
+    if (key) return quoteScopeLabels[key] || "Custom service";
+    return quote.service || "Select quote type...";
+  }
+
+  function scopeFromRequest(request) {
+    if (!request) return "";
+    if (request.request_type === "regular_domestic_clean") return "regular_domestic_clean";
+    if (request.request_type === "end_of_tenancy") return "end_of_tenancy_clean";
+    if (request.request_type === "commercial_clean") return "commercial_clean";
+    if (request.request_type === "deep_clean") return request.initial_clean_required === "yes" ? "initial_deep_clean" : "one_off_deep_clean";
+    if (request.request_type === "one_off_clean") return "one_off_deep_clean";
+    return "custom_service";
+  }
+
+  function ensureManualCustomer(quote) {
+    quote.manual_customer = quote.manual_customer || {};
+    quote.manual_customer.type = quote.manual_customer.type || quote.manual_customer_type || "individual";
+    return quote.manual_customer;
+  }
+
+  function isManualCustomerQuote(quote) {
+    return Boolean(quote.manual_customer_mode || quote.client_id === "__manual__" || (!quote.client_id && quote.manual_customer));
+  }
+
+  function manualCustomerName(quote) {
+    const manual = ensureManualCustomer(quote);
+    if (manual.type === "company") {
+      return manual.company_name || manual.contact_name || quote.client || "Company customer to confirm";
+    }
+    return [manual.first_name, manual.last_name].filter(Boolean).join(" ") || quote.client || "Customer to confirm";
+  }
+
+  function quoteCustomerName(quote) {
+    const { client } = sourceSummary(quote);
+    return isManualCustomerQuote(quote) ? manualCustomerName(quote) : client?.display_name || quote.client || "Customer to confirm";
+  }
+
+  function quoteBillingAddress(quote) {
+    const { client, property } = sourceSummary(quote);
+    return quote.billing_address || client?.billingAddress || client?.billing_address || property?.address || quote.property || "Billing address to confirm";
+  }
+
+  function quoteServiceAddress(quote) {
+    const { property } = sourceSummary(quote);
+    if (quote.service_same_as_billing) return quoteBillingAddress(quote);
+    return quote.service_address || property?.address || quote.property || "Service address to confirm";
   }
 
   function quoteId(quote) {
@@ -327,9 +393,9 @@
     const client = findClient(quote.client_id);
     const property = findProperty(quote.property_id, quote.client_id);
     quote.number = quoteNumber(quote);
-    quote.client = client?.display_name || quote.client || "Client to confirm";
+    quote.client = isManualCustomerQuote(quote) ? manualCustomerName(quote) : client?.display_name || quote.client || "Client to confirm";
     quote.property = property?.label || property?.address || quote.property || "Property to confirm";
-    quote.service = quote.service || (quote.request_id ? requestTypeLabel(findRequest(quote.request_id)) : "Quote draft");
+    quote.service = quoteScopeDisplay(quote) || (quote.request_id ? requestTypeLabel(findRequest(quote.request_id)) : "Quote draft");
     quote.total = primaryTotalLabel(quote);
     quote.validUntil = quote.valid_until || quote.validUntil || "To confirm";
     quote.tone = quoteStatusTones[quote.status] || "info";
@@ -437,8 +503,11 @@
   }
 
   function renderA4DocumentView(quote) {
-    const { client, property } = sourceSummary(quote);
     const totals = calculateTotals(quote);
+    const customerName = quoteCustomerName(quote);
+    const billingAddress = quoteBillingAddress(quote);
+    const serviceAddress = quoteServiceAddress(quote);
+    const scope = quoteScopeDisplay(quote);
 
     return `
       <div class="a4-document-backdrop" data-quote-action="close-a4-view">
@@ -463,12 +532,14 @@
 
           <div class="a4-client-block">
             <h3 style="margin-bottom: 4px;">Prepared for:</h3>
-            <p><strong>${escapeHtml(client?.display_name || quote.client)}</strong></p>
-            <p>${escapeHtml(property?.address || quote.property)}</p>
+            <p><strong>${escapeHtml(customerName)}</strong></p>
+            <p>${escapeHtml(billingAddress)}</p>
+            <p class="muted">Service address: ${escapeHtml(serviceAddress)}</p>
           </div>
 
           <section class="a4-section">
             <h3 style="margin-bottom: 8px; border-bottom: 1px solid var(--border); padding-bottom: 4px;">Scope of Work</h3>
+            <p><strong>${escapeHtml(scope)}</strong></p>
             <p>${escapeHtml(quote.client_facing_summary || "")}</p>
           </section>
 
@@ -635,7 +706,7 @@
       <tr class="quote-row" data-quote-id="${escapeHtml(quote.id)}" tabindex="0" role="button">
         <td><strong>${escapeHtml(quoteNumber(quote))}</strong><br><span class="muted">v${escapeHtml(quote.version || 1)}</span></td>
         <td>${escapeHtml(quote.client)}<br><span class="muted">${escapeHtml(quote.property)}</span></td>
-        <td>${escapeHtml(quote.service)}</td>
+        <td>${escapeHtml(quoteScopeDisplay(quote))}</td>
         <td><strong>${escapeHtml(quote.total)}</strong></td>
         <td>${quoteStatusChip(quote)}</td>
         <td>${documentChip(quote)}</td>
@@ -864,6 +935,106 @@
     `;
   }
 
+  function renderQuoteScopeControl(quote, locked) {
+    const dis = locked ? " disabled" : "";
+    const scope = quoteScopeKey(quote);
+    return `
+      <div style="margin-bottom: 24px; padding: 20px; background: #f9fafb; border-radius: 8px;">
+        <div class="request-form-grid">
+          <label class="client-field">Quote type / scope
+            <select class="quote-input" data-quote-field="quote_scope"${dis}>
+              ${optionList(quoteScopeLabels, scope)}
+            </select>
+          </label>
+          ${scope === "custom_service" ? `
+            <label class="client-field">Custom scope
+              <input class="quote-input" data-quote-field="custom_scope" value="${escapeHtml(quote.custom_scope || "")}" placeholder="Short custom scope"${dis}>
+            </label>
+          ` : `<div class="request-note-block"><strong>Register scope</strong><span>${escapeHtml(quoteScopeDisplay(quote))}</span></div>`}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderQuoteCustomerDetails(quote, locked, currentClient, currentProperty) {
+    const dis = locked ? " disabled" : "";
+    const manualMode = isManualCustomerQuote(quote);
+    const manual = ensureManualCustomer(quote);
+    const selectedClientId = manualMode ? "__manual__" : quote.client_id || currentClient?.id || "";
+    const propertyOptions = clients()
+      .filter((client) => !selectedClientId || client.id === selectedClientId)
+      .flatMap((client) => (client.properties || []).map((property) => ({ ...property, clientName: client.display_name })));
+
+    return `
+      <div style="margin-bottom: 40px; padding: 20px; background: #f9fafb; border-radius: 8px;">
+        <div class="request-form-grid">
+          <label class="client-field wide">Client
+            <select class="quote-input" data-quote-field="client_id"${dis}>
+              <option value="">Select a client...</option>
+              <option value="__manual__"${manualMode ? " selected" : ""}>+ New customer</option>
+              ${clients().map((client) => `<option value="${escapeHtml(client.id)}"${selectedClientId === client.id ? " selected" : ""}>${escapeHtml(client.display_name)}</option>`).join("")}
+            </select>
+          </label>
+          ${manualMode ? `
+            <label class="client-field">Customer type
+              <select class="quote-input" data-quote-field="manual_customer.type"${dis}>
+                <option value="individual"${manual.type !== "company" ? " selected" : ""}>Individual</option>
+                <option value="company"${manual.type === "company" ? " selected" : ""}>Company</option>
+              </select>
+            </label>
+            ${manual.type === "company" ? `
+              <label class="client-field">Company name
+                <input class="quote-input" data-quote-field="manual_customer.company_name" value="${escapeHtml(manual.company_name || "")}" placeholder="Company name"${dis}>
+              </label>
+              <label class="client-field">Contact name
+                <input class="quote-input" data-quote-field="manual_customer.contact_name" value="${escapeHtml(manual.contact_name || "")}" placeholder="Contact name"${dis}>
+              </label>
+            ` : `
+              <label class="client-field">First name
+                <input class="quote-input" data-quote-field="manual_customer.first_name" value="${escapeHtml(manual.first_name || "")}" placeholder="First name"${dis}>
+              </label>
+              <label class="client-field">Last name
+                <input class="quote-input" data-quote-field="manual_customer.last_name" value="${escapeHtml(manual.last_name || "")}" placeholder="Last name"${dis}>
+              </label>
+            `}
+            <label class="client-field">Email
+              <input class="quote-input" type="email" data-quote-field="manual_customer.email" value="${escapeHtml(manual.email || "")}" placeholder="Email"${dis}>
+            </label>
+            <label class="client-field">Phone
+              <input class="quote-input" type="tel" data-quote-field="manual_customer.phone" value="${escapeHtml(manual.phone || "")}" placeholder="Phone"${dis}>
+            </label>
+            <div class="request-note-block wide"><strong>Manual customer</strong><span>Manual customer details are saved with this quote draft. A client record can be created if the quote is accepted.</span></div>
+          ` : `
+            <label class="client-field wide">Property
+              <select class="quote-input" data-quote-field="property_id"${dis}>
+                <option value="">Select a property...</option>
+                ${propertyOptions.map((property) => `<option value="${escapeHtml(property.id)}"${(quote.property_id || currentProperty?.id || "") === property.id ? " selected" : ""}>${escapeHtml(property.address || property.label)}${property.clientName ? ` - ${escapeHtml(property.clientName)}` : ""}</option>`).join("")}
+              </select>
+            </label>
+          `}
+          <label class="client-field wide">Billing / invoice address
+            <input class="quote-input" data-quote-field="billing_address" value="${escapeHtml(quote.billing_address || (!manualMode ? currentClient?.billingAddress || currentClient?.billing_address || "" : ""))}" placeholder="Billing / invoice address"${dis}>
+          </label>
+          <label class="schedule-check wide">
+            <input type="checkbox" data-quote-field="service_same_as_billing"${quote.service_same_as_billing ? " checked" : ""}${dis}>
+            <span>Service address same as billing address</span>
+          </label>
+          <label class="client-field wide">Service / delivery address
+            <input class="quote-input" data-quote-field="service_address" value="${escapeHtml(quote.service_same_as_billing ? quoteBillingAddress(quote) : quote.service_address || (!manualMode ? currentProperty?.address || currentProperty?.label || "" : ""))}" placeholder="Service / delivery address"${quote.service_same_as_billing ? " disabled" : dis}>
+          </label>
+          ${manualMode ? `
+            <label class="client-field">Postcode / area
+              <input class="quote-input" data-quote-field="postcode_area" value="${escapeHtml(quote.postcode_area || "")}" placeholder="Postcode / area"${dis}>
+            </label>
+            <label class="client-field wide">Access notes optional
+              <textarea class="quote-input" rows="2" data-quote-field="access_notes"${dis}>${escapeHtml(quote.access_notes || "")}</textarea>
+            </label>
+          ` : ""}
+        </div>
+      </div>
+    `;
+  }
+
   function renderQuoteEditorModal(quote) {
     updateQuoteCompatibility(quote);
     const { request, client, property } = sourceSummary(quote);
@@ -918,21 +1089,8 @@
                 </div>
               </div>
 
-              <!-- DOC CLIENT DETAILS -->
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 40px; padding: 20px; background: #f9fafb; border-radius: 8px;">
-                <label class="client-field">Client
-                  <select class="quote-input" data-quote-field="client"${dis}>
-                    <option value="">Select a client...</option>
-                    ${data.clients.map(c => `<option value="${escapeHtml(c.display_name)}"${quote.client === c.display_name ? " selected" : ""}>${escapeHtml(c.display_name)}</option>`).join("")}
-                  </select>
-                </label>
-                <label class="client-field">Property
-                  <select class="quote-input" data-quote-field="property"${dis}>
-                    <option value="">Select a property...</option>
-                    ${clients().flatMap(c => (c.properties || []).map(p => ({ address: p.address, client_name: c.display_name }))).filter(p => !quote.client || p.client_name === quote.client).map(p => `<option value="${escapeHtml(p.address)}"${quote.property === p.address ? " selected" : ""}>${escapeHtml(p.address)}</option>`).join("")}
-                  </select>
-                </label>
-              </div>
+              ${renderQuoteScopeControl(quote, locked)}
+              ${renderQuoteCustomerDetails(quote, locked, client, property)}
 
               <!-- DOC ITEMS TABLE -->
               <div style="margin-bottom: 40px;">
@@ -1334,8 +1492,11 @@
 
 
   function renderPreviewModal(quote) {
-    const { client, property } = sourceSummary(quote);
     const totals = calculateTotals(quote);
+    const customerName = quoteCustomerName(quote);
+    const billingAddress = quoteBillingAddress(quote);
+    const serviceAddress = quoteServiceAddress(quote);
+    const scope = quoteScopeDisplay(quote);
 
     let totalsHtml = "";
     if (totals.oneOff) totalsHtml += `<div><span>Initial / one-off clean</span><strong>${money(totals.oneOff)}</strong></div>`;
@@ -1354,8 +1515,10 @@
             ${iconButton("Close preview", "close-preview")}
           </div>
           <div class="quote-preview-body">
-            <h1>${escapeHtml(client?.display_name || quote.client || "Client")}</h1>
-            <p class="muted">${escapeHtml(property?.address || quote.property || "Property")}</p>
+            <h1>${escapeHtml(customerName)}</h1>
+            <p class="muted">${escapeHtml(billingAddress)}</p>
+            <p class="muted">Service address: ${escapeHtml(serviceAddress)}</p>
+            <p><strong>${escapeHtml(scope)}</strong></p>
             <p>${escapeHtml(quote.client_facing_summary || "Quote summary to confirm.")}</p>
             <h3>Included</h3>
             <ul>${parseLines(lineList(quote.included_scope)).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
@@ -1513,10 +1676,15 @@
       property_id: property?.id || "",
       request_id: requestId,
       pricing_basis: request.pricing_basis || "to_confirm",
+      quote_scope: scopeFromRequest(request),
+      custom_scope: scopeFromRequest(request) === "custom_service" ? requestTypeLabel(request) : "",
       valid_until: "To confirm",
       client: client?.display_name || request.client || "Client",
       property: property?.label || property?.address || request.property || "Property",
-      service: requestTypeLabel(request),
+      service: labelFrom(quoteScopeLabels, scopeFromRequest(request), requestTypeLabel(request)),
+      billing_address: client?.billingAddress || client?.billing_address || property?.address || "",
+      service_same_as_billing: false,
+      service_address: property?.address || property?.label || request.property || "",
       quote_items: buildItemsFromRequest(request),
       client_facing_summary: summaryText,
       included_scope: ["Kitchen surfaces and general clean", "Bathrooms", "Floors (vacuum and mop)", "Dusting of accessible surfaces", "Bedrooms and living areas as time allows"],
@@ -1540,8 +1708,8 @@
   }
 
   function createBlankQuote() {
-    const client = clients()[0];
-    const property = client?.properties?.[0];
+    const client = null;
+    const property = null;
     const nextGroup = `qg-${Date.now()}`;
     const nextNumber = `Q-${2090 + quotes().length}`;
     const ref = `${nextNumber}/01`;
@@ -1560,10 +1728,15 @@
       property_id: property?.id || "",
       request_id: "",
       pricing_basis: "to_confirm",
+      quote_scope: "",
+      custom_scope: "",
       valid_until: "To confirm",
-      client: client?.display_name || "Client",
-      property: property?.label || property?.address || "Property",
-      service: "General cleaning",
+      client: client?.display_name || "Customer to confirm",
+      property: property?.label || property?.address || "Service address to confirm",
+      service: "Select quote type...",
+      billing_address: client?.billingAddress || client?.billing_address || "",
+      service_same_as_billing: false,
+      service_address: property?.address || property?.label || "",
       quote_items: [newItem()],
       client_facing_summary: "",
       included_scope: [],
@@ -1591,13 +1764,65 @@
     if (!quote) return;
     const field = target.dataset.quoteField;
     if (!field) return;
-    if (field === "included_scope" || field === "exclusions") quote[field] = parseLines(target.value);
-    else quote[field] = target.value;
+    const value = target.type === "checkbox" ? target.checked : target.value;
+
+    if (field.startsWith("manual_customer.")) {
+      const key = field.split(".")[1];
+      const manual = ensureManualCustomer(quote);
+      manual[key] = value;
+      quote.manual_customer_mode = true;
+      quote.client_id = "";
+      quote.client = manualCustomerName(quote);
+    } else if (field === "client_id") {
+      if (value === "__manual__") {
+        quote.manual_customer_mode = true;
+        quote.client_id = "";
+        quote.property_id = "";
+        ensureManualCustomer(quote);
+        quote.client = manualCustomerName(quote);
+        quote.property = quote.service_address || "Service address to confirm";
+      } else {
+        const client = findClient(value);
+        quote.manual_customer_mode = false;
+        quote.client_id = value;
+        quote.manual_customer = quote.manual_customer || {};
+        quote.client = client?.display_name || "Client to confirm";
+        quote.property_id = "";
+        quote.property = "Property to confirm";
+        quote.billing_address = quote.billing_address || client?.billingAddress || client?.billing_address || "";
+      }
+    } else if (field === "property_id") {
+      const property = findProperty(value, quote.client_id);
+      quote.property_id = value;
+      quote.property = property?.label || property?.address || "Property to confirm";
+      if (!quote.service_address || quote.service_same_as_billing) quote.service_address = property?.address || property?.label || "";
+    } else if (field === "quote_scope") {
+      quote.quote_scope = value;
+      if (value !== "custom_service") quote.custom_scope = "";
+      quote.service = value ? quoteScopeDisplay(quote) : "Select quote type...";
+    } else if (field === "custom_scope") {
+      quote.custom_scope = value;
+      quote.service = quoteScopeDisplay(quote);
+    } else if (field === "billing_address") {
+      quote.billing_address = value;
+      if (quote.service_same_as_billing) quote.service_address = value;
+      if (quote.service_same_as_billing && isManualCustomerQuote(quote)) quote.property = value || "Service address to confirm";
+    } else if (field === "service_same_as_billing") {
+      quote.service_same_as_billing = value;
+      if (value) quote.service_address = quote.billing_address || "";
+      if (isManualCustomerQuote(quote)) quote.property = quote.service_address || "Service address to confirm";
+    } else if (field === "service_address") {
+      quote.service_address = value;
+      if (isManualCustomerQuote(quote)) quote.property = value || "Service address to confirm";
+    } else if (field === "included_scope" || field === "exclusions") {
+      quote[field] = parseLines(value);
+    } else {
+      quote[field] = value;
+    }
     markDocumentNeedsUpdate(quote);
     quote.updated_at = new Date().toISOString().split("T")[0];
     updateQuoteCompatibility(quote);
-    if (field === "client") quote.property = "";
-    if (field === "client" || field === "property" || field === "valid_until") refresh();
+    if (["client", "client_id", "property", "property_id", "valid_until", "quote_scope", "custom_scope", "manual_customer.type", "billing_address", "service_same_as_billing", "service_address"].includes(field) || field.startsWith("manual_customer.")) refresh();
   }
 
   function saveQuoteItemField(target) {
@@ -1618,17 +1843,16 @@
   }
 
   function handleClick(event) {
+    const actionTarget = event.target.closest("[data-quote-action]");
+    const modalTarget = event.target.closest("[data-quote-modal]");
     const row = event.target.closest("[data-quote-id]");
-    if (row) {
+    if (row && !actionTarget) {
       event.preventDefault();
       event.stopPropagation();
       state.selectedQuoteId = row.dataset.quoteId;
       refresh();
       return true;
     }
-
-    const actionTarget = event.target.closest("[data-quote-action]");
-    const modalTarget = event.target.closest("[data-quote-modal]");
 
     // Ignore clicks inside the modal that don't hit a specific action button (they shouldn't trigger the backdrop)
     if (modalTarget && actionTarget && actionTarget.classList.contains("quote-modal-backdrop")) {

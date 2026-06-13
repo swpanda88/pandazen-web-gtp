@@ -23,6 +23,7 @@
     view: "week",
     rangeLabel: source.rangeLabel,
     selectedDayIndex: source.selectedDayIndex,
+    selectedDay: null,
     showWeekends: true,
     filtersOpen: false,
     viewMenuOpen: false,
@@ -210,6 +211,17 @@
 
   function dayNumber(day) {
     return day?.label?.match(/\d+/)?.[0] || "";
+  }
+
+  function monthDayLabel(monthDay) {
+    const firstKnownDay = source.days[0];
+    const firstKnownDate = firstKnownDay?.date ? new Date(`${firstKnownDay.date}T00:00:00Z`) : null;
+    const firstKnownNumber = Number(dayNumber(firstKnownDay)) || 1;
+    if (!firstKnownDate || Number.isNaN(firstKnownDate.getTime())) return `Day ${monthDay}`;
+    const date = new Date(firstKnownDate);
+    date.setUTCDate(firstKnownDate.getUTCDate() + Number(monthDay) - firstKnownNumber);
+    const short = date.toLocaleDateString("en-GB", { weekday: "short", timeZone: "UTC" });
+    return `${short} ${monthDay}`;
   }
 
   function visibleDays() {
@@ -498,7 +510,7 @@
   }
 
   function dayView() {
-    const day = source.days.find((item) => item.index === state.selectedDayIndex) || source.days[3];
+    const day = state.selectedDay || source.days.find((item) => item.index === state.selectedDayIndex) || source.days[3];
     return `
       <div class="schedule-layout">
         <section class="schedule-main panel">
@@ -537,8 +549,7 @@
             ${weekdays.map((day) => `<div class="month-weekday">${day}</div>`).join("")}
             ${cells.map((day) => {
               const item = monthItems.get(day);
-              const matchedDay = source.days.find((itemDay) => dayNumber(itemDay) === String(day));
-              return `<div class="month-cell ${day === 11 ? "today" : ""} ${matchedDay ? "is-clickable" : ""}" data-month-day="${day}">
+              return `<div class="month-cell ${day === 11 ? "today" : ""} is-clickable" data-month-day="${day}">
                 <strong>${day}</strong>
                 ${item ? `<div class="month-summary ${escapeHtml(typeClass(item.type))}"><span>${escapeHtml(item.text)}</span>${item.count > 1 ? chip(`${item.count}`, "info") : ""}</div>` : ""}
               </div>`;
@@ -876,7 +887,15 @@
   }
 
   function monthDayToScheduleDay(monthDay) {
-    return source.days.find((day) => dayNumber(day) === String(monthDay));
+    const matchedDay = source.days.find((day) => dayNumber(day) === String(monthDay));
+    if (matchedDay) return matchedDay;
+    return {
+      index: `month-${monthDay}`,
+      short: monthDayLabel(monthDay).split(" ")[0],
+      label: monthDayLabel(monthDay),
+      date: "",
+      weekend: false
+    };
   }
 
   function fieldValue(...values) {
@@ -1051,7 +1070,7 @@
   }
 
   function onDocumentClick(event) {
-    const scheduleRoot = event.target.closest(".schedule-toolbar, .schedule-main, .unscheduled-panel, .visit-popover, .map-shell");
+    const scheduleRoot = event.target.closest(".schedule-toolbar, .schedule-main, .workload-panel, .unscheduled-panel, .visit-popover, .map-shell");
     if (!scheduleRoot) {
       const needsRefresh = state.filtersOpen || state.viewMenuOpen || state.moreMenuOpen;
       closePopover();
@@ -1065,6 +1084,7 @@
     const viewButton = event.target.closest("[data-schedule-view]");
     if (viewButton) {
       state.view = viewButton.dataset.scheduleView;
+      if (state.view !== "day") state.selectedDay = null;
       state.viewMenuOpen = false;
       state.filtersOpen = false;
       state.moreMenuOpen = false;
@@ -1076,6 +1096,7 @@
     if (monthDay) {
       const selected = monthDayToScheduleDay(monthDay.dataset.monthDay);
       if (selected) {
+        state.selectedDay = selected;
         state.selectedDayIndex = selected.index;
         state.view = "day";
         toast(`${selected.label} opened in Day view`);
@@ -1083,6 +1104,12 @@
       } else {
         toast("Month day preview is mocked for Schedule v0.");
       }
+      return;
+    }
+
+    const visitTarget = event.target.closest("[data-visit-id]");
+    if (visitTarget && !event.target.closest(".resize-handle")) {
+      openPopover(visitTarget.dataset.visitId, visitTarget);
       return;
     }
 
@@ -1107,10 +1134,6 @@
       return;
     }
 
-    const visitTarget = event.target.closest("[data-visit-id]");
-    if (visitTarget && !event.target.closest(".resize-handle")) {
-      openPopover(visitTarget.dataset.visitId, visitTarget);
-    }
   }
 
   function handleAction(action, event) {

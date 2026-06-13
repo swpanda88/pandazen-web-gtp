@@ -8,7 +8,8 @@
     a4ViewOpen: false,
     actionsModalOpen: false,
     historyModalOpen: false,
-    newQuoteRequestId: ""
+    newQuoteRequestId: "",
+    quoteRowMenuId: null
   };
 
   const quoteStatusLabels = {
@@ -524,7 +525,189 @@
   }
 
   function renderInner() {
-    return renderList();
+    return renderDocumentControlPage();
+  }
+
+  function documentChip(quote) {
+    const status = quote.document_status || "not_generated";
+    return chip(documentStatusLabels[status] || "Not generated", documentStatusTones[status] || "warning");
+  }
+
+  function quoteKpis(allQuotes) {
+    return [
+      { label: "Draft quotes", value: String(allQuotes.filter((quote) => quote.status === "draft").length) },
+      { label: "Sent / awaiting response", value: String(allQuotes.filter((quote) => ["sent", "viewed"].includes(quote.status)).length) },
+      { label: "Accepted this month", value: String(allQuotes.filter((quote) => ["accepted", "converted_to_job"].includes(quote.status)).length) },
+      { label: "Expiring soon", value: String(allQuotes.filter((quote) => ["sent", "viewed", "ready_to_send"].includes(quote.status) || quote.document_status === "needs_update").length) }
+    ];
+  }
+
+  function quoteActionReason(quote) {
+    if ((quote.document_status || "not_generated") === "not_generated") return "Document not generated";
+    if (quote.document_status === "needs_update") return "Document needs update";
+    if (quote.status === "draft") return "Needs completion";
+    if (quote.status === "ready_to_send") return "Ready for customer action";
+    if (["sent", "viewed"].includes(quote.status)) return `Follow up before ${quote.valid_until || "expiry"}`;
+    return "Review quote";
+  }
+
+  function renderDocumentQuoteActionsMenu(quote) {
+    const isOpen = state.quoteRowMenuId === quote.id;
+    const actions = [];
+    const editable = ["draft", "ready_to_send"].includes(quote.status);
+    const sent = ["sent", "viewed"].includes(quote.status);
+    const accepted = ["accepted", "converted_to_job"].includes(quote.status);
+
+    actions.push(`<button type="button" data-quote-action="open-quote:${escapeHtml(quote.id)}">Open editor</button>`);
+    actions.push(`<button type="button" data-quote-action="open-document-modal-id:${escapeHtml(quote.id)}">${quote.document_status === "generated" ? "Generate/update document" : "Generate document"}</button>`);
+    actions.push(`<button type="button" data-quote-action="open-a4-view-id:${escapeHtml(quote.id)}">Preview</button>`);
+    if (quote.status === "draft") actions.push(`<button type="button" data-quote-action="mark-ready:${escapeHtml(quote.id)}">Mark ready to send</button>`);
+    if (quote.status === "ready_to_send") actions.push(`<button type="button" data-quote-action="send-quote-id:${escapeHtml(quote.id)}">Send quote</button>`);
+    if (sent) {
+      actions.push(`<button type="button" data-quote-action="mock:Follow up quote">Follow up</button>`);
+      actions.push(`<button type="button" data-quote-action="mark-accepted:${escapeHtml(quote.id)}">Mark accepted</button>`);
+      actions.push(`<button type="button" data-quote-action="mark-rejected:${escapeHtml(quote.id)}">Mark rejected</button>`);
+      actions.push(`<button type="button" data-quote-action="create-alternative:${escapeHtml(quote.id)}">Revise / create new version</button>`);
+    }
+    if (accepted && quote.status === "accepted" && !quote.job_id) actions.push(`<button type="button" data-quote-action="convert-to-job:${escapeHtml(quote.id)}">Convert to job</button>`);
+    actions.push(`<button type="button" data-quote-action="duplicate-quote:${escapeHtml(quote.id)}">Duplicate</button>`);
+    if (!accepted) actions.push(`<button type="button" class="text-danger" data-quote-action="archive-quote:${escapeHtml(quote.id)}">Archive</button>`);
+    if (!editable && !sent && !accepted) actions.push(`<button type="button" data-quote-action="restore-quote:${escapeHtml(quote.id)}">Restore</button>`);
+
+    return `
+      <div class="row-menu-wrap">
+        ${button("Actions v", `toggle-row-menu:${quote.id}`, "small")}
+        ${isOpen ? `<div class="client-more-menu job-row-menu invoice-row-menu quote-row-menu">${actions.join("")}</div>` : ""}
+      </div>
+    `;
+  }
+
+  function renderQuoteActionColumn(title, items, renderer) {
+    return `
+      <article class="panel jobs-action-column">
+        <div class="panel-head">
+          <h2>${escapeHtml(title)}</h2>
+          ${chip(String(items.length), items.length ? "info" : "muted")}
+        </div>
+        <div class="panel-body jobs-action-list">
+          ${items.length ? items.map(renderer).join("") : `<div class="empty mini"><div class="empty-icon">OK</div><div><h3>No items</h3><p class="muted">Nothing needs action here.</p></div></div>`}
+        </div>
+      </article>
+    `;
+  }
+
+  function renderDraftActionCard(quote) {
+    return `
+      <button class="job-action-card" type="button" data-quote-action="open-quote:${escapeHtml(quote.id)}">
+        <strong>${escapeHtml(quoteNumber(quote))}</strong>
+        <span>${escapeHtml(quote.client)} - ${escapeHtml(quote.property)}</span>
+        <span class="muted">${escapeHtml(`${quote.service} - ${quoteActionReason(quote)}`)}</span>
+        ${documentChip(quote)}
+      </button>
+    `;
+  }
+
+  function renderReadyActionCard(quote) {
+    const action = quote.document_status === "generated" ? `send-quote-id:${quote.id}` : `open-document-modal-id:${quote.id}`;
+    return `
+      <button class="job-action-card" type="button" data-quote-action="${escapeHtml(action)}">
+        <strong>${escapeHtml(quoteNumber(quote))}</strong>
+        <span>${escapeHtml(quote.client)} - ${escapeHtml(quote.property)}</span>
+        <span class="muted">${escapeHtml(`${quote.total} - ${quoteActionReason(quote)}`)}</span>
+        ${quote.document_status === "generated" ? quoteStatusChip(quote) : documentChip(quote)}
+      </button>
+    `;
+  }
+
+  function renderFollowUpActionCard(quote) {
+    return `
+      <button class="job-action-card" type="button" data-quote-action="open-quote:${escapeHtml(quote.id)}">
+        <strong>${escapeHtml(quoteNumber(quote))}</strong>
+        <span>${escapeHtml(quote.client)} - ${escapeHtml(quote.property)}</span>
+        <span class="muted">${escapeHtml(`Valid until ${quote.valid_until || "to confirm"} - ${quoteActionReason(quote)}`)}</span>
+        ${chip("Follow up", "warning")}
+      </button>
+    `;
+  }
+
+  function renderQuoteRegisterSection(title, description, items, tone = "primary") {
+    const rows = items.map((quote) => `
+      <tr class="quote-row" data-quote-id="${escapeHtml(quote.id)}" tabindex="0" role="button">
+        <td><strong>${escapeHtml(quoteNumber(quote))}</strong><br><span class="muted">v${escapeHtml(quote.version || 1)}</span></td>
+        <td>${escapeHtml(quote.client)}<br><span class="muted">${escapeHtml(quote.property)}</span></td>
+        <td>${escapeHtml(quote.service)}</td>
+        <td><strong>${escapeHtml(quote.total)}</strong></td>
+        <td>${quoteStatusChip(quote)}</td>
+        <td>${documentChip(quote)}</td>
+        <td>${escapeHtml(quote.updated_at || quote.created_at || "Not set")}<br><span class="muted">${escapeHtml(quote.valid_until || "Valid date not set")}</span></td>
+        <td>${renderDocumentQuoteActionsMenu(quote)}</td>
+      </tr>
+    `).join("");
+
+    return `
+      <article class="panel invoices-register-panel quotes-register-panel${tone === "secondary" ? " secondary-register" : ""}">
+        <div class="panel-head">
+          <div><h2>${escapeHtml(title)}</h2><p class="muted">${escapeHtml(description)} Search/filter/sort/page-ready.</p></div>
+          ${chip(`${items.length} quotes`, tone === "secondary" ? "muted" : "info")}
+        </div>
+        <div class="filters">
+          <span class="inputish">Search quotes</span>
+          <span class="selectish">${tone === "secondary" ? "Closed statuses" : "Active statuses"}</span>
+          <span class="selectish">Sort: updated / valid</span>
+          <span class="selectish">Page size: 25</span>
+          <span class="selectish">Prev / Next</span>
+        </div>
+        <div class="quote-table-scroll">
+          <table class="jobs-scheduled-table invoices-register-table quotes-register-table">
+            <thead><tr><th>Quote ref</th><th>Client / property</th><th>Scope</th><th>Total</th><th>Status</th><th>Document</th><th>Updated / valid until</th><th>Actions</th></tr></thead>
+            <tbody>${rows || `<tr><td colspan="8"><span class="muted">No ${escapeHtml(title.toLowerCase())}.</span></td></tr>`}</tbody>
+          </table>
+        </div>
+      </article>
+    `;
+  }
+
+  function renderDocumentControlPage() {
+    const allQuotes = quotes();
+    const closedStatuses = ["accepted", "converted_to_job", "rejected", "expired", "superseded", "archived"];
+    const active = allQuotes.filter((quote) => !closedStatuses.includes(quote.status) && (["draft", "ready_to_send", "sent", "viewed"].includes(quote.status) || quote.document_status === "needs_update"));
+    const closed = allQuotes.filter((quote) => closedStatuses.includes(quote.status));
+    const drafts = active.filter((quote) => quote.status === "draft");
+    const ready = active.filter((quote) => quote.status === "ready_to_send" || (quote.status !== "draft" && ["not_generated", "needs_update"].includes(quote.document_status || "not_generated")));
+    const followUp = active.filter((quote) => ["sent", "viewed"].includes(quote.status));
+
+    return `
+      <div class="page-head">
+        <div>
+          <div class="title-row"><h1>Quotes</h1></div>
+          <p class="muted" style="margin-top:10px">Prepare customer quote documents, track send status, and convert accepted work into jobs.</p>
+        </div>
+        <div class="page-actions">${button("New quote", "open-new-quote", "primary")}</div>
+      </div>
+      <section class="grid-4 invoice-kpis quote-kpis">
+        ${quoteKpis(allQuotes).map((item) => `
+          <article class="metric invoice-kpi-card">
+            <div class="invoice-kpi-main">
+              <span class="muted">${escapeHtml(item.label)}</span>
+              <strong>${escapeHtml(item.value)}</strong>
+            </div>
+          </article>
+        `).join("")}
+      </section>
+      <section class="jobs-action-panel invoice-action-panel quote-action-panel">
+        ${renderQuoteActionColumn("Drafts / needs completion", drafts, renderDraftActionCard)}
+        ${renderQuoteActionColumn("Ready to send / needs document", ready, renderReadyActionCard)}
+        ${renderQuoteActionColumn("Follow-up / expiring", followUp, renderFollowUpActionCard)}
+      </section>
+      <section class="stack invoices-register-stack quotes-register-stack">
+        ${renderQuoteRegisterSection("Active quotes", "Draft, ready-to-send, sent, and needs-update quotes needing live tracking.", active)}
+        ${renderQuoteRegisterSection("Closed / archive quotes", "Accepted, rejected, expired, superseded, and archived quotes remain available as history.", closed, "secondary")}
+      </section>
+      ${state.newQuoteOpen ? renderNewQuoteLauncherModal() : ""}
+      ${state.selectedQuoteId ? renderQuoteEditorModal(selectedQuote()) : ""}
+      ${state.documentModalId ? renderDocumentModal(quotes().find(q => q.id === state.documentModalId)) : ""}
+      ${state.a4ViewId ? renderA4DocumentView(quotes().find(q => q.id === state.a4ViewId)) : ""}
+    `;
   }
 
   function renderRowActionsMenu(quote) {
@@ -1656,6 +1839,11 @@
     }
     if (action === "more-actions") {
       toast("Quote actions are mocked for this prototype.");
+      return true;
+    }
+    if (action.startsWith("mock:")) {
+      toast(`${action.replace("mock:", "")} is mocked for Quotes v0.`);
+      refresh();
       return true;
     }
     if (action === "open-actions-modal") {

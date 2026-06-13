@@ -429,6 +429,7 @@
   function updateQuoteCompatibility(quote) {
     if (quote.displayRef && quote.quoteStatus) {
       // API format
+      quote.isApiBacked = true;
       quote.id = quote.id;
       quote.number = quote.displayRef || "Draft quote";
       const nameParts = [quote.firstName, quote.lastName].filter(Boolean).join(" ");
@@ -694,6 +695,9 @@
   }
 
   function renderDocumentQuoteActionsMenu(quote) {
+    if (quote.isApiBacked) {
+      return `<span class="muted">Read-only</span>`;
+    }
     const isOpen = state.quoteRowMenuId === quote.id;
     const actions = [];
     const editable = ["draft", "ready_to_send"].includes(quote.status);
@@ -898,6 +902,7 @@
 
   function renderDocumentControlPage() {
     const allQuotes = quotes();
+    const isApiBackedQuotes = allQuotes.some(q => q.isApiBacked);
     const closedStatuses = ["accepted", "converted_to_job", "rejected", "expired", "superseded", "archived"];
     const active = allQuotes.filter((quote) => !closedStatuses.includes(quote.status) && (["draft", "ready_to_send", "sent", "viewed"].includes(quote.status) || quote.document_status === "needs_update"));
     const closed = allQuotes.filter((quote) => closedStatuses.includes(quote.status));
@@ -911,7 +916,7 @@
           <div class="title-row"><h1>Quotes</h1></div>
           <p class="muted" style="margin-top:10px">Prepare customer quote documents, track send status, and convert accepted work into jobs.</p>
         </div>
-        <div class="page-actions">${button("New quote", "open-new-quote", "primary")}</div>
+        <div class="page-actions">${isApiBackedQuotes ? "" : button("New quote", "open-new-quote", "primary")}</div>
       </div>
       <section class="grid-4 invoice-kpis quote-kpis">
         ${quoteKpis(allQuotes).map((item) => `
@@ -2065,7 +2070,13 @@
     if (row && !actionTarget) {
       event.preventDefault();
       event.stopPropagation();
-      state.selectedQuoteId = row.dataset.quoteId;
+      const quoteId = row.dataset.quoteId;
+      const quote = quotes().find(q => String(q.id) === String(quoteId) || String(q.quote_id) === String(quoteId));
+      if (quote && quote.isApiBacked) {
+        toast("API quotes are read-only in this view.");
+        return true;
+      }
+      state.selectedQuoteId = quoteId;
       refresh();
       return true;
     }

@@ -2009,10 +2009,16 @@ tr.status-risk td:first-child {
   gap: 7px;
   cursor: pointer;
   background: var(--surface);
+  transition: background .12s ease, box-shadow .12s ease;
 }
 
 .month-cell:hover {
   background: var(--bg);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+
+.month-cell.is-clickable:hover {
+  background: #fbfbf8;
 }
 
 .month-cell.today {
@@ -2207,7 +2213,7 @@ tr.status-risk td:first-child {
 .visit-popover {
   position: absolute;
   z-index: 36;
-  width: 296px;
+  width: min(360px, calc(100vw - 24px));
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -2227,11 +2233,23 @@ tr.status-risk td:first-child {
   cursor: move;
 }
 
-.visit-popover-bar strong {
+.visit-popover-title {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.visit-popover-title strong,
+.visit-popover-title span {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.visit-popover-title span {
+  color: var(--muted);
+  font-size: 11.5px;
 }
 
 .visit-popover-bar button {
@@ -2254,7 +2272,7 @@ tr.status-risk td:first-child {
 
 .visit-popover-body {
   display: grid;
-  gap: 10px;
+  gap: 9px;
   padding: 12px;
 }
 
@@ -2270,6 +2288,57 @@ tr.status-risk td:first-child {
 .popover-chip-row {
   justify-content: flex-start;
   gap: 6px;
+}
+
+.popover-section {
+  display: grid;
+  gap: 7px;
+  border-top: 1px solid var(--line);
+  padding-top: 9px;
+}
+
+.popover-section > strong {
+  font-size: 12px;
+}
+
+.popover-note {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.popover-ready {
+  width: fit-content;
+  border: 1px solid rgba(47, 138, 47, .24);
+  border-radius: 999px;
+  background: var(--green-soft);
+  color: var(--green-dark);
+  padding: 3px 8px;
+  font-size: 11.5px;
+  font-weight: 740;
+}
+
+.popover-missing-list {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.popover-missing-list li {
+  border: 1px solid rgba(184, 132, 42, .26);
+  border-radius: 999px;
+  background: var(--amber-soft);
+  color: #7a5c1f;
+  padding: 3px 7px;
+  font-size: 11.5px;
+  font-weight: 720;
 }
 
 .kanban {
@@ -3305,6 +3374,7 @@ th.gantt-left {
   box-shadow: 0 1px 1px rgba(18, 50, 53, .035);
   cursor: pointer;
   transition: filter .1s, transform .1s;
+  padding: 0;
 }
 .workload-bar:hover { filter: brightness(0.96); transform: translateY(-1px); z-index: 10; }
 

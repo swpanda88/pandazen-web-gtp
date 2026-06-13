@@ -1,6 +1,6 @@
 # CleanOps Invoices Workflow
 
-Status: Invoices v0 planning and frontend/mock implementation  
+Status: Invoices v0 planning and frontend/mock implementation
 Scope: Money control centre, invoice drafting, document preview, and manual status tracking. No backend, real email, stored PDFs, Stripe/payment links, or full accounting export in v0.
 
 This document defines how CleanOps Invoices should work at v0 so the module stays aligned with Jobs, billable events, and the approved CleanOps UI patterns.

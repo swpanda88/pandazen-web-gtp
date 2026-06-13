@@ -10,7 +10,10 @@
     historyModalOpen: false,
     newQuoteRequestId: "",
     quoteRowMenuId: null,
-    confirmAction: null
+    confirmAction: null,
+    quotesLoading: true,
+    quotesError: false,
+    apiQuotes: []
   };
 
   const quoteStatusLabels = {
@@ -50,12 +53,13 @@
   };
 
   function isQuoteLocked(quote) {
-    return !["draft", "ready_to_send"].includes(quote.status);
+    return !["draft", "ready_to_send"].includes(quote.status || quote.quoteStatus);
   }
 
   function markDocumentNeedsUpdate(quote) {
-    if (quote && quote.document_status === "generated") {
+    if (quote && (quote.document_status === "generated" || quote.documentStatus === "generated")) {
       quote.document_status = "needs_update";
+      quote.documentStatus = "needs_update";
     }
   }
 
@@ -176,7 +180,7 @@
   };
 
   function quotes() {
-    return data.quotes || [];
+    return state.apiQuotes || [];
   }
 
   function requests() {
@@ -375,7 +379,7 @@
   }
 
   function quoteStatusChip(quote) {
-    return chip(labelFrom(quoteStatusLabels, quote.status, "Draft"), quoteStatusTones[quote.status] || "info");
+    return chip(labelFrom(quoteStatusLabels, quote.status || quote.quoteStatus, "Draft"), quoteStatusTones[quote.status || quote.quoteStatus] || "info");
   }
 
   function itemAmount(item) {
@@ -423,6 +427,23 @@
   }
 
   function updateQuoteCompatibility(quote) {
+    if (quote.displayRef && quote.quoteStatus) {
+      // API format
+      quote.isApiBacked = true;
+      quote.id = quote.id;
+      quote.number = quote.displayRef || "Draft quote";
+      const nameParts = [quote.firstName, quote.lastName].filter(Boolean).join(" ");
+      quote.client = quote.companyName || nameParts || "Unknown customer";
+      quote.property = "Property details pending";
+      quote.service = (quote.incomeCategory || "Quote draft").replace(/_/g, " ");
+      quote.total = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format((Number(quote.grossTotalPence) || 0) / 100);
+      quote.status = quote.quoteStatus;
+      quote.document_status = quote.documentStatus || "not_generated";
+      quote.validUntil = quote.validUntil || quote.valid_until || "To confirm";
+      quote.tone = quoteStatusTones[quote.status] || "info";
+      return;
+    }
+
     const client = findClient(quote.client_id);
     const property = findProperty(quote.property_id, quote.client_id);
     quote.number = quoteNumber(quote);
@@ -629,6 +650,24 @@
   }
 
   function renderInner() {
+    if (state.quotesLoading) {
+      return `
+        <div class="page-head"><div class="title-row"><h1>Quotes</h1></div></div>
+        <div class="empty mini"><h3>Loading quotes...</h3><p class="muted">Fetching real data...</p></div>
+      `;
+    }
+    if (state.quotesError) {
+      return `
+        <div class="page-head"><div class="title-row"><h1>Quotes</h1></div></div>
+        <div class="empty mini"><h3>Could not load quotes.</h3></div>
+      `;
+    }
+    if (!quotes().length) {
+      return `
+        <div class="page-head"><div class="title-row"><h1>Quotes</h1></div></div>
+        <div class="empty mini"><h3>No quotes found.</h3></div>
+      `;
+    }
     return renderDocumentControlPage();
   }
 
@@ -656,6 +695,9 @@
   }
 
   function renderDocumentQuoteActionsMenu(quote) {
+    if (quote.isApiBacked) {
+      return `<span class="muted">Read-only</span>`;
+    }
     const isOpen = state.quoteRowMenuId === quote.id;
     const actions = [];
     const editable = ["draft", "ready_to_send"].includes(quote.status);
@@ -860,6 +902,7 @@
 
   function renderDocumentControlPage() {
     const allQuotes = quotes();
+    const isApiBackedQuotes = allQuotes.some(q => q.isApiBacked);
     const closedStatuses = ["accepted", "converted_to_job", "rejected", "expired", "superseded", "archived"];
     const active = allQuotes.filter((quote) => !closedStatuses.includes(quote.status) && (["draft", "ready_to_send", "sent", "viewed"].includes(quote.status) || quote.document_status === "needs_update"));
     const closed = allQuotes.filter((quote) => closedStatuses.includes(quote.status));
@@ -873,7 +916,7 @@
           <div class="title-row"><h1>Quotes</h1></div>
           <p class="muted" style="margin-top:10px">Prepare customer quote documents, track send status, and convert accepted work into jobs.</p>
         </div>
-        <div class="page-actions">${button("New quote", "open-new-quote", "primary")}</div>
+        <div class="page-actions">${isApiBackedQuotes ? "" : button("New quote", "open-new-quote", "primary")}</div>
       </div>
       <section class="grid-4 invoice-kpis quote-kpis">
         ${quoteKpis(allQuotes).map((item) => `
@@ -885,11 +928,17 @@
           </article>
         `).join("")}
       </section>
-      <section class="jobs-action-panel invoice-action-panel quote-action-panel">
-        ${renderQuoteActionColumn("Drafts / needs completion", drafts, renderDraftActionCard)}
-        ${renderQuoteActionColumn("Ready to send / needs document", ready, renderReadyActionCard)}
-        ${renderQuoteActionColumn("Follow-up / expiring", followUp, renderFollowUpActionCard)}
-      </section>
+      ${isApiBackedQuotes ? `
+        <section class="panel pad" style="margin-bottom: 24px;">
+          <p class="muted">API quotes are read-only in this stage.</p>
+        </section>
+      ` : `
+        <section class="jobs-action-panel invoice-action-panel quote-action-panel">
+          ${renderQuoteActionColumn("Drafts / needs completion", drafts, renderDraftActionCard)}
+          ${renderQuoteActionColumn("Ready to send / needs document", ready, renderReadyActionCard)}
+          ${renderQuoteActionColumn("Follow-up / expiring", followUp, renderFollowUpActionCard)}
+        </section>
+      `}
       <section class="stack invoices-register-stack quotes-register-stack">
         ${renderQuoteRegisterSection("Active quotes", "Draft, ready-to-send, sent, and needs-update quotes needing live tracking.", active)}
         ${renderQuoteRegisterSection("Closed / archive quotes", "Accepted, rejected, expired, superseded, and archived quotes remain available as history.", closed, "secondary")}
@@ -2027,7 +2076,13 @@
     if (row && !actionTarget) {
       event.preventDefault();
       event.stopPropagation();
-      state.selectedQuoteId = row.dataset.quoteId;
+      const quoteId = row.dataset.quoteId;
+      const quote = quotes().find(q => String(q.id) === String(quoteId) || String(q.quote_id) === String(quoteId));
+      if (quote && quote.isApiBacked) {
+        toast("API quotes are read-only in this view.");
+        return true;
+      }
+      state.selectedQuoteId = quoteId;
       refresh();
       return true;
     }
@@ -2066,6 +2121,34 @@
       state.quoteRowMenuId = null;
       // We do not refresh immediately here because the action handler will likely call refresh()
     }
+
+    if (action.includes(":")) {
+      const parts = action.split(":");
+      const prefix = parts[0] + ":";
+      const qId = parts.slice(1).join(":");
+      const guardedPrefixes = [
+        "open-quote:",
+        "open-document-modal-id:",
+        "open-a4-view-id:",
+        "duplicate-quote:",
+        "mark-ready:",
+        "send-quote-id:",
+        "mark-accepted:",
+        "mark-rejected:",
+        "create-alternative:",
+        "convert-to-job:",
+        "archive-quote:",
+        "restore-quote:"
+      ];
+      if (guardedPrefixes.includes(prefix)) {
+        const q = quotes().find(x => String(x.id) === String(qId) || String(x.quote_id) === String(qId));
+        if (q && q.isApiBacked) {
+          toast("API quotes are read-only in this view.");
+          return true;
+        }
+      }
+    }
+
     const quote = selectedQuote();
 
     const confirmDetails = confirmationDetails(action);
@@ -2575,6 +2658,24 @@
   document.addEventListener("click", handleClick);
   document.addEventListener("change", handleChange);
 
+  async function loadQuotes() {
+    state.quotesLoading = true;
+    state.quotesError = false;
+    if (document.querySelector("[data-quotes-root]")) refresh();
+
+    try {
+      const { fetchQuotes } = await import("./api.js");
+      state.apiQuotes = await fetchQuotes();
+      state.quotesLoading = false;
+    } catch (err) {
+      console.error("Failed to load quotes", err);
+      state.quotesError = true;
+      state.quotesLoading = false;
+    }
+    
+    if (document.querySelector("[data-quotes-root]")) refresh();
+  }
+
   window.CleanOpsQuotes = {
     render,
     handleClick,
@@ -2584,4 +2685,6 @@
       quoteStatusTones
     }
   };
+
+  loadQuotes();
 })();

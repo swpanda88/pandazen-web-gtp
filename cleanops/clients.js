@@ -5,7 +5,10 @@
     selectedPropertyByClient: {},
     detailTab: "active",
     newClientOpen: false,
-    moreOpen: false
+    moreOpen: false,
+    customersLoading: true,
+    customersError: false,
+    apiCustomers: []
   };
 
   function escapeHtml(value) {
@@ -225,6 +228,7 @@
   }
 
   function clients() {
+    if (state.apiCustomers && state.apiCustomers.length) return state.apiCustomers;
     if (!Array.isArray(data.clients) || !data.clients.length) {
       data.clients = data.selectedClient ? [data.selectedClient] : [];
     }
@@ -285,6 +289,10 @@
   }
 
   function render() {
+    if (state.customersLoading) return `<div class="pad" data-clients-root="true"><span class="muted">Loading customers...</span></div>`;
+    if (state.customersError) return `<div class="pad" data-clients-root="true"><span class="muted">Could not load customers.</span></div>`;
+    if (clients().length === 0) return `<div class="pad" data-clients-root="true"><span class="muted">No customers found.</span></div>`;
+
     const client = selectedClient();
     return `
       <section class="clients-root" data-clients-root="true">
@@ -295,7 +303,37 @@
   }
 
   function renderList() {
-    const rows = clients().map((client) => `
+    const isApiBackedCustomers = clients().some(c => c.isApiBacked);
+    const rows = clients().map((client) => {
+      if (client.isApiBacked) {
+        const nameParts = [client.firstName, client.lastName].filter(Boolean).join(" ");
+        const clientName = client.companyName || nameParts || "Unknown customer";
+        const emailOrPhone = client.email || client.phone || "No contact method";
+        const dateStr = client.createdAt ? client.createdAt.split("T")[0] : "";
+        const cType = client.type === "company" ? "Company" : "Individual";
+        const sourceLabel = client.sourceType || "Manual";
+
+        return `
+          <tr class="client-row" tabindex="0">
+            <td>
+              <div class="client-cell">
+                <div class="avatar small">${escapeHtml(initials(clientName))}</div>
+                <div>
+                  <strong>${escapeHtml(clientName)}</strong>
+                  <span class="muted">${escapeHtml(emailOrPhone)}</span>
+                </div>
+              </div>
+            </td>
+            <td><strong>Property pending</strong><br><span class="muted">API</span></td>
+            <td>${chip(cType, "info")}</td>
+            <td>${escapeHtml("Source: " + sourceLabel)}</td>
+            <td>${escapeHtml("Read-only")}</td>
+            <td>${escapeHtml(dateStr)}</td>
+          </tr>
+        `;
+      }
+
+      return `
       <tr class="client-row" data-client-id="${escapeHtml(client.id)}" tabindex="0" role="button" aria-label="Open ${escapeHtml(displayName(client))}">
         <td>
           <div class="client-cell">
@@ -312,7 +350,8 @@
         <td>${escapeHtml(client.balance || "GBP 0.00")}</td>
         <td>${escapeHtml(client.lastCommunication || "No contact yet")}</td>
       </tr>
-    `);
+      `;
+    });
 
     return `
       <div class="page-head">
@@ -320,7 +359,7 @@
           <div class="title-row"><h1>Clients</h1></div>
           <p class="muted" style="margin-top:10px">Manage customers, properties, and active work.</p>
         </div>
-        <div class="page-actions">${button("New Client", "open-new-client", "primary")}</div>
+        <div class="page-actions">${isApiBackedCustomers ? "" : button("New Client", "open-new-client", "primary")}</div>
       </div>
 
       <section class="grid-detail clients-list-layout">
@@ -759,6 +798,11 @@
 
     const clientId = event.target.closest("[data-client-id]")?.dataset.clientId;
     if (clientId) {
+      const client = clients().find(c => String(c.id) === String(clientId));
+      if (client && client.isApiBacked) {
+        toast("API customers are read-only in this view.");
+        return true;
+      }
       state.selectedClientId = clientId;
       state.detailTab = "active";
       state.moreOpen = false;
@@ -831,4 +875,30 @@
     render,
     handleClick
   };
+
+  async function loadCustomers() {
+    try {
+      const api = await import("./api.js");
+      const fetched = await api.fetchCustomers();
+      state.apiCustomers = fetched.map(cust => {
+        return {
+          ...cust,
+          isApiBacked: true
+        };
+      });
+      state.customersError = false;
+    } catch (err) {
+      console.error("Failed to load customers", err);
+      state.customersError = true;
+      state.apiCustomers = [];
+    } finally {
+      state.customersLoading = false;
+      const root = document.querySelector("[data-clients-root]");
+      if (root) {
+        root.outerHTML = render();
+      }
+    }
+  }
+
+  loadCustomers();
 })();

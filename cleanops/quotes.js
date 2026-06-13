@@ -928,11 +928,17 @@
           </article>
         `).join("")}
       </section>
-      <section class="jobs-action-panel invoice-action-panel quote-action-panel">
-        ${renderQuoteActionColumn("Drafts / needs completion", drafts, renderDraftActionCard)}
-        ${renderQuoteActionColumn("Ready to send / needs document", ready, renderReadyActionCard)}
-        ${renderQuoteActionColumn("Follow-up / expiring", followUp, renderFollowUpActionCard)}
-      </section>
+      ${isApiBackedQuotes ? `
+        <section class="panel pad" style="margin-bottom: 24px;">
+          <p class="muted">API quotes are read-only in this stage.</p>
+        </section>
+      ` : `
+        <section class="jobs-action-panel invoice-action-panel quote-action-panel">
+          ${renderQuoteActionColumn("Drafts / needs completion", drafts, renderDraftActionCard)}
+          ${renderQuoteActionColumn("Ready to send / needs document", ready, renderReadyActionCard)}
+          ${renderQuoteActionColumn("Follow-up / expiring", followUp, renderFollowUpActionCard)}
+        </section>
+      `}
       <section class="stack invoices-register-stack quotes-register-stack">
         ${renderQuoteRegisterSection("Active quotes", "Draft, ready-to-send, sent, and needs-update quotes needing live tracking.", active)}
         ${renderQuoteRegisterSection("Closed / archive quotes", "Accepted, rejected, expired, superseded, and archived quotes remain available as history.", closed, "secondary")}
@@ -2115,6 +2121,34 @@
       state.quoteRowMenuId = null;
       // We do not refresh immediately here because the action handler will likely call refresh()
     }
+
+    if (action.includes(":")) {
+      const parts = action.split(":");
+      const prefix = parts[0] + ":";
+      const qId = parts.slice(1).join(":");
+      const guardedPrefixes = [
+        "open-quote:",
+        "open-document-modal-id:",
+        "open-a4-view-id:",
+        "duplicate-quote:",
+        "mark-ready:",
+        "send-quote-id:",
+        "mark-accepted:",
+        "mark-rejected:",
+        "create-alternative:",
+        "convert-to-job:",
+        "archive-quote:",
+        "restore-quote:"
+      ];
+      if (guardedPrefixes.includes(prefix)) {
+        const q = quotes().find(x => String(x.id) === String(qId) || String(x.quote_id) === String(qId));
+        if (q && q.isApiBacked) {
+          toast("API quotes are read-only in this view.");
+          return true;
+        }
+      }
+    }
+
     const quote = selectedQuote();
 
     const confirmDetails = confirmationDetails(action);

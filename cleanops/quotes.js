@@ -9,7 +9,8 @@
     actionsModalOpen: false,
     historyModalOpen: false,
     newQuoteRequestId: "",
-    quoteRowMenuId: null
+    quoteRowMenuId: null,
+    confirmAction: null
   };
 
   const quoteStatusLabels = {
@@ -220,6 +221,38 @@
     return Object.entries(map).map(([value, label]) => `<option value="${escapeHtml(value)}"${value === selected ? " selected" : ""}>${escapeHtml(label)}</option>`).join("");
   }
 
+  function todayIso() {
+    return new Date().toISOString().split("T")[0];
+  }
+
+  function addDaysIso(baseDate, days) {
+    const parsed = baseDate ? new Date(`${baseDate}T00:00:00`) : new Date();
+    const date = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+    date.setDate(date.getDate() + days);
+    return date.toISOString().split("T")[0];
+  }
+
+  function splitAddress(value = "") {
+    const parts = String(value || "").split(",").map((item) => item.trim()).filter(Boolean);
+    return {
+      line1: parts[0] || "",
+      line2: parts.length > 3 ? parts.slice(1, -2).join(", ") : parts[1] || "",
+      city: parts.length > 2 ? parts[parts.length - 2] : "",
+      postcode: parts.length > 1 ? parts[parts.length - 1] : ""
+    };
+  }
+
+  function addressValue(parts = {}) {
+    return [parts.line1, parts.line2, parts.city, parts.postcode].filter(Boolean).join(", ");
+  }
+
+  function addressParts(quote, kind, fallback = "") {
+    const key = `${kind}_address_parts`;
+    if (quote[key]) return quote[key];
+    const addressKey = `${kind}_address`;
+    return splitAddress(quote[addressKey] || fallback);
+  }
+
   function quoteScopeKey(quote) {
     return quote.quote_scope || quote.scope_type || "";
   }
@@ -266,13 +299,13 @@
 
   function quoteBillingAddress(quote) {
     const { client, property } = sourceSummary(quote);
-    return quote.billing_address || client?.billingAddress || client?.billing_address || property?.address || quote.property || "Billing address to confirm";
+    return addressValue(quote.billing_address_parts) || quote.billing_address || client?.billingAddress || client?.billing_address || property?.address || quote.property || "Billing address to confirm";
   }
 
   function quoteServiceAddress(quote) {
     const { property } = sourceSummary(quote);
     if (quote.service_same_as_billing) return quoteBillingAddress(quote);
-    return quote.service_address || property?.address || quote.property || "Service address to confirm";
+    return addressValue(quote.service_address_parts) || quote.service_address || property?.address || quote.property || "Service address to confirm";
   }
 
   function quoteId(quote) {
@@ -534,7 +567,7 @@
             <h3 style="margin-bottom: 4px;">Prepared for:</h3>
             <p><strong>${escapeHtml(customerName)}</strong></p>
             <p>${escapeHtml(billingAddress)}</p>
-            <p class="muted">Service address: ${escapeHtml(serviceAddress)}</p>
+            ${quote.service_same_as_billing || serviceAddress === billingAddress ? "" : `<p class="muted">Service address: ${escapeHtml(serviceAddress)}</p>`}
           </div>
 
           <section class="a4-section">
@@ -649,6 +682,93 @@
       <div class="row-menu-wrap">
         ${button("Actions v", `toggle-row-menu:${quote.id}`, "small")}
         ${isOpen ? `<div class="client-more-menu job-row-menu invoice-row-menu quote-row-menu">${actions.join("")}</div>` : ""}
+      </div>
+    `;
+  }
+
+  function confirmationDetails(action) {
+    if (!action) return null;
+    if (action === "mark-ready" || action.startsWith("mark-ready:")) {
+      return {
+        title: "Mark this quote ready to send?",
+        message: "This moves the quote into the ready-to-send workflow. You can still review before marking it sent.",
+        confirmLabel: "Mark ready"
+      };
+    }
+    if (action === "send-quote" || action.startsWith("send-quote-id:")) {
+      return {
+        title: "Send this quote to the customer?",
+        message: "Mock only - no email will be sent. The quote will move to Sent.",
+        confirmLabel: "Mark sent"
+      };
+    }
+    if (action.startsWith("mark-accepted:")) {
+      return {
+        title: "Mark this quote as accepted?",
+        message: "This marks the quote accepted and ready for conversion to a job.",
+        confirmLabel: "Mark accepted"
+      };
+    }
+    if (action.startsWith("mark-rejected:")) {
+      return {
+        title: "Reject this quote?",
+        message: "It will move to closed/archive quotes.",
+        confirmLabel: "Mark rejected"
+      };
+    }
+    if (action.startsWith("archive-quote:")) {
+      return {
+        title: "Archive this quote?",
+        message: "The quote will move to closed/archive quotes.",
+        confirmLabel: "Archive quote"
+      };
+    }
+    if (action.startsWith("create-alternative:") || action === "create-revision") {
+      return {
+        title: "Create a revised quote version?",
+        message: "This creates a new draft version and may supersede the current lifecycle state.",
+        confirmLabel: "Create revision"
+      };
+    }
+    if (action === "convert-to-job" || action.startsWith("convert-to-job:")) {
+      return {
+        title: "Convert this quote to a job?",
+        message: "Mock only - this would create or open a job setup workflow from the accepted quote.",
+        confirmLabel: "Convert to job"
+      };
+    }
+    if (action.startsWith("generate-document-id:")) {
+      const qId = action.split(":")[1];
+      const quote = quotes().find((item) => item.id === qId);
+      if (quote?.document_status === "generated" || quote?.document_status === "needs_update") {
+        return {
+          title: "Generate / update this quote document?",
+          message: "This will replace the current generated document preview with the latest quote details.",
+          confirmLabel: "Generate document"
+        };
+      }
+    }
+    return null;
+  }
+
+  function renderConfirmModal() {
+    const details = confirmationDetails(state.confirmAction);
+    if (!details) return "";
+    return `
+      <div class="quote-modal-backdrop" data-quote-action="cancel-confirm-action">
+        <article class="quote-modal" role="dialog" aria-modal="true" data-quote-modal style="max-width: 440px;">
+          <div class="panel-head flush">
+            <h2>${escapeHtml(details.title)}</h2>
+            ${iconButton("Close", "cancel-confirm-action")}
+          </div>
+          <div class="panel-body stack">
+            <p>${escapeHtml(details.message)}</p>
+            <div class="button-row">
+              ${button("Cancel", "cancel-confirm-action")}
+              ${button(details.confirmLabel, "confirm-serious-action", "primary")}
+            </div>
+          </div>
+        </article>
       </div>
     `;
   }
@@ -778,6 +898,7 @@
       ${state.selectedQuoteId ? renderQuoteEditorModal(selectedQuote()) : ""}
       ${state.documentModalId ? renderDocumentModal(quotes().find(q => q.id === state.documentModalId)) : ""}
       ${state.a4ViewId ? renderA4DocumentView(quotes().find(q => q.id === state.a4ViewId)) : ""}
+      ${renderConfirmModal()}
     `;
   }
 
@@ -932,6 +1053,7 @@
       ${state.selectedQuoteId ? renderQuoteEditorModal(selectedQuote()) : ""}
       ${state.documentModalId ? renderDocumentModal(quotes().find(q => q.id === state.documentModalId)) : ""}
       ${state.a4ViewId ? renderA4DocumentView(quotes().find(q => q.id === state.a4ViewId)) : ""}
+      ${renderConfirmModal()}
     `;
   }
 
@@ -956,6 +1078,40 @@
     `;
   }
 
+  function renderValidityPresets(quote, locked) {
+    if (locked) return "";
+    return `
+      <div class="button-row" style="justify-content:flex-start; gap:6px; margin-top:8px;">
+        ${button("7 days", "set-validity:7", "small ghost")}
+        ${button("14 days", "set-validity:14", "small ghost")}
+        ${button("30 days", "set-validity:30", "small ghost")}
+      </div>
+    `;
+  }
+
+  function renderAddressFields(kind, label, parts, locked) {
+    const dis = locked ? " disabled" : "";
+    return `
+      <div class="request-note-block wide">
+        <strong>${escapeHtml(label)}</strong>
+        <div class="request-form-grid">
+          <label class="client-field">Address line 1
+            <input class="quote-input" data-quote-field="${kind}_address_parts.line1" value="${escapeHtml(parts.line1 || "")}"${dis}>
+          </label>
+          <label class="client-field">Address line 2
+            <input class="quote-input" data-quote-field="${kind}_address_parts.line2" value="${escapeHtml(parts.line2 || "")}"${dis}>
+          </label>
+          <label class="client-field">Town / city
+            <input class="quote-input" data-quote-field="${kind}_address_parts.city" value="${escapeHtml(parts.city || "")}"${dis}>
+          </label>
+          <label class="client-field">Postcode / area
+            <input class="quote-input" data-quote-field="${kind}_address_parts.postcode" value="${escapeHtml(parts.postcode || "")}"${dis}>
+          </label>
+        </div>
+      </div>
+    `;
+  }
+
   function renderQuoteCustomerDetails(quote, locked, currentClient, currentProperty) {
     const dis = locked ? " disabled" : "";
     const manualMode = isManualCustomerQuote(quote);
@@ -964,6 +1120,10 @@
     const propertyOptions = clients()
       .filter((client) => !selectedClientId || client.id === selectedClientId)
       .flatMap((client) => (client.properties || []).map((property) => ({ ...property, clientName: client.display_name })));
+    const billingFallback = !manualMode ? currentClient?.billingAddress || currentClient?.billing_address || currentProperty?.address || currentProperty?.label || "" : "";
+    const serviceFallback = !manualMode ? currentProperty?.address || currentProperty?.label || "" : "";
+    const billingParts = addressParts(quote, "billing", billingFallback);
+    const serviceParts = quote.service_same_as_billing ? billingParts : addressParts(quote, "service", serviceFallback);
 
     return `
       <div style="margin-bottom: 40px; padding: 20px; background: #f9fafb; border-radius: 8px;">
@@ -1012,20 +1172,13 @@
               </select>
             </label>
           `}
-          <label class="client-field wide">Billing / invoice address
-            <input class="quote-input" data-quote-field="billing_address" value="${escapeHtml(quote.billing_address || (!manualMode ? currentClient?.billingAddress || currentClient?.billing_address || "" : ""))}" placeholder="Billing / invoice address"${dis}>
-          </label>
+          ${renderAddressFields("billing", "Billing / invoice address", billingParts, locked)}
           <label class="schedule-check wide">
             <input type="checkbox" data-quote-field="service_same_as_billing"${quote.service_same_as_billing ? " checked" : ""}${dis}>
             <span>Service address same as billing address</span>
           </label>
-          <label class="client-field wide">Service / delivery address
-            <input class="quote-input" data-quote-field="service_address" value="${escapeHtml(quote.service_same_as_billing ? quoteBillingAddress(quote) : quote.service_address || (!manualMode ? currentProperty?.address || currentProperty?.label || "" : ""))}" placeholder="Service / delivery address"${quote.service_same_as_billing ? " disabled" : dis}>
-          </label>
+          ${quote.service_same_as_billing ? `<div class="request-note-block wide"><strong>Service address</strong><span>Service address: same as billing address</span></div>` : renderAddressFields("service", "Service / delivery address", serviceParts, locked)}
           ${manualMode ? `
-            <label class="client-field">Postcode / area
-              <input class="quote-input" data-quote-field="postcode_area" value="${escapeHtml(quote.postcode_area || "")}" placeholder="Postcode / area"${dis}>
-            </label>
             <label class="client-field wide">Access notes optional
               <textarea class="quote-input" rows="2" data-quote-field="access_notes"${dis}>${escapeHtml(quote.access_notes || "")}</textarea>
             </label>
@@ -1062,7 +1215,7 @@
           <div class="editor-body" style="flex: 1; overflow-y: auto; display: grid; grid-template-columns: 1fr 320px; background: var(--bg);">
 
             <!-- MAIN DOCUMENT AREA -->
-            <div style="padding: 40px; background: #fff; border-right: 1px solid var(--border); overflow-y: auto;">
+            <div data-quote-editor-main style="padding: 40px; background: #fff; border-right: 1px solid var(--border); overflow-y: auto;">
               ${locked ? `
                 <div class="banner warning" style="margin-bottom: 24px;">
                   <div style="font-weight:500; margin-bottom:8px;">This quote has already been used commercially. Create a revision to edit.</div>
@@ -1085,6 +1238,7 @@
                   </label>
                   <label class="client-field">Valid Until
                     <input type="date" class="quote-input" data-quote-field="valid_until" value="${escapeHtml(quote.valid_until && quote.valid_until !== 'To confirm' ? quote.valid_until : '')}"${dis}>
+                    ${renderValidityPresets(quote, locked)}
                   </label>
                 </div>
               </div>
@@ -1517,7 +1671,7 @@
           <div class="quote-preview-body">
             <h1>${escapeHtml(customerName)}</h1>
             <p class="muted">${escapeHtml(billingAddress)}</p>
-            <p class="muted">Service address: ${escapeHtml(serviceAddress)}</p>
+            ${quote.service_same_as_billing || serviceAddress === billingAddress ? "" : `<p class="muted">Service address: ${escapeHtml(serviceAddress)}</p>`}
             <p><strong>${escapeHtml(scope)}</strong></p>
             <p>${escapeHtml(quote.client_facing_summary || "Quote summary to confirm.")}</p>
             <h3>Included</h3>
@@ -1541,9 +1695,17 @@
 
 
   function refresh() {
+    const editor = document.querySelector("[data-quote-editor-main]");
+    const editorScrollTop = editor ? editor.scrollTop : null;
     quotes().forEach(updateQuoteCompatibility);
     const root = document.querySelector("[data-quotes-root]");
     if (root) root.innerHTML = renderInner();
+    if (editorScrollTop !== null) {
+      requestAnimationFrame(() => {
+        const nextEditor = document.querySelector("[data-quote-editor-main]");
+        if (nextEditor) nextEditor.scrollTop = editorScrollTop;
+      });
+    }
   }
 
   function newItem(overrides = {}) {
@@ -1766,7 +1928,23 @@
     if (!field) return;
     const value = target.type === "checkbox" ? target.checked : target.value;
 
-    if (field.startsWith("manual_customer.")) {
+    if (field.endsWith("_address_parts.line1") || field.endsWith("_address_parts.line2") || field.endsWith("_address_parts.city") || field.endsWith("_address_parts.postcode")) {
+      const [addressKey] = field.split(".");
+      const kind = addressKey.replace("_address_parts", "");
+      const parts = {};
+      document.querySelectorAll(`[data-quote-field^="${addressKey}."]`).forEach((input) => {
+        const part = input.dataset.quoteField.split(".")[1];
+        parts[part] = input.value;
+      });
+      quote[addressKey] = parts;
+      quote[`${kind}_address`] = addressValue(parts);
+      if (kind === "billing" && quote.service_same_as_billing) {
+        quote.service_address_parts = { ...parts };
+        quote.service_address = quote.billing_address;
+        if (isManualCustomerQuote(quote)) quote.property = quote.service_address || "Service address to confirm";
+      }
+      if (kind === "service" && isManualCustomerQuote(quote)) quote.property = quote.service_address || "Service address to confirm";
+    } else if (field.startsWith("manual_customer.")) {
       const key = field.split(".")[1];
       const manual = ensureManualCustomer(quote);
       manual[key] = value;
@@ -1822,7 +2000,7 @@
     markDocumentNeedsUpdate(quote);
     quote.updated_at = new Date().toISOString().split("T")[0];
     updateQuoteCompatibility(quote);
-    if (["client", "client_id", "property", "property_id", "valid_until", "quote_scope", "custom_scope", "manual_customer.type", "billing_address", "service_same_as_billing", "service_address"].includes(field) || field.startsWith("manual_customer.")) refresh();
+    if (["client", "client_id", "property", "property_id", "valid_until", "quote_scope", "custom_scope", "manual_customer.type", "billing_address", "service_same_as_billing", "service_address"].includes(field) || field.startsWith("manual_customer.") || field.includes("_address_parts.")) refresh();
   }
 
   function saveQuoteItemField(target) {
@@ -1870,13 +2048,33 @@
     event.preventDefault();
     event.stopPropagation();
 
-    const action = actionTarget.dataset.quoteAction;
+    let action = actionTarget.dataset.quoteAction;
+    let confirmedAction = false;
+
+    if (action === "cancel-confirm-action") {
+      state.confirmAction = null;
+      refresh();
+      return true;
+    }
+    if (action === "confirm-serious-action") {
+      action = state.confirmAction || "";
+      state.confirmAction = null;
+      confirmedAction = true;
+    }
 
     if (!action.startsWith("toggle-row-menu:") && state.quoteRowMenuId) {
       state.quoteRowMenuId = null;
       // We do not refresh immediately here because the action handler will likely call refresh()
     }
     const quote = selectedQuote();
+
+    const confirmDetails = confirmationDetails(action);
+    if (confirmDetails && !confirmedAction) {
+      state.confirmAction = action;
+      state.quoteRowMenuId = null;
+      refresh();
+      return true;
+    }
 
     if (action === "close-editor" || action === "back-to-list") {
       state.selectedQuoteId = null;
@@ -2067,6 +2265,17 @@
     }
     if (action.startsWith("mock:")) {
       toast(`${action.replace("mock:", "")} is mocked for Quotes v0.`);
+      refresh();
+      return true;
+    }
+    if (action.startsWith("set-validity:") && quote) {
+      const days = Number(action.split(":")[1]) || 0;
+      const base = quote.created_at || todayIso();
+      quote.valid_until = addDaysIso(base, days);
+      quote.updated_at = todayIso();
+      markDocumentNeedsUpdate(quote);
+      updateQuoteCompatibility(quote);
+      toast(`Valid until set to ${quote.valid_until}.`);
       refresh();
       return true;
     }

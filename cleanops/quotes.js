@@ -8,7 +8,9 @@
     a4ViewOpen: false,
     actionsModalOpen: false,
     historyModalOpen: false,
-    newQuoteRequestId: ""
+    newQuoteRequestId: "",
+    quoteRowMenuId: null,
+    confirmAction: null
   };
 
   const quoteStatusLabels = {
@@ -150,6 +152,17 @@
     monthly: "Monthly"
   };
 
+  const quoteScopeLabels = {
+    "": "Select quote type...",
+    regular_domestic_clean: "Regular domestic clean",
+    initial_deep_clean: "Initial deep clean",
+    one_off_deep_clean: "One-off deep clean",
+    end_of_tenancy_clean: "End of tenancy clean",
+    commercial_clean: "Commercial cleaning",
+    add_on_extras_only: "Add-on / extras only",
+    custom_service: "Custom service"
+  };
+
   const considerationLabels = {
     eco_products_preferred: "Eco products preferred",
     include_initial_deep_clean: "Initial clean likely",
@@ -206,6 +219,93 @@
 
   function optionList(map, selected) {
     return Object.entries(map).map(([value, label]) => `<option value="${escapeHtml(value)}"${value === selected ? " selected" : ""}>${escapeHtml(label)}</option>`).join("");
+  }
+
+  function todayIso() {
+    return new Date().toISOString().split("T")[0];
+  }
+
+  function addDaysIso(baseDate, days) {
+    const parsed = baseDate ? new Date(`${baseDate}T00:00:00`) : new Date();
+    const date = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+    date.setDate(date.getDate() + days);
+    return date.toISOString().split("T")[0];
+  }
+
+  function splitAddress(value = "") {
+    const parts = String(value || "").split(",").map((item) => item.trim()).filter(Boolean);
+    return {
+      line1: parts[0] || "",
+      line2: parts.length > 3 ? parts.slice(1, -2).join(", ") : parts[1] || "",
+      city: parts.length > 2 ? parts[parts.length - 2] : "",
+      postcode: parts.length > 1 ? parts[parts.length - 1] : ""
+    };
+  }
+
+  function addressValue(parts = {}) {
+    return [parts.line1, parts.line2, parts.city, parts.postcode].filter(Boolean).join(", ");
+  }
+
+  function addressParts(quote, kind, fallback = "") {
+    const key = `${kind}_address_parts`;
+    if (quote[key]) return quote[key];
+    const addressKey = `${kind}_address`;
+    return splitAddress(quote[addressKey] || fallback);
+  }
+
+  function quoteScopeKey(quote) {
+    return quote.quote_scope || quote.scope_type || "";
+  }
+
+  function quoteScopeDisplay(quote) {
+    const key = quoteScopeKey(quote);
+    if (key === "custom_service") return quote.custom_scope || "Custom service";
+    if (key) return quoteScopeLabels[key] || "Custom service";
+    return quote.service || "Select quote type...";
+  }
+
+  function scopeFromRequest(request) {
+    if (!request) return "";
+    if (request.request_type === "regular_domestic_clean") return "regular_domestic_clean";
+    if (request.request_type === "end_of_tenancy") return "end_of_tenancy_clean";
+    if (request.request_type === "commercial_clean") return "commercial_clean";
+    if (request.request_type === "deep_clean") return request.initial_clean_required === "yes" ? "initial_deep_clean" : "one_off_deep_clean";
+    if (request.request_type === "one_off_clean") return "one_off_deep_clean";
+    return "custom_service";
+  }
+
+  function ensureManualCustomer(quote) {
+    quote.manual_customer = quote.manual_customer || {};
+    quote.manual_customer.type = quote.manual_customer.type || quote.manual_customer_type || "individual";
+    return quote.manual_customer;
+  }
+
+  function isManualCustomerQuote(quote) {
+    return Boolean(quote.manual_customer_mode || quote.client_id === "__manual__" || (!quote.client_id && quote.manual_customer));
+  }
+
+  function manualCustomerName(quote) {
+    const manual = ensureManualCustomer(quote);
+    if (manual.type === "company") {
+      return manual.company_name || manual.contact_name || quote.client || "Company customer to confirm";
+    }
+    return [manual.first_name, manual.last_name].filter(Boolean).join(" ") || quote.client || "Customer to confirm";
+  }
+
+  function quoteCustomerName(quote) {
+    const { client } = sourceSummary(quote);
+    return isManualCustomerQuote(quote) ? manualCustomerName(quote) : client?.display_name || quote.client || "Customer to confirm";
+  }
+
+  function quoteBillingAddress(quote) {
+    const { client, property } = sourceSummary(quote);
+    return addressValue(quote.billing_address_parts) || quote.billing_address || client?.billingAddress || client?.billing_address || property?.address || quote.property || "Billing address to confirm";
+  }
+
+  function quoteServiceAddress(quote) {
+    const { property } = sourceSummary(quote);
+    if (quote.service_same_as_billing) return quoteBillingAddress(quote);
+    return addressValue(quote.service_address_parts) || quote.service_address || property?.address || quote.property || "Service address to confirm";
   }
 
   function quoteId(quote) {
@@ -326,9 +426,9 @@
     const client = findClient(quote.client_id);
     const property = findProperty(quote.property_id, quote.client_id);
     quote.number = quoteNumber(quote);
-    quote.client = client?.display_name || quote.client || "Client to confirm";
+    quote.client = isManualCustomerQuote(quote) ? manualCustomerName(quote) : client?.display_name || quote.client || "Client to confirm";
     quote.property = property?.label || property?.address || quote.property || "Property to confirm";
-    quote.service = quote.service || (quote.request_id ? requestTypeLabel(findRequest(quote.request_id)) : "Quote draft");
+    quote.service = quoteScopeDisplay(quote) || (quote.request_id ? requestTypeLabel(findRequest(quote.request_id)) : "Quote draft");
     quote.total = primaryTotalLabel(quote);
     quote.validUntil = quote.valid_until || quote.validUntil || "To confirm";
     quote.tone = quoteStatusTones[quote.status] || "info";
@@ -436,8 +536,11 @@
   }
 
   function renderA4DocumentView(quote) {
-    const { client, property } = sourceSummary(quote);
     const totals = calculateTotals(quote);
+    const customerName = quoteCustomerName(quote);
+    const billingAddress = quoteBillingAddress(quote);
+    const serviceAddress = quoteServiceAddress(quote);
+    const scope = quoteScopeDisplay(quote);
 
     return `
       <div class="a4-document-backdrop" data-quote-action="close-a4-view">
@@ -462,12 +565,14 @@
 
           <div class="a4-client-block">
             <h3 style="margin-bottom: 4px;">Prepared for:</h3>
-            <p><strong>${escapeHtml(client?.display_name || quote.client)}</strong></p>
-            <p>${escapeHtml(property?.address || quote.property)}</p>
+            <p><strong>${escapeHtml(customerName)}</strong></p>
+            <p>${escapeHtml(billingAddress)}</p>
+            ${quote.service_same_as_billing || serviceAddress === billingAddress ? "" : `<p class="muted">Service address: ${escapeHtml(serviceAddress)}</p>`}
           </div>
 
           <section class="a4-section">
             <h3 style="margin-bottom: 8px; border-bottom: 1px solid var(--border); padding-bottom: 4px;">Scope of Work</h3>
+            <p><strong>${escapeHtml(scope)}</strong></p>
             <p>${escapeHtml(quote.client_facing_summary || "")}</p>
           </section>
 
@@ -524,7 +629,277 @@
   }
 
   function renderInner() {
-    return renderList();
+    return renderDocumentControlPage();
+  }
+
+  function documentChip(quote) {
+    const status = quote.document_status || "not_generated";
+    return chip(documentStatusLabels[status] || "Not generated", documentStatusTones[status] || "warning");
+  }
+
+  function quoteKpis(allQuotes) {
+    return [
+      { label: "Draft quotes", value: String(allQuotes.filter((quote) => quote.status === "draft").length) },
+      { label: "Sent / awaiting response", value: String(allQuotes.filter((quote) => ["sent", "viewed"].includes(quote.status)).length) },
+      { label: "Accepted this month", value: String(allQuotes.filter((quote) => ["accepted", "converted_to_job"].includes(quote.status)).length) },
+      { label: "Expiring soon", value: String(allQuotes.filter((quote) => ["sent", "viewed", "ready_to_send"].includes(quote.status) || quote.document_status === "needs_update").length) }
+    ];
+  }
+
+  function quoteActionReason(quote) {
+    if ((quote.document_status || "not_generated") === "not_generated") return "Document not generated";
+    if (quote.document_status === "needs_update") return "Document needs update";
+    if (quote.status === "draft") return "Needs completion";
+    if (quote.status === "ready_to_send") return "Ready for customer action";
+    if (["sent", "viewed"].includes(quote.status)) return `Follow up before ${quote.valid_until || "expiry"}`;
+    return "Review quote";
+  }
+
+  function renderDocumentQuoteActionsMenu(quote) {
+    const isOpen = state.quoteRowMenuId === quote.id;
+    const actions = [];
+    const editable = ["draft", "ready_to_send"].includes(quote.status);
+    const sent = ["sent", "viewed"].includes(quote.status);
+    const accepted = ["accepted", "converted_to_job"].includes(quote.status);
+
+    actions.push(`<button type="button" data-quote-action="open-quote:${escapeHtml(quote.id)}">Open editor</button>`);
+    actions.push(`<button type="button" data-quote-action="open-document-modal-id:${escapeHtml(quote.id)}">${quote.document_status === "generated" ? "Generate/update document" : "Generate document"}</button>`);
+    actions.push(`<button type="button" data-quote-action="open-a4-view-id:${escapeHtml(quote.id)}">Preview</button>`);
+    if (quote.status === "draft") actions.push(`<button type="button" data-quote-action="mark-ready:${escapeHtml(quote.id)}">Mark ready to send</button>`);
+    if (quote.status === "ready_to_send") actions.push(`<button type="button" data-quote-action="send-quote-id:${escapeHtml(quote.id)}">Send quote</button>`);
+    if (sent) {
+      actions.push(`<button type="button" data-quote-action="mock:Follow up quote">Follow up</button>`);
+      actions.push(`<button type="button" data-quote-action="mark-accepted:${escapeHtml(quote.id)}">Mark accepted</button>`);
+      actions.push(`<button type="button" data-quote-action="mark-rejected:${escapeHtml(quote.id)}">Mark rejected</button>`);
+      actions.push(`<button type="button" data-quote-action="create-alternative:${escapeHtml(quote.id)}">Revise / create new version</button>`);
+    }
+    if (accepted && quote.status === "accepted" && !quote.job_id) actions.push(`<button type="button" data-quote-action="convert-to-job:${escapeHtml(quote.id)}">Convert to job</button>`);
+    actions.push(`<button type="button" data-quote-action="duplicate-quote:${escapeHtml(quote.id)}">Duplicate</button>`);
+    if (!accepted) actions.push(`<button type="button" class="text-danger" data-quote-action="archive-quote:${escapeHtml(quote.id)}">Archive</button>`);
+    if (!editable && !sent && !accepted) actions.push(`<button type="button" data-quote-action="restore-quote:${escapeHtml(quote.id)}">Restore</button>`);
+
+    return `
+      <div class="row-menu-wrap">
+        ${button("Actions v", `toggle-row-menu:${quote.id}`, "small")}
+        ${isOpen ? `<div class="client-more-menu job-row-menu invoice-row-menu quote-row-menu">${actions.join("")}</div>` : ""}
+      </div>
+    `;
+  }
+
+  function confirmationDetails(action) {
+    if (!action) return null;
+    if (action === "mark-ready" || action.startsWith("mark-ready:")) {
+      return {
+        title: "Mark this quote ready to send?",
+        message: "This moves the quote into the ready-to-send workflow. You can still review before marking it sent.",
+        confirmLabel: "Mark ready"
+      };
+    }
+    if (action === "send-quote" || action.startsWith("send-quote-id:")) {
+      return {
+        title: "Send this quote to the customer?",
+        message: "Mock only - no email will be sent. The quote will move to Sent.",
+        confirmLabel: "Mark sent"
+      };
+    }
+    if (action.startsWith("mark-accepted:")) {
+      return {
+        title: "Mark this quote as accepted?",
+        message: "This marks the quote accepted and ready for conversion to a job.",
+        confirmLabel: "Mark accepted"
+      };
+    }
+    if (action.startsWith("mark-rejected:")) {
+      return {
+        title: "Reject this quote?",
+        message: "It will move to closed/archive quotes.",
+        confirmLabel: "Mark rejected"
+      };
+    }
+    if (action.startsWith("archive-quote:")) {
+      return {
+        title: "Archive this quote?",
+        message: "The quote will move to closed/archive quotes.",
+        confirmLabel: "Archive quote"
+      };
+    }
+    if (action.startsWith("create-alternative:") || action === "create-revision") {
+      return {
+        title: "Create a revised quote version?",
+        message: "This creates a new draft version and may supersede the current lifecycle state.",
+        confirmLabel: "Create revision"
+      };
+    }
+    if (action === "convert-to-job" || action.startsWith("convert-to-job:")) {
+      return {
+        title: "Convert this quote to a job?",
+        message: "Mock only - this would create or open a job setup workflow from the accepted quote.",
+        confirmLabel: "Convert to job"
+      };
+    }
+    if (action.startsWith("generate-document-id:")) {
+      const qId = action.split(":")[1];
+      const quote = quotes().find((item) => item.id === qId);
+      if (quote?.document_status === "generated" || quote?.document_status === "needs_update") {
+        return {
+          title: "Generate / update this quote document?",
+          message: "This will replace the current generated document preview with the latest quote details.",
+          confirmLabel: "Generate document"
+        };
+      }
+    }
+    return null;
+  }
+
+  function renderConfirmModal() {
+    const details = confirmationDetails(state.confirmAction);
+    if (!details) return "";
+    return `
+      <div class="quote-modal-backdrop" data-quote-action="cancel-confirm-action">
+        <article class="quote-modal" role="dialog" aria-modal="true" data-quote-modal style="max-width: 440px;">
+          <div class="panel-head flush">
+            <h2>${escapeHtml(details.title)}</h2>
+            ${iconButton("Close", "cancel-confirm-action")}
+          </div>
+          <div class="panel-body stack">
+            <p>${escapeHtml(details.message)}</p>
+            <div class="button-row">
+              ${button("Cancel", "cancel-confirm-action")}
+              ${button(details.confirmLabel, "confirm-serious-action", "primary")}
+            </div>
+          </div>
+        </article>
+      </div>
+    `;
+  }
+
+  function renderQuoteActionColumn(title, items, renderer) {
+    return `
+      <article class="panel jobs-action-column">
+        <div class="panel-head">
+          <h2>${escapeHtml(title)}</h2>
+          ${chip(String(items.length), items.length ? "info" : "muted")}
+        </div>
+        <div class="panel-body jobs-action-list">
+          ${items.length ? items.map(renderer).join("") : `<div class="empty mini"><div class="empty-icon">OK</div><div><h3>No items</h3><p class="muted">Nothing needs action here.</p></div></div>`}
+        </div>
+      </article>
+    `;
+  }
+
+  function renderDraftActionCard(quote) {
+    return `
+      <button class="job-action-card" type="button" data-quote-action="open-quote:${escapeHtml(quote.id)}">
+        <strong>${escapeHtml(quoteNumber(quote))}</strong>
+        <span>${escapeHtml(quote.client)} - ${escapeHtml(quote.property)}</span>
+        <span class="muted">${escapeHtml(`${quote.service} - ${quoteActionReason(quote)}`)}</span>
+        ${documentChip(quote)}
+      </button>
+    `;
+  }
+
+  function renderReadyActionCard(quote) {
+    const action = quote.document_status === "generated" ? `send-quote-id:${quote.id}` : `open-document-modal-id:${quote.id}`;
+    return `
+      <button class="job-action-card" type="button" data-quote-action="${escapeHtml(action)}">
+        <strong>${escapeHtml(quoteNumber(quote))}</strong>
+        <span>${escapeHtml(quote.client)} - ${escapeHtml(quote.property)}</span>
+        <span class="muted">${escapeHtml(`${quote.total} - ${quoteActionReason(quote)}`)}</span>
+        ${quote.document_status === "generated" ? quoteStatusChip(quote) : documentChip(quote)}
+      </button>
+    `;
+  }
+
+  function renderFollowUpActionCard(quote) {
+    return `
+      <button class="job-action-card" type="button" data-quote-action="open-quote:${escapeHtml(quote.id)}">
+        <strong>${escapeHtml(quoteNumber(quote))}</strong>
+        <span>${escapeHtml(quote.client)} - ${escapeHtml(quote.property)}</span>
+        <span class="muted">${escapeHtml(`Valid until ${quote.valid_until || "to confirm"} - ${quoteActionReason(quote)}`)}</span>
+        ${chip("Follow up", "warning")}
+      </button>
+    `;
+  }
+
+  function renderQuoteRegisterSection(title, description, items, tone = "primary") {
+    const rows = items.map((quote) => `
+      <tr class="quote-row" data-quote-id="${escapeHtml(quote.id)}" tabindex="0" role="button">
+        <td><strong>${escapeHtml(quoteNumber(quote))}</strong><br><span class="muted">v${escapeHtml(quote.version || 1)}</span></td>
+        <td>${escapeHtml(quote.client)}<br><span class="muted">${escapeHtml(quote.property)}</span></td>
+        <td>${escapeHtml(quoteScopeDisplay(quote))}</td>
+        <td><strong>${escapeHtml(quote.total)}</strong></td>
+        <td>${quoteStatusChip(quote)}</td>
+        <td>${documentChip(quote)}</td>
+        <td>${escapeHtml(quote.updated_at || quote.created_at || "Not set")}<br><span class="muted">${escapeHtml(quote.valid_until || "Valid date not set")}</span></td>
+        <td>${renderDocumentQuoteActionsMenu(quote)}</td>
+      </tr>
+    `).join("");
+
+    return `
+      <article class="panel invoices-register-panel quotes-register-panel${tone === "secondary" ? " secondary-register" : ""}">
+        <div class="panel-head">
+          <div><h2>${escapeHtml(title)}</h2><p class="muted">${escapeHtml(description)} Search/filter/sort/page-ready.</p></div>
+          ${chip(`${items.length} quotes`, tone === "secondary" ? "muted" : "info")}
+        </div>
+        <div class="filters">
+          <span class="inputish">Search quotes</span>
+          <span class="selectish">${tone === "secondary" ? "Closed statuses" : "Active statuses"}</span>
+          <span class="selectish">Sort: updated / valid</span>
+          <span class="selectish">Page size: 25</span>
+          <span class="selectish">Prev / Next</span>
+        </div>
+        <div class="quote-table-scroll">
+          <table class="jobs-scheduled-table invoices-register-table quotes-register-table">
+            <thead><tr><th>Quote ref</th><th>Client / property</th><th>Scope</th><th>Total</th><th>Status</th><th>Document</th><th>Updated / valid until</th><th>Actions</th></tr></thead>
+            <tbody>${rows || `<tr><td colspan="8"><span class="muted">No ${escapeHtml(title.toLowerCase())}.</span></td></tr>`}</tbody>
+          </table>
+        </div>
+      </article>
+    `;
+  }
+
+  function renderDocumentControlPage() {
+    const allQuotes = quotes();
+    const closedStatuses = ["accepted", "converted_to_job", "rejected", "expired", "superseded", "archived"];
+    const active = allQuotes.filter((quote) => !closedStatuses.includes(quote.status) && (["draft", "ready_to_send", "sent", "viewed"].includes(quote.status) || quote.document_status === "needs_update"));
+    const closed = allQuotes.filter((quote) => closedStatuses.includes(quote.status));
+    const drafts = active.filter((quote) => quote.status === "draft");
+    const ready = active.filter((quote) => quote.status === "ready_to_send" || (quote.status !== "draft" && ["not_generated", "needs_update"].includes(quote.document_status || "not_generated")));
+    const followUp = active.filter((quote) => ["sent", "viewed"].includes(quote.status));
+
+    return `
+      <div class="page-head">
+        <div>
+          <div class="title-row"><h1>Quotes</h1></div>
+          <p class="muted" style="margin-top:10px">Prepare customer quote documents, track send status, and convert accepted work into jobs.</p>
+        </div>
+        <div class="page-actions">${button("New quote", "open-new-quote", "primary")}</div>
+      </div>
+      <section class="grid-4 invoice-kpis quote-kpis">
+        ${quoteKpis(allQuotes).map((item) => `
+          <article class="metric invoice-kpi-card">
+            <div class="invoice-kpi-main">
+              <span class="muted">${escapeHtml(item.label)}</span>
+              <strong>${escapeHtml(item.value)}</strong>
+            </div>
+          </article>
+        `).join("")}
+      </section>
+      <section class="jobs-action-panel invoice-action-panel quote-action-panel">
+        ${renderQuoteActionColumn("Drafts / needs completion", drafts, renderDraftActionCard)}
+        ${renderQuoteActionColumn("Ready to send / needs document", ready, renderReadyActionCard)}
+        ${renderQuoteActionColumn("Follow-up / expiring", followUp, renderFollowUpActionCard)}
+      </section>
+      <section class="stack invoices-register-stack quotes-register-stack">
+        ${renderQuoteRegisterSection("Active quotes", "Draft, ready-to-send, sent, and needs-update quotes needing live tracking.", active)}
+        ${renderQuoteRegisterSection("Closed / archive quotes", "Accepted, rejected, expired, superseded, and archived quotes remain available as history.", closed, "secondary")}
+      </section>
+      ${state.newQuoteOpen ? renderNewQuoteLauncherModal() : ""}
+      ${state.selectedQuoteId ? renderQuoteEditorModal(selectedQuote()) : ""}
+      ${state.documentModalId ? renderDocumentModal(quotes().find(q => q.id === state.documentModalId)) : ""}
+      ${state.a4ViewId ? renderA4DocumentView(quotes().find(q => q.id === state.a4ViewId)) : ""}
+      ${renderConfirmModal()}
+    `;
   }
 
   function renderRowActionsMenu(quote) {
@@ -678,6 +1053,138 @@
       ${state.selectedQuoteId ? renderQuoteEditorModal(selectedQuote()) : ""}
       ${state.documentModalId ? renderDocumentModal(quotes().find(q => q.id === state.documentModalId)) : ""}
       ${state.a4ViewId ? renderA4DocumentView(quotes().find(q => q.id === state.a4ViewId)) : ""}
+      ${renderConfirmModal()}
+    `;
+  }
+
+  function renderQuoteScopeControl(quote, locked) {
+    const dis = locked ? " disabled" : "";
+    const scope = quoteScopeKey(quote);
+    return `
+      <div style="margin-bottom: 24px; padding: 20px; background: #f9fafb; border-radius: 8px;">
+        <div class="request-form-grid">
+          <label class="client-field">Quote type / scope
+            <select class="quote-input" data-quote-field="quote_scope"${dis}>
+              ${optionList(quoteScopeLabels, scope)}
+            </select>
+          </label>
+          ${scope === "custom_service" ? `
+            <label class="client-field">Custom scope
+              <input class="quote-input" data-quote-field="custom_scope" value="${escapeHtml(quote.custom_scope || "")}" placeholder="Short custom scope"${dis}>
+            </label>
+          ` : `<div class="request-note-block"><strong>Register scope</strong><span>${escapeHtml(quoteScopeDisplay(quote))}</span></div>`}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderValidityPresets(quote, locked) {
+    if (locked) return "";
+    return `
+      <div class="button-row" style="justify-content:flex-start; gap:6px; margin-top:8px;">
+        ${button("7 days", "set-validity:7", "small ghost")}
+        ${button("14 days", "set-validity:14", "small ghost")}
+        ${button("30 days", "set-validity:30", "small ghost")}
+      </div>
+    `;
+  }
+
+  function renderAddressFields(kind, label, parts, locked) {
+    const dis = locked ? " disabled" : "";
+    return `
+      <div class="request-note-block wide">
+        <strong>${escapeHtml(label)}</strong>
+        <div class="request-form-grid">
+          <label class="client-field">Address line 1
+            <input class="quote-input" data-quote-field="${kind}_address_parts.line1" value="${escapeHtml(parts.line1 || "")}"${dis}>
+          </label>
+          <label class="client-field">Address line 2
+            <input class="quote-input" data-quote-field="${kind}_address_parts.line2" value="${escapeHtml(parts.line2 || "")}"${dis}>
+          </label>
+          <label class="client-field">Town / city
+            <input class="quote-input" data-quote-field="${kind}_address_parts.city" value="${escapeHtml(parts.city || "")}"${dis}>
+          </label>
+          <label class="client-field">Postcode / area
+            <input class="quote-input" data-quote-field="${kind}_address_parts.postcode" value="${escapeHtml(parts.postcode || "")}"${dis}>
+          </label>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderQuoteCustomerDetails(quote, locked, currentClient, currentProperty) {
+    const dis = locked ? " disabled" : "";
+    const manualMode = isManualCustomerQuote(quote);
+    const manual = ensureManualCustomer(quote);
+    const selectedClientId = manualMode ? "__manual__" : quote.client_id || currentClient?.id || "";
+    const propertyOptions = clients()
+      .filter((client) => !selectedClientId || client.id === selectedClientId)
+      .flatMap((client) => (client.properties || []).map((property) => ({ ...property, clientName: client.display_name })));
+    const billingFallback = !manualMode ? currentClient?.billingAddress || currentClient?.billing_address || currentProperty?.address || currentProperty?.label || "" : "";
+    const serviceFallback = !manualMode ? currentProperty?.address || currentProperty?.label || "" : "";
+    const billingParts = addressParts(quote, "billing", billingFallback);
+    const serviceParts = quote.service_same_as_billing ? billingParts : addressParts(quote, "service", serviceFallback);
+
+    return `
+      <div style="margin-bottom: 40px; padding: 20px; background: #f9fafb; border-radius: 8px;">
+        <div class="request-form-grid">
+          <label class="client-field wide">Client
+            <select class="quote-input" data-quote-field="client_id"${dis}>
+              <option value="">Select a client...</option>
+              <option value="__manual__"${manualMode ? " selected" : ""}>+ New customer</option>
+              ${clients().map((client) => `<option value="${escapeHtml(client.id)}"${selectedClientId === client.id ? " selected" : ""}>${escapeHtml(client.display_name)}</option>`).join("")}
+            </select>
+          </label>
+          ${manualMode ? `
+            <label class="client-field">Customer type
+              <select class="quote-input" data-quote-field="manual_customer.type"${dis}>
+                <option value="individual"${manual.type !== "company" ? " selected" : ""}>Individual</option>
+                <option value="company"${manual.type === "company" ? " selected" : ""}>Company</option>
+              </select>
+            </label>
+            ${manual.type === "company" ? `
+              <label class="client-field">Company name
+                <input class="quote-input" data-quote-field="manual_customer.company_name" value="${escapeHtml(manual.company_name || "")}" placeholder="Company name"${dis}>
+              </label>
+              <label class="client-field">Contact name
+                <input class="quote-input" data-quote-field="manual_customer.contact_name" value="${escapeHtml(manual.contact_name || "")}" placeholder="Contact name"${dis}>
+              </label>
+            ` : `
+              <label class="client-field">First name
+                <input class="quote-input" data-quote-field="manual_customer.first_name" value="${escapeHtml(manual.first_name || "")}" placeholder="First name"${dis}>
+              </label>
+              <label class="client-field">Last name
+                <input class="quote-input" data-quote-field="manual_customer.last_name" value="${escapeHtml(manual.last_name || "")}" placeholder="Last name"${dis}>
+              </label>
+            `}
+            <label class="client-field">Email
+              <input class="quote-input" type="email" data-quote-field="manual_customer.email" value="${escapeHtml(manual.email || "")}" placeholder="Email"${dis}>
+            </label>
+            <label class="client-field">Phone
+              <input class="quote-input" type="tel" data-quote-field="manual_customer.phone" value="${escapeHtml(manual.phone || "")}" placeholder="Phone"${dis}>
+            </label>
+            <div class="request-note-block wide"><strong>Manual customer</strong><span>Manual customer details are saved with this quote draft. A client record can be created if the quote is accepted.</span></div>
+          ` : `
+            <label class="client-field wide">Property
+              <select class="quote-input" data-quote-field="property_id"${dis}>
+                <option value="">Select a property...</option>
+                ${propertyOptions.map((property) => `<option value="${escapeHtml(property.id)}"${(quote.property_id || currentProperty?.id || "") === property.id ? " selected" : ""}>${escapeHtml(property.address || property.label)}${property.clientName ? ` - ${escapeHtml(property.clientName)}` : ""}</option>`).join("")}
+              </select>
+            </label>
+          `}
+          ${renderAddressFields("billing", "Billing / invoice address", billingParts, locked)}
+          <label class="schedule-check wide">
+            <input type="checkbox" data-quote-field="service_same_as_billing"${quote.service_same_as_billing ? " checked" : ""}${dis}>
+            <span>Service address same as billing address</span>
+          </label>
+          ${quote.service_same_as_billing ? `<div class="request-note-block wide"><strong>Service address</strong><span>Service address: same as billing address</span></div>` : renderAddressFields("service", "Service / delivery address", serviceParts, locked)}
+          ${manualMode ? `
+            <label class="client-field wide">Access notes optional
+              <textarea class="quote-input" rows="2" data-quote-field="access_notes"${dis}>${escapeHtml(quote.access_notes || "")}</textarea>
+            </label>
+          ` : ""}
+        </div>
+      </div>
     `;
   }
 
@@ -708,7 +1215,7 @@
           <div class="editor-body" style="flex: 1; overflow-y: auto; display: grid; grid-template-columns: 1fr 320px; background: var(--bg);">
 
             <!-- MAIN DOCUMENT AREA -->
-            <div style="padding: 40px; background: #fff; border-right: 1px solid var(--border); overflow-y: auto;">
+            <div data-quote-editor-main style="padding: 40px; background: #fff; border-right: 1px solid var(--border); overflow-y: auto;">
               ${locked ? `
                 <div class="banner warning" style="margin-bottom: 24px;">
                   <div style="font-weight:500; margin-bottom:8px;">This quote has already been used commercially. Create a revision to edit.</div>
@@ -731,25 +1238,13 @@
                   </label>
                   <label class="client-field">Valid Until
                     <input type="date" class="quote-input" data-quote-field="valid_until" value="${escapeHtml(quote.valid_until && quote.valid_until !== 'To confirm' ? quote.valid_until : '')}"${dis}>
+                    ${renderValidityPresets(quote, locked)}
                   </label>
                 </div>
               </div>
 
-              <!-- DOC CLIENT DETAILS -->
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 40px; padding: 20px; background: #f9fafb; border-radius: 8px;">
-                <label class="client-field">Client
-                  <select class="quote-input" data-quote-field="client"${dis}>
-                    <option value="">Select a client...</option>
-                    ${data.clients.map(c => `<option value="${escapeHtml(c.display_name)}"${quote.client === c.display_name ? " selected" : ""}>${escapeHtml(c.display_name)}</option>`).join("")}
-                  </select>
-                </label>
-                <label class="client-field">Property
-                  <select class="quote-input" data-quote-field="property"${dis}>
-                    <option value="">Select a property...</option>
-                    ${clients().flatMap(c => (c.properties || []).map(p => ({ address: p.address, client_name: c.display_name }))).filter(p => !quote.client || p.client_name === quote.client).map(p => `<option value="${escapeHtml(p.address)}"${quote.property === p.address ? " selected" : ""}>${escapeHtml(p.address)}</option>`).join("")}
-                  </select>
-                </label>
-              </div>
+              ${renderQuoteScopeControl(quote, locked)}
+              ${renderQuoteCustomerDetails(quote, locked, client, property)}
 
               <!-- DOC ITEMS TABLE -->
               <div style="margin-bottom: 40px;">
@@ -1151,8 +1646,11 @@
 
 
   function renderPreviewModal(quote) {
-    const { client, property } = sourceSummary(quote);
     const totals = calculateTotals(quote);
+    const customerName = quoteCustomerName(quote);
+    const billingAddress = quoteBillingAddress(quote);
+    const serviceAddress = quoteServiceAddress(quote);
+    const scope = quoteScopeDisplay(quote);
 
     let totalsHtml = "";
     if (totals.oneOff) totalsHtml += `<div><span>Initial / one-off clean</span><strong>${money(totals.oneOff)}</strong></div>`;
@@ -1171,8 +1669,10 @@
             ${iconButton("Close preview", "close-preview")}
           </div>
           <div class="quote-preview-body">
-            <h1>${escapeHtml(client?.display_name || quote.client || "Client")}</h1>
-            <p class="muted">${escapeHtml(property?.address || quote.property || "Property")}</p>
+            <h1>${escapeHtml(customerName)}</h1>
+            <p class="muted">${escapeHtml(billingAddress)}</p>
+            ${quote.service_same_as_billing || serviceAddress === billingAddress ? "" : `<p class="muted">Service address: ${escapeHtml(serviceAddress)}</p>`}
+            <p><strong>${escapeHtml(scope)}</strong></p>
             <p>${escapeHtml(quote.client_facing_summary || "Quote summary to confirm.")}</p>
             <h3>Included</h3>
             <ul>${parseLines(lineList(quote.included_scope)).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
@@ -1195,9 +1695,17 @@
 
 
   function refresh() {
+    const editor = document.querySelector("[data-quote-editor-main]");
+    const editorScrollTop = editor ? editor.scrollTop : null;
     quotes().forEach(updateQuoteCompatibility);
     const root = document.querySelector("[data-quotes-root]");
     if (root) root.innerHTML = renderInner();
+    if (editorScrollTop !== null) {
+      requestAnimationFrame(() => {
+        const nextEditor = document.querySelector("[data-quote-editor-main]");
+        if (nextEditor) nextEditor.scrollTop = editorScrollTop;
+      });
+    }
   }
 
   function newItem(overrides = {}) {
@@ -1330,10 +1838,15 @@
       property_id: property?.id || "",
       request_id: requestId,
       pricing_basis: request.pricing_basis || "to_confirm",
+      quote_scope: scopeFromRequest(request),
+      custom_scope: scopeFromRequest(request) === "custom_service" ? requestTypeLabel(request) : "",
       valid_until: "To confirm",
       client: client?.display_name || request.client || "Client",
       property: property?.label || property?.address || request.property || "Property",
-      service: requestTypeLabel(request),
+      service: labelFrom(quoteScopeLabels, scopeFromRequest(request), requestTypeLabel(request)),
+      billing_address: client?.billingAddress || client?.billing_address || property?.address || "",
+      service_same_as_billing: false,
+      service_address: property?.address || property?.label || request.property || "",
       quote_items: buildItemsFromRequest(request),
       client_facing_summary: summaryText,
       included_scope: ["Kitchen surfaces and general clean", "Bathrooms", "Floors (vacuum and mop)", "Dusting of accessible surfaces", "Bedrooms and living areas as time allows"],
@@ -1357,8 +1870,8 @@
   }
 
   function createBlankQuote() {
-    const client = clients()[0];
-    const property = client?.properties?.[0];
+    const client = null;
+    const property = null;
     const nextGroup = `qg-${Date.now()}`;
     const nextNumber = `Q-${2090 + quotes().length}`;
     const ref = `${nextNumber}/01`;
@@ -1377,10 +1890,15 @@
       property_id: property?.id || "",
       request_id: "",
       pricing_basis: "to_confirm",
+      quote_scope: "",
+      custom_scope: "",
       valid_until: "To confirm",
-      client: client?.display_name || "Client",
-      property: property?.label || property?.address || "Property",
-      service: "General cleaning",
+      client: client?.display_name || "Customer to confirm",
+      property: property?.label || property?.address || "Service address to confirm",
+      service: "Select quote type...",
+      billing_address: client?.billingAddress || client?.billing_address || "",
+      service_same_as_billing: false,
+      service_address: property?.address || property?.label || "",
       quote_items: [newItem()],
       client_facing_summary: "",
       included_scope: [],
@@ -1408,13 +1926,81 @@
     if (!quote) return;
     const field = target.dataset.quoteField;
     if (!field) return;
-    if (field === "included_scope" || field === "exclusions") quote[field] = parseLines(target.value);
-    else quote[field] = target.value;
+    const value = target.type === "checkbox" ? target.checked : target.value;
+
+    if (field.endsWith("_address_parts.line1") || field.endsWith("_address_parts.line2") || field.endsWith("_address_parts.city") || field.endsWith("_address_parts.postcode")) {
+      const [addressKey] = field.split(".");
+      const kind = addressKey.replace("_address_parts", "");
+      const parts = {};
+      document.querySelectorAll(`[data-quote-field^="${addressKey}."]`).forEach((input) => {
+        const part = input.dataset.quoteField.split(".")[1];
+        parts[part] = input.value;
+      });
+      quote[addressKey] = parts;
+      quote[`${kind}_address`] = addressValue(parts);
+      if (kind === "billing" && quote.service_same_as_billing) {
+        quote.service_address_parts = { ...parts };
+        quote.service_address = quote.billing_address;
+        if (isManualCustomerQuote(quote)) quote.property = quote.service_address || "Service address to confirm";
+      }
+      if (kind === "service" && isManualCustomerQuote(quote)) quote.property = quote.service_address || "Service address to confirm";
+    } else if (field.startsWith("manual_customer.")) {
+      const key = field.split(".")[1];
+      const manual = ensureManualCustomer(quote);
+      manual[key] = value;
+      quote.manual_customer_mode = true;
+      quote.client_id = "";
+      quote.client = manualCustomerName(quote);
+    } else if (field === "client_id") {
+      if (value === "__manual__") {
+        quote.manual_customer_mode = true;
+        quote.client_id = "";
+        quote.property_id = "";
+        ensureManualCustomer(quote);
+        quote.client = manualCustomerName(quote);
+        quote.property = quote.service_address || "Service address to confirm";
+      } else {
+        const client = findClient(value);
+        quote.manual_customer_mode = false;
+        quote.client_id = value;
+        quote.manual_customer = quote.manual_customer || {};
+        quote.client = client?.display_name || "Client to confirm";
+        quote.property_id = "";
+        quote.property = "Property to confirm";
+        quote.billing_address = quote.billing_address || client?.billingAddress || client?.billing_address || "";
+      }
+    } else if (field === "property_id") {
+      const property = findProperty(value, quote.client_id);
+      quote.property_id = value;
+      quote.property = property?.label || property?.address || "Property to confirm";
+      if (!quote.service_address || quote.service_same_as_billing) quote.service_address = property?.address || property?.label || "";
+    } else if (field === "quote_scope") {
+      quote.quote_scope = value;
+      if (value !== "custom_service") quote.custom_scope = "";
+      quote.service = value ? quoteScopeDisplay(quote) : "Select quote type...";
+    } else if (field === "custom_scope") {
+      quote.custom_scope = value;
+      quote.service = quoteScopeDisplay(quote);
+    } else if (field === "billing_address") {
+      quote.billing_address = value;
+      if (quote.service_same_as_billing) quote.service_address = value;
+      if (quote.service_same_as_billing && isManualCustomerQuote(quote)) quote.property = value || "Service address to confirm";
+    } else if (field === "service_same_as_billing") {
+      quote.service_same_as_billing = value;
+      if (value) quote.service_address = quote.billing_address || "";
+      if (isManualCustomerQuote(quote)) quote.property = quote.service_address || "Service address to confirm";
+    } else if (field === "service_address") {
+      quote.service_address = value;
+      if (isManualCustomerQuote(quote)) quote.property = value || "Service address to confirm";
+    } else if (field === "included_scope" || field === "exclusions") {
+      quote[field] = parseLines(value);
+    } else {
+      quote[field] = value;
+    }
     markDocumentNeedsUpdate(quote);
     quote.updated_at = new Date().toISOString().split("T")[0];
     updateQuoteCompatibility(quote);
-    if (field === "client") quote.property = "";
-    if (field === "client" || field === "property" || field === "valid_until") refresh();
+    if (["client", "client_id", "property", "property_id", "valid_until", "quote_scope", "custom_scope", "manual_customer.type", "billing_address", "service_same_as_billing", "service_address"].includes(field) || field.startsWith("manual_customer.") || field.includes("_address_parts.")) refresh();
   }
 
   function saveQuoteItemField(target) {
@@ -1435,17 +2021,16 @@
   }
 
   function handleClick(event) {
+    const actionTarget = event.target.closest("[data-quote-action]");
+    const modalTarget = event.target.closest("[data-quote-modal]");
     const row = event.target.closest("[data-quote-id]");
-    if (row) {
+    if (row && !actionTarget) {
       event.preventDefault();
       event.stopPropagation();
       state.selectedQuoteId = row.dataset.quoteId;
       refresh();
       return true;
     }
-
-    const actionTarget = event.target.closest("[data-quote-action]");
-    const modalTarget = event.target.closest("[data-quote-modal]");
 
     // Ignore clicks inside the modal that don't hit a specific action button (they shouldn't trigger the backdrop)
     if (modalTarget && actionTarget && actionTarget.classList.contains("quote-modal-backdrop")) {
@@ -1463,13 +2048,33 @@
     event.preventDefault();
     event.stopPropagation();
 
-    const action = actionTarget.dataset.quoteAction;
+    let action = actionTarget.dataset.quoteAction;
+    let confirmedAction = false;
+
+    if (action === "cancel-confirm-action") {
+      state.confirmAction = null;
+      refresh();
+      return true;
+    }
+    if (action === "confirm-serious-action") {
+      action = state.confirmAction || "";
+      state.confirmAction = null;
+      confirmedAction = true;
+    }
 
     if (!action.startsWith("toggle-row-menu:") && state.quoteRowMenuId) {
       state.quoteRowMenuId = null;
       // We do not refresh immediately here because the action handler will likely call refresh()
     }
     const quote = selectedQuote();
+
+    const confirmDetails = confirmationDetails(action);
+    if (confirmDetails && !confirmedAction) {
+      state.confirmAction = action;
+      state.quoteRowMenuId = null;
+      refresh();
+      return true;
+    }
 
     if (action === "close-editor" || action === "back-to-list") {
       state.selectedQuoteId = null;
@@ -1656,6 +2261,22 @@
     }
     if (action === "more-actions") {
       toast("Quote actions are mocked for this prototype.");
+      return true;
+    }
+    if (action.startsWith("mock:")) {
+      toast(`${action.replace("mock:", "")} is mocked for Quotes v0.`);
+      refresh();
+      return true;
+    }
+    if (action.startsWith("set-validity:") && quote) {
+      const days = Number(action.split(":")[1]) || 0;
+      const base = quote.created_at || todayIso();
+      quote.valid_until = addDaysIso(base, days);
+      quote.updated_at = todayIso();
+      markDocumentNeedsUpdate(quote);
+      updateQuoteCompatibility(quote);
+      toast(`Valid until set to ${quote.valid_until}.`);
+      refresh();
       return true;
     }
     if (action === "open-actions-modal") {

@@ -2448,6 +2448,30 @@ tr.status-risk td:first-child {
   margin-top: 4px;
 }
 
+.quotes-register-panel {
+  overflow: visible;
+  position: relative;
+  z-index: 1;
+}
+
+.quotes-register-panel:has(.quote-row-menu) {
+  z-index: 4;
+}
+
+.quotes-register-panel .quote-table-scroll {
+  overflow: visible;
+}
+
+.quotes-register-panel .row-menu-wrap {
+  z-index: 5;
+}
+
+.quotes-register-panel .quote-row-menu {
+  z-index: 80;
+  max-height: min(360px, calc(100vh - 140px));
+  overflow-y: auto;
+}
+
 .invoices-register-stack {
   gap: 14px;
 }

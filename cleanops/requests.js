@@ -546,9 +546,10 @@
     }
 
     const request = selectedRequest();
+    const mainContent = request && !state.reviewRequestOpen ? renderDetail(request) : renderList();
     return `
       <section class="requests-root" data-requests-root="true">
-        ${request ? renderDetail(request) : renderList()}
+        ${mainContent}
         ${state.newRequestOpen ? renderNewRequestModal() : ""}
         ${state.reviewRequestOpen && request ? renderReviewRequestModal(request) : ""}
       </section>
@@ -567,10 +568,10 @@
           <tr class="request-row" data-request-id="${escapeHtml(request.id)}" tabindex="0" role="button" aria-label="Open ${escapeHtml(request.title || "Request")}">
             <td><strong>${escapeHtml(request.title || "Request")}</strong><br><span class="muted">${escapeHtml(request.number || request.id)}</span></td>
             <td>${escapeHtml(clientName)}</td>
-            <td><strong>${escapeHtml(property)}</strong><br><span class="muted">API</span></td>
+            <td><strong>${escapeHtml(property)}</strong><br><span class="muted">${escapeHtml(request.propertyPostcode || request.propertyCity || "Property")}</span></td>
             <td>${requestTypeChip(request)}</td>
             <td>${requestStatusChip(request)}</td>
-            <td>${escapeHtml("Read-only")}</td>
+            <td>${escapeHtml("Review")}</td>
             <td>${escapeHtml(dateStr)}</td>
           </tr>
         `;
@@ -628,8 +629,8 @@
           <div>
             <h2>Current mix</h2>
             <div class="request-summary-counts">
-              ${summaryCount("New", "new_enquiry")}
-              ${summaryCount("Needs quote", "quote_required")}
+              ${summaryCount("New", ["new", "new_enquiry"])}
+              ${summaryCount("Needs quote", ["quote_needed", "quote_required"])}
               ${summaryCount("Waiting", "waiting_customer")}
             </div>
           </div>
@@ -638,8 +639,9 @@
     `;
   }
 
-  function summaryCount(label, status) {
-    const count = requests().filter((request) => request.status === status).length;
+  function summaryCount(label, statuses) {
+    const statusList = Array.isArray(statuses) ? statuses : [statuses];
+    const count = requests().filter((request) => statusList.includes(request.status)).length;
     return `<div class="field-row"><span>${escapeHtml(label)}</span><strong>${escapeHtml(count)}</strong></div>`;
   }
 
@@ -852,7 +854,134 @@
     return Array.isArray(items) && items.includes(key) ? " checked" : "";
   }
 
+  function displayValue(value, fallback = "Not recorded") {
+    return value === undefined || value === null || value === "" ? fallback : value;
+  }
+
+  function apiPropertyLabel(request) {
+    return request.propertyLabel || [request.propertyAddressLine1, request.propertyCity, request.propertyPostcode].filter(Boolean).join(", ") || "Property pending";
+  }
+
+  function apiRequestTitle(request) {
+    return request.customerName || request.companyName || [request.firstName, request.lastName].filter(Boolean).join(" ") || "Request";
+  }
+
+  function notesSection(notes, heading) {
+    if (!notes) return "";
+    const marker = `${heading}:\n`;
+    const start = notes.indexOf(marker);
+    if (start === -1) return "";
+    const rest = notes.slice(start + marker.length);
+    const next = rest.search(/\n\n(?:Customer enquiry|Property notes|Cleaning notes|Internal notes|Setup):\n/);
+    return (next === -1 ? rest : rest.slice(0, next)).trim();
+  }
+
+  function setupLine(notes, label) {
+    const setup = notesSection(notes, "Setup");
+    if (!setup) return "";
+    const prefix = `* ${label}: `;
+    const line = setup.split("\n").find((item) => item.startsWith(prefix));
+    return line ? line.slice(prefix.length).trim() : "";
+  }
+
+  function reviewField(label, value) {
+    return `<div class="field-row"><span>${escapeHtml(label)}</span><strong>${escapeHtml(displayValue(value))}</strong></div>`;
+  }
+
+  function reviewTextBlock(title, value) {
+    return `
+      <div class="request-note-block">
+        <h3>${escapeHtml(title)}</h3>
+        <p class="muted">${escapeHtml(displayValue(value, "None recorded."))}</p>
+      </div>
+    `;
+  }
+
+  function renderApiRequestReviewModal(request) {
+    const notes = request.notes || "";
+    const customerEnquiry = request.enquiryNotes || notesSection(notes, "Customer enquiry") || notes;
+    const propertyNotes = request.propertyNotes || notesSection(notes, "Property notes");
+    const cleaningNotes = request.cleaningNotes || notesSection(notes, "Cleaning notes");
+    const internalNotes = request.internalNotes || notesSection(notes, "Internal notes");
+    const productsBy = request.cleaningProductsSuppliedBy || setupLine(notes, "Cleaning products supplied by");
+    const vacuumBy = request.vacuumSuppliedBy || setupLine(notes, "Vacuum supplied by");
+    const mopBy = request.mopSuppliedBy || setupLine(notes, "Mop supplied by");
+    const createdDate = request.createdAt ? (request.createdAt.split(" ")[0] || request.createdAt.split("T")[0]) : "";
+
+    return `
+      <div class="request-modal-backdrop" data-review-backdrop="true">
+        <section class="request-modal" role="dialog" aria-modal="true" aria-label="Request Review" data-review-modal="true">
+          <div class="drawer-header">
+            <div>
+              <p class="eyebrow">Request review</p>
+              <h2>${escapeHtml(apiRequestTitle(request))}</h2>
+            </div>
+            <button class="icon-button" type="button" data-request-action="close-review-request" aria-label="Close request review" title="Close"><span>X</span></button>
+          </div>
+
+          <div class="request-form-section">
+            <h3>Customer</h3>
+            <div class="request-note-grid">
+              ${reviewField("Customer", request.customerName)}
+              ${reviewField("Customer type", request.customerType)}
+              ${reviewField("First name", request.firstName)}
+              ${reviewField("Last name", request.lastName)}
+              ${reviewField("Company", request.companyName)}
+              ${reviewField("Email", request.email)}
+              ${reviewField("Phone", request.phone)}
+            </div>
+          </div>
+
+          <div class="request-form-section">
+            <h3>Property</h3>
+            <div class="request-note-grid">
+              ${reviewField("Property", apiPropertyLabel(request))}
+              ${reviewField("Address line 1", request.propertyAddressLine1)}
+              ${reviewField("Town / city", request.propertyCity)}
+              ${reviewField("Postcode", request.propertyPostcode)}
+            </div>
+          </div>
+
+          <div class="request-form-section">
+            <h3>Enquiry / request</h3>
+            <div class="request-note-grid">
+              ${reviewField("Status", requestStatusLabel(request))}
+              ${reviewField("Source", request.sourceType || request.leadSource)}
+              ${reviewField("Received", createdDate)}
+              ${reviewTextBlock("Enquiry notes", customerEnquiry)}
+            </div>
+          </div>
+
+          <div class="request-form-section">
+            <h3>Practical setup</h3>
+            <div class="request-note-grid">
+              ${reviewField("Cleaning products", productsBy)}
+              ${reviewField("Vacuum", vacuumBy)}
+              ${reviewField("Mop", mopBy)}
+            </div>
+          </div>
+
+          <div class="request-form-section">
+            <h3>Notes</h3>
+            <div class="request-note-grid">
+              ${reviewTextBlock("Property notes", propertyNotes)}
+              ${reviewTextBlock("Cleaning notes", cleaningNotes)}
+              ${reviewTextBlock("Internal notes", internalNotes)}
+            </div>
+          </div>
+
+          <div class="drawer-actions">
+            <button class="button ghost" type="button" disabled>Edit coming next</button>
+            <button class="button primary" type="button" data-request-action="close-review-request">Close</button>
+          </div>
+        </section>
+      </div>
+    `;
+  }
+
   function renderReviewRequestModal(request) {
+    if (request.isApiBacked) return renderApiRequestReviewModal(request);
+
     const property = findProperty(request.client_id, request.property_id) || findAnyProperty(request.property_id).property || {};
     return `
       <div class="request-modal-backdrop" data-review-backdrop="true">
@@ -1441,6 +1570,7 @@
     }
     const reviewModal = event.target.closest("[data-review-modal]");
     if (event.target.closest("[data-review-backdrop]") && !reviewModal) {
+      state.selectedRequestId = null;
       state.reviewRequestOpen = false;
       refresh();
       return true;
@@ -1449,12 +1579,8 @@
     const requestId = event.target.closest("[data-request-id]")?.dataset.requestId;
     if (requestId) {
       const request = requests().find(r => String(r.id) === String(requestId));
-      if (request && request.isApiBacked) {
-        toast("API requests are read-only in this view.");
-        return true;
-      }
       state.selectedRequestId = requestId;
-      state.reviewRequestOpen = false;
+      state.reviewRequestOpen = Boolean(request?.isApiBacked);
       state.moreOpen = false;
       refresh();
       return true;
@@ -1493,6 +1619,7 @@
       return true;
     }
     if (action === "close-review-request") {
+      state.selectedRequestId = null;
       state.reviewRequestOpen = false;
       refresh();
       return true;

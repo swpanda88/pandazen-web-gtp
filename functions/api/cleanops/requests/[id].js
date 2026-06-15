@@ -1,6 +1,6 @@
 import { json, error, requireDb } from "../../_util.js";
 import { getRequestById, updateRequest } from "../../../db/requests.js";
-import { updateCustomer, updateProperty } from "../../../db/customers.js";
+import { updateCustomer, updateProperty, createProperty } from "../../../db/customers.js";
 
 function extractSection(text, title) {
   if (!text) return undefined;
@@ -123,23 +123,37 @@ export async function onRequest(context) {
     }
 
     // Update Property if fields provided
-    if (existingRequest.propertyId && (
+    let newPropertyId = undefined;
+    if (
         body.propertyAddressLine1 !== undefined ||
         body.propertyCity !== undefined ||
         body.propertyPostcode !== undefined
-    )) {
-      await updateProperty(db, existingRequest.propertyId, {
-        addressLine1: body.propertyAddressLine1,
-        city: body.propertyCity,
-        postcode: body.propertyPostcode
-      });
+    ) {
+      if (existingRequest.propertyId) {
+        await updateProperty(db, existingRequest.propertyId, {
+          addressLine1: body.propertyAddressLine1,
+          city: body.propertyCity,
+          postcode: body.propertyPostcode
+        });
+      } else if (existingRequest.customerId) {
+        const createdProperty = await createProperty(db, {
+          id: `prop-${crypto.randomUUID()}`,
+          customerId: existingRequest.customerId,
+          addressLine1: body.propertyAddressLine1,
+          city: body.propertyCity,
+          postcode: body.propertyPostcode,
+          accessNotes: body.propertyNotes
+        });
+        newPropertyId = createdProperty.id;
+      }
     }
 
     // Update Request
     await updateRequest(db, requestId, {
       status: body.status,
       notes: newFormattedNotes,
-      sourceType: finalSourceType
+      sourceType: finalSourceType,
+      propertyId: newPropertyId
     });
 
     const enrichedRequest = await getRequestById(db, requestId);

@@ -133,6 +133,7 @@ export async function updateRequest(db, requestId, updates) {
   if (updates.status !== undefined) { sets.push('status = ?'); params.push(updates.status); }
   if (updates.notes !== undefined) { sets.push('notes = ?'); params.push(updates.notes); }
   if (updates.sourceType !== undefined) { sets.push('source_type = ?'); params.push(updates.sourceType); }
+  if (updates.propertyId !== undefined) { sets.push('property_id = ?'); params.push(updates.propertyId); }
 
   if (sets.length === 0) return await getRequestById(db, requestId);
 

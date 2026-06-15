@@ -1348,7 +1348,7 @@
           status: visit.status || "Scheduled",
           statusGroup: visit.status === "completed" ? "Completed" : "Scheduled",
           type: "Cleaning visit",
-          start: visit.scheduledStart ? (visit.scheduledStart.split(" ")[1] || visit.scheduledStart.split("T")[1])?.substring(0, 5) : "09:00",
+          start: visit.scheduledStart ? (visit.scheduledStart.split(" ")[1] || visit.scheduledStart.split("T")[1])?.substring(0, 5) : undefined,
           duration: 60,
           team: visit.assignedTeam || "Unassigned"
         };
@@ -1364,10 +1364,7 @@
       state.apiVisits = [];
     } finally {
       state.visitsLoading = false;
-      const root = document.querySelector("[data-schedule-root]") || document.querySelector(".schedule-toolbar")?.closest("#page-root");
-      if (root) {
-        root.innerHTML = render();
-      }
+      refresh();
     }
   }
 

@@ -6,6 +6,10 @@
     reviewRequestOpen: false,
     moreOpen: false,
     apiReviewEditing: false,
+    searchTerm: "",
+    statusFilter: "",
+    sourceFilter: "",
+    actionFilter: "",
     requestsLoading: true,
     requestsError: false,
     apiRequests: []
@@ -330,6 +334,11 @@
     return `<button class="${classes}" type="button" data-request-action="${escapeHtml(action)}">${escapeHtml(label)}</button>`;
   }
 
+  function disabledButton(label, note = "Coming next", variant = "") {
+    const classes = ["button", variant].filter(Boolean).join(" ");
+    return `<button class="${classes}" type="button" disabled aria-disabled="true" title="${escapeHtml(note)}">${escapeHtml(label)} - ${escapeHtml(note)}</button>`;
+  }
+
   function toast(message) {
     window.CleanOpsShell?.toast?.(message);
   }
@@ -377,6 +386,61 @@
 
   function selectedRequest() {
     return state.selectedRequestId ? requests().find((request) => request.id === state.selectedRequestId) : null;
+  }
+
+  function requestClientText(request) {
+    if (request.isApiBacked) {
+      return [request.customerName, request.firstName, request.lastName, request.companyName, request.email, request.phone].filter(Boolean).join(" ");
+    }
+    const client = findClient(request.client_id);
+    return [displayName(client), client?.email, client?.phone].filter(Boolean).join(" ");
+  }
+
+  function requestPropertyText(request) {
+    if (request.isApiBacked) {
+      return [request.propertyLabel, request.propertyAddressLine1, request.propertyCity, request.propertyPostcode, request.propertyAddress, request.address, request.propertyName].filter(Boolean).join(" ");
+    }
+    const property = findProperty(request.client_id, request.property_id) || findAnyProperty(request.property_id).property;
+    return [propertyLabel(property), property?.address, propertyArea(property), property?.postcode].filter(Boolean).join(" ");
+  }
+
+  function requestSourceValue(request) {
+    return request.sourceType || request.leadSource || request.source || "other";
+  }
+
+  function requestActionValue(request) {
+    return request.isApiBacked ? "review" : (request.next_action || "Review request");
+  }
+
+  function requestSearchText(request) {
+    return [
+      request.title,
+      request.number,
+      request.id,
+      requestClientText(request),
+      requestPropertyText(request),
+      request.status,
+      requestStatusLabel(request),
+      requestSourceValue(request),
+      request.notes,
+      request.enquiryNotes,
+      request.propertyNotes,
+      request.cleaningNotes,
+      request.internalNotes,
+      request.customer_message,
+      request.next_action
+    ].filter(Boolean).join(" ").toLowerCase();
+  }
+
+  function filteredRequests() {
+    const term = state.searchTerm.trim().toLowerCase();
+    return requests().filter((request) => {
+      if (term && !requestSearchText(request).includes(term)) return false;
+      if (state.statusFilter && request.status !== state.statusFilter) return false;
+      if (state.sourceFilter && requestSourceValue(request) !== state.sourceFilter) return false;
+      if (state.actionFilter && requestActionValue(request) !== state.actionFilter) return false;
+      return true;
+    });
   }
 
   function requestStatusLabel(request) {
@@ -553,6 +617,30 @@
     `;
   }
 
+  function filterOptionList(items, selected, allLabel) {
+    const options = [`<option value="">${escapeHtml(allLabel)}</option>`];
+    items.forEach(({ value: optionValue, label }) => {
+      options.push(`<option value="${escapeHtml(optionValue)}"${optionValue === selected ? " selected" : ""}>${escapeHtml(label)}</option>`);
+    });
+    return options.join("");
+  }
+
+  function statusFilterOptions() {
+    const values = new Set(requests().map((request) => request.status).filter(Boolean));
+    Object.keys(apiRequestStatusLabels).forEach((status) => values.add(status));
+    return Array.from(values).map((status) => ({ value: status, label: requestStatusLabels[status] || status }));
+  }
+
+  function sourceFilterOptions() {
+    const values = Array.from(new Set(requests().map(requestSourceValue).filter(Boolean)));
+    return values.map((source) => ({ value: source, label: apiSourceLabels[source] || sourceLabels[source] || source }));
+  }
+
+  function actionFilterOptions() {
+    const values = Array.from(new Set(requests().map(requestActionValue).filter(Boolean)));
+    return values.map((action) => ({ value: action, label: action === "review" ? "Review" : action }));
+  }
+
   function render() {
     if (state.requestsLoading) return `<div class="pad" data-requests-root="true"><span class="muted">Loading requests...</span></div>`;
     if (state.requestsError) return `<div class="pad" data-requests-root="true"><span class="muted">Could not load requests.</span></div>`;
@@ -584,7 +672,8 @@
   }
 
   function renderList() {
-    const rows = requests().map((request) => {
+    const visibleRequests = filteredRequests();
+    const rows = visibleRequests.map((request) => {
       if (request.isApiBacked) {
         const nameParts = [request.firstName, request.lastName].filter(Boolean).join(" ");
         const clientName = request.companyName || request.customerName || request.clientName || request.client_name || nameParts || "API Customer";
@@ -631,12 +720,12 @@
       <section class="grid-detail requests-list-layout">
         <article class="panel">
           <div class="filters">
-            <span class="inputish">Search requests</span>
-            <span class="selectish">All statuses</span>
-            <span class="selectish">All request types</span>
-            <span class="selectish">Next action</span>
+            <input class="inputish" type="search" data-request-filter="search" value="${escapeHtml(state.searchTerm)}" placeholder="Search requests" aria-label="Search requests">
+            <select class="selectish" data-request-filter="status" aria-label="Filter by status">${filterOptionList(statusFilterOptions(), state.statusFilter, "All statuses")}</select>
+            <select class="selectish" data-request-filter="source" aria-label="Filter by source">${filterOptionList(sourceFilterOptions(), state.sourceFilter, "All sources")}</select>
+            <select class="selectish" data-request-filter="action" aria-label="Filter by next action">${filterOptionList(actionFilterOptions(), state.actionFilter, "All next actions")}</select>
           </div>
-          ${table(["Request", "Client", "Property / area", "Type", "Status", "Next action", "Received / updated"], rows)}
+          ${rows.length ? table(["Request", "Client", "Property / area", "Type", "Status", "Next action", "Received / updated"], rows) : `<div class="empty mini"><div class="empty-icon">0</div><div><h3>No matching requests</h3><p class="muted">Adjust search or filters to show more requests.</p></div></div>`}
         </article>
 
         <aside class="panel pad">
@@ -656,9 +745,7 @@
           <div>
             <h2>Current mix</h2>
             <div class="request-summary-counts">
-              ${summaryCount("New", ["new", "new_enquiry"])}
-              ${summaryCount("Needs quote", ["quote_needed", "quote_required"])}
-              ${summaryCount("Waiting", "waiting_customer")}
+              ${renderStatusSummaryCounts()}
             </div>
           </div>
         </aside>
@@ -670,6 +757,18 @@
     const statusList = Array.isArray(statuses) ? statuses : [statuses];
     const count = requests().filter((request) => statusList.includes(request.status)).length;
     return `<div class="field-row"><span>${escapeHtml(label)}</span><strong>${escapeHtml(count)}</strong></div>`;
+  }
+
+  function renderStatusSummaryCounts() {
+    const statusOrder = ["new", "contacted", "waiting_customer", "assessment_needed", "quote_needed", "quoted", "won", "lost", "not_suitable", "archived"];
+    const legacyGroups = {
+      new: ["new", "new_enquiry"],
+      quote_needed: ["quote_needed", "quote_required"],
+      quoted: ["quoted", "quote_sent"]
+    };
+    return statusOrder
+      .map((status) => summaryCount(apiRequestStatusLabels[status] || requestStatusLabels[status] || status, legacyGroups[status] || status))
+      .join("");
   }
 
   function renderDetail(request) {
@@ -696,10 +795,10 @@
         </div>
         <div class="page-actions">
           ${button("Review request", "open-review-request", "primary")}
-          ${button("Contact customer", "contact-customer", "primary")}
-          ${button("Create quote", "create-quote")}
-          ${button("Create job", "create-job")}
-          ${button("Schedule assessment", "schedule-assessment")}
+          ${disabledButton("Contact customer", "Coming next", "primary")}
+          ${disabledButton("Create quote", "Coming next")}
+          ${disabledButton("Create job", "Coming next")}
+          ${disabledButton("Schedule assessment", "Coming next")}
           <div class="client-more-wrap">
             ${button("More actions", "toggle-more")}
             ${state.moreOpen ? renderMoreMenu(request, client, property) : ""}
@@ -710,7 +809,7 @@
       <section class="grid-detail">
         <div class="stack">
           <article class="panel">
-            <div class="panel-head"><h2>Request summary</h2>${button("Mark lost/archive", "mark-lost-archive", "small")}</div>
+            <div class="panel-head"><h2>Request summary</h2>${disabledButton("Mark lost/archive", "Coming next", "small")}</div>
             <div class="panel-body request-summary-grid">
               <div>
                 <h3>Linked records</h3>
@@ -769,7 +868,7 @@
           </article>
 
           <article class="panel">
-            <div class="panel-head"><h2>Internal quote prep</h2>${button("Create quote", "create-quote", "small primary")}</div>
+            <div class="panel-head"><h2>Internal quote prep</h2>${disabledButton("Create quote", "Coming next", "small primary")}</div>
             <div class="panel-body request-summary-grid">
               <div>
                 <h3>Readiness</h3>
@@ -801,7 +900,7 @@
           </article>
 
           <article class="panel">
-            <div class="panel-head"><h2>Notes and communication</h2>${button("Add note", "add-note", "small")}</div>
+            <div class="panel-head"><h2>Notes and communication</h2>${disabledButton("Add note", "Coming next", "small")}</div>
             <div class="panel-body request-note-grid">
               ${noteBlock("Property notes", request.property_notes)}
               ${noteBlock("Cleaning notes", request.cleaning_notes)}
@@ -830,9 +929,9 @@
             <div>
               <h2>Actions</h2>
               <div class="stack request-side-actions">
-                ${button("Schedule assessment/visit", "schedule-assessment", "primary")}
-                ${button("Create quote", "create-quote")}
-                ${button("Create job", "create-job")}
+                ${disabledButton("Schedule assessment/visit", "Coming next", "primary")}
+                ${disabledButton("Create quote", "Coming next")}
+                ${disabledButton("Create job", "Coming next")}
               </div>
             </div>
           </article>
@@ -855,7 +954,7 @@
     return `
       <div class="client-more-menu" role="menu">
         <p class="eyebrow">Request tools</p>
-        ${items.map((item) => `<button type="button" data-request-more="${escapeHtml(item)}">${escapeHtml(item)}</button>`).join("")}
+        ${items.map((item) => `<button type="button" disabled aria-disabled="true" title="Coming next">${escapeHtml(item)} - Coming next</button>`).join("")}
         <p class="muted menu-context">Context: ${escapeHtml(request.number)} / ${escapeHtml(displayName(client))}${property ? ` / ${escapeHtml(propertyLabel(property))}` : ""}</p>
       </div>
     `;
@@ -1880,7 +1979,19 @@
     return true;
   }
 
+  function handleFilterChange(event) {
+    const filter = event.target.closest("[data-request-filter]")?.dataset.requestFilter;
+    if (!filter) return;
+    if (filter === "search") state.searchTerm = event.target.value || "";
+    if (filter === "status") state.statusFilter = event.target.value || "";
+    if (filter === "source") state.sourceFilter = event.target.value || "";
+    if (filter === "action") state.actionFilter = event.target.value || "";
+    refresh();
+  }
+
   document.addEventListener("click", handleClick);
+  document.addEventListener("input", handleFilterChange);
+  document.addEventListener("change", handleFilterChange);
 
   window.CleanOpsRequests = {
     render,

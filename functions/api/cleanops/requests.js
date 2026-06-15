@@ -40,6 +40,7 @@ export async function onRequest(context) {
 
       // Format notes
       const notesBlocks = [];
+      if (body.sourceType) notesBlocks.push(`Lead source: ${body.sourceType}`);
       if (body.notes) notesBlocks.push(`Customer enquiry:\n${body.notes}`);
       if (body.propertyNotes) notesBlocks.push(`Property notes:\n${body.propertyNotes}`);
       if (body.cleaningNotes) notesBlocks.push(`Cleaning notes:\n${body.cleaningNotes}`);

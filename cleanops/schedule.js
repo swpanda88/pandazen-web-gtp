@@ -1124,6 +1124,15 @@
       return;
     }
 
+    const unscheduledTarget = event.target.closest("[data-unscheduled-id]");
+    if (unscheduledTarget) {
+      const visit = findVisit(unscheduledTarget.dataset.unscheduledId);
+      if (visit && visit.isApiBacked) {
+        toast("API visits are read-only in this view.");
+        return;
+      }
+    }
+
     if (event.target.closest("[data-popover-close]")) {
       closePopover();
       return;
@@ -1264,12 +1273,22 @@
   }
 
   function onDragStart(event) {
-    const visit = event.target.closest("[data-visit-id]");
-    const unscheduled = event.target.closest("[data-unscheduled-id]");
-    if (visit) {
-      event.dataTransfer.setData("text/plain", JSON.stringify({ kind: "visit", id: visit.dataset.visitId }));
-    } else if (unscheduled) {
-      event.dataTransfer.setData("text/plain", JSON.stringify({ kind: "unscheduled", id: unscheduled.dataset.unscheduledId }));
+    const visitTarget = event.target.closest("[data-visit-id]");
+    const unscheduledTarget = event.target.closest("[data-unscheduled-id]");
+    if (visitTarget) {
+      const visit = findVisit(visitTarget.dataset.visitId);
+      if (visit && visit.isApiBacked) {
+        event.preventDefault();
+        return;
+      }
+      event.dataTransfer.setData("text/plain", JSON.stringify({ kind: "visit", id: visitTarget.dataset.visitId }));
+    } else if (unscheduledTarget) {
+      const visit = findVisit(unscheduledTarget.dataset.unscheduledId);
+      if (visit && visit.isApiBacked) {
+        event.preventDefault();
+        return;
+      }
+      event.dataTransfer.setData("text/plain", JSON.stringify({ kind: "unscheduled", id: unscheduledTarget.dataset.unscheduledId }));
     }
   }
 
@@ -1354,8 +1373,8 @@
         };
       });
       if (state.apiVisits.length > 0) {
-        state.visits = state.apiVisits;
-        state.unscheduled = [];
+        state.visits = state.apiVisits.filter(v => v.start && v.date);
+        state.unscheduled = state.apiVisits.filter(v => !v.start || !v.date);
       }
       state.visitsError = false;
     } catch (err) {

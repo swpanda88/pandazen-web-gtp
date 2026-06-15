@@ -139,3 +139,52 @@ export async function createProperty(db, input) {
   ).first();
   return mapPropertyRow(row);
 }
+
+export async function updateCustomer(db, customerId, updates) {
+  const sets = [];
+  const params = [];
+
+  if (updates.type !== undefined) { sets.push('type = ?'); params.push(updates.type); }
+  if (updates.firstName !== undefined) { sets.push('first_name = ?'); params.push(updates.firstName); }
+  if (updates.lastName !== undefined) { sets.push('last_name = ?'); params.push(updates.lastName); }
+  if (updates.companyName !== undefined) { sets.push('company_name = ?'); params.push(updates.companyName); }
+  if (updates.email !== undefined) { sets.push('email = ?'); params.push(updates.email); }
+  if (updates.phone !== undefined) { sets.push('phone = ?'); params.push(updates.phone); }
+
+  if (sets.length === 0) return await getCustomerById(db, customerId);
+
+  sets.push('updated_at = CURRENT_TIMESTAMP');
+  params.push(customerId);
+
+  const query = `
+    UPDATE customers
+    SET ${sets.join(', ')}
+    WHERE id = ?
+    RETURNING *
+  `;
+  const row = await db.prepare(query).bind(...params).first();
+  return mapCustomerRow(row);
+}
+
+export async function updateProperty(db, propertyId, updates) {
+  const sets = [];
+  const params = [];
+
+  if (updates.addressLine1 !== undefined) { sets.push('address_line1 = ?'); params.push(updates.addressLine1); }
+  if (updates.city !== undefined) { sets.push('city = ?'); params.push(updates.city); }
+  if (updates.postcode !== undefined) { sets.push('postcode = ?'); params.push(updates.postcode); }
+
+  if (sets.length === 0) return await getPropertyById(db, propertyId);
+
+  sets.push('updated_at = CURRENT_TIMESTAMP');
+  params.push(propertyId);
+
+  const query = `
+    UPDATE properties
+    SET ${sets.join(', ')}
+    WHERE id = ?
+    RETURNING *
+  `;
+  const row = await db.prepare(query).bind(...params).first();
+  return mapPropertyRow(row);
+}

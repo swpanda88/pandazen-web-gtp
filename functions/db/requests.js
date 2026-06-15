@@ -125,3 +125,26 @@ export async function updateRequestStatus(db, requestId, status, options = {}) {
   const row = await db.prepare(query).bind(status, requestId).first();
   return mapRequestRow(row);
 }
+
+export async function updateRequest(db, requestId, updates) {
+  const sets = [];
+  const params = [];
+
+  if (updates.status !== undefined) { sets.push('status = ?'); params.push(updates.status); }
+  if (updates.notes !== undefined) { sets.push('notes = ?'); params.push(updates.notes); }
+  if (updates.sourceType !== undefined) { sets.push('source_type = ?'); params.push(updates.sourceType); }
+
+  if (sets.length === 0) return await getRequestById(db, requestId);
+
+  sets.push('updated_at = CURRENT_TIMESTAMP');
+  params.push(requestId);
+
+  const query = `
+    UPDATE requests
+    SET ${sets.join(', ')}
+    WHERE id = ?
+    RETURNING *
+  `;
+  const row = await db.prepare(query).bind(...params).first();
+  return mapRequestRow(row);
+}

@@ -50,7 +50,7 @@ export async function onRequest(context) {
     }
 
     // Validation for status
-    const validStatuses = ['new', 'quoted', 'won', 'lost', 'cancelled'];
+    const validStatuses = ['new', 'contacted', 'waiting_customer', 'assessment_needed', 'quote_needed', 'quoted', 'won', 'lost', 'not_suitable', 'archived'];
     if (body.status !== undefined && !validStatuses.includes(body.status)) {
       return error("Bad Request: Invalid status.", 400);
     }

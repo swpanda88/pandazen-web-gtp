@@ -77,10 +77,15 @@
 
   const apiRequestStatusLabels = {
     new: "New",
+    contacted: "Contacted",
+    waiting_customer: "Waiting customer",
+    assessment_needed: "Assessment needed",
+    quote_needed: "Quote needed",
     quoted: "Quoted",
     won: "Won",
     lost: "Lost",
-    cancelled: "Cancelled"
+    not_suitable: "Not suitable",
+    archived: "Archived"
   };
 
   const apiSourceLabels = {
@@ -1263,12 +1268,6 @@
           <div class="request-form-section">
             <h3>Client</h3>
             <div class="request-form-grid">
-              <label class="client-field wide">Existing client
-                <select id="new-request-client">
-                  <option value="">Create a new client shell</option>
-                  ${clients().map((client) => `<option value="${escapeHtml(client.id)}">${escapeHtml(displayName(client))}</option>`).join("")}
-                </select>
-              </label>
               <label class="client-field">New client name <input id="new-request-client-name" type="text" autocomplete="off"></label>
               <label class="client-field">Phone <input id="new-request-phone" type="tel" autocomplete="off"></label>
               <label class="client-field">Email <input id="new-request-email" type="email" autocomplete="off"></label>
@@ -1278,12 +1277,6 @@
           <div class="request-form-section">
             <h3>Property</h3>
             <div class="request-form-grid">
-              <label class="client-field wide">Existing property
-                <select id="new-request-property">
-                  <option value="">Create a new property shell</option>
-                  ${propertyOptions()}
-                </select>
-              </label>
               <label class="client-field wide">New property address <input id="new-request-property-address" type="text" autocomplete="off"></label>
               <label class="client-field">Town / city <input id="new-request-property-city" type="text" autocomplete="off"></label>
               <label class="client-field">Postcode / area <input id="new-request-property-postcode" type="text" autocomplete="off"></label>
@@ -1410,9 +1403,7 @@
   }
 
   function buildCreateRequestPayload() {
-    const selectedClient = findClient(value("new-request-client"));
-    const selectedProperty = value("new-request-property") ? findAnyProperty(value("new-request-property")).property : null;
-    const clientName = value("new-request-client-name") || displayName(selectedClient);
+    const clientName = value("new-request-client-name");
     const name = splitClientName(clientName);
     const propertyNotes = appendPracticalNotes(value("new-request-property-notes"), [
       value("new-request-pets") && value("new-request-pets") !== "unknown" ? `Pets/access note: ${labelFrom(petsLabels, value("new-request-pets"))}` : "",
@@ -1428,15 +1419,15 @@
     ]);
 
     return {
-      customerType: selectedClient?.client_type || selectedClient?.customerType || "individual",
-      firstName: selectedClient?.first_name || name.firstName,
-      lastName: selectedClient?.last_name || name.lastName,
-      companyName: selectedClient?.company_name || selectedClient?.company || "",
-      email: value("new-request-email") || selectedClient?.email || "",
-      phone: value("new-request-phone") || selectedClient?.phone || "",
-      propertyAddressLine1: value("new-request-property-address") || selectedProperty?.address || selectedProperty?.label || selectedProperty?.name || "",
-      propertyCity: value("new-request-property-city") || selectedProperty?.city || selectedProperty?.area || "",
-      propertyPostcode: value("new-request-property-postcode") || selectedProperty?.postcode || "",
+      customerType: "individual",
+      firstName: name.firstName,
+      lastName: name.lastName,
+      companyName: "",
+      email: value("new-request-email"),
+      phone: value("new-request-phone"),
+      propertyAddressLine1: value("new-request-property-address"),
+      propertyCity: value("new-request-property-city"),
+      propertyPostcode: value("new-request-property-postcode"),
       sourceType: "manual",
       leadSource: "manual",
       status: apiRequestStatus(value("new-request-status")),

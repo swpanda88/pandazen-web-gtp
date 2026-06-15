@@ -7,7 +7,10 @@
     layerId: null,
     modal: null,
     rowMenuId: null,
-    visitWizard: null
+    visitWizard: null,
+    jobsLoading: true,
+    jobsError: false,
+    apiJobs: []
   };
 
   const serviceTypeLabels = {
@@ -91,6 +94,7 @@
   }
 
   function jobs() {
+    if (state.apiJobs && state.apiJobs.length) return state.apiJobs;
     return source().jobPlans || [];
   }
 
@@ -622,6 +626,10 @@
   }
 
   function render() {
+    if (state.jobsLoading) return `<div class="pad" data-jobs-root="true"><span class="muted">Loading jobs...</span></div>`;
+    if (state.jobsError) return `<div class="pad" data-jobs-root="true"><span class="muted">Could not load jobs.</span></div>`;
+    if (jobs().length === 0) return `<div class="pad" data-jobs-root="true"><span class="muted">No jobs found.</span></div>`;
+
     return `
       <section class="jobs-root" data-jobs-root="true">
         ${state.selectedJobId ? renderWorkspace(selectedJob()) : renderList()}
@@ -633,13 +641,14 @@
   }
 
   function pageHead() {
+    const isApiBacked = jobs().some(j => j.isApiBacked);
     return `
       <div class="page-head">
         <div>
           <div class="title-row"><h1>Jobs</h1></div>
           <p class="muted" style="margin-top:10px">Manage accepted work, cleaning plans, reports, and billing readiness.</p>
         </div>
-        <div class="page-actions">${button("New job plan", "open-new-job", "primary")}</div>
+        <div class="page-actions">${isApiBacked ? "" : button("New job plan", "open-new-job", "primary")}</div>
       </div>
     `;
   }
@@ -668,9 +677,10 @@
   }
 
   function renderList() {
+    const isApiBacked = jobs().some(j => j.isApiBacked);
     return `
       ${pageHead()}
-      ${renderActionPanel()}
+      ${isApiBacked ? "" : renderActionPanel()}
       ${renderJobsRegister()}
     `;
   }
@@ -753,6 +763,31 @@
       </button>
     `;
     const rows = jobs().map((job) => {
+      if (job.isApiBacked) {
+        const nameParts = [job.firstName, job.lastName].filter(Boolean).join(" ");
+        const clientName = job.companyName || nameParts || "API Customer";
+        let propertyStr = "Property pending";
+        if (job.propertyAddressLine1) {
+          propertyStr = [job.propertyAddressLine1, job.propertyCity, job.propertyPostcode].filter(Boolean).join(", ");
+        }
+
+        return `
+          <tr class="job-register-row" data-job-open="${escapeHtml(job.id)}" tabindex="0" role="button" aria-label="Open API Job">
+            <td><strong>${escapeHtml(propertyStr)}</strong><br><span class="muted">${escapeHtml(job.quoteDisplayRef || job.id)}</span></td>
+            <td>${escapeHtml(clientName)}</td>
+            <td>${escapeHtml("Service pending")}<br><span class="muted">API</span></td>
+            <td>${escapeHtml("API")}<br><span class="muted">Unknown</span></td>
+            <td>Read-only<br><span class="muted">API</span></td>
+            <td>${statusChip(job.status)} ${chip("API Read-only", "info")}</td>
+            <td>
+              <div class="row-menu-wrap">
+                <button class="button small disabled" type="button" disabled>Actions v</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }
+
       const client = jobClient(job);
       const property = jobProperty(job);
       const nextClean = jobScheduled(job.id).find((clean) => clean.status === "planned") || jobScheduled(job.id)[0];
@@ -1652,6 +1687,11 @@
       if (event.target.closest("[data-job-action]")) {
         // Let explicit row/menu buttons handle their own actions.
       } else {
+        const job = jobs().find(j => String(j.id) === String(jobOpen.dataset.jobOpen));
+        if (job && job.isApiBacked) {
+          toast("API jobs are read-only in this view.");
+          return true;
+        }
         state.selectedJobId = jobOpen.dataset.jobOpen;
         state.rowMenuId = null;
         state.layer = null;
@@ -2084,4 +2124,31 @@
     render,
     handleClick
   };
+
+  async function loadJobs() {
+    try {
+      const api = await import("./api.js");
+      const fetched = await api.fetchJobs();
+      state.apiJobs = fetched.map(job => {
+        return {
+          ...job,
+          isApiBacked: true,
+          status: job.status || "active"
+        };
+      });
+      state.jobsError = false;
+    } catch (err) {
+      console.error("Failed to load jobs", err);
+      state.jobsError = true;
+      state.apiJobs = [];
+    } finally {
+      state.jobsLoading = false;
+      const root = document.querySelector("[data-jobs-root]");
+      if (root) {
+        root.outerHTML = render();
+      }
+    }
+  }
+
+  loadJobs();
 })();

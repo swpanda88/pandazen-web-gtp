@@ -10,7 +10,10 @@
     visitWizard: null,
     jobsLoading: true,
     jobsError: false,
-    apiJobs: []
+    apiJobs: [],
+    eventsLoading: true,
+    eventsError: false,
+    apiBillableEvents: []
   };
 
   const serviceTypeLabels = {
@@ -107,7 +110,7 @@
   }
 
   function billableEvents() {
-    return source().billableEvents || [];
+    return state.apiBillableEvents && state.apiBillableEvents.length ? state.apiBillableEvents : (source().billableEvents || []);
   }
 
   function templates() {
@@ -626,8 +629,8 @@
   }
 
   function render() {
-    if (state.jobsLoading) return `<div class="pad" data-jobs-root="true"><span class="muted">Loading jobs...</span></div>`;
-    if (state.jobsError) return `<div class="pad" data-jobs-root="true"><span class="muted">Could not load jobs.</span></div>`;
+    if (state.jobsLoading || state.eventsLoading) return `<div class="pad" data-jobs-root="true"><span class="muted">Loading jobs data...</span></div>`;
+    if (state.jobsError || state.eventsError) return `<div class="pad" data-jobs-root="true"><span class="muted">Could not load jobs data.</span></div>`;
     if (jobs().length === 0) return `<div class="pad" data-jobs-root="true"><span class="muted">No jobs found.</span></div>`;
 
     return `
@@ -2150,5 +2153,36 @@
     }
   }
 
+  async function loadBillableEvents() {
+    try {
+      const api = await import("./api.js");
+      const fetched = await api.fetchBillableEvents();
+      state.apiBillableEvents = fetched.map(event => {
+        return {
+          ...event,
+          isApiBacked: true,
+          status: event.status || "draft",
+          amount: event.amount !== undefined ? Number(event.amount || 0) : Number(event.amountPence || 0) / 100,
+          description: event.description || "API Billable Event",
+          source_job_id: event.jobId,
+          source_report_id: event.reportId,
+          source_scheduled_job_id: event.visitId
+        };
+      });
+      state.eventsError = false;
+    } catch (err) {
+      console.error("Failed to load billable events", err);
+      state.eventsError = true;
+      state.apiBillableEvents = [];
+    } finally {
+      state.eventsLoading = false;
+      const root = document.querySelector("[data-jobs-root]");
+      if (root) {
+        root.outerHTML = render();
+      }
+    }
+  }
+
   loadJobs();
+  loadBillableEvents();
 })();

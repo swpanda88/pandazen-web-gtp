@@ -13,7 +13,10 @@
     partPaidInvoiceId: null,
     invoicesLoading: true,
     invoicesError: false,
-    apiInvoices: []
+    apiInvoices: [],
+    eventsLoading: true,
+    eventsError: false,
+    apiBillableEvents: []
   };
 
   const statusLabels = {
@@ -139,7 +142,7 @@
   }
 
   function billableEvents() {
-    return jobsSource().billableEvents || [];
+    return state.apiBillableEvents && state.apiBillableEvents.length ? state.apiBillableEvents : (jobsSource().billableEvents || []);
   }
 
   function jobs() {
@@ -637,9 +640,9 @@
   }
 
   function render() {
-    if (state.invoicesLoading) return `<div class="pad" data-invoices-root="true"><span class="muted">Loading invoices...</span></div>`;
-    if (state.invoicesError) return `<div class="pad" data-invoices-root="true"><span class="muted">Could not load invoices.</span></div>`;
-    if (invoices().length === 0) return `<div class="pad" data-invoices-root="true"><span class="muted">No invoices found.</span></div>`;
+    if (state.invoicesLoading || state.eventsLoading) return `<div class="pad" data-invoices-root="true"><span class="muted">Loading financial data...</span></div>`;
+    if (state.invoicesError || state.eventsError) return `<div class="pad" data-invoices-root="true"><span class="muted">Could not load financial data.</span></div>`;
+    if (invoices().length === 0 && billableEvents().length === 0) return `<div class="pad" data-invoices-root="true"><span class="muted">No invoices or billable events found.</span></div>`;
 
     return `
       <section class="invoices-root" data-invoices-root="true">
@@ -1473,13 +1476,22 @@
     }
     if (action.startsWith("create-from-group:")) {
       const key = action.replace("create-from-group:", "");
+      const events = readyBillableEvents().filter((event) => groupKeyForEvent(event) === key);
+      if (events.some(event => event.isApiBacked)) {
+        toast("API billable events are read-only and cannot be invoiced yet.");
+        return true;
+      }
       state.createMode = "events";
-      state.selectedEventIds = readyBillableEvents().filter((event) => groupKeyForEvent(event) === key).map((event) => event.id);
+      state.selectedEventIds = events.map((event) => event.id);
       refresh();
       return true;
     }
     if (action.startsWith("review-event:")) {
       const eventItem = findBillable(action.split(":")[1]);
+      if (eventItem && eventItem.isApiBacked) {
+        toast("API billable events are read-only in this view.");
+        return true;
+      }
       state.modal = {
         type: "mock",
         title: "Needs billing review",
@@ -1677,5 +1689,36 @@
     }
   }
 
+  async function loadBillableEvents() {
+    try {
+      const api = await import("./api.js");
+      const fetched = await api.fetchBillableEvents();
+      state.apiBillableEvents = fetched.map(event => {
+        return {
+          ...event,
+          isApiBacked: true,
+          status: event.status || "draft",
+          amount: event.amount !== undefined ? Number(event.amount || 0) : Number(event.amountPence || 0) / 100,
+          description: event.description || "API Billable Event",
+          source_job_id: event.jobId,
+          source_report_id: event.reportId,
+          source_scheduled_job_id: event.visitId
+        };
+      });
+      state.eventsError = false;
+    } catch (err) {
+      console.error("Failed to load billable events", err);
+      state.eventsError = true;
+      state.apiBillableEvents = [];
+    } finally {
+      state.eventsLoading = false;
+      const root = document.querySelector("[data-invoices-root]");
+      if (root) {
+        root.outerHTML = render();
+      }
+    }
+  }
+
   loadInvoices();
+  loadBillableEvents();
 })();

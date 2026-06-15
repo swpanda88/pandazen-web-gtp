@@ -62,6 +62,34 @@ async function postJson(path, payload) {
   return json.data;
 }
 
+async function patchJson(path, payload) {
+  const response = await fetch(path, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+  let json = null;
+
+  try {
+    json = await response.json();
+  } catch (err) {
+    json = null;
+  }
+
+  if (!response.ok) {
+    const message = json?.error || "HTTP error: " + response.status + " " + response.statusText;
+    throw new Error(message);
+  }
+
+  if (json && json.ok === false) {
+    throw new Error(json.error || "API error");
+  }
+
+  return json.data;
+}
+
 export async function fetchCustomers(options = {}) {
   return fetchJson("/api/cleanops/customers", options);
 }
@@ -76,6 +104,10 @@ export async function fetchRequests(options = {}) {
 
 export async function createRequest(payload) {
   return postJson("/api/cleanops/requests", payload);
+}
+
+export async function updateRequest(id, payload) {
+  return patchJson("/api/cleanops/requests/" + encodeURIComponent(id), payload);
 }
 
 export async function fetchQuotes(options = {}) {

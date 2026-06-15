@@ -5,6 +5,7 @@
     newRequestOpen: false,
     reviewRequestOpen: false,
     moreOpen: false,
+    apiReviewEditing: false,
     requestsLoading: true,
     requestsError: false,
     apiRequests: []
@@ -71,6 +72,27 @@
     referral: "Referral",
     manual: "Manual",
     repeat_customer: "Repeat customer",
+    other: "Other"
+  };
+
+  const apiRequestStatusLabels = {
+    new: "New",
+    quoted: "Quoted",
+    won: "Won",
+    lost: "Lost",
+    cancelled: "Cancelled"
+  };
+
+  const apiSourceLabels = {
+    request: "Request",
+    assessment: "Assessment",
+    job: "Job",
+    visit: "Visit",
+    billable_event: "Billable event",
+    manual: "Manual",
+    manual_quote: "Manual quote",
+    manual_invoice: "Manual invoice",
+    imported: "Imported",
     other: "Other"
   };
 
@@ -897,7 +919,158 @@
     `;
   }
 
+  function apiReviewValues(request) {
+    const notes = request.notes || "";
+    return {
+      customerType: request.customerType || "individual",
+      firstName: request.firstName || "",
+      lastName: request.lastName || "",
+      companyName: request.companyName || "",
+      email: request.email || "",
+      phone: request.phone || "",
+      propertyAddressLine1: request.propertyAddressLine1 || "",
+      propertyCity: request.propertyCity || "",
+      propertyPostcode: request.propertyPostcode || "",
+      status: apiRequestStatusLabels[request.status] ? request.status : "new",
+      sourceType: apiSourceLabels[request.sourceType] ? request.sourceType : "other",
+      notes: request.enquiryNotes || notesSection(notes, "Customer enquiry") || notes,
+      propertyNotes: request.propertyNotes || notesSection(notes, "Property notes"),
+      cleaningNotes: request.cleaningNotes || notesSection(notes, "Cleaning notes"),
+      internalNotes: request.internalNotes || notesSection(notes, "Internal notes"),
+      cleaningProductsSuppliedBy: request.cleaningProductsSuppliedBy || setupLine(notes, "Cleaning products supplied by"),
+      vacuumSuppliedBy: request.vacuumSuppliedBy || setupLine(notes, "Vacuum supplied by"),
+      mopSuppliedBy: request.mopSuppliedBy || setupLine(notes, "Mop supplied by")
+    };
+  }
+
+  function editField(id, label, value, type = "text") {
+    return `<label class="client-field">${escapeHtml(label)} <input id="${escapeHtml(id)}" type="${escapeHtml(type)}" value="${escapeHtml(value || "")}" autocomplete="off"></label>`;
+  }
+
+  function editTextarea(id, label, value) {
+    return `<label class="client-field wide">${escapeHtml(label)} <textarea id="${escapeHtml(id)}" rows="3">${escapeHtml(value || "")}</textarea></label>`;
+  }
+
+  function editSelect(id, label, options, selected) {
+    return `<label class="client-field">${escapeHtml(label)} <select id="${escapeHtml(id)}">${optionList(options, selected)}</select></label>`;
+  }
+
+  function apiReviewValue(id) {
+    return value("api-review-" + id);
+  }
+
+  function buildUpdateRequestPayload() {
+    return {
+      customerType: apiReviewValue("customer-type"),
+      firstName: apiReviewValue("first-name"),
+      lastName: apiReviewValue("last-name"),
+      companyName: apiReviewValue("company-name"),
+      email: apiReviewValue("email"),
+      phone: apiReviewValue("phone"),
+      propertyAddressLine1: apiReviewValue("property-address-line1"),
+      propertyCity: apiReviewValue("property-city"),
+      propertyPostcode: apiReviewValue("property-postcode"),
+      status: apiReviewValue("status"),
+      sourceType: apiReviewValue("source-type"),
+      notes: apiReviewValue("notes"),
+      enquiryNotes: apiReviewValue("notes"),
+      propertyNotes: apiReviewValue("property-notes"),
+      cleaningNotes: apiReviewValue("cleaning-notes"),
+      internalNotes: apiReviewValue("internal-notes"),
+      cleaningProductsSuppliedBy: apiReviewValue("cleaning-products-supplied-by"),
+      vacuumSuppliedBy: apiReviewValue("vacuum-supplied-by"),
+      mopSuppliedBy: apiReviewValue("mop-supplied-by")
+    };
+  }
+
+  function setApiReviewSaving(isSaving) {
+    const buttonEl = document.querySelector('[data-request-action="save-api-request"]');
+    if (!buttonEl) return;
+    buttonEl.disabled = isSaving;
+    buttonEl.textContent = isSaving ? "Saving..." : "Save";
+  }
+
+  function showApiReviewError(message) {
+    const errorEl = document.getElementById("api-review-error");
+    if (!errorEl) return;
+    errorEl.textContent = message;
+    errorEl.style.display = message ? "block" : "none";
+  }
+
+  function renderApiRequestEditModal(request) {
+    const values = apiReviewValues(request);
+    return `
+      <div class="request-modal-backdrop" data-review-backdrop="true">
+        <section class="request-modal" role="dialog" aria-modal="true" aria-label="Edit Request" data-review-modal="true">
+          <div class="drawer-header">
+            <div>
+              <p class="eyebrow">Edit request</p>
+              <h2>${escapeHtml(apiRequestTitle(request))}</h2>
+            </div>
+            <button class="icon-button" type="button" data-request-action="cancel-api-request-edit" aria-label="Close request edit" title="Close"><span>X</span></button>
+          </div>
+
+          <div class="request-form-section">
+            <h3>Customer</h3>
+            <div class="request-form-grid">
+              ${editSelect("api-review-customer-type", "Customer type", { individual: "Individual", company: "Company" }, values.customerType)}
+              ${editField("api-review-first-name", "First name", values.firstName)}
+              ${editField("api-review-last-name", "Last name", values.lastName)}
+              ${editField("api-review-company-name", "Company", values.companyName)}
+              ${editField("api-review-email", "Email", values.email, "email")}
+              ${editField("api-review-phone", "Phone", values.phone, "tel")}
+            </div>
+          </div>
+
+          <div class="request-form-section">
+            <h3>Property</h3>
+            <div class="request-form-grid">
+              ${editField("api-review-property-address-line1", "Address line 1", values.propertyAddressLine1)}
+              ${editField("api-review-property-city", "Town / city", values.propertyCity)}
+              ${editField("api-review-property-postcode", "Postcode", values.propertyPostcode)}
+            </div>
+          </div>
+
+          <div class="request-form-section">
+            <h3>Enquiry / request</h3>
+            <div class="request-form-grid">
+              ${editSelect("api-review-status", "Status", apiRequestStatusLabels, values.status)}
+              ${editSelect("api-review-source-type", "Source", apiSourceLabels, values.sourceType)}
+              ${editTextarea("api-review-notes", "Enquiry notes", values.notes)}
+            </div>
+          </div>
+
+          <div class="request-form-section">
+            <h3>Practical setup</h3>
+            <div class="request-form-grid">
+              ${editField("api-review-cleaning-products-supplied-by", "Cleaning products supplied by", values.cleaningProductsSuppliedBy)}
+              ${editField("api-review-vacuum-supplied-by", "Vacuum supplied by", values.vacuumSuppliedBy)}
+              ${editField("api-review-mop-supplied-by", "Mop supplied by", values.mopSuppliedBy)}
+            </div>
+          </div>
+
+          <div class="request-form-section">
+            <h3>Notes</h3>
+            <div class="request-form-grid">
+              ${editTextarea("api-review-property-notes", "Property notes", values.propertyNotes)}
+              ${editTextarea("api-review-cleaning-notes", "Cleaning notes", values.cleaningNotes)}
+              ${editTextarea("api-review-internal-notes", "Internal notes", values.internalNotes)}
+            </div>
+          </div>
+
+          <p class="muted" id="api-review-error" role="alert" style="display:none"></p>
+          <div class="drawer-actions">
+            <button class="button primary" type="button" data-request-action="save-api-request">Save</button>
+            <button class="button ghost" type="button" data-request-action="cancel-api-request-edit">Cancel</button>
+          </div>
+        </section>
+      </div>
+    `;
+  }
+
   function renderApiRequestReviewModal(request) {
+    if (state.apiReviewEditing) return renderApiRequestEditModal(request);
+
     const notes = request.notes || "";
     const customerEnquiry = request.enquiryNotes || notesSection(notes, "Customer enquiry") || notes;
     const propertyNotes = request.propertyNotes || notesSection(notes, "Property notes");
@@ -971,7 +1144,7 @@
           </div>
 
           <div class="drawer-actions">
-            <button class="button ghost" type="button" disabled>Edit coming next</button>
+            <button class="button ghost" type="button" data-request-action="edit-api-request">Edit</button>
             <button class="button primary" type="button" data-request-action="close-review-request">Close</button>
           </div>
         </section>
@@ -1475,6 +1648,28 @@
     }
   }
 
+  async function saveApiRequest() {
+    const request = selectedRequest();
+    if (!request?.isApiBacked) return;
+
+    showApiReviewError("");
+    setApiReviewSaving(true);
+
+    try {
+      const api = await import("./api.js");
+      const updated = await api.updateRequest(request.id, buildUpdateRequestPayload());
+      state.selectedRequestId = updated?.id || request.id;
+      state.apiReviewEditing = false;
+      toast("Request updated.");
+      await loadRequests();
+    } catch (err) {
+      const message = err?.message || "Could not update request.";
+      showApiReviewError(message);
+      toast(message);
+      setApiReviewSaving(false);
+    }
+  }
+
   function saveReviewRequest() {
     const request = selectedRequest();
     if (!request) return;
@@ -1558,6 +1753,7 @@
     if (routeTarget) {
       state.selectedRequestId = null;
       state.reviewRequestOpen = false;
+      state.apiReviewEditing = false;
       state.moreOpen = false;
       return false;
     }
@@ -1572,6 +1768,7 @@
     if (event.target.closest("[data-review-backdrop]") && !reviewModal) {
       state.selectedRequestId = null;
       state.reviewRequestOpen = false;
+      state.apiReviewEditing = false;
       refresh();
       return true;
     }
@@ -1581,6 +1778,7 @@
       const request = requests().find(r => String(r.id) === String(requestId));
       state.selectedRequestId = requestId;
       state.reviewRequestOpen = Boolean(request?.isApiBacked);
+      state.apiReviewEditing = false;
       state.moreOpen = false;
       refresh();
       return true;
@@ -1615,13 +1813,29 @@
     }
     if (action === "open-review-request") {
       state.reviewRequestOpen = true;
+      state.apiReviewEditing = false;
       refresh();
       return true;
     }
     if (action === "close-review-request") {
       state.selectedRequestId = null;
       state.reviewRequestOpen = false;
+      state.apiReviewEditing = false;
       refresh();
+      return true;
+    }
+    if (action === "edit-api-request") {
+      state.apiReviewEditing = true;
+      refresh();
+      return true;
+    }
+    if (action === "cancel-api-request-edit") {
+      state.apiReviewEditing = false;
+      refresh();
+      return true;
+    }
+    if (action === "save-api-request") {
+      saveApiRequest();
       return true;
     }
     if (action === "save-review-request") {
@@ -1632,6 +1846,7 @@
     if (action === "back-to-list") {
       state.selectedRequestId = null;
       state.reviewRequestOpen = false;
+      state.apiReviewEditing = false;
       state.moreOpen = false;
       refresh();
       return true;

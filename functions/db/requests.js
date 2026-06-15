@@ -85,7 +85,7 @@ export async function listRequests(db, options = {}) {
 export async function getRequestById(db, requestId) {
   const query = `
     SELECT r.*, 
-           c.type AS customer_type, c.first_name, c.last_name, c.company_name, c.email, c.phone
+           c.type AS customer_type, c.first_name, c.last_name, c.company_name, c.email, c.phone, p.address_line1, p.city, p.postcode
     FROM requests r
     LEFT JOIN customers c ON c.id = r.customer_id
     LEFT JOIN properties p ON p.id = r.property_id

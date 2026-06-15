@@ -537,13 +537,15 @@
     const isApiBackedRequests = requests().some(r => r.isApiBacked);
     const rows = requests().map((request) => {
       if (request.isApiBacked) {
-        const clientName = request.customerName || "API Customer";
+        const nameParts = [request.firstName, request.lastName].filter(Boolean).join(" ");
+        const clientName = request.companyName || request.customerName || request.clientName || request.client_name || nameParts || "API Customer";
+        const property = request.propertyLabel || request.propertyAddress || request.address || request.propertyName || "Property pending";
         const dateStr = request.createdAt ? (request.createdAt.split(" ")[0] || request.createdAt.split("T")[0]) : "Unknown";
         return `
-          <tr class="request-row" tabindex="0">
+          <tr class="request-row" data-request-id="${escapeHtml(request.id)}" tabindex="0" role="button" aria-label="Open ${escapeHtml(request.title || "Request")}">
             <td><strong>${escapeHtml(request.title || "Request")}</strong><br><span class="muted">${escapeHtml(request.number || request.id)}</span></td>
             <td>${escapeHtml(clientName)}</td>
-            <td><strong>Property pending</strong><br><span class="muted">API</span></td>
+            <td><strong>${escapeHtml(property)}</strong><br><span class="muted">API</span></td>
             <td>${requestTypeChip(request)}</td>
             <td>${requestStatusChip(request)}</td>
             <td>${escapeHtml("Read-only")}</td>
@@ -1456,23 +1458,7 @@
       saveReviewRequest();
       return true;
     }
-    if (action === "convert-to-quote") {
-      convertToQuote();
-      return true;
-    }
-    if (action === "convert-to-job") {
-      convertToJob();
-      return true;
-    }
-    if (action === "delete-request") {
-      deleteRequest();
-      return true;
-    }
-    if (action === "more-menu") {
-      state.moreOpen = !state.moreOpen;
-      refresh();
-      return true;
-    }
+
     if (action === "back-to-list") {
       state.selectedRequestId = null;
       state.reviewRequestOpen = false;

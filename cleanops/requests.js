@@ -1268,6 +1268,12 @@
           <div class="request-form-section">
             <h3>Client</h3>
             <div class="request-form-grid">
+              <label class="client-field wide">Existing client
+                <select disabled aria-disabled="true">
+                  <option>Existing client linking coming next.</option>
+                </select>
+                <span class="muted">Existing client linking coming next.</span>
+              </label>
               <label class="client-field">New client name <input id="new-request-client-name" type="text" autocomplete="off"></label>
               <label class="client-field">Phone <input id="new-request-phone" type="tel" autocomplete="off"></label>
               <label class="client-field">Email <input id="new-request-email" type="email" autocomplete="off"></label>
@@ -1277,6 +1283,12 @@
           <div class="request-form-section">
             <h3>Property</h3>
             <div class="request-form-grid">
+              <label class="client-field wide">Existing property
+                <select disabled aria-disabled="true">
+                  <option>Existing property linking coming next.</option>
+                </select>
+                <span class="muted">Existing property linking coming next.</span>
+              </label>
               <label class="client-field wide">New property address <input id="new-request-property-address" type="text" autocomplete="off"></label>
               <label class="client-field">Town / city <input id="new-request-property-city" type="text" autocomplete="off"></label>
               <label class="client-field">Postcode / area <input id="new-request-property-postcode" type="text" autocomplete="off"></label>

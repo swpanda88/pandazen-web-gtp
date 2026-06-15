@@ -7,6 +7,73 @@
     moreOpen: false
   };
 
+  let dbRequests = null;
+  let apiFailed = false;
+  let loadPromise = null;
+
+  async function loadApiRequests() {
+    if (dbRequests || apiFailed || loadPromise) return loadPromise;
+    loadPromise = (async () => {
+      try {
+        const api = await import('./api.js');
+        const raw = await api.fetchRequests();
+        dbRequests = raw.map(mapApiRequestToFrontend);
+        refresh();
+      } catch (e) {
+        console.warn("CleanOps API failed to load requests, falling back to mock data.", e);
+        apiFailed = true;
+        toast("Using offline demo data. Backend connection failed.");
+        refresh();
+      }
+    })();
+    return loadPromise;
+  }
+
+  function mapStatus(apiStatus) {
+    const map = {
+      "new": "new_enquiry",
+      "contacted": "contacted",
+      "assessment": "assessment_needed",
+      "quote-prep": "quote_required",
+      "quote-sent": "quote_sent",
+      "won": "won",
+      "lost": "lost",
+      "archived": "archived"
+    };
+    return map[apiStatus] || "new_enquiry";
+  }
+
+  function mapApiRequestToFrontend(apiReq) {
+    return {
+      id: apiReq.id,
+      number: `RQ-${apiReq.id.slice(-4).toUpperCase()}`,
+      title: apiReq.notes ? apiReq.notes.split('\n')[0].slice(0, 50) : "Customer Enquiry",
+      client_id: apiReq.customerId,
+      property_id: apiReq.propertyId,
+      request_type: "regular_domestic_clean",
+      status: mapStatus(apiReq.status),
+      source: apiReq.sourceType,
+      received_at: apiReq.createdAt ? new Date(apiReq.createdAt).toLocaleDateString() : "Unknown",
+      updated_at: apiReq.updatedAt ? new Date(apiReq.updatedAt).toLocaleDateString() : "",
+      next_action: "Review request",
+      intake_property_type: "unknown",
+      bedrooms: "unknown",
+      bathrooms: "unknown",
+      pets_present: "unknown",
+      parking: "unknown",
+      cleaning_products: "to_confirm",
+      vacuum_hoover: "to_confirm",
+      mop: "to_confirm",
+      assessment_required: "to_confirm",
+      quote_readiness: "missing_scope",
+      internal_notes: apiReq.notes || "",
+      customer_message: apiReq.notes || "",
+      api_customer_name: apiReq.customerName,
+      api_property_label: apiReq.propertyLabel || apiReq.propertyAddressLine1,
+      api_property_area: apiReq.propertyCity || apiReq.propertyPostcode
+    };
+  }
+
   const requestStatusLabels = {
     new_enquiry: "New enquiry",
     contacted: "Contacted",
@@ -307,16 +374,22 @@
   }
 
   function requests() {
+    if (dbRequests) return dbRequests;
+    loadApiRequests();
     if (!Array.isArray(data.requests)) data.requests = [];
     return data.requests;
   }
 
-  function displayName(client) {
-    return client?.display_name || client?.name || [client?.first_name, client?.last_name].filter(Boolean).join(" ") || "Unlinked client";
+  function displayName(client, requestFallback) {
+    if (client) return client.display_name || client.name || [client.first_name, client.last_name].filter(Boolean).join(" ") || "Unlinked client";
+    if (requestFallback && requestFallback.api_customer_name) return requestFallback.api_customer_name;
+    return "Unlinked client";
   }
 
-  function propertyLabel(property) {
-    return property?.label || property?.name || "Property to confirm";
+  function propertyLabel(property, requestFallback) {
+    if (property) return property.label || property.name || "Property to confirm";
+    if (requestFallback && requestFallback.api_property_label) return requestFallback.api_property_label;
+    return "Property to confirm";
   }
 
   function findClient(id) {
@@ -501,8 +574,10 @@
     `;
   }
 
-  function propertyArea(property) {
-    return property?.postcode || property?.area || "Area to confirm";
+  function propertyArea(property, requestFallback) {
+    if (property) return property.postcode || property.area || "Area to confirm";
+    if (requestFallback && requestFallback.api_property_area) return requestFallback.api_property_area;
+    return "Area to confirm";
   }
 
   function table(headers, rows) {
@@ -532,8 +607,8 @@
       return `
         <tr class="request-row" data-request-id="${escapeHtml(request.id)}" tabindex="0" role="button" aria-label="Open ${escapeHtml(request.title)}">
           <td><strong>${escapeHtml(request.title)}</strong><br><span class="muted">${escapeHtml(request.number)}</span></td>
-          <td>${escapeHtml(displayName(client))}</td>
-          <td><strong>${escapeHtml(propertyLabel(property))}</strong><br><span class="muted">${escapeHtml(property?.address || propertyArea(property))}</span></td>
+          <td>${escapeHtml(displayName(client, request))}</td>
+          <td><strong>${escapeHtml(propertyLabel(property, request))}</strong><br><span class="muted">${escapeHtml(property?.address || propertyArea(property, request))}</span></td>
           <td>${requestTypeChip(request)}</td>
           <td>${requestStatusChip(request)}</td>
           <td>${escapeHtml(request.next_action || "Review request")}</td>
@@ -636,10 +711,10 @@
             <div class="panel-body request-summary-grid">
               <div>
                 <h3>Linked records</h3>
-                <div class="field-row"><span>Client</span><strong>${escapeHtml(displayName(client))}</strong></div>
+                <div class="field-row"><span>Client</span><strong>${escapeHtml(displayName(client, request))}</strong></div>
                 <div class="field-row"><span>Client status</span><strong>${escapeHtml(labelFrom(clientStatusLabels, client?.status, "Lead"))}</strong></div>
-                <div class="field-row"><span>Property</span><strong>${escapeHtml(propertyLabel(property))}</strong></div>
-                <div class="field-row"><span>Area</span><strong>${escapeHtml(propertyArea(property))}</strong></div>
+                <div class="field-row"><span>Property</span><strong>${escapeHtml(propertyLabel(property, request))}</strong></div>
+                <div class="field-row"><span>Area</span><strong>${escapeHtml(propertyArea(property, request))}</strong></div>
               </div>
               <div>
                 <h3>Request state</h3>
@@ -738,7 +813,7 @@
           <article class="panel pad">
             <div class="side-section">
               <h2>Client</h2>
-              <div class="field-row"><span>Name</span><strong>${escapeHtml(displayName(client))}</strong></div>
+              <div class="field-row"><span>Name</span><strong>${escapeHtml(displayName(client, request))}</strong></div>
               <div class="field-row"><span>Email</span><strong>${escapeHtml(client?.email || "Not set")}</strong></div>
               <div class="field-row"><span>Phone</span><strong>${escapeHtml(client?.phone || "Not set")}</strong></div>
             </div>
@@ -778,7 +853,7 @@
       <div class="client-more-menu" role="menu">
         <p class="eyebrow">Request tools</p>
         ${items.map((item) => `<button type="button" data-request-more="${escapeHtml(item)}">${escapeHtml(item)}</button>`).join("")}
-        <p class="muted menu-context">Context: ${escapeHtml(request.number)} / ${escapeHtml(displayName(client))}${property ? ` / ${escapeHtml(propertyLabel(property))}` : ""}</p>
+        <p class="muted menu-context">Context: ${escapeHtml(request.number)} / ${escapeHtml(displayName(client, request))}${(property || request.api_property_label) ? ` / ${escapeHtml(propertyLabel(property, request))}` : ""}</p>
       </div>
     `;
   }

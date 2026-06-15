@@ -62,8 +62,8 @@ export async function onRequest(context) {
       finalSourceType = 'other';
     }
 
-    // Format notes if relevant fields are provided
-    const noteFields = ['notes', 'propertyNotes', 'cleaningNotes', 'internalNotes', 'cleaningProductsSuppliedBy', 'vacuumSuppliedBy', 'mopSuppliedBy', 'sourceType'];
+    // Format notes if relevant fields are provided (Legacy notes field maintenance)
+    const noteFields = ['notes', 'propertyNotes', 'cleaningNotes', 'internalNotes', 'cleaningProductsSuppliedBy', 'vacuumSuppliedBy', 'mopSuppliedBy', 'sourceType', 'customerMessage', 'cleaningProducts', 'vacuumHoover', 'mop'];
     const hasNoteUpdates = noteFields.some(f => body[f] !== undefined);
     
     let newFormattedNotes = undefined;
@@ -75,7 +75,7 @@ export async function onRequest(context) {
       const leadSource = body.sourceType !== undefined ? body.sourceType : extractSingleLine(oldNotes, 'Lead source: ');
       if (leadSource) notesBlocks.push(`Lead source: ${leadSource}`);
 
-      const enq = body.notes !== undefined ? body.notes : extractSection(oldNotes, 'Customer enquiry');
+      const enq = (body.customerMessage !== undefined ? body.customerMessage : (body.notes !== undefined ? body.notes : extractSection(oldNotes, 'Customer enquiry')));
       if (enq) notesBlocks.push(`Customer enquiry:\n${enq}`);
 
       const prop = body.propertyNotes !== undefined ? body.propertyNotes : extractSection(oldNotes, 'Property notes');
@@ -87,9 +87,9 @@ export async function onRequest(context) {
       const int = body.internalNotes !== undefined ? body.internalNotes : extractSection(oldNotes, 'Internal notes');
       if (int) notesBlocks.push(`Internal notes:\n${int}`);
       
-      const prod = body.cleaningProductsSuppliedBy !== undefined ? body.cleaningProductsSuppliedBy : extractSingleLine(oldNotes, '* Cleaning products supplied by: ');
-      const vac = body.vacuumSuppliedBy !== undefined ? body.vacuumSuppliedBy : extractSingleLine(oldNotes, '* Vacuum supplied by: ');
-      const mop = body.mopSuppliedBy !== undefined ? body.mopSuppliedBy : extractSingleLine(oldNotes, '* Mop supplied by: ');
+      const prod = body.cleaningProducts !== undefined ? body.cleaningProducts : (body.cleaningProductsSuppliedBy !== undefined ? body.cleaningProductsSuppliedBy : extractSingleLine(oldNotes, '* Cleaning products supplied by: '));
+      const vac = body.vacuumHoover !== undefined ? body.vacuumHoover : (body.vacuumSuppliedBy !== undefined ? body.vacuumSuppliedBy : extractSingleLine(oldNotes, '* Vacuum supplied by: '));
+      const mop = body.mop !== undefined ? body.mop : (body.mopSuppliedBy !== undefined ? body.mopSuppliedBy : extractSingleLine(oldNotes, '* Mop supplied by: '));
 
       const setupBlocks = [];
       if (prod) setupBlocks.push(`* Cleaning products supplied by: ${prod}`);
@@ -127,13 +127,23 @@ export async function onRequest(context) {
     if (
         body.propertyAddressLine1 !== undefined ||
         body.propertyCity !== undefined ||
-        body.propertyPostcode !== undefined
+        body.propertyPostcode !== undefined ||
+        body.propertyType !== undefined ||
+        body.bedrooms !== undefined ||
+        body.bathrooms !== undefined ||
+        body.petsPresent !== undefined ||
+        body.parking !== undefined
     ) {
       if (existingRequest.propertyId) {
         await updateProperty(db, existingRequest.propertyId, {
           addressLine1: body.propertyAddressLine1,
           city: body.propertyCity,
-          postcode: body.propertyPostcode
+          postcode: body.propertyPostcode,
+          propertyType: body.propertyType,
+          bedrooms: body.bedrooms,
+          bathrooms: body.bathrooms,
+          petsPresent: body.petsPresent,
+          parking: body.parking
         });
       } else if (existingRequest.customerId) {
         const createdProperty = await createProperty(db, {
@@ -142,7 +152,12 @@ export async function onRequest(context) {
           addressLine1: body.propertyAddressLine1,
           city: body.propertyCity,
           postcode: body.propertyPostcode,
-          accessNotes: body.propertyNotes
+          accessNotes: body.accessNotes, // not propertyNotes!
+          propertyType: body.propertyType,
+          bedrooms: body.bedrooms,
+          bathrooms: body.bathrooms,
+          petsPresent: body.petsPresent,
+          parking: body.parking
         });
         newPropertyId = createdProperty.id;
       }
@@ -151,9 +166,35 @@ export async function onRequest(context) {
     // Update Request
     await updateRequest(db, requestId, {
       status: body.status,
-      notes: newFormattedNotes,
+      notes: newFormattedNotes, // legacy field updated
       sourceType: finalSourceType,
-      propertyId: newPropertyId
+      propertyId: newPropertyId,
+      requestType: body.requestType,
+      cadence: body.cadence,
+      howSoon: body.howSoon,
+      preferredDay: body.preferredDay,
+      preferredTimeWindow: body.preferredTimeWindow,
+      approxSize: body.approxSize,
+      photosHelpful: body.photosHelpful,
+      quoteReadiness: body.quoteReadiness,
+      assessmentRequired: body.assessmentRequired,
+      initialCleanRequired: body.initialCleanRequired,
+      pricingBasis: body.pricingBasis,
+      estimatedRegularDurationMinutes: body.estimatedRegularDurationMinutes,
+      estimatedInitialDurationMinutes: body.estimatedInitialDurationMinutes,
+      estimatedTeamSize: body.estimatedTeamSize,
+      scopeConfidence: body.scopeConfidence,
+      mainPriorities: body.mainPriorities,
+      quoteConsiderations: body.quoteConsiderations,
+      cleaningProducts: body.cleaningProducts !== undefined ? body.cleaningProducts : body.cleaningProductsSuppliedBy,
+      vacuumHoover: body.vacuumHoover !== undefined ? body.vacuumHoover : body.vacuumSuppliedBy,
+      mop: body.mop !== undefined ? body.mop : body.mopSuppliedBy,
+      setupConfirmed: body.setupConfirmed,
+      customerMessage: body.customerMessage !== undefined ? body.customerMessage : body.notes,
+      shortScopingNote: body.shortScopingNote,
+      propertyNotes: body.propertyNotes,
+      cleaningNotes: body.cleaningNotes,
+      internalNotes: body.internalNotes
     });
 
     const enrichedRequest = await getRequestById(db, requestId);

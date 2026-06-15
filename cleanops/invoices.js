@@ -670,11 +670,13 @@
     const rows = apiPayments.map(payment => {
       const amount = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format((Number(payment.amountPence) || 0) / 100);
       const dateStr = payment.paidAt ? payment.paidAt.split("T")[0] : "-";
+      const clientName = payment.customerName || "-";
+      const invoiceRef = payment.invoiceDisplayRef || payment.invoiceId || "-";
       return `
         <tr>
           <td><strong>${escapeHtml(payment.reference || payment.id)}</strong><br><span class="muted">${escapeHtml(payment.paymentMethod || "-")}</span></td>
-          <td>${escapeHtml(payment.invoiceId || "-")}</td>
-          <td>-</td>
+          <td>${escapeHtml(invoiceRef)}</td>
+          <td>${escapeHtml(clientName)}</td>
           <td>${escapeHtml(amount)}</td>
           <td>${chip(payment.status || "Unknown", "info")}</td>
           <td>${escapeHtml(dateStr)}</td>
@@ -824,7 +826,8 @@
     const rows = items.map((invoice) => {
       if (invoice.isApiBacked) {
         const nameParts = [invoice.firstName, invoice.lastName].filter(Boolean).join(" ");
-        const clientName = invoice.companyName || nameParts || "Unknown customer";
+        const clientName = invoice.customerName || invoice.companyName || nameParts || "Unknown customer";
+        const propertyName = invoice.propertyLabel || invoice.propertyAddressLine1 || "Property pending";
         const total = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format((Number(invoice.grossTotalPence) || 0) / 100);
         const sourceLabel = invoice.sourceType === "manual" ? "Manual" : (invoice.incomeCategory || "Billable events").replace(/_/g, " ");
         const status = invoice.paymentState || invoice.invoiceStatus || "unknown";
@@ -833,8 +836,8 @@
 
         return `
           <tr data-invoice-row="${escapeHtml(invoice.id)}" tabindex="0" role="button">
-            <td><strong>${escapeHtml(invoice.invoiceNumber)}</strong><br><span class="muted">${escapeHtml(sourceLabel)}</span></td>
-            <td>${escapeHtml(clientName)}<br><span class="muted">Property pending</span></td>
+            <td><strong>${escapeHtml(invoice.invoiceNumber || invoice.invoiceDisplayRef)}</strong><br><span class="muted">${escapeHtml(sourceLabel)}</span></td>
+            <td>${escapeHtml(clientName)}<br><span class="muted">${escapeHtml(propertyName)}</span></td>
             <td>${escapeHtml("Current period")}</td>
             <td>${escapeHtml(total)}</td>
             <td>${chip(statusLabels[status] || status, statusTones[status] || "info")}</td>

@@ -33,7 +33,13 @@ function mapInvoiceRow(row) {
 
     firstName: row.first_name,
     lastName: row.last_name,
-    companyName: row.company_name
+    companyName: row.company_name,
+    customerName: row.company_name || [row.first_name, row.last_name].filter(Boolean).join(" ") || null,
+    propertyLabel: row.address_line1 || null,
+    propertyAddressLine1: row.address_line1,
+    propertyCity: row.city,
+    propertyPostcode: row.postcode,
+    invoiceDisplayRef: row.invoice_number
   };
 }
 
@@ -57,7 +63,7 @@ function mapInvoiceLineRow(row) {
 }
 
 export async function listInvoices(db, options = {}) {
-  let query = "SELECT i.*, c.first_name, c.last_name, c.company_name FROM invoices i LEFT JOIN customers c ON c.id = i.customer_id WHERE 1=1";
+  let query = "SELECT i.*, c.first_name, c.last_name, c.company_name, p.address_line1, p.city, p.postcode FROM invoices i LEFT JOIN customers c ON c.id = i.customer_id LEFT JOIN properties p ON p.id = i.property_id WHERE 1=1";
   const params = [];
 
   if (options.invoiceStatus) {
@@ -108,7 +114,7 @@ export async function listInvoiceLines(db, invoiceId) {
 }
 
 export async function getInvoiceById(db, invoiceId) {
-  const query = "SELECT i.*, c.first_name, c.last_name, c.company_name FROM invoices i LEFT JOIN customers c ON c.id = i.customer_id WHERE i.id = ?";
+  const query = "SELECT i.*, c.first_name, c.last_name, c.company_name, p.address_line1, p.city, p.postcode FROM invoices i LEFT JOIN customers c ON c.id = i.customer_id LEFT JOIN properties p ON p.id = i.property_id WHERE i.id = ?";
   const row = await db.prepare(query).bind(invoiceId).first();
   if (!row) return null;
   
@@ -118,7 +124,7 @@ export async function getInvoiceById(db, invoiceId) {
 }
 
 export async function getInvoiceByNumber(db, invoiceNumber) {
-  const query = "SELECT i.*, c.first_name, c.last_name, c.company_name FROM invoices i LEFT JOIN customers c ON c.id = i.customer_id WHERE i.invoice_number = ?";
+  const query = "SELECT i.*, c.first_name, c.last_name, c.company_name, p.address_line1, p.city, p.postcode FROM invoices i LEFT JOIN customers c ON c.id = i.customer_id LEFT JOIN properties p ON p.id = i.property_id WHERE i.invoice_number = ?";
   const row = await db.prepare(query).bind(invoiceNumber).first();
   if (!row) return null;
   
@@ -227,7 +233,7 @@ export async function listInvoicesForCustomer(db, customerId) {
 }
 
 export async function listOverdueInvoices(db, options = {}) {
-  let query = "SELECT i.*, c.first_name, c.last_name, c.company_name FROM invoices i LEFT JOIN customers c ON c.id = i.customer_id WHERE i.invoice_status != 'draft' AND i.invoice_status != 'void' AND i.payment_state != 'paid' AND i.due_date < date('now') ORDER BY i.due_date ASC";
+  let query = "SELECT i.*, c.first_name, c.last_name, c.company_name, p.address_line1, p.city, p.postcode FROM invoices i LEFT JOIN customers c ON c.id = i.customer_id LEFT JOIN properties p ON p.id = i.property_id WHERE i.invoice_status != 'draft' AND i.invoice_status != 'void' AND i.payment_state != 'paid' AND i.due_date < date('now') ORDER BY i.due_date ASC";
   const { results } = await db.prepare(query).all();
   return results.map(mapInvoiceRow);
 }

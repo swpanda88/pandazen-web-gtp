@@ -37,7 +37,13 @@ function mapQuoteRow(row) {
 
     firstName: row.first_name,
     lastName: row.last_name,
-    companyName: row.company_name
+    companyName: row.company_name,
+    customerName: row.company_name || [row.first_name, row.last_name].filter(Boolean).join(" ") || null,
+    propertyLabel: row.address_line1 || null,
+    propertyAddressLine1: row.address_line1,
+    propertyCity: row.city,
+    propertyPostcode: row.postcode,
+    quoteDisplayRef: row.display_ref
   };
 }
 
@@ -61,7 +67,7 @@ function mapQuoteLineRow(row) {
 }
 
 export async function listQuotes(db, options = {}) {
-  let query = "SELECT q.*, c.first_name, c.last_name, c.company_name FROM quotes q LEFT JOIN customers c ON c.id = q.customer_id WHERE 1=1";
+  let query = "SELECT q.*, c.first_name, c.last_name, c.company_name, p.address_line1, p.city, p.postcode FROM quotes q LEFT JOIN customers c ON c.id = q.customer_id LEFT JOIN properties p ON p.id = q.property_id WHERE 1=1";
   const params = [];
 
   if (options.quoteStatus) {
@@ -112,7 +118,7 @@ export async function listQuoteLines(db, quoteId) {
 }
 
 export async function getQuoteById(db, quoteId) {
-  const query = "SELECT q.*, c.first_name, c.last_name, c.company_name FROM quotes q LEFT JOIN customers c ON c.id = q.customer_id WHERE q.id = ?";
+  const query = "SELECT q.*, c.first_name, c.last_name, c.company_name, p.address_line1, p.city, p.postcode FROM quotes q LEFT JOIN customers c ON c.id = q.customer_id LEFT JOIN properties p ON p.id = q.property_id WHERE q.id = ?";
   const row = await db.prepare(query).bind(quoteId).first();
   if (!row) return null;
   
@@ -122,7 +128,7 @@ export async function getQuoteById(db, quoteId) {
 }
 
 export async function getQuoteByDisplayRef(db, displayRef) {
-  const query = "SELECT q.*, c.first_name, c.last_name, c.company_name FROM quotes q LEFT JOIN customers c ON c.id = q.customer_id WHERE q.display_ref = ?";
+  const query = "SELECT q.*, c.first_name, c.last_name, c.company_name, p.address_line1, p.city, p.postcode FROM quotes q LEFT JOIN customers c ON c.id = q.customer_id LEFT JOIN properties p ON p.id = q.property_id WHERE q.display_ref = ?";
   const row = await db.prepare(query).bind(displayRef).first();
   if (!row) return null;
   
@@ -132,7 +138,7 @@ export async function getQuoteByDisplayRef(db, displayRef) {
 }
 
 export async function listQuoteVersions(db, quoteNumber) {
-  const query = "SELECT q.*, c.first_name, c.last_name, c.company_name FROM quotes q LEFT JOIN customers c ON c.id = q.customer_id WHERE q.quote_number = ? ORDER BY q.version DESC";
+  const query = "SELECT q.*, c.first_name, c.last_name, c.company_name, p.address_line1, p.city, p.postcode FROM quotes q LEFT JOIN customers c ON c.id = q.customer_id LEFT JOIN properties p ON p.id = q.property_id WHERE q.quote_number = ? ORDER BY q.version DESC";
   const { results } = await db.prepare(query).bind(quoteNumber).all();
   return results.map(mapQuoteRow);
 }

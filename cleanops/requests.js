@@ -4,7 +4,10 @@
     selectedRequestId: null,
     newRequestOpen: false,
     reviewRequestOpen: false,
-    moreOpen: false
+    moreOpen: false,
+    requestsLoading: true,
+    requestsError: false,
+    apiRequests: []
   };
 
   const requestStatusLabels = {
@@ -307,6 +310,7 @@
   }
 
   function requests() {
+    if (state.apiRequests && state.apiRequests.length) return state.apiRequests;
     if (!Array.isArray(data.requests)) data.requests = [];
     return data.requests;
   }
@@ -515,6 +519,10 @@
   }
 
   function render() {
+    if (state.requestsLoading) return `<div class="pad" data-requests-root="true"><span class="muted">Loading requests...</span></div>`;
+    if (state.requestsError) return `<div class="pad" data-requests-root="true"><span class="muted">Could not load requests.</span></div>`;
+    if (requests().length === 0) return `<div class="pad" data-requests-root="true"><span class="muted">No requests found.</span></div>`;
+
     const request = selectedRequest();
     return `
       <section class="requests-root" data-requests-root="true">
@@ -526,7 +534,24 @@
   }
 
   function renderList() {
+    const isApiBackedRequests = requests().some(r => r.isApiBacked);
     const rows = requests().map((request) => {
+      if (request.isApiBacked) {
+        const clientName = request.customerName || "API Customer";
+        const dateStr = request.createdAt ? (request.createdAt.split(" ")[0] || request.createdAt.split("T")[0]) : "Unknown";
+        return `
+          <tr class="request-row" tabindex="0">
+            <td><strong>${escapeHtml(request.title || "Request")}</strong><br><span class="muted">${escapeHtml(request.number || request.id)}</span></td>
+            <td>${escapeHtml(clientName)}</td>
+            <td><strong>Property pending</strong><br><span class="muted">API</span></td>
+            <td>${requestTypeChip(request)}</td>
+            <td>${requestStatusChip(request)}</td>
+            <td>${escapeHtml("Read-only")}</td>
+            <td>${escapeHtml(dateStr)}</td>
+          </tr>
+        `;
+      }
+
       const client = findClient(request.client_id);
       const property = findProperty(request.client_id, request.property_id) || findAnyProperty(request.property_id).property;
       return `
@@ -548,7 +573,7 @@
           <div class="title-row"><h1>Requests</h1></div>
           <p class="muted" style="margin-top:10px">Track enquiries, assessments, and work requests before they become quotes or jobs.</p>
         </div>
-        <div class="page-actions">${button("New Request", "open-new-request", "primary")}</div>
+        <div class="page-actions">${isApiBackedRequests ? "" : button("New Request", "open-new-request", "primary")}</div>
       </div>
 
       <section class="grid-detail requests-list-layout">
@@ -1378,6 +1403,11 @@
 
     const requestId = event.target.closest("[data-request-id]")?.dataset.requestId;
     if (requestId) {
+      const request = requests().find(r => String(r.id) === String(requestId));
+      if (request && request.isApiBacked) {
+        toast("API requests are read-only in this view.");
+        return true;
+      }
       state.selectedRequestId = requestId;
       state.reviewRequestOpen = false;
       state.moreOpen = false;
@@ -1424,6 +1454,23 @@
     }
     if (action === "save-review-request") {
       saveReviewRequest();
+      return true;
+    }
+    if (action === "convert-to-quote") {
+      convertToQuote();
+      return true;
+    }
+    if (action === "convert-to-job") {
+      convertToJob();
+      return true;
+    }
+    if (action === "delete-request") {
+      deleteRequest();
+      return true;
+    }
+    if (action === "more-menu") {
+      state.moreOpen = !state.moreOpen;
+      refresh();
       return true;
     }
     if (action === "back-to-list") {

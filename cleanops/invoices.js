@@ -10,16 +10,7 @@
     rowMenuPosition: null,
     modal: null,
     pendingBillingDetails: null,
-    partPaidInvoiceId: null,
-    invoicesLoading: true,
-    invoicesError: false,
-    apiInvoices: [],
-    eventsLoading: true,
-    eventsError: false,
-    apiBillableEvents: [],
-    paymentsLoading: true,
-    paymentsError: false,
-    apiPayments: []
+    partPaidInvoiceId: null
   };
 
   const statusLabels = {
@@ -133,7 +124,7 @@
   }
 
   function invoices() {
-    return state.apiInvoices && state.apiInvoices.length ? state.apiInvoices : source().invoices;
+    return source().invoices;
   }
 
   function financeSettings() {
@@ -145,7 +136,7 @@
   }
 
   function billableEvents() {
-    return state.apiBillableEvents && state.apiBillableEvents.length ? state.apiBillableEvents : (jobsSource().billableEvents || []);
+    return jobsSource().billableEvents || [];
   }
 
   function jobs() {
@@ -378,10 +369,6 @@
   }
 
   function invoiceTotal(invoice) {
-    if (invoice?.isApiBacked) {
-      if (invoice.grossTotal !== undefined && invoice.grossTotal !== null) return Number(invoice.grossTotal || 0);
-      if (invoice.grossTotalPence !== undefined && invoice.grossTotalPence !== null) return Number(invoice.grossTotalPence || 0) / 100;
-    }
     return (invoice?.lines || []).reduce((total, line) => total + Number(line.amount ?? (Number(line.quantity || 0) * Number(line.rate || 0))), 0);
   }
 
@@ -421,9 +408,6 @@
 
   function invoiceStatus(invoice) {
     if (!invoice) return "draft";
-    if (invoice.isApiBacked) {
-      return invoice.paymentState || invoice.invoiceStatus || invoice.status || "unknown";
-    }
     if (invoice.status === "sent" && invoice.due_date && invoice.due_date < todayIso() && invoiceBalance(invoice) > 0) return "overdue";
     return invoice.status || "draft";
   }
@@ -595,18 +579,6 @@
   }
 
   function kpis() {
-    const isApiBackedInvoices = invoices().some(invoice => invoice.isApiBacked);
-    if (isApiBackedInvoices) {
-      const sentUnpaid = invoices().filter((invoice) => ["sent", "part_paid"].includes(invoiceStatus(invoice))).reduce((total, invoice) => total + invoiceBalance(invoice), 0);
-      const overdue = invoices().filter((invoice) => invoiceStatus(invoice) === "overdue").reduce((total, invoice) => total + invoiceBalance(invoice), 0);
-      return [
-        { label: "Ready to invoice", value: money(0) },
-        { label: "Sent / unpaid", value: money(sentUnpaid) },
-        { label: "Overdue", value: money(overdue) },
-        { label: "Next 30 days forecast", value: money(0) }
-      ];
-    }
-
     const ready = readyBillableEvents().reduce((total, event) => total + Number(event.amount || 0), 0);
     const sentUnpaid = invoices().filter((invoice) => ["sent", "part_paid"].includes(invoice.status)).reduce((total, invoice) => total + invoiceBalance(invoice), 0);
     const overdue = invoices().filter((invoice) => invoiceStatus(invoice) === "overdue").reduce((total, invoice) => total + invoiceBalance(invoice), 0);
@@ -643,70 +615,29 @@
   }
 
   function render() {
-    if (state.invoicesLoading || state.eventsLoading || state.paymentsLoading) return `<div class="pad" data-invoices-root="true"><span class="muted">Loading financial data...</span></div>`;
-    if (state.invoicesError || state.eventsError || state.paymentsError) return `<div class="pad" data-invoices-root="true"><span class="muted">Could not load financial data.</span></div>`;
-    if (invoices().length === 0 && billableEvents().length === 0 && (state.apiPayments || []).length === 0) return `<div class="pad" data-invoices-root="true"><span class="muted">No invoices, billable events, or payments found.</span></div>`;
-
     return `
       <section class="invoices-root" data-invoices-root="true">
         ${pageHead()}
         ${renderKpis()}
         ${renderActionPanel()}
         ${renderRegister()}
-        ${renderPaymentsRegister()}
+        ${renderRowMenuOverlay()}
         ${state.createMode ? renderCreateLayer() : ""}
         ${state.editorOpen && selectedInvoice() ? renderEditor(selectedInvoice()) : ""}
         ${state.previewOpen && selectedInvoice() ? renderPreview(selectedInvoice()) : ""}
         ${state.modal ? renderModal() : ""}
-        ${renderRowMenuOverlay()}
-      </section>
-    `;
-  }
-
-  function renderPaymentsRegister() {
-    const apiPayments = state.apiPayments || [];
-    if (apiPayments.length === 0) return "";
-
-    const rows = apiPayments.map(payment => {
-      const amount = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format((Number(payment.amountPence) || 0) / 100);
-      const dateStr = payment.paidAt ? payment.paidAt.split("T")[0] : "-";
-      const clientName = payment.customerName || "-";
-      const invoiceRef = payment.invoiceDisplayRef || payment.invoiceId || "-";
-      return `
-        <tr>
-          <td><strong>${escapeHtml(payment.reference || payment.id)}</strong><br><span class="muted">${escapeHtml(payment.paymentMethod || "-")}</span></td>
-          <td>${escapeHtml(invoiceRef)}</td>
-          <td>${escapeHtml(clientName)}</td>
-          <td>${escapeHtml(amount)}</td>
-          <td>${chip(payment.status || "Unknown", "info")}</td>
-          <td>${escapeHtml(dateStr)}</td>
-          <td><div class="row-menu-wrap"><span class="muted">Read-only</span></div></td>
-        </tr>
-      `;
-    }).join("");
-
-    return `
-      <section class="invoice-register-panel panel pad" style="margin-top:24px;">
-        <div class="panel-head compact-head">
-          <div><h2>Payments</h2><p class="muted">Payments loaded from API.</p></div>
-        </div>
-        <table class="jobs-scheduled-table invoices-register-table">
-          <thead><tr><th>Payment ref</th><th>Invoice ID</th><th>Client</th><th>Amount</th><th>Status</th><th>Paid date</th><th>Actions</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
       </section>
     `;
   }
 
   function pageHead() {
-    const isApiBackedInvoices = invoices().some(invoice => invoice.isApiBacked);
     return `
       <div class="page-head">
         <div>
           <div class="title-row"><h1>Invoices</h1></div>
           <p class="muted" style="margin-top:10px">Create invoices from ready billable events, review draft documents, and track payment status.</p>
         </div>
-        <div class="page-actions">${isApiBackedInvoices ? "" : `${button("New invoice", "open-create", "primary")} ${button("Finance settings", "finance-settings")}`}</div>
+        <div class="page-actions">${button("New invoice", "open-create", "primary")} ${button("Finance settings", "finance-settings")}</div>
       </div>
     `;
   }
@@ -723,14 +654,6 @@
   }
 
   function renderActionPanel() {
-    const isApiBackedInvoices = invoices().some(invoice => invoice.isApiBacked);
-    if (isApiBackedInvoices) {
-      return `
-        <section class="panel pad" style="margin-bottom: 24px;">
-          <p class="muted">API invoices are read-only in this stage.</p>
-        </section>
-      `;
-    }
     return `
       <section class="jobs-action-panel invoice-action-panel">
         ${renderActionColumn("Ready to invoice", groupedReadyCards(), renderReadyCard)}
@@ -823,37 +746,7 @@
   }
 
   function renderInvoiceRegisterSection(title, description, items, tone = "primary") {
-    const rows = items.map((invoice) => {
-      if (invoice.isApiBacked) {
-        const nameParts = [invoice.firstName, invoice.lastName].filter(Boolean).join(" ");
-        const clientName = invoice.customerName || invoice.companyName || nameParts || "Unknown customer";
-        const propertyName = invoice.propertyLabel || invoice.propertyAddressLine1 || "Property pending";
-        const total = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format((Number(invoice.grossTotalPence) || 0) / 100);
-        const sourceLabel = invoice.sourceType === "manual" ? "Manual" : (invoice.incomeCategory || "Billable events").replace(/_/g, " ");
-        const status = invoice.paymentState || invoice.invoiceStatus || "unknown";
-        const dateStr = invoice.createdAt ? invoice.createdAt.split("T")[0] : "Draft";
-        const dueDateStr = invoice.dueDate ? invoice.dueDate.split("T")[0] : "Not set";
-
-        return `
-          <tr data-invoice-row="${escapeHtml(invoice.id)}" tabindex="0" role="button">
-            <td><strong>${escapeHtml(invoice.invoiceNumber || invoice.invoiceDisplayRef)}</strong><br><span class="muted">${escapeHtml(sourceLabel)}</span></td>
-            <td>${escapeHtml(clientName)}<br><span class="muted">${escapeHtml(propertyName)}</span></td>
-            <td>${escapeHtml("Current period")}</td>
-            <td>${escapeHtml(total)}</td>
-            <td>${chip(statusLabels[status] || status, statusTones[status] || "info")}</td>
-            <td>${escapeHtml(dateStr)}</td>
-            <td>${escapeHtml(dueDateStr)}</td>
-            <td>${escapeHtml(invoice.paymentState === "paid" ? "Paid" : "-")}</td>
-            <td>
-              <div class="row-menu-wrap">
-                <span class="muted">Read-only</span>
-              </div>
-            </td>
-          </tr>
-        `;
-      }
-
-      return `
+    const rows = items.map((invoice) => `
       <tr data-invoice-row="${escapeHtml(invoice.id)}" data-invoice-action="open-editor:${escapeHtml(invoice.id)}" tabindex="0" role="button">
         <td><strong>${escapeHtml(invoice.invoice_ref)}</strong><br><span class="muted">${escapeHtml(invoice.source === "manual" ? "Manual" : "Billable events")}</span></td>
         <td>${escapeHtml(displayClientById(invoice.client_id))}<br><span class="muted">${escapeHtml(invoiceServiceAddress(invoice))}</span></td>
@@ -869,8 +762,7 @@
           </div>
         </td>
       </tr>
-      `;
-    }).join("");
+    `).join("");
     return `
       <article class="panel invoices-register-panel${tone === "secondary" ? " secondary-register" : ""}">
         <div class="panel-head">
@@ -896,16 +788,15 @@
 
   function renderRowMenu(invoice) {
     const locked = invoice.status === "void";
-    const apiBacked = !!invoice.isApiBacked;
     return `
       <div class="client-more-menu job-row-menu invoice-row-menu">
         <button type="button" data-invoice-action="open-editor:${escapeHtml(invoice.id)}">Open editor</button>
         <button type="button" data-invoice-action="preview:${escapeHtml(invoice.id)}">Preview document</button>
-        ${!locked && !apiBacked ? `<button type="button" data-invoice-action="confirm-ready:${escapeHtml(invoice.id)}">Mark ready to send</button>` : ""}
-        ${!locked && !apiBacked ? `<button type="button" data-invoice-action="confirm-sent:${escapeHtml(invoice.id)}">Mark sent</button>` : ""}
-        ${!locked && !apiBacked ? `<button type="button" data-invoice-action="confirm-paid:${escapeHtml(invoice.id)}">Mark paid</button>` : ""}
-        ${!locked && !apiBacked ? `<button type="button" data-invoice-action="part-paid:${escapeHtml(invoice.id)}">Mark part-paid</button>` : ""}
-        ${!locked && !apiBacked ? `<button type="button" data-invoice-action="confirm-void:${escapeHtml(invoice.id)}">Void</button>` : ""}
+        ${!locked ? `<button type="button" data-invoice-action="confirm-ready:${escapeHtml(invoice.id)}">Mark ready to send</button>` : ""}
+        ${!locked ? `<button type="button" data-invoice-action="confirm-sent:${escapeHtml(invoice.id)}">Mark sent</button>` : ""}
+        ${!locked ? `<button type="button" data-invoice-action="confirm-paid:${escapeHtml(invoice.id)}">Mark paid</button>` : ""}
+        ${!locked ? `<button type="button" data-invoice-action="part-paid:${escapeHtml(invoice.id)}">Mark part-paid</button>` : ""}
+        ${!locked ? `<button type="button" data-invoice-action="confirm-void:${escapeHtml(invoice.id)}">Void</button>` : ""}
         <button type="button" data-invoice-action="mock:Duplicate invoice">Duplicate mock</button>
       </div>
     `;
@@ -1157,8 +1048,8 @@
           <div class="job-editor-actions">
             ${button("Save draft", "save-editor")}
             ${button("Preview document", `preview:${invoice.id}`)}
-            ${invoice.status !== "void" && !invoice.isApiBacked ? button("Mark ready to send", `confirm-ready:${invoice.id}`) : ""}
-            ${invoice.status !== "void" && !invoice.isApiBacked ? button("Mark sent mock", `confirm-sent:${invoice.id}`, "primary") : ""}
+            ${invoice.status !== "void" ? button("Mark ready to send", `confirm-ready:${invoice.id}`) : ""}
+            ${invoice.status !== "void" ? button("Mark sent mock", `confirm-sent:${invoice.id}`, "primary") : ""}
             ${button("Close", "close-editor")}
           </div>
         </article>
@@ -1391,13 +1282,7 @@
   function handleClick(event) {
     const row = event.target.closest("[data-invoice-row]");
     if (row && !event.target.closest("[data-invoice-action]")) {
-      const invoiceId = row.dataset.invoiceRow;
-      const invoice = invoices().find(i => String(i.id) === String(invoiceId));
-      if (invoice && invoice.isApiBacked) {
-        toast("API invoices are read-only in this view.");
-        return true;
-      }
-      state.selectedInvoiceId = invoiceId;
+      state.selectedInvoiceId = row.dataset.invoiceRow;
       state.editorOpen = true;
       closeRowMenu();
       refresh();
@@ -1415,29 +1300,6 @@
     }
     const action = target.dataset.invoiceAction;
     event.preventDefault();
-
-    if (action.includes(":")) {
-      const parts = action.split(":");
-      const prefix = parts[0] + ":";
-      const iId = parts.slice(1).join(":");
-      const guardedPrefixes = [
-        "open-editor:",
-        "preview:",
-        "confirm-ready:",
-        "confirm-sent:",
-        "confirm-paid:",
-        "part-paid:",
-        "confirm-void:",
-        "duplicate-invoice:"
-      ];
-      if (guardedPrefixes.includes(prefix)) {
-        const i = invoices().find(x => String(x.id) === String(iId));
-        if (i && i.isApiBacked) {
-          toast("API invoices are read-only in this view.");
-          return true;
-        }
-      }
-    }
     event.stopPropagation();
 
     if (!action.startsWith("toggle-row-menu:") && state.rowMenuId) {
@@ -1517,22 +1379,13 @@
     }
     if (action.startsWith("create-from-group:")) {
       const key = action.replace("create-from-group:", "");
-      const events = readyBillableEvents().filter((event) => groupKeyForEvent(event) === key);
-      if (events.some(event => event.isApiBacked)) {
-        toast("API billable events are read-only and cannot be invoiced yet.");
-        return true;
-      }
       state.createMode = "events";
-      state.selectedEventIds = events.map((event) => event.id);
+      state.selectedEventIds = readyBillableEvents().filter((event) => groupKeyForEvent(event) === key).map((event) => event.id);
       refresh();
       return true;
     }
     if (action.startsWith("review-event:")) {
       const eventItem = findBillable(action.split(":")[1]);
-      if (eventItem && eventItem.isApiBacked) {
-        toast("API billable events are read-only in this view.");
-        return true;
-      }
       state.modal = {
         type: "mock",
         title: "Needs billing review",
@@ -1695,96 +1548,4 @@
     handleClick,
     handleChange
   };
-
-  async function loadInvoices() {
-    try {
-      const api = await import("./api.js");
-      const fetched = await api.fetchInvoices();
-      state.apiInvoices = fetched.map(inv => {
-        return {
-          ...inv,
-          isApiBacked: true,
-          status: inv.paymentState || inv.invoiceStatus || "unknown",
-          invoice_ref: inv.invoiceNumber,
-          client_id: inv.customerId,
-          property_id: inv.propertyId,
-          invoice_date: inv.createdAt ? inv.createdAt.substring(0, 10) : "",
-          issued_date: inv.createdAt ? inv.createdAt.substring(0, 10) : "",
-          due_date: inv.dueDate || "",
-          paid_date: (inv.paymentState === "paid" || inv.invoiceStatus === "paid") ? (inv.updatedAt ? inv.updatedAt.substring(0, 10) : "") : "",
-          paid_amount: (inv.paymentState === "paid" || inv.invoiceStatus === "paid") ? (inv.grossTotal !== undefined ? Number(inv.grossTotal || 0) : Number(inv.grossTotalPence || 0) / 100) : 0,
-          lines: []
-        };
-      });
-      state.invoicesError = false;
-    } catch (err) {
-      console.error("Failed to load invoices", err);
-      state.invoicesError = true;
-      state.apiInvoices = [];
-    } finally {
-      state.invoicesLoading = false;
-      const root = document.querySelector("[data-invoices-root]");
-      if (root) {
-        root.outerHTML = render();
-      }
-    }
-  }
-
-  async function loadBillableEvents() {
-    try {
-      const api = await import("./api.js");
-      const fetched = await api.fetchBillableEvents();
-      state.apiBillableEvents = fetched.map(event => {
-        return {
-          ...event,
-          isApiBacked: true,
-          status: event.status || "draft",
-          amount: event.amount !== undefined ? Number(event.amount || 0) : Number(event.amountPence || 0) / 100,
-          description: event.description || "API Billable Event",
-          source_job_id: event.jobId,
-          source_report_id: event.reportId,
-          source_scheduled_job_id: event.visitId
-        };
-      });
-      state.eventsError = false;
-    } catch (err) {
-      console.error("Failed to load billable events", err);
-      state.eventsError = true;
-      state.apiBillableEvents = [];
-    } finally {
-      state.eventsLoading = false;
-      const root = document.querySelector("[data-invoices-root]");
-      if (root) {
-        root.outerHTML = render();
-      }
-    }
-  }
-
-  async function loadPayments() {
-    try {
-      const api = await import("./api.js");
-      const fetched = await api.fetchPayments();
-      state.apiPayments = fetched.map(payment => {
-        return {
-          ...payment,
-          isApiBacked: true
-        };
-      });
-      state.paymentsError = false;
-    } catch (err) {
-      console.error("Failed to load payments", err);
-      state.paymentsError = true;
-      state.apiPayments = [];
-    } finally {
-      state.paymentsLoading = false;
-      const root = document.querySelector("[data-invoices-root]");
-      if (root) {
-        root.outerHTML = render();
-      }
-    }
-  }
-
-  loadInvoices();
-  loadBillableEvents();
-  loadPayments();
 })();

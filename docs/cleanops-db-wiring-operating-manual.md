@@ -452,8 +452,10 @@ PowerShell / Node checks:
 & "C:\Program Files\nodejs\node.exe" --check cleanops/api.js
 Get-ChildItem cleanops,functions -Recurse -Filter *.js | ForEach-Object { & "C:\Program Files\nodejs\node.exe" --check $_.FullName }
 git diff --check
-Select-String -Path cleanops/**/*.js,functions/**/*.js -Pattern '\`'
+Select-String -Path cleanops/**/*.js,functions/**/*.js -Pattern '\\`'
 ```
+
+This scan intentionally looks for the escaped sequence backslash + backtick. Do not simplify it to `'\`'`.
 
 Every DB wiring PR must also include:
 

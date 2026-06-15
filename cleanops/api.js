@@ -14,16 +14,51 @@ function buildQuery(options) {
 async function fetchJson(path, options = {}) {
   const url = path + buildQuery(options);
   const response = await fetch(url);
-  
-  if (!response.ok) {
-    throw new Error("HTTP error: " + response.status + " " + response.statusText);
+  let json = null;
+
+  try {
+    json = await response.json();
+  } catch (err) {
+    json = null;
   }
   
-  const json = await response.json();
+  if (!response.ok) {
+    const message = json?.error || "HTTP error: " + response.status + " " + response.statusText;
+    throw new Error(message);
+  }
+  
   if (json && json.ok === false) {
     throw new Error(json.error || "API error");
   }
   
+  return json.data;
+}
+
+async function postJson(path, payload) {
+  const response = await fetch(path, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+  let json = null;
+
+  try {
+    json = await response.json();
+  } catch (err) {
+    json = null;
+  }
+
+  if (!response.ok) {
+    const message = json?.error || "HTTP error: " + response.status + " " + response.statusText;
+    throw new Error(message);
+  }
+
+  if (json && json.ok === false) {
+    throw new Error(json.error || "API error");
+  }
+
   return json.data;
 }
 
@@ -37,6 +72,10 @@ export async function fetchCatalogue(options = {}) {
 
 export async function fetchRequests(options = {}) {
   return fetchJson("/api/cleanops/requests", options);
+}
+
+export async function createRequest(payload) {
+  return postJson("/api/cleanops/requests", payload);
 }
 
 export async function fetchQuotes(options = {}) {

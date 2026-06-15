@@ -11,26 +11,34 @@
   };
 
   const requestStatusLabels = {
+    new: "New",
     new_enquiry: "New enquiry",
     contacted: "Contacted",
     waiting_customer: "Waiting customer",
     assessment_needed: "Assessment needed",
+    quote_needed: "Quote needed",
     quote_required: "Quote required",
+    quoted: "Quoted",
     quote_sent: "Quote sent",
     won: "Won",
     lost: "Lost",
+    not_suitable: "Not suitable",
     archived: "Archived"
   };
 
   const requestStatusTones = {
+    new: "success",
     new_enquiry: "success",
     contacted: "info",
     waiting_customer: "warning",
     assessment_needed: "warning",
+    quote_needed: "warning",
     quote_required: "warning",
+    quoted: "info",
     quote_sent: "info",
     won: "success",
     lost: "danger",
+    not_suitable: "danger",
     archived: "muted"
   };
 
@@ -521,7 +529,21 @@
   function render() {
     if (state.requestsLoading) return `<div class="pad" data-requests-root="true"><span class="muted">Loading requests...</span></div>`;
     if (state.requestsError) return `<div class="pad" data-requests-root="true"><span class="muted">Could not load requests.</span></div>`;
-    if (requests().length === 0) return `<div class="pad" data-requests-root="true"><span class="muted">No requests found.</span></div>`;
+    if (requests().length === 0) {
+      return `
+        <section class="requests-root" data-requests-root="true">
+          <div class="page-head">
+            <div>
+              <div class="title-row"><h1>Requests</h1></div>
+              <p class="muted" style="margin-top:10px">Track enquiries, assessments, and work requests before they become quotes or jobs.</p>
+            </div>
+            <div class="page-actions">${button("New Request", "open-new-request", "primary")}</div>
+          </div>
+          <div class="pad"><span class="muted">No requests found.</span></div>
+          ${state.newRequestOpen ? renderNewRequestModal() : ""}
+        </section>
+      `;
+    }
 
     const request = selectedRequest();
     return `
@@ -534,12 +556,12 @@
   }
 
   function renderList() {
-    const isApiBackedRequests = requests().some(r => r.isApiBacked);
     const rows = requests().map((request) => {
       if (request.isApiBacked) {
         const nameParts = [request.firstName, request.lastName].filter(Boolean).join(" ");
         const clientName = request.companyName || request.customerName || request.clientName || request.client_name || nameParts || "API Customer";
-        const property = request.propertyLabel || request.propertyAddress || request.address || request.propertyName || "Property pending";
+        const propertyAddress = [request.propertyAddressLine1, request.propertyCity, request.propertyPostcode].filter(Boolean).join(", ");
+        const property = request.propertyLabel || propertyAddress || request.propertyAddress || request.address || request.propertyName || "Property pending";
         const dateStr = request.createdAt ? (request.createdAt.split(" ")[0] || request.createdAt.split("T")[0]) : "Unknown";
         return `
           <tr class="request-row" data-request-id="${escapeHtml(request.id)}" tabindex="0" role="button" aria-label="Open ${escapeHtml(request.title || "Request")}">
@@ -575,7 +597,7 @@
           <div class="title-row"><h1>Requests</h1></div>
           <p class="muted" style="margin-top:10px">Track enquiries, assessments, and work requests before they become quotes or jobs.</p>
         </div>
-        <div class="page-actions">${isApiBackedRequests ? "" : button("New Request", "open-new-request", "primary")}</div>
+        <div class="page-actions">${button("New Request", "open-new-request", "primary")}</div>
       </div>
 
       <section class="grid-detail requests-list-layout">
@@ -961,6 +983,8 @@
                 </select>
               </label>
               <label class="client-field wide">New property address <input id="new-request-property-address" type="text" autocomplete="off"></label>
+              <label class="client-field">Town / city <input id="new-request-property-city" type="text" autocomplete="off"></label>
+              <label class="client-field">Postcode / area <input id="new-request-property-postcode" type="text" autocomplete="off"></label>
               <label class="client-field">Property type <select id="new-request-property-type">${optionList(propertyTypeLabels, "unknown")}</select></label>
               <label class="client-field">Bedrooms <select id="new-request-bedrooms">${optionList(bedroomsLabels, "unknown")}</select></label>
               <label class="client-field">Bathrooms <select id="new-request-bathrooms">${optionList(bathroomsLabels, "unknown")}</select></label>
@@ -1026,6 +1050,7 @@
             </div>
           </div>
 
+          <p class="muted" id="new-request-error" role="alert" style="display:none"></p>
           <div class="drawer-actions">
             <button class="button primary" type="button" data-request-action="save-new-request">Save request</button>
             <button class="button ghost" type="button" data-request-action="close-new-request">Cancel</button>
@@ -1053,6 +1078,89 @@
 
   function checked(id) {
     return Boolean(document.getElementById(id)?.checked);
+  }
+
+  function splitClientName(name) {
+    const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+    return {
+      firstName: parts[0] || "",
+      lastName: parts.slice(1).join(" ")
+    };
+  }
+
+  function apiRequestStatus(valueToMap) {
+    const statusMap = {
+      new_enquiry: "new",
+      quote_required: "quote_needed",
+      quote_sent: "quoted"
+    };
+    return statusMap[valueToMap] || valueToMap || "new";
+  }
+
+  function readableSupply(map, valueToRead) {
+    if (!valueToRead || valueToRead === "to_confirm") return "";
+    return labelFrom(map, valueToRead, valueToRead);
+  }
+
+  function appendPracticalNotes(baseNotes, extras) {
+    const practicalNotes = extras.filter(Boolean);
+    return [baseNotes, practicalNotes.join("\n")].filter(Boolean).join("\n");
+  }
+
+  function buildCreateRequestPayload() {
+    const selectedClient = findClient(value("new-request-client"));
+    const selectedProperty = value("new-request-property") ? findAnyProperty(value("new-request-property")).property : null;
+    const clientName = value("new-request-client-name") || displayName(selectedClient);
+    const name = splitClientName(clientName);
+    const propertyNotes = appendPracticalNotes(value("new-request-property-notes"), [
+      value("new-request-pets") && value("new-request-pets") !== "unknown" ? `Pets/access note: ${labelFrom(petsLabels, value("new-request-pets"))}` : "",
+      value("new-request-parking") && value("new-request-parking") !== "unknown" ? `Parking: ${labelFrom(parkingLabels, value("new-request-parking"))}` : ""
+    ]);
+    const cleaningNotes = appendPracticalNotes(value("new-request-cleaning-notes"), [
+      value("new-request-cadence") && value("new-request-cadence") !== "to_confirm" ? `Frequency: ${labelFrom(cadenceLabels, value("new-request-cadence"))}` : "",
+      value("new-request-type") ? `Service: ${labelFrom(requestTypeLabels, value("new-request-type"))}` : ""
+    ]);
+    const internalNotes = appendPracticalNotes(value("new-request-internal-notes"), [
+      value("new-request-next-action") ? `Next action: ${value("new-request-next-action")}` : "",
+      value("new-request-scoping-note") ? `Scoping note: ${value("new-request-scoping-note")}` : ""
+    ]);
+
+    return {
+      customerType: selectedClient?.client_type || selectedClient?.customerType || "individual",
+      firstName: selectedClient?.first_name || name.firstName,
+      lastName: selectedClient?.last_name || name.lastName,
+      companyName: selectedClient?.company_name || selectedClient?.company || "",
+      email: value("new-request-email") || selectedClient?.email || "",
+      phone: value("new-request-phone") || selectedClient?.phone || "",
+      propertyAddressLine1: value("new-request-property-address") || selectedProperty?.address || selectedProperty?.label || selectedProperty?.name || "",
+      propertyCity: value("new-request-property-city") || selectedProperty?.city || selectedProperty?.area || "",
+      propertyPostcode: value("new-request-property-postcode") || selectedProperty?.postcode || "",
+      sourceType: "manual",
+      leadSource: "manual",
+      status: apiRequestStatus(value("new-request-status")),
+      notes: value("new-request-message"),
+      enquiryNotes: value("new-request-message"),
+      propertyNotes,
+      cleaningNotes,
+      internalNotes,
+      cleaningProductsSuppliedBy: readableSupply(supplyLabels, value("new-request-products")),
+      vacuumSuppliedBy: readableSupply(equipmentLabels, value("new-request-vacuum")),
+      mopSuppliedBy: readableSupply(equipmentLabels, value("new-request-mop"))
+    };
+  }
+
+  function setNewRequestSaving(isSaving) {
+    const buttonEl = document.querySelector('[data-request-action="save-new-request"]');
+    if (!buttonEl) return;
+    buttonEl.disabled = isSaving;
+    buttonEl.textContent = isSaving ? "Saving..." : "Save request";
+  }
+
+  function showNewRequestError(message) {
+    const errorEl = document.getElementById("new-request-error");
+    if (!errorEl) return;
+    errorEl.textContent = message;
+    errorEl.style.display = message ? "block" : "none";
   }
 
   function selectedQuoteConsiderations() {
@@ -1218,89 +1326,24 @@
     return property;
   }
 
-  function saveNewRequest() {
-    let client = findClient(value("new-request-client"));
-    if (!client) client = createClientShell();
-    if (!client) return;
+  async function saveNewRequest() {
+    showNewRequestError("");
+    setNewRequestSaving(true);
 
-    const existingPropertyId = value("new-request-property");
-    let property = null;
-    if (existingPropertyId) {
-      const found = findAnyProperty(existingPropertyId);
-      property = found.property;
-      if (found.client && found.client.id !== client.id) client = found.client;
+    try {
+      const api = await import("./api.js");
+      const created = await api.createRequest(buildCreateRequestPayload());
+      state.selectedRequestId = null;
+      state.newRequestOpen = false;
+      state.moreOpen = false;
+      toast(`Created request for ${created?.customerName || "customer"}.`);
+      await loadRequests();
+    } catch (err) {
+      const message = err?.message || "Could not create request.";
+      showNewRequestError(message);
+      toast(message);
+      setNewRequestSaving(false);
     }
-    if (!property) property = createPropertyShell(client);
-
-    const type = value("new-request-type") || "regular_domestic_clean";
-    const pricingBasis = value("new-request-pricing-basis") || "to_confirm";
-    const initialCleanRequired = value("new-request-initial-clean") || "to_confirm";
-    const regularDuration = numericValue("new-request-regular-duration");
-    const initialDuration = numericValue("new-request-initial-duration");
-    const teamSize = numericValue("new-request-team-size");
-    const requestNumber = `REQ-${1047 + requests().length}`;
-    const request = {
-      id: `request-${Date.now()}`,
-      number: requestNumber,
-      title: value("new-request-message").split(".")[0].slice(0, 56) || labelFrom(requestTypeLabels, type, "New request"),
-      client_id: client.id,
-      property_id: property.id,
-      request_type: type,
-      status: value("new-request-status") || "new_enquiry",
-      source: "manual",
-      received_at: "Just now",
-      updated_at: "Just now",
-      next_action: value("new-request-next-action") || "Contact customer",
-      customer_message: value("new-request-message") || "Manual request created by the office.",
-      service_summary: `${labelFrom(requestTypeLabels, type, "Request")} request. Confirm service scope before quote or job creation.`,
-      short_scoping_note: value("new-request-scoping-note") || `${labelFrom(requestTypeLabels, type, "Request")} request. Internal scoping still needs confirmation before quote.`,
-      preferred_cadence: value("new-request-cadence") || "to_confirm",
-      how_soon: value("new-request-how-soon") || "to_confirm",
-      preferred_day: value("new-request-day") || "to_confirm",
-      preferred_time_window: value("new-request-time") || "to_confirm",
-      intake_property_type: property.property_type || "unknown",
-      approx_size: value("new-request-approx-size") || "unknown",
-      bedrooms: property.bedrooms || "unknown",
-      bathrooms: property.bathrooms || "unknown",
-      pets_present: value("new-request-pets") || property.pets_present || "unknown",
-      parking: value("new-request-parking") || property.parking || "unknown",
-      main_priorities: selectedMainPriorities(),
-      photos_helpful: value("new-request-photos") || "to_confirm",
-      cleaning_products: value("new-request-products") || "to_confirm",
-      vacuum_hoover: value("new-request-vacuum") || "to_confirm",
-      mop: value("new-request-mop") || "to_confirm",
-      quote_readiness: value("new-request-quote-readiness") || "needs_contact",
-      assessment_required: value("new-request-assessment") || "to_confirm",
-      assessment_state: prepStateFor(value("new-request-assessment")),
-      initial_clean_required: initialCleanRequired,
-      initial_clean_state: prepStateFor(initialCleanRequired),
-      pricing_basis: pricingBasis,
-      pricing_basis_state: prepStateFor(pricingBasis),
-      estimated_regular_duration_minutes: regularDuration,
-      regular_duration_state: estimateStateFor(regularDuration),
-      estimated_initial_duration_minutes: initialDuration,
-      initial_duration_state: estimateStateFor(initialDuration),
-      estimated_team_size: teamSize,
-      team_size_state: estimateStateFor(teamSize),
-      scope_confidence: value("new-request-scope-confidence") || "to_confirm",
-      quote_considerations: selectedQuoteConsiderations(),
-      property_notes: value("new-request-property-notes") || property.property_notes || "",
-      cleaning_notes: value("new-request-cleaning-notes") || property.cleaning_notes || "",
-      internal_notes: value("new-request-internal-notes"),
-      owner: "Office"
-    };
-
-    requests().unshift(request);
-    client.requests = client.requests || [];
-    client.requests.unshift({ number: request.number, title: request.title, status: requestStatusLabel(request), tone: requestStatusTones[request.status] || "info", propertyId: property.id });
-    client.activeSummary = client.activeSummary || "Request open";
-    client.lastCommunication = "Just now";
-
-    state.selectedRequestId = request.id;
-    state.newRequestOpen = false;
-    state.moreOpen = false;
-    toast(`Created ${request.number}.`);
-    refresh();
   }
 
   function saveReviewRequest() {

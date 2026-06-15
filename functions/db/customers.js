@@ -123,8 +123,11 @@ export async function createCustomer(db, input) {
 
 export async function createProperty(db, input) {
   const query = `
-    INSERT INTO properties (id, customer_id, address_line1, address_line2, city, postcode, country, access_notes)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO properties (
+      id, customer_id, address_line1, address_line2, city, postcode, country, access_notes,
+      property_type, bedrooms, bathrooms, pets_present, parking
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     RETURNING *
   `;
   const row = await db.prepare(query).bind(
@@ -135,7 +138,12 @@ export async function createProperty(db, input) {
     input.city || null,
     input.postcode || null,
     input.country || null,
-    input.accessNotes || null
+    input.accessNotes || null,
+    input.propertyType || null,
+    input.bedrooms || null,
+    input.bathrooms || null,
+    input.petsPresent || null,
+    input.parking || null
   ).first();
   return mapPropertyRow(row);
 }
@@ -173,6 +181,11 @@ export async function updateProperty(db, propertyId, updates) {
   if (updates.addressLine1 !== undefined) { sets.push('address_line1 = ?'); params.push(updates.addressLine1); }
   if (updates.city !== undefined) { sets.push('city = ?'); params.push(updates.city); }
   if (updates.postcode !== undefined) { sets.push('postcode = ?'); params.push(updates.postcode); }
+  if (updates.propertyType !== undefined) { sets.push('property_type = ?'); params.push(updates.propertyType); }
+  if (updates.bedrooms !== undefined) { sets.push('bedrooms = ?'); params.push(updates.bedrooms); }
+  if (updates.bathrooms !== undefined) { sets.push('bathrooms = ?'); params.push(updates.bathrooms); }
+  if (updates.petsPresent !== undefined) { sets.push('pets_present = ?'); params.push(updates.petsPresent); }
+  if (updates.parking !== undefined) { sets.push('parking = ?'); params.push(updates.parking); }
 
   if (sets.length === 0) return await getPropertyById(db, propertyId);
 

@@ -4,6 +4,6 @@ pages_build_output_dir = "."
 
 [[d1_databases]]
 binding = "DB"
-database_name = "pandazen"
-database_id = "be338dc8-af85-4dcd-b0d3-b06e451c313e"
+database_name = "pandazen-cleanops-v2"
+database_id = "a2beb40a-589f-40f9-940e-4d5e71654025"
 migrations_dir = "migrations"

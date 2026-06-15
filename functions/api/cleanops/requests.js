@@ -32,24 +32,36 @@ export async function onRequest(context) {
 
       // Validation
       const hasName = body.firstName || body.lastName || body.companyName;
-      const hasContactOrNotes = body.email || body.phone || body.notes;
+      const hasContactOrNotes = body.email || body.phone || body.notes ||
+                                body.customerMessage || body.propertyNotes ||
+                                body.cleaningNotes || body.internalNotes ||
+                                body.shortScopingNote;
 
       if (!hasName || !hasContactOrNotes) {
         return error("Bad Request: Please provide at least a name and contact info or notes.", 400);
       }
 
-      // Format notes
+      // Format notes for legacy 'notes' column if needed
+      // B2a: we keep requests.notes as a legacy/backward-compatible field.
       const notesBlocks = [];
       if (body.sourceType) notesBlocks.push(`Lead source: ${body.sourceType}`);
-      if (body.notes) notesBlocks.push(`Customer enquiry:\n${body.notes}`);
+
+      const customerMessage = body.customerMessage !== undefined ? body.customerMessage : body.notes;
+      if (customerMessage) notesBlocks.push(`Customer enquiry:\n${customerMessage}`);
+
       if (body.propertyNotes) notesBlocks.push(`Property notes:\n${body.propertyNotes}`);
       if (body.cleaningNotes) notesBlocks.push(`Cleaning notes:\n${body.cleaningNotes}`);
       if (body.internalNotes) notesBlocks.push(`Internal notes:\n${body.internalNotes}`);
-      
+
       const setupBlocks = [];
-      if (body.cleaningProductsSuppliedBy) setupBlocks.push(`* Cleaning products supplied by: ${body.cleaningProductsSuppliedBy}`);
-      if (body.vacuumSuppliedBy) setupBlocks.push(`* Vacuum supplied by: ${body.vacuumSuppliedBy}`);
-      if (body.mopSuppliedBy) setupBlocks.push(`* Mop supplied by: ${body.mopSuppliedBy}`);
+      if (body.cleaningProducts) setupBlocks.push(`* Cleaning products supplied by: ${body.cleaningProducts}`);
+      else if (body.cleaningProductsSuppliedBy) setupBlocks.push(`* Cleaning products supplied by: ${body.cleaningProductsSuppliedBy}`);
+
+      if (body.vacuumHoover) setupBlocks.push(`* Vacuum supplied by: ${body.vacuumHoover}`);
+      else if (body.vacuumSuppliedBy) setupBlocks.push(`* Vacuum supplied by: ${body.vacuumSuppliedBy}`);
+
+      if (body.mop) setupBlocks.push(`* Mop supplied by: ${body.mop}`);
+      else if (body.mopSuppliedBy) setupBlocks.push(`* Mop supplied by: ${body.mopSuppliedBy}`);
 
       if (setupBlocks.length > 0) {
         notesBlocks.push(`Setup:\n${setupBlocks.join('\n')}`);
@@ -65,7 +77,7 @@ export async function onRequest(context) {
       if (body.email) {
         customer = await getCustomerByEmail(db, body.email);
       }
-      
+
       if (!customer) {
         customer = await createCustomer(db, {
           id: `cust-${crypto.randomUUID()}`,
@@ -79,16 +91,24 @@ export async function onRequest(context) {
         });
       }
 
-      // Create property if address provided
+      // Create property if address or property facts provided
       let property = null;
-      if (body.propertyAddressLine1 || body.propertyCity || body.propertyPostcode) {
+      if (
+        body.propertyAddressLine1 || body.propertyCity || body.propertyPostcode ||
+        body.propertyType || body.bedrooms || body.bathrooms || body.petsPresent || body.parking
+      ) {
         property = await createProperty(db, {
           id: `prop-${crypto.randomUUID()}`,
           customerId: customer.id,
           addressLine1: body.propertyAddressLine1,
           city: body.propertyCity,
           postcode: body.propertyPostcode,
-          accessNotes: body.propertyNotes
+          accessNotes: body.accessNotes, // not propertyNotes! propertyNotes goes to request in B2a
+          propertyType: body.propertyType,
+          bedrooms: body.bedrooms,
+          bathrooms: body.bathrooms,
+          petsPresent: body.petsPresent,
+          parking: body.parking
         });
       }
 
@@ -100,7 +120,33 @@ export async function onRequest(context) {
         propertyId: property ? property.id : null,
         sourceType: finalSourceType,
         status: body.status || 'new',
-        notes: formattedNotes
+        notes: formattedNotes, // legacy field
+        requestType: body.requestType,
+        cadence: body.cadence,
+        howSoon: body.howSoon,
+        preferredDay: body.preferredDay,
+        preferredTimeWindow: body.preferredTimeWindow,
+        approxSize: body.approxSize,
+        photosHelpful: body.photosHelpful,
+        quoteReadiness: body.quoteReadiness,
+        assessmentRequired: body.assessmentRequired,
+        initialCleanRequired: body.initialCleanRequired,
+        pricingBasis: body.pricingBasis,
+        estimatedRegularDurationMinutes: body.estimatedRegularDurationMinutes,
+        estimatedInitialDurationMinutes: body.estimatedInitialDurationMinutes,
+        estimatedTeamSize: body.estimatedTeamSize,
+        scopeConfidence: body.scopeConfidence,
+        mainPriorities: body.mainPriorities,
+        quoteConsiderations: body.quoteConsiderations,
+        cleaningProducts: body.cleaningProducts || body.cleaningProductsSuppliedBy,
+        vacuumHoover: body.vacuumHoover || body.vacuumSuppliedBy,
+        mop: body.mop || body.mopSuppliedBy,
+        setupConfirmed: body.setupConfirmed,
+        customerMessage: body.customerMessage || body.notes,
+        shortScopingNote: body.shortScopingNote,
+        propertyNotes: body.propertyNotes,
+        cleaningNotes: body.cleaningNotes,
+        internalNotes: body.internalNotes
       });
 
       const enrichedRequest = await getRequestById(db, reqId);

@@ -17,6 +17,11 @@ function mapRequestRow(row) {
     firstName: row.first_name,
     lastName: row.last_name,
     companyName: row.company_name,
+    customerName: row.company_name || [row.first_name, row.last_name].filter(Boolean).join(" ") || null,
+    propertyLabel: row.address_line1 || null,
+    propertyAddressLine1: row.address_line1,
+    propertyCity: row.city,
+    propertyPostcode: row.postcode,
     email: row.email,
     phone: row.phone
   };
@@ -25,9 +30,10 @@ function mapRequestRow(row) {
 export async function listRequests(db, options = {}) {
   let query = `
     SELECT r.*, 
-           c.type AS customer_type, c.first_name, c.last_name, c.company_name, c.email, c.phone
+           c.type AS customer_type, c.first_name, c.last_name, c.company_name, c.email, c.phone, p.address_line1, p.city, p.postcode
     FROM requests r
     LEFT JOIN customers c ON c.id = r.customer_id
+    LEFT JOIN properties p ON p.id = r.property_id
     WHERE 1=1
   `;
   const params = [];
@@ -82,6 +88,7 @@ export async function getRequestById(db, requestId) {
            c.type AS customer_type, c.first_name, c.last_name, c.company_name, c.email, c.phone
     FROM requests r
     LEFT JOIN customers c ON c.id = r.customer_id
+    LEFT JOIN properties p ON p.id = r.property_id
     WHERE r.id = ?
   `;
   const row = await db.prepare(query).bind(requestId).first();

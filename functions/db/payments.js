@@ -15,31 +15,33 @@ function mapPaymentRecordRow(row) {
     notes: row.notes,
     paidAt: row.paid_at,
     createdAt: row.created_at,
-    updatedAt: row.updated_at
+    updatedAt: row.updated_at,
+    invoiceDisplayRef: row.invoice_number,
+    customerName: row.company_name || [row.first_name, row.last_name].filter(Boolean).join(" ") || null
   };
 }
 
 export async function listPaymentRecords(db, options = {}) {
-  let query = "SELECT * FROM payment_records WHERE 1=1";
+  let query = "SELECT p.*, i.invoice_number, c.first_name, c.last_name, c.company_name FROM payment_records p LEFT JOIN invoices i ON i.id = p.invoice_id LEFT JOIN customers c ON c.id = i.customer_id WHERE 1=1";
   const params = [];
 
   if (options.invoiceId) {
-    query += " AND invoice_id = ?";
+    query += " AND p.invoice_id = ?";
     params.push(options.invoiceId);
   }
   if (options.status) {
-    query += " AND status = ?";
+    query += " AND p.status = ?";
     params.push(options.status);
   }
 
-  query += " ORDER BY paid_at DESC, created_at DESC";
+  query += " ORDER BY p.paid_at DESC, p.created_at DESC";
 
   const { results } = await db.prepare(query).bind(...params).all();
   return results.map(mapPaymentRecordRow);
 }
 
 export async function getPaymentRecordById(db, paymentRecordId) {
-  const query = "SELECT * FROM payment_records WHERE id = ?";
+  const query = "SELECT p.*, i.invoice_number, c.first_name, c.last_name, c.company_name FROM payment_records p LEFT JOIN invoices i ON i.id = p.invoice_id LEFT JOIN customers c ON c.id = i.customer_id WHERE p.id = ?";
   const row = await db.prepare(query).bind(paymentRecordId).first();
   return mapPaymentRecordRow(row);
 }

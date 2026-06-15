@@ -18,7 +18,9 @@ function mapJobRow(row) {
     companyName: row.company_name,
     propertyAddressLine1: row.address_line1,
     propertyCity: row.city,
-    propertyPostcode: row.postcode
+    propertyPostcode: row.postcode,
+    customerName: row.company_name || [row.first_name, row.last_name].filter(Boolean).join(" ") || null,
+    propertyLabel: row.address_line1 || null
   };
 }
 

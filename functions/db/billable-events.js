@@ -13,32 +13,36 @@ function mapBillableEventRow(row) {
     amountPence: row.amount_pence,
     displayAmount: fromPence(row.amount_pence),
     createdAt: row.created_at,
-    updatedAt: row.updated_at
+    updatedAt: row.updated_at,
+    scheduledStart: row.scheduled_start,
+    scheduledEnd: row.scheduled_end,
+    invoiceDisplayRef: row.invoice_number,
+    customerName: row.company_name || [row.first_name, row.last_name].filter(Boolean).join(" ") || null
   };
 }
 
 export async function listBillableEvents(db, options = {}) {
-  let query = "SELECT * FROM billable_events WHERE 1=1";
+  let query = "SELECT b.*, v.scheduled_start, v.scheduled_end, j.customer_id, i.invoice_number, c.first_name, c.last_name, c.company_name FROM billable_events b LEFT JOIN visits v ON v.id = b.visit_id LEFT JOIN jobs j ON j.id = b.job_id LEFT JOIN invoices i ON i.id = b.invoice_id LEFT JOIN customers c ON c.id = j.customer_id WHERE 1=1";
   const params = [];
 
   if (options.status) {
-    query += " AND status = ?";
+    query += " AND b.status = ?";
     params.push(options.status);
   }
   if (options.visitId) {
-    query += " AND visit_id = ?";
+    query += " AND b.visit_id = ?";
     params.push(options.visitId);
   }
   if (options.jobId) {
-    query += " AND job_id = ?";
+    query += " AND b.job_id = ?";
     params.push(options.jobId);
   }
   if (options.invoiceId) {
-    query += " AND invoice_id = ?";
+    query += " AND b.invoice_id = ?";
     params.push(options.invoiceId);
   }
 
-  query += " ORDER BY created_at DESC, id DESC";
+  query += " ORDER BY b.created_at DESC, b.id DESC";
 
   if (options.limit) {
     query += " LIMIT ?";
@@ -54,21 +58,21 @@ export async function listBillableEvents(db, options = {}) {
 }
 
 export async function getBillableEventById(db, billableEventId) {
-  const query = "SELECT * FROM billable_events WHERE id = ?";
+  const query = "SELECT b.*, v.scheduled_start, v.scheduled_end, j.customer_id, i.invoice_number, c.first_name, c.last_name, c.company_name FROM billable_events b LEFT JOIN visits v ON v.id = b.visit_id LEFT JOIN jobs j ON j.id = b.job_id LEFT JOIN invoices i ON i.id = b.invoice_id LEFT JOIN customers c ON c.id = j.customer_id WHERE b.id = ?";
   const row = await db.prepare(query).bind(billableEventId).first();
   return mapBillableEventRow(row);
 }
 
 export async function listUninvoicedBillableEvents(db, options = {}) {
-  let query = "SELECT * FROM billable_events WHERE invoice_id IS NULL";
+  let query = "SELECT b.*, v.scheduled_start, v.scheduled_end, j.customer_id, i.invoice_number, c.first_name, c.last_name, c.company_name FROM billable_events b LEFT JOIN visits v ON v.id = b.visit_id LEFT JOIN jobs j ON j.id = b.job_id LEFT JOIN invoices i ON i.id = b.invoice_id LEFT JOIN customers c ON c.id = j.customer_id WHERE b.invoice_id IS NULL";
   const params = [];
 
   if (options.jobId) {
-    query += " AND job_id = ?";
+    query += " AND b.job_id = ?";
     params.push(options.jobId);
   }
   
-  query += " ORDER BY created_at ASC, id ASC";
+  query += " ORDER BY b.created_at ASC, b.id ASC";
   const { results } = await db.prepare(query).bind(...params).all();
   return results.map(mapBillableEventRow);
 }

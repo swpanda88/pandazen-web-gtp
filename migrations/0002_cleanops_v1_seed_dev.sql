@@ -82,3 +82,8 @@ VALUES ('quote-2', '101', 'Q-00101', 'cust-4', 'prop-4', 'manual_quote', 'non_cl
 
 INSERT INTO quote_lines (id, quote_id, catalogue_item_id, name, quantity, unit_price_pence, net_amount_pence, vat_code, vat_amount_pence, gross_amount_pence)
 VALUES ('qline-2', 'quote-2', 'cat-5', 'Gutter Clearing', 1.0, 15000, 15000, 'not_applicable', 0, 15000);
+
+
+-- 8. Payment Records
+INSERT INTO payment_records (id, invoice_id, amount_pence, payment_method, status, reference, paid_at)
+VALUES ('pay-1', 'inv-2', 4500, 'card', 'recorded', 'stripe_ch_123', '2026-06-13 14:00:00');

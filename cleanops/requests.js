@@ -4,46 +4,30 @@
     selectedRequestId: null,
     newRequestOpen: false,
     reviewRequestOpen: false,
-    moreOpen: false,
-    apiReviewEditing: false,
-    searchTerm: "",
-    statusFilter: "",
-    sourceFilter: "",
-    actionFilter: "",
-    requestsLoading: true,
-    requestsError: false,
-    apiRequests: []
+    moreOpen: false
   };
 
   const requestStatusLabels = {
-    new: "New",
     new_enquiry: "New enquiry",
     contacted: "Contacted",
     waiting_customer: "Waiting customer",
     assessment_needed: "Assessment needed",
-    quote_needed: "Quote needed",
     quote_required: "Quote required",
-    quoted: "Quoted",
     quote_sent: "Quote sent",
     won: "Won",
     lost: "Lost",
-    not_suitable: "Not suitable",
     archived: "Archived"
   };
 
   const requestStatusTones = {
-    new: "success",
     new_enquiry: "success",
     contacted: "info",
     waiting_customer: "warning",
     assessment_needed: "warning",
-    quote_needed: "warning",
     quote_required: "warning",
-    quoted: "info",
     quote_sent: "info",
     won: "success",
     lost: "danger",
-    not_suitable: "danger",
     archived: "muted"
   };
 
@@ -76,32 +60,6 @@
     referral: "Referral",
     manual: "Manual",
     repeat_customer: "Repeat customer",
-    other: "Other"
-  };
-
-  const apiRequestStatusLabels = {
-    new: "New",
-    contacted: "Contacted",
-    waiting_customer: "Waiting customer",
-    assessment_needed: "Assessment needed",
-    quote_needed: "Quote needed",
-    quoted: "Quoted",
-    won: "Won",
-    lost: "Lost",
-    not_suitable: "Not suitable",
-    archived: "Archived"
-  };
-
-  const apiSourceLabels = {
-    request: "Request",
-    assessment: "Assessment",
-    job: "Job",
-    visit: "Visit",
-    billable_event: "Billable event",
-    manual: "Manual",
-    manual_quote: "Manual quote",
-    manual_invoice: "Manual invoice",
-    imported: "Imported",
     other: "Other"
   };
 
@@ -334,11 +292,6 @@
     return `<button class="${classes}" type="button" data-request-action="${escapeHtml(action)}">${escapeHtml(label)}</button>`;
   }
 
-  function disabledButton(label, note = "Coming next", variant = "") {
-    const classes = ["button", variant].filter(Boolean).join(" ");
-    return `<button class="${classes}" type="button" disabled aria-disabled="true" title="${escapeHtml(note)}">${escapeHtml(label)} - ${escapeHtml(note)}</button>`;
-  }
-
   function toast(message) {
     window.CleanOpsShell?.toast?.(message);
   }
@@ -354,7 +307,6 @@
   }
 
   function requests() {
-    if (state.apiRequests && state.apiRequests.length) return state.apiRequests;
     if (!Array.isArray(data.requests)) data.requests = [];
     return data.requests;
   }
@@ -386,61 +338,6 @@
 
   function selectedRequest() {
     return state.selectedRequestId ? requests().find((request) => request.id === state.selectedRequestId) : null;
-  }
-
-  function requestClientText(request) {
-    if (request.isApiBacked) {
-      return [request.customerName, request.firstName, request.lastName, request.companyName, request.email, request.phone].filter(Boolean).join(" ");
-    }
-    const client = findClient(request.client_id);
-    return [displayName(client), client?.email, client?.phone].filter(Boolean).join(" ");
-  }
-
-  function requestPropertyText(request) {
-    if (request.isApiBacked) {
-      return [request.propertyLabel, request.propertyAddressLine1, request.propertyCity, request.propertyPostcode, request.propertyAddress, request.address, request.propertyName].filter(Boolean).join(" ");
-    }
-    const property = findProperty(request.client_id, request.property_id) || findAnyProperty(request.property_id).property;
-    return [propertyLabel(property), property?.address, propertyArea(property), property?.postcode].filter(Boolean).join(" ");
-  }
-
-  function requestSourceValue(request) {
-    return request.sourceType || request.leadSource || request.source || "other";
-  }
-
-  function requestActionValue(request) {
-    return request.isApiBacked ? "review" : (request.next_action || "Review request");
-  }
-
-  function requestSearchText(request) {
-    return [
-      request.title,
-      request.number,
-      request.id,
-      requestClientText(request),
-      requestPropertyText(request),
-      request.status,
-      requestStatusLabel(request),
-      requestSourceValue(request),
-      request.notes,
-      request.enquiryNotes,
-      request.propertyNotes,
-      request.cleaningNotes,
-      request.internalNotes,
-      request.customer_message,
-      request.next_action
-    ].filter(Boolean).join(" ").toLowerCase();
-  }
-
-  function filteredRequests() {
-    const term = state.searchTerm.trim().toLowerCase();
-    return requests().filter((request) => {
-      if (term && !requestSearchText(request).includes(term)) return false;
-      if (state.statusFilter && request.status !== state.statusFilter) return false;
-      if (state.sourceFilter && requestSourceValue(request) !== state.sourceFilter) return false;
-      if (state.actionFilter && requestActionValue(request) !== state.actionFilter) return false;
-      return true;
-    });
   }
 
   function requestStatusLabel(request) {
@@ -617,54 +514,11 @@
     `;
   }
 
-  function filterOptionList(items, selected, allLabel) {
-    const options = [`<option value="">${escapeHtml(allLabel)}</option>`];
-    items.forEach(({ value: optionValue, label }) => {
-      options.push(`<option value="${escapeHtml(optionValue)}"${optionValue === selected ? " selected" : ""}>${escapeHtml(label)}</option>`);
-    });
-    return options.join("");
-  }
-
-  function statusFilterOptions() {
-    const values = new Set(requests().map((request) => request.status).filter(Boolean));
-    Object.keys(apiRequestStatusLabels).forEach((status) => values.add(status));
-    return Array.from(values).map((status) => ({ value: status, label: requestStatusLabels[status] || status }));
-  }
-
-  function sourceFilterOptions() {
-    const values = Array.from(new Set(requests().map(requestSourceValue).filter(Boolean)));
-    return values.map((source) => ({ value: source, label: apiSourceLabels[source] || sourceLabels[source] || source }));
-  }
-
-  function actionFilterOptions() {
-    const values = Array.from(new Set(requests().map(requestActionValue).filter(Boolean)));
-    return values.map((action) => ({ value: action, label: action === "review" ? "Review" : action }));
-  }
-
   function render() {
-    if (state.requestsLoading) return `<div class="pad" data-requests-root="true"><span class="muted">Loading requests...</span></div>`;
-    if (state.requestsError) return `<div class="pad" data-requests-root="true"><span class="muted">Could not load requests.</span></div>`;
-    if (requests().length === 0) {
-      return `
-        <section class="requests-root" data-requests-root="true">
-          <div class="page-head">
-            <div>
-              <div class="title-row"><h1>Requests</h1></div>
-              <p class="muted" style="margin-top:10px">Track enquiries, assessments, and work requests before they become quotes or jobs.</p>
-            </div>
-            <div class="page-actions">${button("New Request", "open-new-request", "primary")}</div>
-          </div>
-          <div class="pad"><span class="muted">No requests found.</span></div>
-          ${state.newRequestOpen ? renderNewRequestModal() : ""}
-        </section>
-      `;
-    }
-
     const request = selectedRequest();
-    const mainContent = request && !state.reviewRequestOpen ? renderDetail(request) : renderList();
     return `
       <section class="requests-root" data-requests-root="true">
-        ${mainContent}
+        ${request ? renderDetail(request) : renderList()}
         ${state.newRequestOpen ? renderNewRequestModal() : ""}
         ${state.reviewRequestOpen && request ? renderReviewRequestModal(request) : ""}
       </section>
@@ -672,27 +526,7 @@
   }
 
   function renderList() {
-    const visibleRequests = filteredRequests();
-    const rows = visibleRequests.map((request) => {
-      if (request.isApiBacked) {
-        const nameParts = [request.firstName, request.lastName].filter(Boolean).join(" ");
-        const clientName = request.companyName || request.customerName || request.clientName || request.client_name || nameParts || "API Customer";
-        const propertyAddress = [request.propertyAddressLine1, request.propertyCity, request.propertyPostcode].filter(Boolean).join(", ");
-        const property = request.propertyLabel || propertyAddress || request.propertyAddress || request.address || request.propertyName || "Property pending";
-        const dateStr = request.createdAt ? (request.createdAt.split(" ")[0] || request.createdAt.split("T")[0]) : "Unknown";
-        return `
-          <tr class="request-row" data-request-id="${escapeHtml(request.id)}" tabindex="0" role="button" aria-label="Open ${escapeHtml(request.title || "Request")}">
-            <td><strong>${escapeHtml(request.title || "Request")}</strong><br><span class="muted">${escapeHtml(request.number || request.id)}</span></td>
-            <td>${escapeHtml(clientName)}</td>
-            <td><strong>${escapeHtml(property)}</strong><br><span class="muted">${escapeHtml(request.propertyPostcode || request.propertyCity || "Property")}</span></td>
-            <td>${requestTypeChip(request)}</td>
-            <td>${requestStatusChip(request)}</td>
-            <td>${escapeHtml("Review")}</td>
-            <td>${escapeHtml(dateStr)}</td>
-          </tr>
-        `;
-      }
-
+    const rows = requests().map((request) => {
       const client = findClient(request.client_id);
       const property = findProperty(request.client_id, request.property_id) || findAnyProperty(request.property_id).property;
       return `
@@ -720,12 +554,12 @@
       <section class="grid-detail requests-list-layout">
         <article class="panel">
           <div class="filters">
-            <input class="inputish" type="search" data-request-filter="search" value="${escapeHtml(state.searchTerm)}" placeholder="Search requests" aria-label="Search requests">
-            <select class="selectish" data-request-filter="status" aria-label="Filter by status">${filterOptionList(statusFilterOptions(), state.statusFilter, "All statuses")}</select>
-            <select class="selectish" data-request-filter="source" aria-label="Filter by source">${filterOptionList(sourceFilterOptions(), state.sourceFilter, "All sources")}</select>
-            <select class="selectish" data-request-filter="action" aria-label="Filter by next action">${filterOptionList(actionFilterOptions(), state.actionFilter, "All next actions")}</select>
+            <span class="inputish">Search requests</span>
+            <span class="selectish">All statuses</span>
+            <span class="selectish">All request types</span>
+            <span class="selectish">Next action</span>
           </div>
-          ${rows.length ? table(["Request", "Client", "Property / area", "Type", "Status", "Next action", "Received / updated"], rows) : `<div class="empty mini"><div class="empty-icon">0</div><div><h3>No matching requests</h3><p class="muted">Adjust search or filters to show more requests.</p></div></div>`}
+          ${table(["Request", "Client", "Property / area", "Type", "Status", "Next action", "Received / updated"], rows)}
         </article>
 
         <aside class="panel pad">
@@ -745,7 +579,9 @@
           <div>
             <h2>Current mix</h2>
             <div class="request-summary-counts">
-              ${renderStatusSummaryCounts()}
+              ${summaryCount("New", "new_enquiry")}
+              ${summaryCount("Needs quote", "quote_required")}
+              ${summaryCount("Waiting", "waiting_customer")}
             </div>
           </div>
         </aside>
@@ -753,22 +589,9 @@
     `;
   }
 
-  function summaryCount(label, statuses) {
-    const statusList = Array.isArray(statuses) ? statuses : [statuses];
-    const count = requests().filter((request) => statusList.includes(request.status)).length;
+  function summaryCount(label, status) {
+    const count = requests().filter((request) => request.status === status).length;
     return `<div class="field-row"><span>${escapeHtml(label)}</span><strong>${escapeHtml(count)}</strong></div>`;
-  }
-
-  function renderStatusSummaryCounts() {
-    const statusOrder = ["new", "contacted", "waiting_customer", "assessment_needed", "quote_needed", "quoted", "won", "lost", "not_suitable", "archived"];
-    const legacyGroups = {
-      new: ["new", "new_enquiry"],
-      quote_needed: ["quote_needed", "quote_required"],
-      quoted: ["quoted", "quote_sent"]
-    };
-    return statusOrder
-      .map((status) => summaryCount(apiRequestStatusLabels[status] || requestStatusLabels[status] || status, legacyGroups[status] || status))
-      .join("");
   }
 
   function renderDetail(request) {
@@ -795,10 +618,10 @@
         </div>
         <div class="page-actions">
           ${button("Review request", "open-review-request", "primary")}
-          ${disabledButton("Contact customer", "Coming next", "primary")}
-          ${disabledButton("Create quote", "Coming next")}
-          ${disabledButton("Create job", "Coming next")}
-          ${disabledButton("Schedule assessment", "Coming next")}
+          ${button("Contact customer", "contact-customer", "primary")}
+          ${button("Create quote", "create-quote")}
+          ${button("Create job", "create-job")}
+          ${button("Schedule assessment", "schedule-assessment")}
           <div class="client-more-wrap">
             ${button("More actions", "toggle-more")}
             ${state.moreOpen ? renderMoreMenu(request, client, property) : ""}
@@ -809,7 +632,7 @@
       <section class="grid-detail">
         <div class="stack">
           <article class="panel">
-            <div class="panel-head"><h2>Request summary</h2>${disabledButton("Mark lost/archive", "Coming next", "small")}</div>
+            <div class="panel-head"><h2>Request summary</h2>${button("Mark lost/archive", "mark-lost-archive", "small")}</div>
             <div class="panel-body request-summary-grid">
               <div>
                 <h3>Linked records</h3>
@@ -868,7 +691,7 @@
           </article>
 
           <article class="panel">
-            <div class="panel-head"><h2>Internal quote prep</h2>${disabledButton("Create quote", "Coming next", "small primary")}</div>
+            <div class="panel-head"><h2>Internal quote prep</h2>${button("Create quote", "create-quote", "small primary")}</div>
             <div class="panel-body request-summary-grid">
               <div>
                 <h3>Readiness</h3>
@@ -900,7 +723,7 @@
           </article>
 
           <article class="panel">
-            <div class="panel-head"><h2>Notes and communication</h2>${disabledButton("Add note", "Coming next", "small")}</div>
+            <div class="panel-head"><h2>Notes and communication</h2>${button("Add note", "add-note", "small")}</div>
             <div class="panel-body request-note-grid">
               ${noteBlock("Property notes", request.property_notes)}
               ${noteBlock("Cleaning notes", request.cleaning_notes)}
@@ -929,9 +752,9 @@
             <div>
               <h2>Actions</h2>
               <div class="stack request-side-actions">
-                ${disabledButton("Schedule assessment/visit", "Coming next", "primary")}
-                ${disabledButton("Create quote", "Coming next")}
-                ${disabledButton("Create job", "Coming next")}
+                ${button("Schedule assessment/visit", "schedule-assessment", "primary")}
+                ${button("Create quote", "create-quote")}
+                ${button("Create job", "create-job")}
               </div>
             </div>
           </article>
@@ -954,7 +777,7 @@
     return `
       <div class="client-more-menu" role="menu">
         <p class="eyebrow">Request tools</p>
-        ${items.map((item) => `<button type="button" disabled aria-disabled="true" title="Coming next">${escapeHtml(item)} - Coming next</button>`).join("")}
+        ${items.map((item) => `<button type="button" data-request-more="${escapeHtml(item)}">${escapeHtml(item)}</button>`).join("")}
         <p class="muted menu-context">Context: ${escapeHtml(request.number)} / ${escapeHtml(displayName(client))}${property ? ` / ${escapeHtml(propertyLabel(property))}` : ""}</p>
       </div>
     `;
@@ -980,285 +803,7 @@
     return Array.isArray(items) && items.includes(key) ? " checked" : "";
   }
 
-  function displayValue(value, fallback = "Not recorded") {
-    return value === undefined || value === null || value === "" ? fallback : value;
-  }
-
-  function apiPropertyLabel(request) {
-    return request.propertyLabel || [request.propertyAddressLine1, request.propertyCity, request.propertyPostcode].filter(Boolean).join(", ") || "Property pending";
-  }
-
-  function apiRequestTitle(request) {
-    return request.customerName || request.companyName || [request.firstName, request.lastName].filter(Boolean).join(" ") || "Request";
-  }
-
-  function notesSection(notes, heading) {
-    if (!notes) return "";
-    const marker = `${heading}:\n`;
-    const start = notes.indexOf(marker);
-    if (start === -1) return "";
-    const rest = notes.slice(start + marker.length);
-    const next = rest.search(/\n\n(?:Customer enquiry|Property notes|Cleaning notes|Internal notes|Setup):\n/);
-    return (next === -1 ? rest : rest.slice(0, next)).trim();
-  }
-
-  function setupLine(notes, label) {
-    const setup = notesSection(notes, "Setup");
-    if (!setup) return "";
-    const prefix = `* ${label}: `;
-    const line = setup.split("\n").find((item) => item.startsWith(prefix));
-    return line ? line.slice(prefix.length).trim() : "";
-  }
-
-  function reviewField(label, value) {
-    return `<div class="field-row"><span>${escapeHtml(label)}</span><strong>${escapeHtml(displayValue(value))}</strong></div>`;
-  }
-
-  function reviewTextBlock(title, value) {
-    return `
-      <div class="request-note-block">
-        <h3>${escapeHtml(title)}</h3>
-        <p class="muted">${escapeHtml(displayValue(value, "None recorded."))}</p>
-      </div>
-    `;
-  }
-
-  function apiReviewValues(request) {
-    const notes = request.notes || "";
-    return {
-      customerType: request.customerType || "individual",
-      firstName: request.firstName || "",
-      lastName: request.lastName || "",
-      companyName: request.companyName || "",
-      email: request.email || "",
-      phone: request.phone || "",
-      propertyAddressLine1: request.propertyAddressLine1 || "",
-      propertyCity: request.propertyCity || "",
-      propertyPostcode: request.propertyPostcode || "",
-      status: apiRequestStatusLabels[request.status] ? request.status : "new",
-      sourceType: apiSourceLabels[request.sourceType] ? request.sourceType : "other",
-      notes: request.enquiryNotes || notesSection(notes, "Customer enquiry") || notes,
-      propertyNotes: request.propertyNotes || notesSection(notes, "Property notes"),
-      cleaningNotes: request.cleaningNotes || notesSection(notes, "Cleaning notes"),
-      internalNotes: request.internalNotes || notesSection(notes, "Internal notes"),
-      cleaningProductsSuppliedBy: request.cleaningProductsSuppliedBy || setupLine(notes, "Cleaning products supplied by"),
-      vacuumSuppliedBy: request.vacuumSuppliedBy || setupLine(notes, "Vacuum supplied by"),
-      mopSuppliedBy: request.mopSuppliedBy || setupLine(notes, "Mop supplied by")
-    };
-  }
-
-  function editField(id, label, value, type = "text") {
-    return `<label class="client-field">${escapeHtml(label)} <input id="${escapeHtml(id)}" type="${escapeHtml(type)}" value="${escapeHtml(value || "")}" autocomplete="off"></label>`;
-  }
-
-  function editTextarea(id, label, value) {
-    return `<label class="client-field wide">${escapeHtml(label)} <textarea id="${escapeHtml(id)}" rows="3">${escapeHtml(value || "")}</textarea></label>`;
-  }
-
-  function editSelect(id, label, options, selected) {
-    return `<label class="client-field">${escapeHtml(label)} <select id="${escapeHtml(id)}">${optionList(options, selected)}</select></label>`;
-  }
-
-  function apiReviewValue(id) {
-    return value("api-review-" + id);
-  }
-
-  function buildUpdateRequestPayload() {
-    return {
-      customerType: apiReviewValue("customer-type"),
-      firstName: apiReviewValue("first-name"),
-      lastName: apiReviewValue("last-name"),
-      companyName: apiReviewValue("company-name"),
-      email: apiReviewValue("email"),
-      phone: apiReviewValue("phone"),
-      propertyAddressLine1: apiReviewValue("property-address-line1"),
-      propertyCity: apiReviewValue("property-city"),
-      propertyPostcode: apiReviewValue("property-postcode"),
-      status: apiReviewValue("status"),
-      sourceType: apiReviewValue("source-type"),
-      notes: apiReviewValue("notes"),
-      enquiryNotes: apiReviewValue("notes"),
-      propertyNotes: apiReviewValue("property-notes"),
-      cleaningNotes: apiReviewValue("cleaning-notes"),
-      internalNotes: apiReviewValue("internal-notes"),
-      cleaningProductsSuppliedBy: apiReviewValue("cleaning-products-supplied-by"),
-      vacuumSuppliedBy: apiReviewValue("vacuum-supplied-by"),
-      mopSuppliedBy: apiReviewValue("mop-supplied-by")
-    };
-  }
-
-  function setApiReviewSaving(isSaving) {
-    const buttonEl = document.querySelector('[data-request-action="save-api-request"]');
-    if (!buttonEl) return;
-    buttonEl.disabled = isSaving;
-    buttonEl.textContent = isSaving ? "Saving..." : "Save";
-  }
-
-  function showApiReviewError(message) {
-    const errorEl = document.getElementById("api-review-error");
-    if (!errorEl) return;
-    errorEl.textContent = message;
-    errorEl.style.display = message ? "block" : "none";
-  }
-
-  function renderApiRequestEditModal(request) {
-    const values = apiReviewValues(request);
-    return `
-      <div class="request-modal-backdrop" data-review-backdrop="true">
-        <section class="request-modal" role="dialog" aria-modal="true" aria-label="Edit Request" data-review-modal="true">
-          <div class="drawer-header">
-            <div>
-              <p class="eyebrow">Edit request</p>
-              <h2>${escapeHtml(apiRequestTitle(request))}</h2>
-            </div>
-            <button class="icon-button" type="button" data-request-action="cancel-api-request-edit" aria-label="Close request edit" title="Close"><span>X</span></button>
-          </div>
-
-          <div class="request-form-section">
-            <h3>Customer</h3>
-            <div class="request-form-grid">
-              ${editSelect("api-review-customer-type", "Customer type", { individual: "Individual", company: "Company" }, values.customerType)}
-              ${editField("api-review-first-name", "First name", values.firstName)}
-              ${editField("api-review-last-name", "Last name", values.lastName)}
-              ${editField("api-review-company-name", "Company", values.companyName)}
-              ${editField("api-review-email", "Email", values.email, "email")}
-              ${editField("api-review-phone", "Phone", values.phone, "tel")}
-            </div>
-          </div>
-
-          <div class="request-form-section">
-            <h3>Property</h3>
-            <div class="request-form-grid">
-              ${editField("api-review-property-address-line1", "Address line 1", values.propertyAddressLine1)}
-              ${editField("api-review-property-city", "Town / city", values.propertyCity)}
-              ${editField("api-review-property-postcode", "Postcode", values.propertyPostcode)}
-            </div>
-          </div>
-
-          <div class="request-form-section">
-            <h3>Enquiry / request</h3>
-            <div class="request-form-grid">
-              ${editSelect("api-review-status", "Status", apiRequestStatusLabels, values.status)}
-              ${editSelect("api-review-source-type", "Source", apiSourceLabels, values.sourceType)}
-              ${editTextarea("api-review-notes", "Enquiry notes", values.notes)}
-            </div>
-          </div>
-
-          <div class="request-form-section">
-            <h3>Practical setup</h3>
-            <div class="request-form-grid">
-              ${editField("api-review-cleaning-products-supplied-by", "Cleaning products supplied by", values.cleaningProductsSuppliedBy)}
-              ${editField("api-review-vacuum-supplied-by", "Vacuum supplied by", values.vacuumSuppliedBy)}
-              ${editField("api-review-mop-supplied-by", "Mop supplied by", values.mopSuppliedBy)}
-            </div>
-          </div>
-
-          <div class="request-form-section">
-            <h3>Notes</h3>
-            <div class="request-form-grid">
-              ${editTextarea("api-review-property-notes", "Property notes", values.propertyNotes)}
-              ${editTextarea("api-review-cleaning-notes", "Cleaning notes", values.cleaningNotes)}
-              ${editTextarea("api-review-internal-notes", "Internal notes", values.internalNotes)}
-            </div>
-          </div>
-
-          <p class="muted" id="api-review-error" role="alert" style="display:none"></p>
-          <div class="drawer-actions">
-            <button class="button primary" type="button" data-request-action="save-api-request">Save</button>
-            <button class="button ghost" type="button" data-request-action="cancel-api-request-edit">Cancel</button>
-          </div>
-        </section>
-      </div>
-    `;
-  }
-
-  function renderApiRequestReviewModal(request) {
-    if (state.apiReviewEditing) return renderApiRequestEditModal(request);
-
-    const notes = request.notes || "";
-    const customerEnquiry = request.enquiryNotes || notesSection(notes, "Customer enquiry") || notes;
-    const propertyNotes = request.propertyNotes || notesSection(notes, "Property notes");
-    const cleaningNotes = request.cleaningNotes || notesSection(notes, "Cleaning notes");
-    const internalNotes = request.internalNotes || notesSection(notes, "Internal notes");
-    const productsBy = request.cleaningProductsSuppliedBy || setupLine(notes, "Cleaning products supplied by");
-    const vacuumBy = request.vacuumSuppliedBy || setupLine(notes, "Vacuum supplied by");
-    const mopBy = request.mopSuppliedBy || setupLine(notes, "Mop supplied by");
-    const createdDate = request.createdAt ? (request.createdAt.split(" ")[0] || request.createdAt.split("T")[0]) : "";
-
-    return `
-      <div class="request-modal-backdrop" data-review-backdrop="true">
-        <section class="request-modal" role="dialog" aria-modal="true" aria-label="Request Review" data-review-modal="true">
-          <div class="drawer-header">
-            <div>
-              <p class="eyebrow">Request review</p>
-              <h2>${escapeHtml(apiRequestTitle(request))}</h2>
-            </div>
-            <button class="icon-button" type="button" data-request-action="close-review-request" aria-label="Close request review" title="Close"><span>X</span></button>
-          </div>
-
-          <div class="request-form-section">
-            <h3>Customer</h3>
-            <div class="request-note-grid">
-              ${reviewField("Customer", request.customerName)}
-              ${reviewField("Customer type", request.customerType)}
-              ${reviewField("First name", request.firstName)}
-              ${reviewField("Last name", request.lastName)}
-              ${reviewField("Company", request.companyName)}
-              ${reviewField("Email", request.email)}
-              ${reviewField("Phone", request.phone)}
-            </div>
-          </div>
-
-          <div class="request-form-section">
-            <h3>Property</h3>
-            <div class="request-note-grid">
-              ${reviewField("Property", apiPropertyLabel(request))}
-              ${reviewField("Address line 1", request.propertyAddressLine1)}
-              ${reviewField("Town / city", request.propertyCity)}
-              ${reviewField("Postcode", request.propertyPostcode)}
-            </div>
-          </div>
-
-          <div class="request-form-section">
-            <h3>Enquiry / request</h3>
-            <div class="request-note-grid">
-              ${reviewField("Status", requestStatusLabel(request))}
-              ${reviewField("Source", request.sourceType || request.leadSource)}
-              ${reviewField("Received", createdDate)}
-              ${reviewTextBlock("Enquiry notes", customerEnquiry)}
-            </div>
-          </div>
-
-          <div class="request-form-section">
-            <h3>Practical setup</h3>
-            <div class="request-note-grid">
-              ${reviewField("Cleaning products", productsBy)}
-              ${reviewField("Vacuum", vacuumBy)}
-              ${reviewField("Mop", mopBy)}
-            </div>
-          </div>
-
-          <div class="request-form-section">
-            <h3>Notes</h3>
-            <div class="request-note-grid">
-              ${reviewTextBlock("Property notes", propertyNotes)}
-              ${reviewTextBlock("Cleaning notes", cleaningNotes)}
-              ${reviewTextBlock("Internal notes", internalNotes)}
-            </div>
-          </div>
-
-          <div class="drawer-actions">
-            <button class="button ghost" type="button" data-request-action="edit-api-request">Edit</button>
-            <button class="button primary" type="button" data-request-action="close-review-request">Close</button>
-          </div>
-        </section>
-      </div>
-    `;
-  }
-
   function renderReviewRequestModal(request) {
-    if (request.isApiBacked) return renderApiRequestReviewModal(request);
-
     const property = findProperty(request.client_id, request.property_id) || findAnyProperty(request.property_id).property || {};
     return `
       <div class="request-modal-backdrop" data-review-backdrop="true">
@@ -1368,10 +913,10 @@
             <h3>Client</h3>
             <div class="request-form-grid">
               <label class="client-field wide">Existing client
-                <select disabled aria-disabled="true">
-                  <option>Existing client linking coming next.</option>
+                <select id="new-request-client">
+                  <option value="">Create a new client shell</option>
+                  ${clients().map((client) => `<option value="${escapeHtml(client.id)}">${escapeHtml(displayName(client))}</option>`).join("")}
                 </select>
-                <span class="muted">Existing client linking coming next.</span>
               </label>
               <label class="client-field">New client name <input id="new-request-client-name" type="text" autocomplete="off"></label>
               <label class="client-field">Phone <input id="new-request-phone" type="tel" autocomplete="off"></label>
@@ -1383,14 +928,12 @@
             <h3>Property</h3>
             <div class="request-form-grid">
               <label class="client-field wide">Existing property
-                <select disabled aria-disabled="true">
-                  <option>Existing property linking coming next.</option>
+                <select id="new-request-property">
+                  <option value="">Create a new property shell</option>
+                  ${propertyOptions()}
                 </select>
-                <span class="muted">Existing property linking coming next.</span>
               </label>
               <label class="client-field wide">New property address <input id="new-request-property-address" type="text" autocomplete="off"></label>
-              <label class="client-field">Town / city <input id="new-request-property-city" type="text" autocomplete="off"></label>
-              <label class="client-field">Postcode / area <input id="new-request-property-postcode" type="text" autocomplete="off"></label>
               <label class="client-field">Property type <select id="new-request-property-type">${optionList(propertyTypeLabels, "unknown")}</select></label>
               <label class="client-field">Bedrooms <select id="new-request-bedrooms">${optionList(bedroomsLabels, "unknown")}</select></label>
               <label class="client-field">Bathrooms <select id="new-request-bathrooms">${optionList(bathroomsLabels, "unknown")}</select></label>
@@ -1456,7 +999,6 @@
             </div>
           </div>
 
-          <p class="muted" id="new-request-error" role="alert" style="display:none"></p>
           <div class="drawer-actions">
             <button class="button primary" type="button" data-request-action="save-new-request">Save request</button>
             <button class="button ghost" type="button" data-request-action="close-new-request">Cancel</button>
@@ -1484,87 +1026,6 @@
 
   function checked(id) {
     return Boolean(document.getElementById(id)?.checked);
-  }
-
-  function splitClientName(name) {
-    const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
-    return {
-      firstName: parts[0] || "",
-      lastName: parts.slice(1).join(" ")
-    };
-  }
-
-  function apiRequestStatus(valueToMap) {
-    const statusMap = {
-      new_enquiry: "new",
-      quote_required: "quote_needed",
-      quote_sent: "quoted"
-    };
-    return statusMap[valueToMap] || valueToMap || "new";
-  }
-
-  function readableSupply(map, valueToRead) {
-    if (!valueToRead || valueToRead === "to_confirm") return "";
-    return labelFrom(map, valueToRead, valueToRead);
-  }
-
-  function appendPracticalNotes(baseNotes, extras) {
-    const practicalNotes = extras.filter(Boolean);
-    return [baseNotes, practicalNotes.join("\n")].filter(Boolean).join("\n");
-  }
-
-  function buildCreateRequestPayload() {
-    const clientName = value("new-request-client-name");
-    const name = splitClientName(clientName);
-    const propertyNotes = appendPracticalNotes(value("new-request-property-notes"), [
-      value("new-request-pets") && value("new-request-pets") !== "unknown" ? `Pets/access note: ${labelFrom(petsLabels, value("new-request-pets"))}` : "",
-      value("new-request-parking") && value("new-request-parking") !== "unknown" ? `Parking: ${labelFrom(parkingLabels, value("new-request-parking"))}` : ""
-    ]);
-    const cleaningNotes = appendPracticalNotes(value("new-request-cleaning-notes"), [
-      value("new-request-cadence") && value("new-request-cadence") !== "to_confirm" ? `Frequency: ${labelFrom(cadenceLabels, value("new-request-cadence"))}` : "",
-      value("new-request-type") ? `Service: ${labelFrom(requestTypeLabels, value("new-request-type"))}` : ""
-    ]);
-    const internalNotes = appendPracticalNotes(value("new-request-internal-notes"), [
-      value("new-request-next-action") ? `Next action: ${value("new-request-next-action")}` : "",
-      value("new-request-scoping-note") ? `Scoping note: ${value("new-request-scoping-note")}` : ""
-    ]);
-
-    return {
-      customerType: "individual",
-      firstName: name.firstName,
-      lastName: name.lastName,
-      companyName: "",
-      email: value("new-request-email"),
-      phone: value("new-request-phone"),
-      propertyAddressLine1: value("new-request-property-address"),
-      propertyCity: value("new-request-property-city"),
-      propertyPostcode: value("new-request-property-postcode"),
-      sourceType: "manual",
-      leadSource: "manual",
-      status: apiRequestStatus(value("new-request-status")),
-      notes: value("new-request-message"),
-      enquiryNotes: value("new-request-message"),
-      propertyNotes,
-      cleaningNotes,
-      internalNotes,
-      cleaningProductsSuppliedBy: readableSupply(supplyLabels, value("new-request-products")),
-      vacuumSuppliedBy: readableSupply(equipmentLabels, value("new-request-vacuum")),
-      mopSuppliedBy: readableSupply(equipmentLabels, value("new-request-mop"))
-    };
-  }
-
-  function setNewRequestSaving(isSaving) {
-    const buttonEl = document.querySelector('[data-request-action="save-new-request"]');
-    if (!buttonEl) return;
-    buttonEl.disabled = isSaving;
-    buttonEl.textContent = isSaving ? "Saving..." : "Save request";
-  }
-
-  function showNewRequestError(message) {
-    const errorEl = document.getElementById("new-request-error");
-    if (!errorEl) return;
-    errorEl.textContent = message;
-    errorEl.style.display = message ? "block" : "none";
   }
 
   function selectedQuoteConsiderations() {
@@ -1730,46 +1191,89 @@
     return property;
   }
 
-  async function saveNewRequest() {
-    showNewRequestError("");
-    setNewRequestSaving(true);
+  function saveNewRequest() {
+    let client = findClient(value("new-request-client"));
+    if (!client) client = createClientShell();
+    if (!client) return;
 
-    try {
-      const api = await import("./api.js");
-      const created = await api.createRequest(buildCreateRequestPayload());
-      state.selectedRequestId = null;
-      state.newRequestOpen = false;
-      state.moreOpen = false;
-      toast(`Created request for ${created?.customerName || "customer"}.`);
-      await loadRequests();
-    } catch (err) {
-      const message = err?.message || "Could not create request.";
-      showNewRequestError(message);
-      toast(message);
-      setNewRequestSaving(false);
+    const existingPropertyId = value("new-request-property");
+    let property = null;
+    if (existingPropertyId) {
+      const found = findAnyProperty(existingPropertyId);
+      property = found.property;
+      if (found.client && found.client.id !== client.id) client = found.client;
     }
-  }
+    if (!property) property = createPropertyShell(client);
 
-  async function saveApiRequest() {
-    const request = selectedRequest();
-    if (!request?.isApiBacked) return;
+    const type = value("new-request-type") || "regular_domestic_clean";
+    const pricingBasis = value("new-request-pricing-basis") || "to_confirm";
+    const initialCleanRequired = value("new-request-initial-clean") || "to_confirm";
+    const regularDuration = numericValue("new-request-regular-duration");
+    const initialDuration = numericValue("new-request-initial-duration");
+    const teamSize = numericValue("new-request-team-size");
+    const requestNumber = `REQ-${1047 + requests().length}`;
+    const request = {
+      id: `request-${Date.now()}`,
+      number: requestNumber,
+      title: value("new-request-message").split(".")[0].slice(0, 56) || labelFrom(requestTypeLabels, type, "New request"),
+      client_id: client.id,
+      property_id: property.id,
+      request_type: type,
+      status: value("new-request-status") || "new_enquiry",
+      source: "manual",
+      received_at: "Just now",
+      updated_at: "Just now",
+      next_action: value("new-request-next-action") || "Contact customer",
+      customer_message: value("new-request-message") || "Manual request created by the office.",
+      service_summary: `${labelFrom(requestTypeLabels, type, "Request")} request. Confirm service scope before quote or job creation.`,
+      short_scoping_note: value("new-request-scoping-note") || `${labelFrom(requestTypeLabels, type, "Request")} request. Internal scoping still needs confirmation before quote.`,
+      preferred_cadence: value("new-request-cadence") || "to_confirm",
+      how_soon: value("new-request-how-soon") || "to_confirm",
+      preferred_day: value("new-request-day") || "to_confirm",
+      preferred_time_window: value("new-request-time") || "to_confirm",
+      intake_property_type: property.property_type || "unknown",
+      approx_size: value("new-request-approx-size") || "unknown",
+      bedrooms: property.bedrooms || "unknown",
+      bathrooms: property.bathrooms || "unknown",
+      pets_present: value("new-request-pets") || property.pets_present || "unknown",
+      parking: value("new-request-parking") || property.parking || "unknown",
+      main_priorities: selectedMainPriorities(),
+      photos_helpful: value("new-request-photos") || "to_confirm",
+      cleaning_products: value("new-request-products") || "to_confirm",
+      vacuum_hoover: value("new-request-vacuum") || "to_confirm",
+      mop: value("new-request-mop") || "to_confirm",
+      quote_readiness: value("new-request-quote-readiness") || "needs_contact",
+      assessment_required: value("new-request-assessment") || "to_confirm",
+      assessment_state: prepStateFor(value("new-request-assessment")),
+      initial_clean_required: initialCleanRequired,
+      initial_clean_state: prepStateFor(initialCleanRequired),
+      pricing_basis: pricingBasis,
+      pricing_basis_state: prepStateFor(pricingBasis),
+      estimated_regular_duration_minutes: regularDuration,
+      regular_duration_state: estimateStateFor(regularDuration),
+      estimated_initial_duration_minutes: initialDuration,
+      initial_duration_state: estimateStateFor(initialDuration),
+      estimated_team_size: teamSize,
+      team_size_state: estimateStateFor(teamSize),
+      scope_confidence: value("new-request-scope-confidence") || "to_confirm",
+      quote_considerations: selectedQuoteConsiderations(),
+      property_notes: value("new-request-property-notes") || property.property_notes || "",
+      cleaning_notes: value("new-request-cleaning-notes") || property.cleaning_notes || "",
+      internal_notes: value("new-request-internal-notes"),
+      owner: "Office"
+    };
 
-    showApiReviewError("");
-    setApiReviewSaving(true);
+    requests().unshift(request);
+    client.requests = client.requests || [];
+    client.requests.unshift({ number: request.number, title: request.title, status: requestStatusLabel(request), tone: requestStatusTones[request.status] || "info", propertyId: property.id });
+    client.activeSummary = client.activeSummary || "Request open";
+    client.lastCommunication = "Just now";
 
-    try {
-      const api = await import("./api.js");
-      const updated = await api.updateRequest(request.id, buildUpdateRequestPayload());
-      state.selectedRequestId = updated?.id || request.id;
-      state.apiReviewEditing = false;
-      toast("Request updated.");
-      await loadRequests();
-    } catch (err) {
-      const message = err?.message || "Could not update request.";
-      showApiReviewError(message);
-      toast(message);
-      setApiReviewSaving(false);
-    }
+    state.selectedRequestId = request.id;
+    state.newRequestOpen = false;
+    state.moreOpen = false;
+    toast(`Created ${request.number}.`);
+    refresh();
   }
 
   function saveReviewRequest() {
@@ -1855,7 +1359,6 @@
     if (routeTarget) {
       state.selectedRequestId = null;
       state.reviewRequestOpen = false;
-      state.apiReviewEditing = false;
       state.moreOpen = false;
       return false;
     }
@@ -1868,19 +1371,15 @@
     }
     const reviewModal = event.target.closest("[data-review-modal]");
     if (event.target.closest("[data-review-backdrop]") && !reviewModal) {
-      state.selectedRequestId = null;
       state.reviewRequestOpen = false;
-      state.apiReviewEditing = false;
       refresh();
       return true;
     }
 
     const requestId = event.target.closest("[data-request-id]")?.dataset.requestId;
     if (requestId) {
-      const request = requests().find(r => String(r.id) === String(requestId));
       state.selectedRequestId = requestId;
-      state.reviewRequestOpen = Boolean(request?.isApiBacked);
-      state.apiReviewEditing = false;
+      state.reviewRequestOpen = false;
       state.moreOpen = false;
       refresh();
       return true;
@@ -1915,40 +1414,21 @@
     }
     if (action === "open-review-request") {
       state.reviewRequestOpen = true;
-      state.apiReviewEditing = false;
       refresh();
       return true;
     }
     if (action === "close-review-request") {
-      state.selectedRequestId = null;
       state.reviewRequestOpen = false;
-      state.apiReviewEditing = false;
       refresh();
-      return true;
-    }
-    if (action === "edit-api-request") {
-      state.apiReviewEditing = true;
-      refresh();
-      return true;
-    }
-    if (action === "cancel-api-request-edit") {
-      state.apiReviewEditing = false;
-      refresh();
-      return true;
-    }
-    if (action === "save-api-request") {
-      saveApiRequest();
       return true;
     }
     if (action === "save-review-request") {
       saveReviewRequest();
       return true;
     }
-
     if (action === "back-to-list") {
       state.selectedRequestId = null;
       state.reviewRequestOpen = false;
-      state.apiReviewEditing = false;
       state.moreOpen = false;
       refresh();
       return true;
@@ -1979,19 +1459,7 @@
     return true;
   }
 
-  function handleFilterChange(event) {
-    const filter = event.target.closest("[data-request-filter]")?.dataset.requestFilter;
-    if (!filter) return;
-    if (filter === "search") state.searchTerm = event.target.value || "";
-    if (filter === "status") state.statusFilter = event.target.value || "";
-    if (filter === "source") state.sourceFilter = event.target.value || "";
-    if (filter === "action") state.actionFilter = event.target.value || "";
-    refresh();
-  }
-
   document.addEventListener("click", handleClick);
-  document.addEventListener("input", handleFilterChange);
-  document.addEventListener("change", handleFilterChange);
 
   window.CleanOpsRequests = {
     render,
@@ -2002,32 +1470,4 @@
       requestTypeLabels
     }
   };
-
-  async function loadRequests() {
-    try {
-      const api = await import("./api.js");
-      const fetched = await api.fetchRequests();
-      state.apiRequests = fetched.map(req => {
-        return {
-          ...req,
-          isApiBacked: true,
-          status: req.status || req.requestStatus || "unknown",
-          request_type: req.type || req.requestType || "other"
-        };
-      });
-      state.requestsError = false;
-    } catch (err) {
-      console.error("Failed to load requests", err);
-      state.requestsError = true;
-      state.apiRequests = [];
-    } finally {
-      state.requestsLoading = false;
-      const root = document.querySelector("[data-requests-root]");
-      if (root) {
-        root.outerHTML = render();
-      }
-    }
-  }
-
-  loadRequests();
 })();

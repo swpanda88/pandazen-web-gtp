@@ -37,10 +37,7 @@
     popoverDrag: null,
     workloadGroup: "cleaner",
     workloadSort: "start",
-    collapsedGroups: new Set(),
-    visitsLoading: true,
-    visitsError: false,
-    apiVisits: []
+    collapsedGroups: new Set()
   };
 
   function structuredCloneSafe(value) {
@@ -324,7 +321,7 @@
             <button class="button small" type="button" data-schedule-action="toggle-more-menu" aria-expanded="${state.moreMenuOpen}" title="More actions">More actions <span aria-hidden="true">v</span></button>
             ${state.moreMenuOpen ? moreMenu() : ""}
           </div>
-          ${state.visits.some(v => v.isApiBacked) ? "" : button("New visit", "new-visit", "small primary")}
+          ${button("New visit", "new-visit", "small primary")}
         </div>
       </div>
     `;
@@ -824,9 +821,6 @@
   }
 
   function render() {
-    if (state.visitsLoading) return `<div class="pad schedule-main" data-schedule-root="true"><span class="muted">Loading schedule...</span></div>`;
-    if (state.visitsError) return `<div class="pad schedule-main" data-schedule-root="true"><span class="muted">Could not load schedule.</span></div>`;
-
     if (state.view === "workload") return workloadView();
     if (state.view === "month") return monthView();
     if (state.view === "day") return dayView();
@@ -837,7 +831,7 @@
 
   function refresh() {
     const root = document.getElementById("page-root");
-    if (!root || (!root.querySelector(".schedule-toolbar") && !root.querySelector("[data-schedule-root]"))) return;
+    if (!root || !root.querySelector(".schedule-toolbar")) return;
     root.innerHTML = render();
   }
 
@@ -1115,22 +1109,8 @@
 
     const visitTarget = event.target.closest("[data-visit-id]");
     if (visitTarget && !event.target.closest(".resize-handle")) {
-      const visit = findVisit(visitTarget.dataset.visitId);
-      if (visit && visit.isApiBacked) {
-        toast("API visits are read-only in this view.");
-        return;
-      }
       openPopover(visitTarget.dataset.visitId, visitTarget);
       return;
-    }
-
-    const unscheduledTarget = event.target.closest("[data-unscheduled-id]");
-    if (unscheduledTarget) {
-      const visit = findVisit(unscheduledTarget.dataset.unscheduledId);
-      if (visit && visit.isApiBacked) {
-        toast("API visits are read-only in this view.");
-        return;
-      }
     }
 
     if (event.target.closest("[data-popover-close]")) {
@@ -1273,22 +1253,12 @@
   }
 
   function onDragStart(event) {
-    const visitTarget = event.target.closest("[data-visit-id]");
-    const unscheduledTarget = event.target.closest("[data-unscheduled-id]");
-    if (visitTarget) {
-      const visit = findVisit(visitTarget.dataset.visitId);
-      if (visit && visit.isApiBacked) {
-        event.preventDefault();
-        return;
-      }
-      event.dataTransfer.setData("text/plain", JSON.stringify({ kind: "visit", id: visitTarget.dataset.visitId }));
-    } else if (unscheduledTarget) {
-      const visit = findVisit(unscheduledTarget.dataset.unscheduledId);
-      if (visit && visit.isApiBacked) {
-        event.preventDefault();
-        return;
-      }
-      event.dataTransfer.setData("text/plain", JSON.stringify({ kind: "unscheduled", id: unscheduledTarget.dataset.unscheduledId }));
+    const visit = event.target.closest("[data-visit-id]");
+    const unscheduled = event.target.closest("[data-unscheduled-id]");
+    if (visit) {
+      event.dataTransfer.setData("text/plain", JSON.stringify({ kind: "visit", id: visit.dataset.visitId }));
+    } else if (unscheduled) {
+      event.dataTransfer.setData("text/plain", JSON.stringify({ kind: "unscheduled", id: unscheduled.dataset.unscheduledId }));
     }
   }
 
@@ -1351,41 +1321,4 @@
     render,
     afterRender
   };
-
-  async function loadVisits() {
-    try {
-      const api = await import("./api.js");
-      const fetched = await api.fetchVisits();
-      state.apiVisits = fetched.map(visit => {
-        return {
-          ...visit,
-          isApiBacked: true,
-          date: visit.scheduledStart ? (visit.scheduledStart.split(" ")[0] || visit.scheduledStart.split("T")[0]) : null,
-          client: [visit.firstName, visit.lastName].filter(Boolean).join(" ") || visit.companyName || "API Customer",
-          property: [visit.propertyAddressLine1, visit.propertyCity].filter(Boolean).join(", ") || "Property pending",
-          address: [visit.propertyAddressLine1, visit.propertyCity].filter(Boolean).join(", "),
-          status: visit.status || "Scheduled",
-          statusGroup: visit.status === "completed" ? "Completed" : "Scheduled",
-          type: "Cleaning visit",
-          start: visit.scheduledStart ? (visit.scheduledStart.split(" ")[1] || visit.scheduledStart.split("T")[1])?.substring(0, 5) : undefined,
-          duration: 60,
-          team: visit.assignedTeam || "Unassigned"
-        };
-      });
-      if (state.apiVisits.length > 0) {
-        state.visits = state.apiVisits.filter(v => v.start && v.date);
-        state.unscheduled = state.apiVisits.filter(v => !v.start || !v.date);
-      }
-      state.visitsError = false;
-    } catch (err) {
-      console.error("Failed to load visits", err);
-      state.visitsError = true;
-      state.apiVisits = [];
-    } finally {
-      state.visitsLoading = false;
-      refresh();
-    }
-  }
-
-  loadVisits();
 })();

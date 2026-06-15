@@ -1,16 +1,16 @@
 // functions/db/sequences.js
 
 export function formatQuoteNumber(number) {
-  return `Q-\${String(number).padStart(5, '0')}`;
+  return `Q-${String(number).padStart(5, '0')}`;
 }
 
 export function formatQuoteDisplayRef(quoteNumber, version) {
   const v = String(version).padStart(2, '0');
-  return `\${quoteNumber}/\${v}`;
+  return `${quoteNumber}/${v}`;
 }
 
 export function formatInvoiceNumber(number) {
-  return `INV-\${String(number).padStart(5, '0')}`;
+  return `INV-${String(number).padStart(5, '0')}`;
 }
 
 /**
@@ -32,7 +32,7 @@ export async function getNextDocumentNumber(db, sequenceId) {
   `).bind(sequenceId).first();
 
   if (!result || !result.assigned_number) {
-    throw new Error(`Sequence '\${sequenceId}' not found or failed to increment.`);
+    throw new Error(`Sequence '${sequenceId}' not found or failed to increment.`);
   }
 
   return result.assigned_number;

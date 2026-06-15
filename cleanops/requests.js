@@ -1503,4 +1503,32 @@
       requestTypeLabels
     }
   };
+
+  async function loadRequests() {
+    try {
+      const api = await import("./api.js");
+      const fetched = await api.fetchRequests();
+      state.apiRequests = fetched.map(req => {
+        return {
+          ...req,
+          isApiBacked: true,
+          status: req.status || req.requestStatus || "unknown",
+          request_type: req.type || req.requestType || "other"
+        };
+      });
+      state.requestsError = false;
+    } catch (err) {
+      console.error("Failed to load requests", err);
+      state.requestsError = true;
+      state.apiRequests = [];
+    } finally {
+      state.requestsLoading = false;
+      const root = document.querySelector("[data-requests-root]");
+      if (root) {
+        root.outerHTML = render();
+      }
+    }
+  }
+
+  loadRequests();
 })();

@@ -16,7 +16,10 @@
     apiInvoices: [],
     eventsLoading: true,
     eventsError: false,
-    apiBillableEvents: []
+    apiBillableEvents: [],
+    paymentsLoading: true,
+    paymentsError: false,
+    apiPayments: []
   };
 
   const statusLabels = {
@@ -640,9 +643,9 @@
   }
 
   function render() {
-    if (state.invoicesLoading || state.eventsLoading) return `<div class="pad" data-invoices-root="true"><span class="muted">Loading financial data...</span></div>`;
-    if (state.invoicesError || state.eventsError) return `<div class="pad" data-invoices-root="true"><span class="muted">Could not load financial data.</span></div>`;
-    if (invoices().length === 0 && billableEvents().length === 0) return `<div class="pad" data-invoices-root="true"><span class="muted">No invoices or billable events found.</span></div>`;
+    if (state.invoicesLoading || state.eventsLoading || state.paymentsLoading) return `<div class="pad" data-invoices-root="true"><span class="muted">Loading financial data...</span></div>`;
+    if (state.invoicesError || state.eventsError || state.paymentsError) return `<div class="pad" data-invoices-root="true"><span class="muted">Could not load financial data.</span></div>`;
+    if (invoices().length === 0 && billableEvents().length === 0 && (state.apiPayments || []).length === 0) return `<div class="pad" data-invoices-root="true"><span class="muted">No invoices, billable events, or payments found.</span></div>`;
 
     return `
       <section class="invoices-root" data-invoices-root="true">
@@ -650,11 +653,45 @@
         ${renderKpis()}
         ${renderActionPanel()}
         ${renderRegister()}
-        ${renderRowMenuOverlay()}
+        ${renderPaymentsRegister()}
         ${state.createMode ? renderCreateLayer() : ""}
         ${state.editorOpen && selectedInvoice() ? renderEditor(selectedInvoice()) : ""}
         ${state.previewOpen && selectedInvoice() ? renderPreview(selectedInvoice()) : ""}
         ${state.modal ? renderModal() : ""}
+        ${renderRowMenuOverlay()}
+      </section>
+    `;
+  }
+
+  function renderPaymentsRegister() {
+    const apiPayments = state.apiPayments || [];
+    if (apiPayments.length === 0) return "";
+
+    const rows = apiPayments.map(payment => {
+      const amount = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format((Number(payment.amountPence) || 0) / 100);
+      const dateStr = payment.paidAt ? payment.paidAt.split("T")[0] : "-";
+      return `
+        <tr>
+          <td><strong>${escapeHtml(payment.reference || payment.id)}</strong><br><span class="muted">${escapeHtml(payment.paymentMethod || "-")}</span></td>
+          <td>${escapeHtml(payment.invoiceId || "-")}</td>
+          <td>-</td>
+          <td>${escapeHtml(amount)}</td>
+          <td>${chip(payment.status || "Unknown", "info")}</td>
+          <td>${escapeHtml(dateStr)}</td>
+          <td><div class="row-menu-wrap"><span class="muted">Read-only</span></div></td>
+        </tr>
+      `;
+    }).join("");
+
+    return `
+      <section class="invoice-register-panel panel pad" style="margin-top:24px;">
+        <div class="panel-head compact-head">
+          <div><h2>Payments</h2><p class="muted">Payments loaded from API.</p></div>
+        </div>
+        <table class="jobs-scheduled-table invoices-register-table">
+          <thead><tr><th>Payment ref</th><th>Invoice ID</th><th>Client</th><th>Amount</th><th>Status</th><th>Paid date</th><th>Actions</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
       </section>
     `;
   }
@@ -856,15 +893,16 @@
 
   function renderRowMenu(invoice) {
     const locked = invoice.status === "void";
+    const apiBacked = !!invoice.isApiBacked;
     return `
       <div class="client-more-menu job-row-menu invoice-row-menu">
         <button type="button" data-invoice-action="open-editor:${escapeHtml(invoice.id)}">Open editor</button>
         <button type="button" data-invoice-action="preview:${escapeHtml(invoice.id)}">Preview document</button>
-        ${!locked ? `<button type="button" data-invoice-action="confirm-ready:${escapeHtml(invoice.id)}">Mark ready to send</button>` : ""}
-        ${!locked ? `<button type="button" data-invoice-action="confirm-sent:${escapeHtml(invoice.id)}">Mark sent</button>` : ""}
-        ${!locked ? `<button type="button" data-invoice-action="confirm-paid:${escapeHtml(invoice.id)}">Mark paid</button>` : ""}
-        ${!locked ? `<button type="button" data-invoice-action="part-paid:${escapeHtml(invoice.id)}">Mark part-paid</button>` : ""}
-        ${!locked ? `<button type="button" data-invoice-action="confirm-void:${escapeHtml(invoice.id)}">Void</button>` : ""}
+        ${!locked && !apiBacked ? `<button type="button" data-invoice-action="confirm-ready:${escapeHtml(invoice.id)}">Mark ready to send</button>` : ""}
+        ${!locked && !apiBacked ? `<button type="button" data-invoice-action="confirm-sent:${escapeHtml(invoice.id)}">Mark sent</button>` : ""}
+        ${!locked && !apiBacked ? `<button type="button" data-invoice-action="confirm-paid:${escapeHtml(invoice.id)}">Mark paid</button>` : ""}
+        ${!locked && !apiBacked ? `<button type="button" data-invoice-action="part-paid:${escapeHtml(invoice.id)}">Mark part-paid</button>` : ""}
+        ${!locked && !apiBacked ? `<button type="button" data-invoice-action="confirm-void:${escapeHtml(invoice.id)}">Void</button>` : ""}
         <button type="button" data-invoice-action="mock:Duplicate invoice">Duplicate mock</button>
       </div>
     `;
@@ -1116,8 +1154,8 @@
           <div class="job-editor-actions">
             ${button("Save draft", "save-editor")}
             ${button("Preview document", `preview:${invoice.id}`)}
-            ${invoice.status !== "void" ? button("Mark ready to send", `confirm-ready:${invoice.id}`) : ""}
-            ${invoice.status !== "void" ? button("Mark sent mock", `confirm-sent:${invoice.id}`, "primary") : ""}
+            ${invoice.status !== "void" && !invoice.isApiBacked ? button("Mark ready to send", `confirm-ready:${invoice.id}`) : ""}
+            ${invoice.status !== "void" && !invoice.isApiBacked ? button("Mark sent mock", `confirm-sent:${invoice.id}`, "primary") : ""}
             ${button("Close", "close-editor")}
           </div>
         </article>
@@ -1719,6 +1757,31 @@
     }
   }
 
+  async function loadPayments() {
+    try {
+      const api = await import("./api.js");
+      const fetched = await api.fetchPayments();
+      state.apiPayments = fetched.map(payment => {
+        return {
+          ...payment,
+          isApiBacked: true
+        };
+      });
+      state.paymentsError = false;
+    } catch (err) {
+      console.error("Failed to load payments", err);
+      state.paymentsError = true;
+      state.apiPayments = [];
+    } finally {
+      state.paymentsLoading = false;
+      const root = document.querySelector("[data-invoices-root]");
+      if (root) {
+        root.outerHTML = render();
+      }
+    }
+  }
+
   loadInvoices();
   loadBillableEvents();
+  loadPayments();
 })();

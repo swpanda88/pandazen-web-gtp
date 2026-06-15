@@ -629,8 +629,8 @@
           <div>
             <h2>Current mix</h2>
             <div class="request-summary-counts">
-              ${summaryCount("New", "new_enquiry")}
-              ${summaryCount("Needs quote", "quote_required")}
+              ${summaryCount("New", ["new", "new_enquiry"])}
+              ${summaryCount("Needs quote", ["quote_needed", "quote_required"])}
               ${summaryCount("Waiting", "waiting_customer")}
             </div>
           </div>
@@ -639,8 +639,9 @@
     `;
   }
 
-  function summaryCount(label, status) {
-    const count = requests().filter((request) => request.status === status).length;
+  function summaryCount(label, statuses) {
+    const statusList = Array.isArray(statuses) ? statuses : [statuses];
+    const count = requests().filter((request) => statusList.includes(request.status)).length;
     return `<div class="field-row"><span>${escapeHtml(label)}</span><strong>${escapeHtml(count)}</strong></div>`;
   }
 
@@ -905,7 +906,6 @@
     const productsBy = request.cleaningProductsSuppliedBy || setupLine(notes, "Cleaning products supplied by");
     const vacuumBy = request.vacuumSuppliedBy || setupLine(notes, "Vacuum supplied by");
     const mopBy = request.mopSuppliedBy || setupLine(notes, "Mop supplied by");
-    const hasSetup = productsBy || vacuumBy || mopBy;
     const createdDate = request.createdAt ? (request.createdAt.split(" ")[0] || request.createdAt.split("T")[0]) : "";
 
     return `
@@ -952,16 +952,14 @@
             </div>
           </div>
 
-          ${hasSetup ? `
-            <div class="request-form-section">
-              <h3>Practical setup</h3>
-              <div class="request-note-grid">
-                ${reviewField("Cleaning products supplied by", productsBy)}
-                ${reviewField("Vacuum supplied by", vacuumBy)}
-                ${reviewField("Mop supplied by", mopBy)}
-              </div>
+          <div class="request-form-section">
+            <h3>Practical setup</h3>
+            <div class="request-note-grid">
+              ${reviewField("Cleaning products", productsBy)}
+              ${reviewField("Vacuum", vacuumBy)}
+              ${reviewField("Mop", mopBy)}
             </div>
-          ` : ""}
+          </div>
 
           <div class="request-form-section">
             <h3>Notes</h3>

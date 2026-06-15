@@ -95,3 +95,47 @@ export async function getPropertyById(db, propertyId) {
   const row = await db.prepare(`SELECT * FROM properties WHERE id = ?`).bind(propertyId).first();
   return mapPropertyRow(row);
 }
+
+export async function getCustomerByEmail(db, email) {
+  if (!email) return null;
+  const row = await db.prepare("SELECT * FROM customers WHERE email = ? COLLATE NOCASE").bind(email).first();
+  return mapCustomerRow(row);
+}
+
+export async function createCustomer(db, input) {
+  const query = `
+    INSERT INTO customers (id, type, source_type, first_name, last_name, company_name, email, phone)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    RETURNING *
+  `;
+  const row = await db.prepare(query).bind(
+    input.id,
+    input.type || 'individual',
+    input.sourceType || 'request',
+    input.firstName || null,
+    input.lastName || null,
+    input.companyName || null,
+    input.email || null,
+    input.phone || null
+  ).first();
+  return mapCustomerRow(row);
+}
+
+export async function createProperty(db, input) {
+  const query = `
+    INSERT INTO properties (id, customer_id, address_line1, address_line2, city, postcode, country, access_notes)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    RETURNING *
+  `;
+  const row = await db.prepare(query).bind(
+    input.id,
+    input.customerId,
+    input.addressLine1 || null,
+    input.addressLine2 || null,
+    input.city || null,
+    input.postcode || null,
+    input.country || null,
+    input.accessNotes || null
+  ).first();
+  return mapPropertyRow(row);
+}

@@ -123,48 +123,58 @@ async function sha256(value, salt) {
 }
 
 async function recordAttempt(db, { ipHash, contactHash, userAgentHash, outcome, reason }) {
-  await db
-    .prepare(
-      `INSERT INTO public_submission_attempts (ip_hash, contact_hash, user_agent_hash, outcome, reason)
-       VALUES (?, ?, ?, ?, ?)`
-    )
-    .bind(ipHash, contactHash, userAgentHash, outcome, reason || null)
-    .run();
+  try {
+    await db
+      .prepare(
+        `INSERT INTO public_submission_attempts (ip_hash, contact_hash, user_agent_hash, outcome, reason)
+         VALUES (?, ?, ?, ?, ?)`
+      )
+      .bind(ipHash, contactHash, userAgentHash, outcome, reason || null)
+      .run();
+  } catch (e) {
+    // Gracefully degrade if table is missing locally
+    console.warn("Could not record submission attempt. Missing table?", e.message);
+  }
 }
 
 async function isRateLimited(db, ipHash, contactHash) {
-  if (ipHash) {
-    const hourly = await db
-      .prepare(
-        `SELECT COUNT(*) AS count
-         FROM public_submission_attempts
-         WHERE ip_hash = ? AND outcome = 'accepted' AND created_at > datetime('now', '-1 hour')`
-      )
-      .bind(ipHash)
-      .first();
-    if (hourly.count >= 3) return "Too many recent submissions.";
+  try {
+    if (ipHash) {
+      const hourly = await db
+        .prepare(
+          `SELECT COUNT(*) AS count
+           FROM public_submission_attempts
+           WHERE ip_hash = ? AND outcome = 'accepted' AND created_at > datetime('now', '-1 hour')`
+        )
+        .bind(ipHash)
+        .first();
+      if (hourly && hourly.count >= 3) return "Too many recent submissions.";
 
-    const daily = await db
-      .prepare(
-        `SELECT COUNT(*) AS count
-         FROM public_submission_attempts
-         WHERE ip_hash = ? AND outcome = 'accepted' AND created_at > datetime('now', '-1 day')`
-      )
-      .bind(ipHash)
-      .first();
-    if (daily.count >= 8) return "Daily submission limit reached.";
-  }
+      const daily = await db
+        .prepare(
+          `SELECT COUNT(*) AS count
+           FROM public_submission_attempts
+           WHERE ip_hash = ? AND outcome = 'accepted' AND created_at > datetime('now', '-1 day')`
+        )
+        .bind(ipHash)
+        .first();
+      if (daily && daily.count >= 8) return "Daily submission limit reached.";
+    }
 
-  if (contactHash) {
-    const contactDaily = await db
-      .prepare(
-        `SELECT COUNT(*) AS count
-         FROM public_submission_attempts
-         WHERE contact_hash = ? AND outcome = 'accepted' AND created_at > datetime('now', '-1 day')`
-      )
-      .bind(contactHash)
-      .first();
-    if (contactDaily.count >= 2) return "Contact submission limit reached.";
+    if (contactHash) {
+      const contactDaily = await db
+        .prepare(
+          `SELECT COUNT(*) AS count
+           FROM public_submission_attempts
+           WHERE contact_hash = ? AND outcome = 'accepted' AND created_at > datetime('now', '-1 day')`
+        )
+        .bind(contactHash)
+        .first();
+      if (contactDaily && contactDaily.count >= 2) return "Contact submission limit reached.";
+    }
+  } catch (e) {
+    // Gracefully degrade if table is missing locally
+    console.warn("Could not check rate limit. Missing table?", e.message);
   }
 
   return "";

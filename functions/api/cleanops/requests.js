@@ -142,7 +142,7 @@ export async function onRequest(context) {
         vacuumHoover: body.vacuumHoover || body.vacuumSuppliedBy,
         mop: body.mop || body.mopSuppliedBy,
         setupConfirmed: body.setupConfirmed,
-        customerMessage: body.customerMessage || body.notes,
+        customerMessage: body.customerMessage !== undefined ? body.customerMessage : body.notes,
         shortScopingNote: body.shortScopingNote,
         propertyNotes: body.propertyNotes,
         cleaningNotes: body.cleaningNotes,

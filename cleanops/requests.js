@@ -11,7 +11,11 @@
   let apiFailed = false;
   let loadPromise = null;
 
-  async function loadApiRequests() {
+  async function loadApiRequests(force = false) {
+    if (force) {
+      dbRequests = null;
+      loadPromise = null;
+    }
     if (dbRequests || apiFailed || loadPromise) return loadPromise;
     loadPromise = (async () => {
       try {
@@ -47,7 +51,7 @@
     return {
       id: apiReq.id,
       number: `RQ-${apiReq.id.slice(-4).toUpperCase()}`,
-      title: apiReq.customerMessage ? apiReq.customerMessage.split('\n')[0].slice(0, 50) : (apiReq.notes ? apiReq.notes.split('\n')[0].slice(0, 50) : "Customer Enquiry"),
+      title: apiReq.customerMessage ? apiReq.customerMessage.split('\n')[0].slice(0, 50) : `${requestStatusLabels[apiReq.status] || "New"} request`,
       client_id: apiReq.customerId,
       property_id: apiReq.propertyId,
       request_type: apiReq.requestType || "regular_domestic_clean",
@@ -87,13 +91,15 @@
       internal_notes: apiReq.internalNotes || apiReq.notes || "",
       customer_message: apiReq.customerMessage || apiReq.notes || "",
       api_customer_name: apiReq.customerName,
+      api_customer_email: apiReq.email,
+      api_customer_phone: apiReq.phone,
       api_property_label: apiReq.propertyLabel || apiReq.propertyAddressLine1,
       api_property_area: apiReq.propertyCity || apiReq.propertyPostcode
     };
   }
 
   const requestStatusLabels = {
-    new_enquiry: "New enquiry",
+    new: "New enquiry",
     contacted: "Contacted",
     waiting_customer: "Waiting customer",
     assessment_needed: "Assessment needed",
@@ -105,7 +111,7 @@
   };
 
   const requestStatusTones = {
-    new_enquiry: "success",
+    new: "success",
     contacted: "info",
     waiting_customer: "warning",
     assessment_needed: "warning",
@@ -832,15 +838,15 @@
             <div class="side-section">
               <h2>Client</h2>
               <div class="field-row"><span>Name</span><strong>${escapeHtml(displayName(client, request))}</strong></div>
-              <div class="field-row"><span>Email</span><strong>${escapeHtml(client?.email || "Not set")}</strong></div>
-              <div class="field-row"><span>Phone</span><strong>${escapeHtml(client?.phone || "Not set")}</strong></div>
+              <div class="field-row"><span>Email</span><strong>${escapeHtml(client?.email || request.api_customer_email || "To confirm")}</strong></div>
+              <div class="field-row"><span>Phone</span><strong>${escapeHtml(client?.phone || request.api_customer_phone || "To confirm")}</strong></div>
             </div>
             <div class="side-section">
               <h2>Property setup</h2>
-              <div class="field-row"><span>Address</span><strong>${escapeHtml(property?.address || "To confirm")}</strong></div>
-              <div class="field-row"><span>Type</span><strong>${escapeHtml(labelFrom(propertyTypeLabels, property?.property_type, "To confirm"))}</strong></div>
-              <div class="field-row"><span>Bedrooms</span><strong>${escapeHtml(labelFrom(bedroomsLabels, property?.bedrooms, "Unknown"))}</strong></div>
-              <div class="field-row"><span>Bathrooms</span><strong>${escapeHtml(labelFrom(bathroomsLabels, property?.bathrooms, "Unknown"))}</strong></div>
+              <div class="field-row"><span>Address</span><strong>${escapeHtml(property?.address || request.api_property_label || "To confirm")}</strong></div>
+              <div class="field-row"><span>Type</span><strong>${escapeHtml(labelFrom(propertyTypeLabels, property?.property_type || request.intake_property_type, "To confirm"))}</strong></div>
+              <div class="field-row"><span>Bedrooms</span><strong>${escapeHtml(labelFrom(bedroomsLabels, property?.bedrooms || request.bedrooms, "To confirm"))}</strong></div>
+              <div class="field-row"><span>Bathrooms</span><strong>${escapeHtml(labelFrom(bathroomsLabels, property?.bathrooms || request.bathrooms, "To confirm"))}</strong></div>
             </div>
             <div>
               <h2>Actions</h2>
@@ -1343,12 +1349,12 @@
 
     try {
       const response = await api.createRequest(payload);
-      if (response && response.ok) {
-        state.selectedRequestId = response.data.id;
+      if (response) {
+        state.selectedRequestId = response.id;
         state.newRequestOpen = false;
         state.moreOpen = false;
-        toast(`Created ${response.data.number || 'new request'}.`);
-        await loadRequests();
+        toast(`Created ${response.number || 'new request'}.`);
+        await loadApiRequests(true);
       } else {
         toast(response?.error || "Failed to create request.");
       }
@@ -1403,10 +1409,10 @@
 
     try {
       const response = await api.updateRequest(request.id, payload);
-      if (response && response.ok) {
+      if (response) {
         state.reviewRequestOpen = false;
         toast("Request saved.");
-        await loadRequests();
+        await loadApiRequests(true);
       } else {
         toast(response?.error || "Failed to save request.");
       }
@@ -1455,9 +1461,9 @@
           toast("Archiving request...");
           import('./api.js').then(api => {
             api.updateRequest(request.id, { status: "archived" }).then(res => {
-              if (res && res.ok) {
+              if (res) {
                 toast(`Request ${request.number} archived.`);
-                loadRequests();
+                loadApiRequests(true);
               } else {
                 toast(res?.error || "Failed to archive request.");
               }
@@ -1539,11 +1545,11 @@
     }
     if (action === "contact-customer") {
       const request = selectedRequest();
-      const client = findClient(request?.client_id) || request?.api_customer;
-      if (client?.email) {
-        window.location.href = `mailto:${client.email}`;
-      } else if (client?.phone) {
-        window.location.href = `tel:${client.phone}`;
+      const client = findClient(request?.client_id);
+      if (client?.email || request?.api_customer_email) {
+        window.location.href = `mailto:${client?.email || request.api_customer_email}`;
+      } else if (client?.phone || request?.api_customer_phone) {
+        window.location.href = `tel:${client?.phone || request.api_customer_phone}`;
       } else {
         toast("No contact information available.");
       }
@@ -1564,9 +1570,9 @@
         toast("Marking request as lost...");
         import('./api.js').then(api => {
           api.updateRequest(request.id, { status: "lost" }).then(res => {
-            if (res && res.ok) {
+            if (res) {
               toast(`Request ${request.number} marked as lost.`);
-              loadRequests();
+              loadApiRequests(true);
             } else {
               toast(res?.error || "Failed to mark request as lost.");
             }

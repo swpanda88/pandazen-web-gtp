@@ -34,7 +34,7 @@ function mapRequestRow(row) {
     vacuumHoover: row.vacuum_hoover,
     mop: row.mop,
     setupConfirmed: row.setup_confirmed === 1,
-    customerMessage: row.customer_message || row.notes || "",
+    customerMessage: row.customer_message !== null ? row.customer_message : (row.notes || ""),
     shortScopingNote: row.short_scoping_note,
     propertyNotes: row.property_notes,
     cleaningNotes: row.cleaning_notes,

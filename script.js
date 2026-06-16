@@ -38,6 +38,78 @@ function formPayload(form) {
   };
 }
 
+const fieldMessages = {
+  name: "Please enter your name.",
+  contact: "Please enter an email address or phone number.",
+  email: "Please enter a valid email address.",
+  area: "Please enter your area or postcode.",
+  service: "Please choose a cleaning service.",
+  message: "Please enter a message or details about the clean.",
+  privacyAcknowledgement: "Please confirm the privacy notice."
+};
+
+function fieldControl(name) {
+  return contactForm?.querySelector(`[name="${name}"]`);
+}
+
+function clearFormErrors() {
+  contactForm.querySelectorAll(".field-error-message").forEach((item) => item.remove());
+  contactForm.querySelectorAll(".field-error-control").forEach((item) => {
+    item.classList.remove("field-error-control");
+    item.removeAttribute("aria-invalid");
+    item.removeAttribute("aria-describedby");
+  });
+  contactForm.querySelectorAll(".field-error-label").forEach((item) => item.classList.remove("field-error-label"));
+}
+
+function markField(name, message) {
+  const control = fieldControl(name);
+  if (!control) return;
+  const label = control.closest("label");
+  const messageId = `field-error-${name}`;
+  control.classList.add("field-error-control");
+  control.setAttribute("aria-invalid", "true");
+  control.setAttribute("aria-describedby", messageId);
+  label?.classList.add("field-error-label");
+
+  const errorText = document.createElement("span");
+  errorText.id = messageId;
+  errorText.className = "field-error-message";
+  errorText.textContent = message;
+  label?.appendChild(errorText);
+}
+
+function showFormErrors(errors) {
+  clearFormErrors();
+  const entries = Object.entries(errors).filter(([, message]) => message);
+  entries.forEach(([field, message]) => {
+    if (field === "contact") {
+      markField("email", message);
+      markField("phone", message);
+      return;
+    }
+    markField(field, message);
+  });
+
+  submitStatus.classList.add("error");
+  submitStatus.textContent = entries.map(([, message]) => message).join(" ");
+
+  const firstField = entries[0]?.[0] === "contact" ? "email" : entries[0]?.[0];
+  fieldControl(firstField)?.focus();
+}
+
+function frontendErrors(payload) {
+  const errors = {};
+  if (!payload.name) errors.name = fieldMessages.name;
+  if (!payload.phone && !payload.email) errors.contact = fieldMessages.contact;
+  if (payload.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) errors.email = fieldMessages.email;
+  if (!payload.area) errors.area = fieldMessages.area;
+  if (!payload.service) errors.service = fieldMessages.service;
+  if (!payload.message) errors.message = fieldMessages.message;
+  if (!payload.privacyAcknowledgement) errors.privacyAcknowledgement = fieldMessages.privacyAcknowledgement;
+  return errors;
+}
+
 function updateHeader() {
   header.classList.toggle("is-scrolled", window.scrollY > 12);
 }
@@ -60,35 +132,11 @@ contactForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const form = new FormData(contactForm);
   const payload = formPayload(form);
+  clearFormErrors();
   submitStatus.classList.remove("error");
-  if (!payload.name) {
-    submitStatus.classList.add("error");
-    submitStatus.textContent = "Please add your name.";
-    return;
-  }
-  if (!payload.phone && !payload.email) {
-    submitStatus.classList.add("error");
-    submitStatus.textContent = "Please add a phone number or email address.";
-    return;
-  }
-  if (payload.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
-    submitStatus.classList.add("error");
-    submitStatus.textContent = "Please add a valid email address.";
-    return;
-  }
-  if (!payload.area) {
-    submitStatus.classList.add("error");
-    submitStatus.textContent = "Please add your area or postcode.";
-    return;
-  }
-  if (!payload.service) {
-    submitStatus.classList.add("error");
-    submitStatus.textContent = "Please choose a service type.";
-    return;
-  }
-  if (!payload.privacyAcknowledgement) {
-    submitStatus.classList.add("error");
-    submitStatus.textContent = "Please confirm you have read the Privacy Policy.";
+  const errors = frontendErrors(payload);
+  if (Object.keys(errors).length) {
+    showFormErrors(errors);
     return;
   }
   submitStatus.textContent = "Sending your request...";
@@ -102,11 +150,14 @@ contactForm.addEventListener("submit", async (event) => {
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) {
-        submitStatus.classList.add("error");
-        submitStatus.textContent = result.error || result.message || "Please check the highlighted details and try again.";
+        const backendErrors = result.fields && typeof result.fields === "object"
+          ? result.fields
+          : { form: result.error || result.message || "Please check the highlighted details and try again." };
+        showFormErrors(backendErrors);
         return;
       }
       contactForm.reset();
+      clearFormErrors();
       submitStatus.textContent = result.message || "Thanks, your request has been received.";
       return;
     } catch {

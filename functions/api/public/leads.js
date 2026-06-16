@@ -115,6 +115,15 @@ function generic() {
   });
 }
 
+function validationError(fieldErrors) {
+  const fields = Object.fromEntries(fieldErrors.map((item) => [item.field, item.message]));
+  return json({
+    ok: false,
+    error: fieldErrors[0]?.message || "Please check the highlighted details and try again.",
+    fields
+  }, { status: 400 });
+}
+
 async function sha256(value, salt) {
   if (!value) return null;
   const data = new TextEncoder().encode(`${salt}:${String(value).toLowerCase().trim()}`);
@@ -190,22 +199,23 @@ function validate(body) {
   const phone = clean(body.phone, LIMITS.phone);
   const email = clean(body.email, LIMITS.email);
 
-  if (!required.name) errors.push("Name is required.");
-  if (!phone && !email) errors.push("Phone or email is required.");
-  if (!required.area) errors.push("Area or postcode is required.");
-  if (!required.service) errors.push("Service type is required.");
-  if (!body.privacyAcknowledgement) errors.push("Privacy Policy acknowledgement is required.");
+  if (!required.name) errors.push({ field: "name", message: "Please enter your name." });
+  if (!phone && !email) errors.push({ field: "email", message: "Please enter an email address or phone number." });
+  if (!required.area) errors.push({ field: "area", message: "Please enter your area or postcode." });
+  if (!required.service) errors.push({ field: "service", message: "Please choose a cleaning service." });
+  if (!clean(body.message, LIMITS.message)) errors.push({ field: "message", message: "Please enter a message or details about the clean." });
+  if (!body.privacyAcknowledgement) errors.push({ field: "privacyAcknowledgement", message: "Please confirm the privacy notice." });
 
   Object.entries(LIMITS).forEach(([key, max]) => {
-    if (String(body[key] || "").length > max) errors.push(`${key} is too long.`);
+    if (String(body[key] || "").length > max) errors.push({ field: key, message: `${key} is too long.` });
   });
 
   Object.entries(ALLOWED).forEach(([key, allowed]) => {
     const value = clean(body[key], 160);
-    if (!allowed.includes(value)) errors.push(`${key} has an invalid value.`);
+    if (!allowed.includes(value)) errors.push({ field: key, message: `${key} has an invalid value.` });
   });
 
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push("Email address looks invalid.");
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push({ field: "email", message: "Please enter a valid email address." });
 
   return errors;
 }
@@ -238,8 +248,8 @@ export async function onRequestPost({ request, env }) {
 
   const errors = validate(body);
   if (errors.length) {
-    await recordAttempt(db, { ipHash, contactHash, userAgentHash, outcome: "validation_failed", reason: errors.join(" ") });
-    return error(errors[0], 400);
+    await recordAttempt(db, { ipHash, contactHash, userAgentHash, outcome: "validation_failed", reason: errors.map((item) => item.message).join(" ") });
+    return validationError(errors);
   }
 
   const priorities = Array.isArray(body.priorities) ? body.priorities.map((item) => clean(item, 80)).filter(Boolean) : [];
@@ -354,92 +364,98 @@ export async function onRequestPost({ request, env }) {
     console.warn("Could not insert into legacy leads table. Skipping legacy insert.", e.message);
   }
 
-  // Map into new CleanOps DB Schema
-  let customer = null;
-  if (lead.email) {
-    customer = await getCustomerByEmail(db, lead.email);
-  }
+  try {
+    // Map into new CleanOps DB Schema
+    let customer = null;
+    if (lead.email) {
+      customer = await getCustomerByEmail(db, lead.email);
+    }
 
-  const nameParts = (lead.name || "").split(/\s+/);
-  const firstName = nameParts[0] || null;
-  const lastName = nameParts.slice(1).join(" ") || null;
+    const nameParts = (lead.name || "").split(/\s+/);
+    const firstName = nameParts[0] || null;
+    const lastName = nameParts.slice(1).join(" ") || null;
 
-  if (!customer) {
-    customer = await createCustomer(db, {
-      id: `cust-${crypto.randomUUID()}`,
-      type: 'individual',
-      sourceType: lead.source,
-      firstName: firstName,
-      lastName: lastName,
-      companyName: null,
-      email: lead.email || null,
-      phone: lead.phone || null
-    });
-  }
+    if (!customer) {
+      customer = await createCustomer(db, {
+        id: `cust-${crypto.randomUUID()}`,
+        type: 'individual',
+        sourceType: lead.source,
+        firstName: firstName,
+        lastName: lastName,
+        companyName: null,
+        email: lead.email || null,
+        phone: lead.phone || null
+      });
+    }
 
-  let property = null;
-  if (lead.area || lead.propertyType || lead.bedrooms || lead.bathrooms || lead.pets || lead.parking) {
-    property = await createProperty(db, {
-      id: `prop-${crypto.randomUUID()}`,
+    let property = null;
+    if (lead.area || lead.propertyType || lead.bedrooms || lead.bathrooms || lead.pets || lead.parking) {
+      property = await createProperty(db, {
+        id: `prop-${crypto.randomUUID()}`,
+        customerId: customer.id,
+        addressLine1: null,
+        city: lead.area || null,
+        postcode: null,
+        accessNotes: null,
+        propertyType: lead.propertyType || null,
+        bedrooms: lead.bedrooms || null,
+        bathrooms: lead.bathrooms || null,
+        petsPresent: lead.pets || null,
+        parking: lead.parking || null
+      });
+    }
+
+    const quoteConsiderations = [];
+    if (lead.photoAvailable === "whatsapp_if_requested" || lead.photoAvailable === "email_if_requested") {
+      quoteConsiderations.push("photos_requested");
+    }
+    if (lead.productPreferences === "eco_fragrance_free") {
+      quoteConsiderations.push("eco_products_preferred");
+    }
+
+    let cleaningProducts = null;
+    if (lead.productPreferences === "pandazen_supplied") cleaningProducts = "pandazen_provides";
+    else if (lead.productPreferences === "client_supplied") cleaningProducts = "client_provides";
+
+    await createRequest(db, {
+      id: `req-${crypto.randomUUID()}`,
       customerId: customer.id,
-      addressLine1: null,
-      city: lead.area || null,
-      postcode: null,
-      accessNotes: null,
-      propertyType: lead.propertyType || null,
-      bedrooms: lead.bedrooms || null,
-      bathrooms: lead.bathrooms || null,
-      petsPresent: lead.pets || null,
-      parking: lead.parking || null
+      propertyId: property ? property.id : null,
+      sourceType: lead.source,
+      status: 'new',
+      notes: lead.notes || null,
+      requestType: lead.serviceType || null,
+      cadence: lead.frequency || null,
+      howSoon: lead.urgency || null,
+      preferredDay: null,
+      preferredTimeWindow: lead.preferredDays || null,
+      approxSize: lead.propertySize || null,
+      photosHelpful: lead.photoAvailable !== "not_needed" && lead.photoAvailable !== "not_sure" && lead.photoAvailable ? "yes" : null,
+      quoteReadiness: 'needs_contact',
+      assessmentRequired: null,
+      initialCleanRequired: null,
+      pricingBasis: null,
+      estimatedRegularDurationMinutes: null,
+      estimatedInitialDurationMinutes: null,
+      estimatedTeamSize: null,
+      scopeConfidence: null,
+      mainPriorities: priorities,
+      quoteConsiderations: quoteConsiderations.length ? quoteConsiderations : null,
+      cleaningProducts: cleaningProducts,
+      vacuumHoover: null,
+      mop: null,
+      setupConfirmed: false,
+      customerMessage: lead.notes || null,
+      shortScopingNote: null,
+      propertyNotes: null,
+      cleaningNotes: null,
+      internalNotes: `Submitted via website form. Best contact: ${lead.preferredContact || 'any'}, ${lead.bestContactTime || 'anytime'}`
     });
+  } catch (e) {
+    console.warn("Could not create CleanOps request from public form.", e.message);
+    await recordAttempt(db, { ipHash, contactHash, userAgentHash, outcome: "cleanops_failed", reason: "CleanOps request creation failed." });
+    return error("Sorry, the form could not send just now. Please call or email Panda Zen.", 500);
   }
-
-  const quoteConsiderations = [];
-  if (lead.photoAvailable === "whatsapp_if_requested" || lead.photoAvailable === "email_if_requested") {
-    quoteConsiderations.push("photos_requested");
-  }
-  if (lead.productPreferences === "eco_fragrance_free") {
-    quoteConsiderations.push("eco_products_preferred");
-  }
-
-  let cleaningProducts = null;
-  if (lead.productPreferences === "pandazen_supplied") cleaningProducts = "pandazen_provides";
-  else if (lead.productPreferences === "client_supplied") cleaningProducts = "client_provides";
-
-  await createRequest(db, {
-    id: `req-${crypto.randomUUID()}`,
-    customerId: customer.id,
-    propertyId: property ? property.id : null,
-    sourceType: lead.source,
-    status: 'new',
-    notes: lead.notes || null,
-    requestType: lead.serviceType || null,
-    cadence: lead.frequency || null,
-    howSoon: lead.urgency || null,
-    preferredDay: null,
-    preferredTimeWindow: lead.preferredDays || null,
-    approxSize: lead.propertySize || null,
-    photosHelpful: lead.photoAvailable !== "not_needed" && lead.photoAvailable !== "not_sure" && lead.photoAvailable ? "yes" : null,
-    quoteReadiness: 'needs_contact',
-    assessmentRequired: null,
-    initialCleanRequired: null,
-    pricingBasis: null,
-    estimatedRegularDurationMinutes: null,
-    estimatedInitialDurationMinutes: null,
-    estimatedTeamSize: null,
-    scopeConfidence: null,
-    mainPriorities: priorities,
-    quoteConsiderations: quoteConsiderations.length ? quoteConsiderations : null,
-    cleaningProducts: cleaningProducts,
-    vacuumHoover: null,
-    mop: null,
-    setupConfirmed: false,
-    customerMessage: lead.notes || null,
-    shortScopingNote: null,
-    propertyNotes: null,
-    cleaningNotes: null,
-    internalNotes: `Submitted via website form. Best contact: ${lead.preferredContact || 'any'}, ${lead.bestContactTime || 'anytime'}`
-  });
 
   await recordAttempt(db, { ipHash, contactHash, userAgentHash, outcome: "accepted", reason: null });
   return generic();

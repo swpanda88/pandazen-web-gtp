@@ -68,7 +68,7 @@
     return {
       id: apiReq.id,
       number: `RQ-${apiReq.id.slice(-4).toUpperCase()}`,
-      title: apiReq.customerMessage ? apiReq.customerMessage.split('\n')[0].slice(0, 50) : `${requestStatusLabels[apiReq.status] || "New"} request`,
+      title: apiReq.customerMessage ? apiReq.customerMessage.split('\n')[0].slice(0, 50) : `${requestTypeLabels[apiReq.requestType] || "Cleaning"} enquiry`,
       client_id: apiReq.customerId,
       property_id: apiReq.propertyId,
       request_type: apiReq.requestType || "regular_domestic_clean",
@@ -193,24 +193,36 @@
 
   const requestTypeLabels = {
     regular_domestic_clean: "Regular domestic clean",
+    regular_cleaning: "Regular cleaning",
     deep_clean: "Deep clean",
+    deep_cleaning: "Deep cleaning",
     end_of_tenancy: "End of tenancy",
     commercial_clean: "Commercial clean",
     holiday_let_turnaround: "Holiday let turnaround",
     one_off_clean: "One-off clean",
+    one_off_cleaning: "One-off cleaning",
+    kitchen_bathroom_detailing: "Kitchen and bathroom detailing",
+    ironing: "Ironing services",
     issue_revisit: "Issue / revisit",
-    other: "Other"
+    other: "Other",
+    not_sure: "Not sure"
   };
 
   const requestTypeClasses = {
     regular_domestic_clean: "type-cleaning-visit",
+    regular_cleaning: "type-cleaning-visit",
     deep_clean: "type-cleaning-visit",
+    deep_cleaning: "type-cleaning-visit",
     end_of_tenancy: "type-cleaning-visit",
     holiday_let_turnaround: "type-commercial-special",
     one_off_clean: "type-cleaning-visit",
+    one_off_cleaning: "type-cleaning-visit",
+    kitchen_bathroom_detailing: "type-cleaning-visit",
+    ironing: "type-cleaning-visit",
     commercial_clean: "type-commercial-special",
     issue_revisit: "type-issue-revisit",
-    other: "type-task-reminder"
+    other: "type-task-reminder",
+    not_sure: "type-task-reminder"
   };
 
   const sourceLabels = {
@@ -225,8 +237,11 @@
 
   const propertyTypeLabels = {
     domestic_house: "Domestic house",
+    house: "House",
     flat_apartment: "Flat / apartment",
     studio_annexe: "Studio / annexe",
+    bungalow: "Bungalow",
+    townhouse: "Townhouse",
     commercial_office: "Commercial office",
     commercial_unit: "Commercial unit",
     holiday_let_airbnb: "Holiday let / Airbnb",
@@ -261,6 +276,7 @@
     four_weekly: "Four-weekly",
     monthly: "Monthly",
     as_requested: "As requested",
+    not_sure: "Not sure",
     to_confirm: "To confirm"
   };
 
@@ -301,6 +317,7 @@
     asap: "As soon as possible",
     this_week: "This week",
     next_week: "Next week",
+    this_month: "This month",
     specific_date: "Specific date",
     flexible: "Flexible",
     to_confirm: "To confirm"
@@ -314,6 +331,7 @@
     commercial_small: "Small commercial",
     commercial_medium: "Medium commercial",
     commercial_large: "Large commercial",
+    not_sure: "Not sure",
     unknown: "To confirm"
   };
 
@@ -321,6 +339,7 @@
     none: "No pets",
     dog: "Dog",
     cat: "Cat",
+    multiple: "Multiple pets",
     multiple_pets: "Multiple pets",
     other: "Other pets",
     not_applicable: "Not applicable",
@@ -329,13 +348,16 @@
 
   const parkingLabels = {
     driveway: "Driveway",
+    street: "Street parking",
     street_parking: "Street parking",
+    permit_paid: "Permit or paid parking",
     permit_required: "Permit required",
     paid_parking: "Paid parking",
     staff_bays: "Staff bays",
     no_parking: "No parking",
     not_applicable: "Not applicable",
     no_easy_parking: "No parking",
+    not_sure: "Not sure",
     unknown: "To confirm"
   };
 
@@ -460,7 +482,17 @@
 
   function labelFrom(map, value, fallback = "To confirm") {
     if (!value) return fallback;
-    return map[value] || value;
+    if (map[value]) return map[value];
+
+    let cleaned = value.toString().replace(/_/g, ' ').toLowerCase();
+    cleaned = cleaned.replace(/\bmon\b/g, 'Monday');
+    cleaned = cleaned.replace(/\btue\b/g, 'Tuesday');
+    cleaned = cleaned.replace(/\bwed\b/g, 'Wednesday');
+    cleaned = cleaned.replace(/\bthu\b/g, 'Thursday');
+    cleaned = cleaned.replace(/\bfri\b/g, 'Friday');
+    cleaned = cleaned.replace(/\bsat\b/g, 'Saturday');
+    cleaned = cleaned.replace(/\bsun\b/g, 'Sunday');
+    return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
   }
 
   function clients() {

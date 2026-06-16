@@ -200,10 +200,9 @@ function validate(body) {
   const email = clean(body.email, LIMITS.email);
 
   if (!required.name) errors.push({ field: "name", message: "Please enter your name." });
-  if (!phone && !email) errors.push({ field: "email", message: "Please enter an email address or phone number." });
+  if (!phone && !email) errors.push({ field: "contact", message: "Please enter either an email address or a phone number." });
   if (!required.area) errors.push({ field: "area", message: "Please enter your area or postcode." });
   if (!required.service) errors.push({ field: "service", message: "Please choose a cleaning service." });
-  if (!clean(body.message, LIMITS.message)) errors.push({ field: "message", message: "Please enter a message or details about the clean." });
   if (!body.privacyAcknowledgement) errors.push({ field: "privacyAcknowledgement", message: "Please confirm the privacy notice." });
 
   Object.entries(LIMITS).forEach(([key, max]) => {

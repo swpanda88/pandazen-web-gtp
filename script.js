@@ -40,11 +40,10 @@ function formPayload(form) {
 
 const fieldMessages = {
   name: "Please enter your name.",
-  contact: "Please enter an email address or phone number.",
+  contact: "Please enter either an email address or a phone number.",
   email: "Please enter a valid email address.",
   area: "Please enter your area or postcode.",
   service: "Please choose a cleaning service.",
-  message: "Please enter a message or details about the clean.",
   privacyAcknowledgement: "Please confirm the privacy notice."
 };
 
@@ -62,21 +61,27 @@ function clearFormErrors() {
   contactForm.querySelectorAll(".field-error-label").forEach((item) => item.classList.remove("field-error-label"));
 }
 
-function markField(name, message) {
+function markField(name, message, descriptionId = null) {
   const control = fieldControl(name);
   if (!control) return;
   const label = control.closest("label");
   const messageId = `field-error-${name}`;
   control.classList.add("field-error-control");
   control.setAttribute("aria-invalid", "true");
-  control.setAttribute("aria-describedby", messageId);
-  label?.classList.add("field-error-label");
 
-  const errorText = document.createElement("span");
-  errorText.id = messageId;
-  errorText.className = "field-error-message";
-  errorText.textContent = message;
-  label?.appendChild(errorText);
+  if (message) {
+    control.setAttribute("aria-describedby", messageId);
+    label?.classList.add("field-error-label");
+
+    const errorText = document.createElement("span");
+    errorText.id = messageId;
+    errorText.className = "field-error-message";
+    errorText.textContent = message;
+    label?.appendChild(errorText);
+  } else if (descriptionId) {
+    control.setAttribute("aria-describedby", descriptionId);
+    label?.classList.add("field-error-label");
+  }
 }
 
 function showFormErrors(errors) {
@@ -85,7 +90,7 @@ function showFormErrors(errors) {
   entries.forEach(([field, message]) => {
     if (field === "contact") {
       markField("email", message);
-      markField("phone", message);
+      markField("phone", null, "field-error-email");
       return;
     }
     markField(field, message);
@@ -105,7 +110,6 @@ function frontendErrors(payload) {
   if (payload.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) errors.email = fieldMessages.email;
   if (!payload.area) errors.area = fieldMessages.area;
   if (!payload.service) errors.service = fieldMessages.service;
-  if (!payload.message) errors.message = fieldMessages.message;
   if (!payload.privacyAcknowledgement) errors.privacyAcknowledgement = fieldMessages.privacyAcknowledgement;
   return errors;
 }

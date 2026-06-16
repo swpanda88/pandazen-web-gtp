@@ -237,3 +237,26 @@ DROP TABLE requests_old;
 DROP TABLE properties_old;
 DROP TABLE customer_addresses_old;
 DROP TABLE customers_old;
+
+-- Step 5: Recreate explicit indexes from 0001 for rebuilt tables
+CREATE INDEX idx_customer_addresses_customer_id ON customer_addresses(customer_id);
+CREATE INDEX idx_properties_customer_id ON properties(customer_id);
+CREATE INDEX idx_requests_customer_id ON requests(customer_id);
+CREATE INDEX idx_requests_property_id ON requests(property_id);
+CREATE INDEX idx_quotes_customer_id ON quotes(customer_id);
+CREATE INDEX idx_quotes_property_id ON quotes(property_id);
+CREATE INDEX idx_quote_lines_quote_id ON quote_lines(quote_id);
+CREATE INDEX idx_quote_lines_catalogue_item_id ON quote_lines(catalogue_item_id);
+CREATE INDEX idx_jobs_quote_id ON jobs(quote_id);
+CREATE INDEX idx_jobs_customer_id ON jobs(customer_id);
+CREATE INDEX idx_jobs_property_id ON jobs(property_id);
+CREATE INDEX idx_visits_job_id ON visits(job_id);
+CREATE INDEX idx_invoices_customer_id ON invoices(customer_id);
+CREATE INDEX idx_invoices_property_id ON invoices(property_id);
+CREATE INDEX idx_billable_events_visit_id ON billable_events(visit_id);
+CREATE INDEX idx_billable_events_job_id ON billable_events(job_id);
+CREATE INDEX idx_billable_events_invoice_id ON billable_events(invoice_id);
+CREATE INDEX idx_invoice_lines_invoice_id ON invoice_lines(invoice_id);
+CREATE INDEX idx_invoice_lines_billable_event_id ON invoice_lines(billable_event_id);
+CREATE INDEX idx_invoice_lines_catalogue_item_id ON invoice_lines(catalogue_item_id);
+CREATE INDEX idx_payment_records_invoice_id ON payment_records(invoice_id);

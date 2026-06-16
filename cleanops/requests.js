@@ -725,7 +725,7 @@
       <section class="grid-detail">
         <div class="stack">
           <article class="panel">
-            <div class="panel-head"><h2>Request summary</h2>${button("Mark lost/archive", "mark-lost-archive", "small")}</div>
+            <div class="panel-head"><h2>Request summary</h2>${button("Mark lost", "mark-lost", "small")}</div>
             <div class="panel-body request-summary-grid">
               <div>
                 <h3>Linked records</h3>
@@ -1284,167 +1284,135 @@
     return property;
   }
 
-  function saveNewRequest() {
-    let client = findClient(value("new-request-client"));
-    if (!client) client = createClientShell();
-    if (!client) return;
+  async function saveNewRequest() {
+    const api = await import('./api.js');
 
-    const existingPropertyId = value("new-request-property");
-    let property = null;
-    if (existingPropertyId) {
-      const found = findAnyProperty(existingPropertyId);
-      property = found.property;
-      if (found.client && found.client.id !== client.id) client = found.client;
+    const clientName = value("new-request-client-name");
+    const nameParts = clientName.split(/\s+/);
+    const firstName = nameParts[0] || "";
+    const lastName = nameParts.slice(1).join(" ") || "";
+
+    const phone = value("new-request-phone");
+    const email = value("new-request-email");
+    const customerMessage = value("new-request-message");
+
+    if (!firstName && !lastName && !phone && !email && !customerMessage) {
+      toast("Please provide at least a name, contact info, or a message.");
+      return;
     }
-    if (!property) property = createPropertyShell(client);
 
-    const type = value("new-request-type") || "regular_domestic_clean";
-    const pricingBasis = value("new-request-pricing-basis") || "to_confirm";
-    const initialCleanRequired = value("new-request-initial-clean") || "to_confirm";
-    const regularDuration = numericValue("new-request-regular-duration");
-    const initialDuration = numericValue("new-request-initial-duration");
-    const teamSize = numericValue("new-request-team-size");
-    const requestNumber = `REQ-${1047 + requests().length}`;
-    const request = {
-      id: `request-${Date.now()}`,
-      number: requestNumber,
-      title: value("new-request-message").split(".")[0].slice(0, 56) || labelFrom(requestTypeLabels, type, "New request"),
-      client_id: client.id,
-      property_id: property.id,
-      request_type: type,
-      status: value("new-request-status") || "new_enquiry",
-      source: "manual",
-      received_at: "Just now",
-      updated_at: "Just now",
-      next_action: value("new-request-next-action") || "Contact customer",
-      customer_message: value("new-request-message") || "Manual request created by the office.",
-      service_summary: `${labelFrom(requestTypeLabels, type, "Request")} request. Confirm service scope before quote or job creation.`,
-      short_scoping_note: value("new-request-scoping-note") || `${labelFrom(requestTypeLabels, type, "Request")} request. Internal scoping still needs confirmation before quote.`,
-      preferred_cadence: value("new-request-cadence") || "to_confirm",
-      how_soon: value("new-request-how-soon") || "to_confirm",
-      preferred_day: value("new-request-day") || "to_confirm",
-      preferred_time_window: value("new-request-time") || "to_confirm",
-      intake_property_type: property.property_type || "unknown",
-      approx_size: value("new-request-approx-size") || "unknown",
-      bedrooms: property.bedrooms || "unknown",
-      bathrooms: property.bathrooms || "unknown",
-      pets_present: value("new-request-pets") || property.pets_present || "unknown",
-      parking: value("new-request-parking") || property.parking || "unknown",
-      main_priorities: selectedMainPriorities(),
-      photos_helpful: value("new-request-photos") || "to_confirm",
-      cleaning_products: value("new-request-products") || "to_confirm",
-      vacuum_hoover: value("new-request-vacuum") || "to_confirm",
-      mop: value("new-request-mop") || "to_confirm",
-      quote_readiness: value("new-request-quote-readiness") || "needs_contact",
-      assessment_required: value("new-request-assessment") || "to_confirm",
-      assessment_state: prepStateFor(value("new-request-assessment")),
-      initial_clean_required: initialCleanRequired,
-      initial_clean_state: prepStateFor(initialCleanRequired),
-      pricing_basis: pricingBasis,
-      pricing_basis_state: prepStateFor(pricingBasis),
-      estimated_regular_duration_minutes: regularDuration,
-      regular_duration_state: estimateStateFor(regularDuration),
-      estimated_initial_duration_minutes: initialDuration,
-      initial_duration_state: estimateStateFor(initialDuration),
-      estimated_team_size: teamSize,
-      team_size_state: estimateStateFor(teamSize),
-      scope_confidence: value("new-request-scope-confidence") || "to_confirm",
-      quote_considerations: selectedQuoteConsiderations(),
-      property_notes: value("new-request-property-notes") || property.property_notes || "",
-      cleaning_notes: value("new-request-cleaning-notes") || property.cleaning_notes || "",
-      internal_notes: value("new-request-internal-notes"),
-      owner: "Office"
+    const payload = {
+      sourceType: "manual",
+      firstName,
+      lastName,
+      email,
+      phone,
+      propertyAddressLine1: value("new-request-property-address"),
+      propertyType: value("new-request-property-type"),
+      bedrooms: value("new-request-bedrooms"),
+      bathrooms: value("new-request-bathrooms"),
+      requestType: value("new-request-type"),
+      status: value("new-request-status"),
+      cadence: value("new-request-cadence"),
+      howSoon: value("new-request-how-soon"),
+      preferredDay: value("new-request-day"),
+      preferredTimeWindow: value("new-request-time"),
+      approxSize: value("new-request-approx-size"),
+      petsPresent: value("new-request-pets"),
+      parking: value("new-request-parking"),
+      photosHelpful: value("new-request-photos"),
+      customerMessage: customerMessage,
+      cleaningProducts: value("new-request-products"),
+      vacuumHoover: value("new-request-vacuum"),
+      mop: value("new-request-mop"),
+      quoteReadiness: value("new-request-quote-readiness"),
+      assessmentRequired: value("new-request-assessment"),
+      initialCleanRequired: value("new-request-initial-clean"),
+      pricingBasis: value("new-request-pricing-basis"),
+      estimatedRegularDurationMinutes: numericValue("new-request-regular-duration"),
+      estimatedInitialDurationMinutes: numericValue("new-request-initial-duration"),
+      estimatedTeamSize: numericValue("new-request-team-size"),
+      scopeConfidence: value("new-request-scope-confidence"),
+      shortScopingNote: value("new-request-scoping-note"),
+      propertyNotes: value("new-request-property-notes"),
+      cleaningNotes: value("new-request-cleaning-notes"),
+      internalNotes: value("new-request-internal-notes"),
+      mainPriorities: selectedMainPriorities(),
+      quoteConsiderations: selectedQuoteConsiderations()
     };
 
-    requests().unshift(request);
-    client.requests = client.requests || [];
-    client.requests.unshift({ number: request.number, title: request.title, status: requestStatusLabel(request), tone: requestStatusTones[request.status] || "info", propertyId: property.id });
-    client.activeSummary = client.activeSummary || "Request open";
-    client.lastCommunication = "Just now";
-
-    state.selectedRequestId = request.id;
-    state.newRequestOpen = false;
-    state.moreOpen = false;
-    toast(`Created ${request.number}.`);
-    refresh();
+    try {
+      const response = await api.createRequest(payload);
+      if (response && response.ok) {
+        state.selectedRequestId = response.data.id;
+        state.newRequestOpen = false;
+        state.moreOpen = false;
+        toast(`Created ${response.data.number || 'new request'}.`);
+        await loadRequests();
+      } else {
+        toast(response?.error || "Failed to create request.");
+      }
+    } catch (e) {
+      toast("Error creating request.");
+    }
   }
 
-  function saveReviewRequest() {
+  async function saveReviewRequest() {
+    const api = await import('./api.js');
     const request = selectedRequest();
     if (!request) return;
-    const property = findProperty(request.client_id, request.property_id) || findAnyProperty(request.property_id).property;
-    const regularDuration = numericValue("review-regular-duration");
-    const initialDuration = numericValue("review-initial-duration");
-    const teamSize = numericValue("review-team-size");
-    const readiness = value("review-quote-readiness") || "needs_contact";
-    const confirmed = readiness === "ready_to_quote";
 
-    request.request_type = value("review-request-type") || request.request_type;
-    request.status = value("review-request-status") || request.status;
-    request.preferred_cadence = value("review-request-cadence") || "to_confirm";
-    request.how_soon = value("review-request-how-soon") || "to_confirm";
-    request.preferred_day = value("review-request-day") || "to_confirm";
-    request.preferred_time_window = value("review-request-time") || "to_confirm";
-    request.approx_size = value("review-request-approx-size") || "unknown";
-    request.photos_helpful = value("review-request-photos") || "to_confirm";
-    request.customer_message = value("review-request-message") || request.customer_message;
-    request.main_priorities = selectedReviewPriorities();
+    const payload = {
+      requestType: value("review-request-type"),
+      status: value("review-request-status"),
+      cadence: value("review-request-cadence"),
+      howSoon: value("review-request-how-soon"),
+      preferredDay: value("review-request-day"),
+      preferredTimeWindow: value("review-request-time"),
+      approxSize: value("review-request-approx-size"),
+      photosHelpful: value("review-request-photos"),
+      customerMessage: value("review-request-message"),
+      mainPriorities: selectedReviewPriorities(),
 
-    request.intake_property_type = value("review-property-type") || "unknown";
-    request.bedrooms = value("review-bedrooms") || "unknown";
-    request.bathrooms = value("review-bathrooms") || "unknown";
-    request.pets_present = value("review-pets") || "unknown";
-    request.parking = value("review-parking") || "unknown";
+      propertyType: value("review-property-type"),
+      bedrooms: value("review-bedrooms"),
+      bathrooms: value("review-bathrooms"),
+      petsPresent: value("review-pets"),
+      parking: value("review-parking"),
 
-    request.cleaning_products = value("review-products") || "to_confirm";
-    request.vacuum_hoover = value("review-vacuum") || "to_confirm";
-    request.mop = value("review-mop") || "to_confirm";
-    request.setup_confirmed = checked("review-setup-confirmed");
-    request.cleaning_products_state = request.setup_confirmed ? "confirmed" : prepStateFor(request.cleaning_products);
+      cleaningProducts: value("review-products"),
+      vacuumHoover: value("review-vacuum"),
+      mop: value("review-mop"),
+      setupConfirmed: checked("review-setup-confirmed") ? 1 : 0,
 
-    request.quote_readiness = readiness;
-    request.assessment_required = value("review-assessment") || "to_confirm";
-    request.assessment_state = confirmed ? "confirmed" : prepStateFor(request.assessment_required);
-    request.pricing_basis = value("review-pricing-basis") || "to_confirm";
-    request.pricing_basis_state = confirmed ? "confirmed" : prepStateFor(request.pricing_basis);
-    request.initial_clean_required = value("review-initial-clean") || "to_confirm";
-    request.initial_clean_state = confirmed ? "confirmed" : prepStateFor(request.initial_clean_required);
-    request.estimated_regular_duration_minutes = regularDuration;
-    request.regular_duration_state = confirmed && regularDuration ? "confirmed" : estimateStateFor(regularDuration);
-    request.estimated_initial_duration_minutes = initialDuration;
-    request.initial_duration_state = confirmed && initialDuration ? "confirmed" : estimateStateFor(initialDuration);
-    request.estimated_team_size = teamSize;
-    request.team_size_state = confirmed && teamSize ? "confirmed" : estimateStateFor(teamSize);
-    request.scope_confidence = value("review-scope-confidence") || "to_confirm";
-    request.short_scoping_note = value("review-scoping-note");
-    request.quote_considerations = selectedReviewConsiderations();
+      quoteReadiness: value("review-quote-readiness"),
+      assessmentRequired: value("review-assessment"),
+      pricingBasis: value("review-pricing-basis"),
+      initialCleanRequired: value("review-initial-clean"),
+      estimatedRegularDurationMinutes: numericValue("review-regular-duration"),
+      estimatedInitialDurationMinutes: numericValue("review-initial-duration"),
+      estimatedTeamSize: numericValue("review-team-size"),
+      scopeConfidence: value("review-scope-confidence"),
+      shortScopingNote: value("review-scoping-note"),
+      quoteConsiderations: selectedReviewConsiderations(),
 
-    request.property_notes = value("review-property-notes");
-    request.cleaning_notes = value("review-cleaning-notes");
-    request.internal_notes = value("review-internal-notes");
-    request.updated_at = "Just now";
-    request.next_action = confirmed ? "Create quote" : (missingChecklist(request)[0] || "Review request");
+      propertyNotes: value("review-property-notes"),
+      cleaningNotes: value("review-cleaning-notes"),
+      internalNotes: value("review-internal-notes")
+    };
 
-    if (property) {
-      property.property_type = request.intake_property_type;
-      property.bedrooms = request.bedrooms;
-      property.bathrooms = request.bathrooms;
-      property.pets_present = request.pets_present;
-      property.parking = request.parking;
-      property.cleaning_products = request.cleaning_products;
-      property.vacuum_hoover = request.vacuum_hoover;
-      property.mop = request.mop;
-      property.property_notes = request.property_notes;
-      property.cleaning_notes = request.cleaning_notes;
-      property.default_service_type = request.request_type;
-      property.default_cadence = request.preferred_cadence;
-      property.preferred_day = request.preferred_day;
-      property.preferred_time_window = request.preferred_time_window;
+    try {
+      const response = await api.updateRequest(request.id, payload);
+      if (response && response.ok) {
+        state.reviewRequestOpen = false;
+        toast("Request saved.");
+        await loadRequests();
+      } else {
+        toast(response?.error || "Failed to save request.");
+      }
+    } catch (e) {
+      toast("Error saving request.");
     }
-
-    state.reviewRequestOpen = false;
-    toast(confirmed ? "Request marked ready to quote." : "Request review saved.");
-    refresh();
   }
 
   function handleClick(event) {
@@ -1482,6 +1450,23 @@
     if (moreAction) {
       const request = selectedRequest();
       state.moreOpen = false;
+      if (moreAction === "Archive request" && request) {
+        if (confirm("Archive this request?")) {
+          toast("Archiving request...");
+          import('./api.js').then(api => {
+            api.updateRequest(request.id, { status: "archived" }).then(res => {
+              if (res && res.ok) {
+                toast(`Request ${request.number} archived.`);
+                loadRequests();
+              } else {
+                toast(res?.error || "Failed to archive request.");
+              }
+            });
+          });
+        }
+        refresh();
+        return true;
+      }
       toast(`${moreAction} is mocked for ${request?.number || "request"}.`);
       refresh();
       return true;
@@ -1511,8 +1496,10 @@
       return true;
     }
     if (action === "close-review-request") {
-      state.reviewRequestOpen = false;
-      refresh();
+      if (confirm("Cancel and discard any unsaved changes?")) {
+        state.reviewRequestOpen = false;
+        refresh();
+      }
       return true;
     }
     if (action === "save-review-request") {
@@ -1543,7 +1530,49 @@
         toast(`Quote opened for ${request.number}.`);
         return true;
       }
-      toast(`Create quote is mocked for ${request?.number || "request"}.`);
+      toast(`Create quote workflow is coming in the next backend stage.`);
+      return true;
+    }
+    if (action === "create-job" || action === "schedule-assessment") {
+      toast(`${action.replace(/-/g, " ")} workflow is coming in the next backend stage.`);
+      return true;
+    }
+    if (action === "contact-customer") {
+      const request = selectedRequest();
+      const client = findClient(request?.client_id) || request?.api_customer;
+      if (client?.email) {
+        window.location.href = `mailto:${client.email}`;
+      } else if (client?.phone) {
+        window.location.href = `tel:${client.phone}`;
+      } else {
+        toast("No contact information available.");
+      }
+      return true;
+    }
+    if (action === "add-note") {
+      state.reviewRequestOpen = true;
+      refresh();
+      setTimeout(() => {
+        const el = document.getElementById("review-internal-notes");
+        if (el) el.focus();
+      }, 0);
+      return true;
+    }
+    if (action === "mark-lost") {
+      const request = selectedRequest();
+      if (request && confirm("Mark this request as lost?")) {
+        toast("Marking request as lost...");
+        import('./api.js').then(api => {
+          api.updateRequest(request.id, { status: "lost" }).then(res => {
+            if (res && res.ok) {
+              toast(`Request ${request.number} marked as lost.`);
+              loadRequests();
+            } else {
+              toast(res?.error || "Failed to mark request as lost.");
+            }
+          });
+        });
+      }
       return true;
     }
 

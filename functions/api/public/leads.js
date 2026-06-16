@@ -1,5 +1,7 @@
 import { error, json, readJson, requireDb } from "../_util.js";
 import { runQuoteAssist } from "../_quoteAssist.js";
+import { getCustomerByEmail, createCustomer, createProperty } from "../../db/customers.js";
+import { createRequest } from "../../db/requests.js";
 
 const PRIVACY_VERSION = "privacy-2026-05";
 
@@ -236,7 +238,7 @@ export async function onRequestPost({ request, env }) {
     phone: clean(body.phone, LIMITS.phone),
     email: clean(body.email, LIMITS.email),
     area: clean(body.area, LIMITS.area),
-    source: "website",
+    source: "website_enquiry",
     serviceType: mapped("service", body.service),
     preferredContact: mapped("contactMethod", body.contactMethod),
     bestContactTime: clean(body.contactTime, LIMITS.contactTime),
@@ -337,6 +339,93 @@ export async function onRequestPost({ request, env }) {
     )
     .bind(`Follow up quote request: ${lead.name}`, assist.recommendedNextAction, leadId)
     .run();
+
+  // Map into new CleanOps DB Schema
+  let customer = null;
+  if (lead.email) {
+    customer = await getCustomerByEmail(db, lead.email);
+  }
+
+  const nameParts = (lead.name || "").split(/\s+/);
+  const firstName = nameParts[0] || null;
+  const lastName = nameParts.slice(1).join(" ") || null;
+
+  if (!customer) {
+    customer = await createCustomer(db, {
+      id: `cust-${crypto.randomUUID()}`,
+      type: 'individual',
+      sourceType: lead.source,
+      firstName: firstName,
+      lastName: lastName,
+      companyName: null,
+      email: lead.email || null,
+      phone: lead.phone || null
+    });
+  }
+
+  let property = null;
+  if (lead.area || lead.propertyType || lead.bedrooms || lead.bathrooms || lead.pets || lead.parking) {
+    property = await createProperty(db, {
+      id: `prop-${crypto.randomUUID()}`,
+      customerId: customer.id,
+      addressLine1: null,
+      city: lead.area || null,
+      postcode: null,
+      accessNotes: null,
+      propertyType: lead.propertyType || null,
+      bedrooms: lead.bedrooms || null,
+      bathrooms: lead.bathrooms || null,
+      petsPresent: lead.pets || null,
+      parking: lead.parking || null
+    });
+  }
+
+  const quoteConsiderations = [];
+  if (lead.photoAvailable === "whatsapp_if_requested" || lead.photoAvailable === "email_if_requested") {
+    quoteConsiderations.push("photos_requested");
+  }
+  if (lead.productPreferences === "eco_fragrance_free") {
+    quoteConsiderations.push("eco_products_preferred");
+  }
+
+  let cleaningProducts = null;
+  if (lead.productPreferences === "pandazen_supplied") cleaningProducts = "pandazen_provides";
+  else if (lead.productPreferences === "client_supplied") cleaningProducts = "client_provides";
+
+  await createRequest(db, {
+    id: `req-${crypto.randomUUID()}`,
+    customerId: customer.id,
+    propertyId: property ? property.id : null,
+    sourceType: lead.source,
+    status: 'new',
+    notes: lead.notes || null,
+    requestType: lead.serviceType || null,
+    cadence: lead.frequency || null,
+    howSoon: lead.urgency || null,
+    preferredDay: null,
+    preferredTimeWindow: lead.preferredDays || null,
+    approxSize: lead.propertySize || null,
+    photosHelpful: lead.photoAvailable !== "not_needed" && lead.photoAvailable !== "not_sure" && lead.photoAvailable ? "yes" : null,
+    quoteReadiness: 'needs_contact',
+    assessmentRequired: null,
+    initialCleanRequired: null,
+    pricingBasis: null,
+    estimatedRegularDurationMinutes: null,
+    estimatedInitialDurationMinutes: null,
+    estimatedTeamSize: null,
+    scopeConfidence: null,
+    mainPriorities: priorities,
+    quoteConsiderations: quoteConsiderations.length ? quoteConsiderations : null,
+    cleaningProducts: cleaningProducts,
+    vacuumHoover: null,
+    mop: null,
+    setupConfirmed: false,
+    customerMessage: lead.notes || null,
+    shortScopingNote: null,
+    propertyNotes: null,
+    cleaningNotes: null,
+    internalNotes: `Submitted via website form. Best contact: ${lead.preferredContact || 'any'}, ${lead.bestContactTime || 'anytime'}`
+  });
 
   await recordAttempt(db, { ipHash, contactHash, userAgentHash, outcome: "accepted", reason: null });
   return generic();

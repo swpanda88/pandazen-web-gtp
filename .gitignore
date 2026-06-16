@@ -1,0 +1,12 @@
+.wrangler-logs/
+.wrangler-pages-dev-*.log
+clean_schema.json
+schema_dump.json
+temp*.sql
+test*.sql
+*_test.js
+local_test*.js
+check_requests*.js
+smoke_test.js
+generate_*.js
+fix_schema*.js

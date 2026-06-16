@@ -268,87 +268,91 @@ export async function onRequestPost({ request, env }) {
     marketingOptIn: Boolean(body.marketingConsent)
   };
 
-  const result = await db
-    .prepare(
-      `INSERT INTO leads (
-        customer_name, phone, email, area, source, service_type, preferred_contact, preferred_days, status, notes,
-        best_contact_time, frequency, urgency, property_type, bedrooms, bathrooms, property_size, priorities,
-        pets, parking, product_preferences, photo_available, privacy_policy_accepted, privacy_policy_version,
-        privacy_policy_accepted_at, marketing_opt_in, marketing_opt_in_at, marketing_source
+  try {
+    const result = await db
+      .prepare(
+        `INSERT INTO leads (
+          customer_name, phone, email, area, source, service_type, preferred_contact, preferred_days, status, notes,
+          best_contact_time, frequency, urgency, property_type, bedrooms, bathrooms, property_size, priorities,
+          pets, parking, product_preferences, photo_available, privacy_policy_accepted, privacy_policy_version,
+          privacy_policy_accepted_at, marketing_opt_in, marketing_opt_in_at, marketing_source
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, CURRENT_TIMESTAMP, ?, ?, ?)`
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, CURRENT_TIMESTAMP, ?, ?, ?)`
-    )
-    .bind(
-      lead.name,
-      lead.phone || null,
-      lead.email || null,
-      lead.area,
-      lead.source,
-      lead.serviceType,
-      lead.preferredContact,
-      lead.preferredDays || null,
-      lead.notes || null,
-      lead.bestContactTime || null,
-      lead.frequency,
-      lead.urgency,
-      lead.propertyType,
-      lead.bedrooms || null,
-      lead.bathrooms || null,
-      lead.propertySize,
-      lead.priorities,
-      lead.pets,
-      lead.parking,
-      lead.productPreferences,
-      lead.photoAvailable,
-      PRIVACY_VERSION,
-      lead.marketingOptIn ? 1 : 0,
-      lead.marketingOptIn ? new Date().toISOString() : null,
-      lead.marketingOptIn ? "quote_form" : null
-    )
-    .run();
-
-  const leadId = result.meta.last_row_id;
-  const assist = runQuoteAssist(lead);
-
-  await db
-    .prepare(
-      `INSERT INTO lead_quote_assist (
-        lead_id, fit_score, price_shopper_risk, travel_suitability,
-        estimated_first_clean_hours_min, estimated_first_clean_hours_max,
-        estimated_recurring_hours_min, estimated_recurring_hours_max,
-        suggested_price_min, suggested_price_max, minimum_recommended_price,
-        recommended_next_action, confidence, explanation, risk_flags, positive_flags, rule_version
+      .bind(
+        lead.name,
+        lead.phone || null,
+        lead.email || null,
+        lead.area,
+        lead.source,
+        lead.serviceType,
+        lead.preferredContact,
+        lead.preferredDays || null,
+        lead.notes || null,
+        lead.bestContactTime || null,
+        lead.frequency,
+        lead.urgency,
+        lead.propertyType,
+        lead.bedrooms || null,
+        lead.bathrooms || null,
+        lead.propertySize,
+        lead.priorities,
+        lead.pets,
+        lead.parking,
+        lead.productPreferences,
+        lead.photoAvailable,
+        PRIVACY_VERSION,
+        lead.marketingOptIn ? 1 : 0,
+        lead.marketingOptIn ? new Date().toISOString() : null,
+        lead.marketingOptIn ? "quote_form" : null
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    )
-    .bind(
-      leadId,
-      assist.fitScore,
-      assist.priceShopperRisk,
-      assist.travelSuitability,
-      assist.estimatedFirstCleanHoursMin,
-      assist.estimatedFirstCleanHoursMax,
-      assist.estimatedRecurringHoursMin,
-      assist.estimatedRecurringHoursMax,
-      assist.suggestedPriceMin,
-      assist.suggestedPriceMax,
-      assist.minimumRecommendedPrice,
-      assist.recommendedNextAction,
-      assist.confidence,
-      assist.explanation,
-      JSON.stringify(assist.riskFlags),
-      JSON.stringify(assist.positiveFlags),
-      assist.ruleVersion
-    )
-    .run();
+      .run();
 
-  await db
-    .prepare(
-      `INSERT INTO admin_tasks (title, notes, task_type, status, priority, due_at, linked_type, linked_id, assigned_to)
-       VALUES (?, ?, 'Lead follow-up', 'Open', 'High', datetime('now', '+1 day'), 'lead', ?, 'admin')`
-    )
-    .bind(`Follow up quote request: ${lead.name}`, assist.recommendedNextAction, leadId)
-    .run();
+    const leadId = result.meta.last_row_id;
+    const assist = runQuoteAssist(lead);
+
+    await db
+      .prepare(
+        `INSERT INTO lead_quote_assist (
+          lead_id, fit_score, price_shopper_risk, travel_suitability,
+          estimated_first_clean_hours_min, estimated_first_clean_hours_max,
+          estimated_recurring_hours_min, estimated_recurring_hours_max,
+          suggested_price_min, suggested_price_max, minimum_recommended_price,
+          recommended_next_action, confidence, explanation, risk_flags, positive_flags, rule_version
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(
+        leadId,
+        assist.fitScore,
+        assist.priceShopperRisk,
+        assist.travelSuitability,
+        assist.estimatedFirstCleanHoursMin,
+        assist.estimatedFirstCleanHoursMax,
+        assist.estimatedRecurringHoursMin,
+        assist.estimatedRecurringHoursMax,
+        assist.suggestedPriceMin,
+        assist.suggestedPriceMax,
+        assist.minimumRecommendedPrice,
+        assist.recommendedNextAction,
+        assist.confidence,
+        assist.explanation,
+        JSON.stringify(assist.riskFlags),
+        JSON.stringify(assist.positiveFlags),
+        assist.ruleVersion
+      )
+      .run();
+
+    await db
+      .prepare(
+        `INSERT INTO admin_tasks (title, notes, task_type, status, priority, due_at, linked_type, linked_id, assigned_to)
+         VALUES (?, ?, 'Lead follow-up', 'Open', 'High', datetime('now', '+1 day'), 'lead', ?, 'admin')`
+      )
+      .bind(`Follow up quote request: ${lead.name}`, assist.recommendedNextAction, leadId)
+      .run();
+  } catch (e) {
+    console.warn("Could not insert into legacy leads table. Skipping legacy insert.", e.message);
+  }
 
   // Map into new CleanOps DB Schema
   let customer = null;

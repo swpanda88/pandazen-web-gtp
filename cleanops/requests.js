@@ -340,7 +340,7 @@
     suggested: "Suggested",
     confirmed: "Confirmed",
     to_confirm: "To confirm",
-    not_estimated: "Not estimated yet"
+    not_estimated: "To confirm"
   };
 
   const quoteConsiderationLabels = {
@@ -495,11 +495,11 @@
   }
 
   function prepValue(label, state = "to_confirm") {
-    if (!label) return state === "to_confirm" ? "To confirm" : "Not estimated yet";
+    if (!label) return "To confirm";
     if (label === "To confirm") return labelFrom(prepStateLabels, state, "To confirm");
     if (state === "confirmed") return `Confirmed - ${label}`;
     if (state === "suggested") return `Suggested - ${label}`;
-    if (state === "not_estimated") return "Not estimated yet";
+    if (state === "not_estimated") return "To confirm";
     if (state === "to_confirm") return "To confirm";
     return label;
   }
@@ -519,7 +519,7 @@
 
   function priorityChips(request) {
     const items = Array.isArray(request.main_priorities) ? request.main_priorities : [];
-    if (!items.length) return chip("No priorities supplied", "muted");
+    if (!items.length) return chip("To confirm", "muted");
     return items.map((item) => chip(labelFrom(priorityLabels, item, item), "info")).join("");
   }
 

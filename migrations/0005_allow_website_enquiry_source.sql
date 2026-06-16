@@ -1,15 +1,22 @@
--- migrations/0001_cleanops_v1_schema.sql
+-- Step 1: Rename old tables
+ALTER TABLE payment_records RENAME TO payment_records_old;
+ALTER TABLE invoice_lines RENAME TO invoice_lines_old;
+ALTER TABLE quote_lines RENAME TO quote_lines_old;
+ALTER TABLE billable_events RENAME TO billable_events_old;
+ALTER TABLE invoices RENAME TO invoices_old;
+ALTER TABLE visits RENAME TO visits_old;
+ALTER TABLE jobs RENAME TO jobs_old;
+ALTER TABLE quotes RENAME TO quotes_old;
+ALTER TABLE requests RENAME TO requests_old;
+ALTER TABLE properties RENAME TO properties_old;
+ALTER TABLE customer_addresses RENAME TO customer_addresses_old;
+ALTER TABLE customers RENAME TO customers_old;
 
-CREATE TABLE document_sequences (
-    id TEXT PRIMARY KEY,
-    next_number INTEGER NOT NULL DEFAULT 1,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
+-- Step 2: Create new tables
 CREATE TABLE customers (
     id TEXT PRIMARY KEY,
     type TEXT NOT NULL CHECK (type IN ('individual', 'company')),
-    source_type TEXT CHECK (source_type IN ('request', 'assessment', 'job', 'visit', 'billable_event', 'manual', 'manual_quote', 'manual_invoice', 'imported', 'other')),
+    source_type TEXT CHECK (source_type IN ('request', 'assessment', 'job', 'visit', 'billable_event', 'manual', 'manual_quote', 'manual_invoice', 'imported', 'website_enquiry', 'other')),
     first_name TEXT,
     last_name TEXT,
     company_name TEXT,
@@ -37,8 +44,6 @@ CREATE TABLE customer_addresses (
     FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_customer_addresses_customer_id ON customer_addresses(customer_id);
-
 CREATE TABLE properties (
     id TEXT PRIMARY KEY,
     customer_id TEXT NOT NULL,
@@ -49,40 +54,21 @@ CREATE TABLE properties (
     country TEXT,
     access_notes TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, property_type TEXT, bedrooms TEXT, bathrooms TEXT, pets_present TEXT, parking TEXT,
     FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
 );
-
-CREATE INDEX idx_properties_customer_id ON properties(customer_id);
 
 CREATE TABLE requests (
     id TEXT PRIMARY KEY,
     customer_id TEXT,
     property_id TEXT,
-    source_type TEXT CHECK (source_type IN ('request', 'assessment', 'job', 'visit', 'billable_event', 'manual', 'manual_quote', 'manual_invoice', 'imported', 'other')),
+    source_type TEXT CHECK (source_type IN ('request', 'assessment', 'job', 'visit', 'billable_event', 'manual', 'manual_quote', 'manual_invoice', 'imported', 'website_enquiry', 'other')),
     status TEXT CHECK (status IN ('new', 'contacted', 'waiting_customer', 'assessment_needed', 'quote_needed', 'quoted', 'won', 'lost', 'not_suitable', 'archived')),
     notes TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, request_type TEXT, cadence TEXT, how_soon TEXT, preferred_day TEXT, preferred_time_window TEXT, approx_size TEXT, photos_helpful TEXT, quote_readiness TEXT, assessment_required TEXT, initial_clean_required TEXT, pricing_basis TEXT, estimated_regular_duration_minutes INTEGER, estimated_initial_duration_minutes INTEGER, estimated_team_size INTEGER, scope_confidence TEXT, main_priorities_json TEXT, quote_considerations_json TEXT, cleaning_products TEXT, vacuum_hoover TEXT, mop TEXT, setup_confirmed INTEGER DEFAULT 0, customer_message TEXT, short_scoping_note TEXT, property_notes TEXT, cleaning_notes TEXT, internal_notes TEXT,
     FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL,
     FOREIGN KEY (property_id) REFERENCES properties(id) ON DELETE SET NULL
-);
-
-CREATE INDEX idx_requests_customer_id ON requests(customer_id);
-CREATE INDEX idx_requests_property_id ON requests(property_id);
-
-CREATE TABLE catalogue_items (
-    id TEXT PRIMARY KEY,
-    item_type TEXT CHECK (item_type IN ('service', 'product', 'fee', 'discount', 'adjustment')),
-    income_category TEXT CHECK (income_category IN ('cleaning_service', 'non_cleaning_service', 'goods_sale', 'adjustment')),
-    name TEXT NOT NULL,
-    description TEXT,
-    default_unit TEXT,
-    default_rate_pence INTEGER NOT NULL,
-    default_vat_code TEXT CHECK (default_vat_code IN ('not_applicable', 'standard', 'zero', 'exempt', 'outside_scope')),
-    is_active INTEGER DEFAULT 1,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE quotes (
@@ -92,7 +78,7 @@ CREATE TABLE quotes (
     display_ref TEXT NOT NULL UNIQUE,
     customer_id TEXT NOT NULL,
     property_id TEXT,
-    source_type TEXT CHECK (source_type IN ('request', 'assessment', 'job', 'visit', 'billable_event', 'manual', 'manual_quote', 'manual_invoice', 'imported', 'other')),
+    source_type TEXT CHECK (source_type IN ('request', 'assessment', 'job', 'visit', 'billable_event', 'manual', 'manual_quote', 'manual_invoice', 'imported', 'website_enquiry', 'other')),
     income_category TEXT CHECK (income_category IN ('cleaning_service', 'non_cleaning_service', 'goods_sale', 'adjustment')),
     quote_status TEXT CHECK (quote_status IN ('draft', 'ready_to_send', 'sent', 'accepted', 'rejected', 'expired', 'superseded', 'archived')),
     document_status TEXT CHECK (document_status IN ('not_generated', 'generated', 'needs_update')),
@@ -110,9 +96,6 @@ CREATE TABLE quotes (
     FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE RESTRICT,
     FOREIGN KEY (property_id) REFERENCES properties(id) ON DELETE SET NULL
 );
-
-CREATE INDEX idx_quotes_customer_id ON quotes(customer_id);
-CREATE INDEX idx_quotes_property_id ON quotes(property_id);
 
 CREATE TABLE quote_lines (
     id TEXT PRIMARY KEY,
@@ -132,9 +115,6 @@ CREATE TABLE quote_lines (
     FOREIGN KEY (catalogue_item_id) REFERENCES catalogue_items(id) ON DELETE SET NULL
 );
 
-CREATE INDEX idx_quote_lines_quote_id ON quote_lines(quote_id);
-CREATE INDEX idx_quote_lines_catalogue_item_id ON quote_lines(catalogue_item_id);
-
 CREATE TABLE jobs (
     id TEXT PRIMARY KEY,
     quote_id TEXT,
@@ -148,10 +128,6 @@ CREATE TABLE jobs (
     FOREIGN KEY (property_id) REFERENCES properties(id) ON DELETE RESTRICT
 );
 
-CREATE INDEX idx_jobs_quote_id ON jobs(quote_id);
-CREATE INDEX idx_jobs_customer_id ON jobs(customer_id);
-CREATE INDEX idx_jobs_property_id ON jobs(property_id);
-
 CREATE TABLE visits (
     id TEXT PRIMARY KEY,
     job_id TEXT NOT NULL,
@@ -164,14 +140,12 @@ CREATE TABLE visits (
     FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_visits_job_id ON visits(job_id);
-
 CREATE TABLE invoices (
     id TEXT PRIMARY KEY,
     invoice_number TEXT NOT NULL UNIQUE,
     customer_id TEXT NOT NULL,
     property_id TEXT,
-    source_type TEXT CHECK (source_type IN ('request', 'assessment', 'job', 'visit', 'billable_event', 'manual', 'manual_quote', 'manual_invoice', 'imported', 'other')),
+    source_type TEXT CHECK (source_type IN ('request', 'assessment', 'job', 'visit', 'billable_event', 'manual', 'manual_quote', 'manual_invoice', 'imported', 'website_enquiry', 'other')),
     income_category TEXT CHECK (income_category IN ('cleaning_service', 'non_cleaning_service', 'goods_sale', 'adjustment')),
     invoice_status TEXT CHECK (invoice_status IN ('draft', 'ready', 'sent', 'part_paid', 'paid', 'overdue', 'void')),
     payment_state TEXT,
@@ -189,9 +163,6 @@ CREATE TABLE invoices (
     FOREIGN KEY (property_id) REFERENCES properties(id) ON DELETE SET NULL
 );
 
-CREATE INDEX idx_invoices_customer_id ON invoices(customer_id);
-CREATE INDEX idx_invoices_property_id ON invoices(property_id);
-
 CREATE TABLE billable_events (
     id TEXT PRIMARY KEY,
     visit_id TEXT,
@@ -205,10 +176,6 @@ CREATE TABLE billable_events (
     FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE SET NULL,
     FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE SET NULL
 );
-
-CREATE INDEX idx_billable_events_visit_id ON billable_events(visit_id);
-CREATE INDEX idx_billable_events_job_id ON billable_events(job_id);
-CREATE INDEX idx_billable_events_invoice_id ON billable_events(invoice_id);
 
 CREATE TABLE invoice_lines (
     id TEXT PRIMARY KEY,
@@ -229,10 +196,6 @@ CREATE TABLE invoice_lines (
     FOREIGN KEY (catalogue_item_id) REFERENCES catalogue_items(id) ON DELETE SET NULL
 );
 
-CREATE INDEX idx_invoice_lines_invoice_id ON invoice_lines(invoice_id);
-CREATE INDEX idx_invoice_lines_billable_event_id ON invoice_lines(billable_event_id);
-CREATE INDEX idx_invoice_lines_catalogue_item_id ON invoice_lines(catalogue_item_id);
-
 CREATE TABLE payment_records (
     id TEXT PRIMARY KEY,
     invoice_id TEXT NOT NULL,
@@ -247,4 +210,30 @@ CREATE TABLE payment_records (
     FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_payment_records_invoice_id ON payment_records(invoice_id);
+-- Step 3: Insert data
+INSERT INTO customers SELECT * FROM customers_old;
+INSERT INTO customer_addresses SELECT * FROM customer_addresses_old;
+INSERT INTO properties SELECT * FROM properties_old;
+INSERT INTO requests SELECT * FROM requests_old;
+INSERT INTO quotes SELECT * FROM quotes_old;
+INSERT INTO quote_lines SELECT * FROM quote_lines_old;
+INSERT INTO jobs SELECT * FROM jobs_old;
+INSERT INTO visits SELECT * FROM visits_old;
+INSERT INTO invoices SELECT * FROM invoices_old;
+INSERT INTO billable_events SELECT * FROM billable_events_old;
+INSERT INTO invoice_lines SELECT * FROM invoice_lines_old;
+INSERT INTO payment_records SELECT * FROM payment_records_old;
+
+-- Step 4: Drop old tables
+DROP TABLE payment_records_old;
+DROP TABLE invoice_lines_old;
+DROP TABLE quote_lines_old;
+DROP TABLE billable_events_old;
+DROP TABLE invoices_old;
+DROP TABLE visits_old;
+DROP TABLE jobs_old;
+DROP TABLE quotes_old;
+DROP TABLE requests_old;
+DROP TABLE properties_old;
+DROP TABLE customer_addresses_old;
+DROP TABLE customers_old;

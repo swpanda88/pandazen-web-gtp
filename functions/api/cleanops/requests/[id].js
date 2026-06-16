@@ -57,7 +57,7 @@ export async function onRequest(context) {
 
     // Determine final source type safely
     let finalSourceType = body.sourceType !== undefined ? body.sourceType : existingRequest.sourceType;
-    let validSourceTypes = ['request', 'assessment', 'job', 'visit', 'billable_event', 'manual', 'manual_quote', 'manual_invoice', 'imported', 'other'];
+    let validSourceTypes = ['request', 'assessment', 'job', 'visit', 'billable_event', 'manual', 'manual_quote', 'manual_invoice', 'imported', 'website_enquiry', 'other'];
     if (!validSourceTypes.includes(finalSourceType)) {
       finalSourceType = 'other';
     }
@@ -126,6 +126,7 @@ export async function onRequest(context) {
     let newPropertyId = undefined;
     if (
         body.propertyAddressLine1 !== undefined ||
+        body.propertyAddressLine2 !== undefined ||
         body.propertyCity !== undefined ||
         body.propertyPostcode !== undefined ||
         body.propertyType !== undefined ||
@@ -137,6 +138,7 @@ export async function onRequest(context) {
       if (existingRequest.propertyId) {
         await updateProperty(db, existingRequest.propertyId, {
           addressLine1: body.propertyAddressLine1,
+          addressLine2: body.propertyAddressLine2,
           city: body.propertyCity,
           postcode: body.propertyPostcode,
           propertyType: body.propertyType,
@@ -150,6 +152,7 @@ export async function onRequest(context) {
           id: `prop-${crypto.randomUUID()}`,
           customerId: existingRequest.customerId,
           addressLine1: body.propertyAddressLine1,
+          addressLine2: body.propertyAddressLine2,
           city: body.propertyCity,
           postcode: body.propertyPostcode,
           accessNotes: body.accessNotes, // not propertyNotes!

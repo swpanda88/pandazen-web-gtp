@@ -81,6 +81,11 @@ function mapPropertyRow(row) {
     postcode: row.postcode,
     country: row.country,
     accessNotes: row.access_notes,
+    propertyType: row.property_type,
+    bedrooms: row.bedrooms,
+    bathrooms: row.bathrooms,
+    petsPresent: row.pets_present,
+    parking: row.parking,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -179,6 +184,7 @@ export async function updateProperty(db, propertyId, updates) {
   const params = [];
 
   if (updates.addressLine1 !== undefined) { sets.push('address_line1 = ?'); params.push(updates.addressLine1); }
+  if (updates.addressLine2 !== undefined) { sets.push('address_line2 = ?'); params.push(updates.addressLine2); }
   if (updates.city !== undefined) { sets.push('city = ?'); params.push(updates.city); }
   if (updates.postcode !== undefined) { sets.push('postcode = ?'); params.push(updates.postcode); }
   if (updates.propertyType !== undefined) { sets.push('property_type = ?'); params.push(updates.propertyType); }

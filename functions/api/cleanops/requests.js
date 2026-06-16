@@ -1,6 +1,6 @@
 import { json, error, requireDb } from "../_util.js";
 import { listRequests, createRequest, getRequestById } from "../../db/requests.js";
-import { getCustomerByEmail, createCustomer, createProperty } from "../../db/customers.js";
+import { getCustomerByEmail, getCustomerById, getPropertyById, createCustomer, createProperty } from "../../db/customers.js";
 
 export async function onRequest(context) {
   const method = context.request.method;
@@ -31,11 +31,13 @@ export async function onRequest(context) {
       const body = await context.request.json().catch(() => ({}));
 
       // Validation
-      const hasName = body.firstName || body.lastName || body.companyName;
+      const hasName = body.customerId || body.firstName || body.lastName || body.companyName;
       const hasContactOrNotes = body.email || body.phone || body.notes ||
                                 body.customerMessage || body.propertyNotes ||
                                 body.cleaningNotes || body.internalNotes ||
-                                body.shortScopingNote;
+                                body.shortScopingNote || body.propertyId ||
+                                body.propertyAddressLine1 || body.propertyCity ||
+                                body.propertyPostcode || body.requestType;
 
       if (!hasName || !hasContactOrNotes) {
         return error("Bad Request: Please provide at least a name and contact info or notes.", 400);
@@ -72,9 +74,11 @@ export async function onRequest(context) {
       const validSourceTypes = ['request', 'assessment', 'job', 'visit', 'billable_event', 'manual', 'manual_quote', 'manual_invoice', 'imported', 'website_enquiry', 'other'];
       const finalSourceType = body.sourceType && validSourceTypes.includes(body.sourceType) ? body.sourceType : 'other';
 
-      // Check if customer exists by email
       let customer = null;
-      if (body.email) {
+      if (body.customerId) {
+        customer = await getCustomerById(db, body.customerId);
+        if (!customer) return error("Bad Request: Selected customer was not found.", 400);
+      } else if (body.email) {
         customer = await getCustomerByEmail(db, body.email);
       }
 
@@ -91,16 +95,21 @@ export async function onRequest(context) {
         });
       }
 
-      // Create property if address or property facts provided
       let property = null;
-      if (
-        body.propertyAddressLine1 || body.propertyCity || body.propertyPostcode ||
+      if (body.propertyId) {
+        property = await getPropertyById(db, body.propertyId);
+        if (!property || property.customerId !== customer.id) {
+          return error("Bad Request: Selected property does not belong to the selected customer.", 400);
+        }
+      } else if (
+        body.propertyAddressLine1 || body.propertyAddressLine2 || body.propertyCity || body.propertyPostcode ||
         body.propertyType || body.bedrooms || body.bathrooms || body.petsPresent || body.parking
       ) {
         property = await createProperty(db, {
           id: `prop-${crypto.randomUUID()}`,
           customerId: customer.id,
           addressLine1: body.propertyAddressLine1,
+          addressLine2: body.propertyAddressLine2,
           city: body.propertyCity,
           postcode: body.propertyPostcode,
           accessNotes: body.accessNotes, // not propertyNotes! propertyNotes goes to request in B2a

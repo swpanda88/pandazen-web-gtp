@@ -4,6 +4,8 @@ const navToggle = document.querySelector("[data-nav-toggle]");
 const contactForm = document.querySelector("[data-contact-form]");
 const submitStatus = document.querySelector("[data-form-submit-status]");
 
+if (contactForm) contactForm.noValidate = true;
+
 function valueOrNotSelected(value) {
   return value || "Not selected";
 }
@@ -59,9 +61,34 @@ contactForm.addEventListener("submit", async (event) => {
   const form = new FormData(contactForm);
   const payload = formPayload(form);
   submitStatus.classList.remove("error");
+  if (!payload.name) {
+    submitStatus.classList.add("error");
+    submitStatus.textContent = "Please add your name.";
+    return;
+  }
   if (!payload.phone && !payload.email) {
     submitStatus.classList.add("error");
     submitStatus.textContent = "Please add a phone number or email address.";
+    return;
+  }
+  if (payload.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
+    submitStatus.classList.add("error");
+    submitStatus.textContent = "Please add a valid email address.";
+    return;
+  }
+  if (!payload.area) {
+    submitStatus.classList.add("error");
+    submitStatus.textContent = "Please add your area or postcode.";
+    return;
+  }
+  if (!payload.service) {
+    submitStatus.classList.add("error");
+    submitStatus.textContent = "Please choose a service type.";
+    return;
+  }
+  if (!payload.privacyAcknowledgement) {
+    submitStatus.classList.add("error");
+    submitStatus.textContent = "Please confirm you have read the Privacy Policy.";
     return;
   }
   submitStatus.textContent = "Sending your request...";
@@ -76,7 +103,7 @@ contactForm.addEventListener("submit", async (event) => {
       const result = await response.json().catch(() => ({}));
       if (!response.ok) {
         submitStatus.classList.add("error");
-        submitStatus.textContent = result.error || "Please check the form and try again.";
+        submitStatus.textContent = result.error || result.message || "Please check the highlighted details and try again.";
         return;
       }
       contactForm.reset();

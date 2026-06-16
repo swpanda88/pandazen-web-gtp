@@ -74,7 +74,7 @@
       short_scoping_note: apiReq.shortScopingNote || "",
       property_notes: apiReq.propertyNotes || "",
       cleaning_notes: apiReq.cleaningNotes || "",
-      received_at: apiReq.createdAt ? new Date(apiReq.createdAt).toLocaleDateString() : "Unknown",
+      received_at: apiReq.createdAt ? new Date(apiReq.createdAt).toLocaleDateString() : "To confirm",
       updated_at: apiReq.updatedAt ? new Date(apiReq.updatedAt).toLocaleDateString() : "",
       next_action: "Review request",
       intake_property_type: apiReq.propertyType || "unknown",
@@ -172,8 +172,8 @@
     "3": "3",
     "4": "4",
     "5_plus": "5+",
-    not_applicable: "N/A",
-    unknown: "Unknown"
+    not_applicable: "To confirm",
+    unknown: "To confirm"
   };
 
   const bathroomsLabels = {
@@ -181,8 +181,8 @@
     "2": "2",
     "3": "3",
     "4_plus": "4+",
-    not_applicable: "N/A",
-    unknown: "Unknown"
+    not_applicable: "To confirm",
+    unknown: "To confirm"
   };
 
   const cadenceLabels = {
@@ -245,7 +245,7 @@
     commercial_small: "Small commercial",
     commercial_medium: "Medium commercial",
     commercial_large: "Large commercial",
-    unknown: "Unknown"
+    unknown: "To confirm"
   };
 
   const petsLabels = {
@@ -254,8 +254,8 @@
     cat: "Cat",
     multiple_pets: "Multiple pets",
     other: "Other pets",
-    not_applicable: "N/A",
-    unknown: "Unknown"
+    not_applicable: "To confirm",
+    unknown: "To confirm"
   };
 
   const parkingLabels = {
@@ -265,7 +265,7 @@
     paid_parking: "Paid parking",
     staff_bays: "Staff bays",
     no_easy_parking: "No easy parking",
-    unknown: "Unknown"
+    unknown: "To confirm"
   };
 
   const photoHelpLabels = {
@@ -318,7 +318,7 @@
     yes: "Initial clean required",
     no: "No initial clean",
     to_confirm: "To confirm",
-    not_applicable: "N/A"
+    not_applicable: "To confirm"
   };
 
   const pricingBasisLabels = {
@@ -387,7 +387,7 @@
     window.CleanOpsShell?.toast?.(message);
   }
 
-  function labelFrom(map, value, fallback = "Not set") {
+  function labelFrom(map, value, fallback = "To confirm") {
     if (!value) return fallback;
     return map[value] || value;
   }
@@ -525,7 +525,7 @@
 
   function considerationChips(request) {
     const items = Array.isArray(request.quote_considerations) ? request.quote_considerations : [];
-    if (!items.length) return chip("No quote considerations", "muted");
+    if (!items.length) return chip("To confirm", "muted");
     return items
       .map((item) => chip(labelFrom(quoteConsiderationLabels, item, item), "info"))
       .join("");
@@ -636,7 +636,7 @@
           <td>${requestTypeChip(request)}</td>
           <td>${requestStatusChip(request)}</td>
           <td>${escapeHtml(request.next_action || "Review request")}</td>
-          <td>${escapeHtml(request.received_at || "Unknown")}<br><span class="muted">${escapeHtml(request.updated_at ? `Updated ${request.updated_at}` : "")}</span></td>
+          <td>${escapeHtml(request.received_at || "To confirm")}<br><span class="muted">${escapeHtml(request.updated_at ? `Updated ${request.updated_at}` : "")}</span></td>
         </tr>
       `;
     });
@@ -743,8 +743,8 @@
               <div>
                 <h3>Request state</h3>
                 <div class="field-row"><span>Request number</span><strong>${escapeHtml(request.number)}</strong></div>
-                <div class="field-row"><span>Received</span><strong>${escapeHtml(request.received_at || "Unknown")}</strong></div>
-                <div class="field-row"><span>Updated</span><strong>${escapeHtml(request.updated_at || "Unknown")}</strong></div>
+                <div class="field-row"><span>Received</span><strong>${escapeHtml(request.received_at || "To confirm")}</strong></div>
+                <div class="field-row"><span>Updated</span><strong>${escapeHtml(request.updated_at || "To confirm")}</strong></div>
                 <div class="field-row"><span>Next action</span><strong>${escapeHtml(request.next_action || "Review request")}</strong></div>
                 <div class="field-row"><span>Quote readiness</span><strong>${escapeHtml(labelFrom(quoteReadinessLabels, request.quote_readiness || deriveQuoteReadiness(request), "Missing scope"))}</strong></div>
               </div>
@@ -765,11 +765,11 @@
               <div>
                 <h3>Property snapshot from intake</h3>
                 <div class="field-row"><span>Property type</span><strong>${escapeHtml(labelFrom(propertyTypeLabels, request.intake_property_type || property?.property_type, "To confirm"))}</strong></div>
-                <div class="field-row"><span>Approx size</span><strong>${escapeHtml(labelFrom(approxSizeLabels, request.approx_size, "Unknown"))}</strong></div>
-                <div class="field-row"><span>Bedrooms</span><strong>${escapeHtml(labelFrom(bedroomsLabels, request.bedrooms || property?.bedrooms, "Unknown"))}</strong></div>
-                <div class="field-row"><span>Bathrooms</span><strong>${escapeHtml(labelFrom(bathroomsLabels, request.bathrooms || property?.bathrooms, "Unknown"))}</strong></div>
-                <div class="field-row"><span>Pets</span><strong>${escapeHtml(labelFrom(petsLabels, request.pets_present || property?.pets_present, "Unknown"))}</strong></div>
-                <div class="field-row"><span>Parking</span><strong>${escapeHtml(labelFrom(parkingLabels, request.parking || property?.parking, "Unknown"))}</strong></div>
+                <div class="field-row"><span>Approx size</span><strong>${escapeHtml(labelFrom(approxSizeLabels, request.approx_size, "To confirm"))}</strong></div>
+                <div class="field-row"><span>Bedrooms</span><strong>${escapeHtml(labelFrom(bedroomsLabels, request.bedrooms || property?.bedrooms, "To confirm"))}</strong></div>
+                <div class="field-row"><span>Bathrooms</span><strong>${escapeHtml(labelFrom(bathroomsLabels, request.bathrooms || property?.bathrooms, "To confirm"))}</strong></div>
+                <div class="field-row"><span>Pets</span><strong>${escapeHtml(labelFrom(petsLabels, request.pets_present || property?.pets_present, "To confirm"))}</strong></div>
+                <div class="field-row"><span>Parking</span><strong>${escapeHtml(labelFrom(parkingLabels, request.parking || property?.parking, "To confirm"))}</strong></div>
               </div>
               <div class="wide">
                 <h3>Main priorities</h3>
@@ -808,7 +808,7 @@
               </div>
               <div class="wide">
                 <h3>Short scoping note</h3>
-                <p class="muted">${escapeHtml(request.short_scoping_note || request.service_summary || "No internal scoping note yet.")}</p>
+                <p class="muted">${escapeHtml(request.short_scoping_note || request.service_summary || "To confirm")}</p>
               </div>
               <div class="wide">
                 <h3>Quote considerations</h3>
@@ -866,7 +866,7 @@
     return `
       <div class="request-note-block">
         <h3>${escapeHtml(title)}</h3>
-        <p class="muted">${escapeHtml(copy || "None recorded.")}</p>
+        <p class="muted">${escapeHtml(copy || "To confirm")}</p>
       </div>
     `;
   }

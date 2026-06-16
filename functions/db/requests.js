@@ -34,7 +34,7 @@ function mapRequestRow(row) {
     vacuumHoover: row.vacuum_hoover,
     mop: row.mop,
     setupConfirmed: row.setup_confirmed === 1,
-    customerMessage: row.customer_message || row.notes || "",
+    customerMessage: row.customer_message !== null ? row.customer_message : (row.notes || ""),
     shortScopingNote: row.short_scoping_note,
     propertyNotes: row.property_notes,
     cleaningNotes: row.cleaning_notes,
@@ -48,6 +48,7 @@ function mapRequestRow(row) {
     customerName: row.company_name || [row.first_name, row.last_name].filter(Boolean).join(" ") || null,
     propertyLabel: row.address_line1 || null,
     propertyAddressLine1: row.address_line1,
+    propertyAddressLine2: row.address_line2,
     propertyCity: row.city,
     propertyPostcode: row.postcode,
     propertyType: row.property_type,
@@ -64,7 +65,7 @@ export async function listRequests(db, options = {}) {
   let query = `
     SELECT r.*, 
            c.type AS customer_type, c.first_name, c.last_name, c.company_name, c.email, c.phone, 
-           p.address_line1, p.city, p.postcode, p.property_type, p.bedrooms, p.bathrooms, p.pets_present, p.parking
+           p.address_line1, p.address_line2, p.city, p.postcode, p.property_type, p.bedrooms, p.bathrooms, p.pets_present, p.parking
     FROM requests r
     LEFT JOIN customers c ON c.id = r.customer_id
     LEFT JOIN properties p ON p.id = r.property_id
@@ -120,7 +121,7 @@ export async function getRequestById(db, requestId) {
   const query = `
     SELECT r.*, 
            c.type AS customer_type, c.first_name, c.last_name, c.company_name, c.email, c.phone, 
-           p.address_line1, p.city, p.postcode, p.property_type, p.bedrooms, p.bathrooms, p.pets_present, p.parking
+           p.address_line1, p.address_line2, p.city, p.postcode, p.property_type, p.bedrooms, p.bathrooms, p.pets_present, p.parking
     FROM requests r
     LEFT JOIN customers c ON c.id = r.customer_id
     LEFT JOIN properties p ON p.id = r.property_id

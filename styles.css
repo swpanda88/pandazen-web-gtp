@@ -684,6 +684,21 @@ h3 {
   color: #8b4e45;
 }
 
+.field-error-label {
+  color: #8b4e45;
+}
+
+.field-error-control {
+  border-color: #8b4e45;
+  background: #fff8f4;
+}
+
+.field-error-message {
+  color: #8b4e45;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
 label {
   display: grid;
   gap: 7px;

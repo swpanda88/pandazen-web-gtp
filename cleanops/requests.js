@@ -11,12 +11,17 @@
   let apiFailed = false;
   let loadPromise = null;
 
-  async function loadApiRequests() {
+  async function loadApiRequests(force = false) {
+    if (force) {
+      dbRequests = null;
+      loadPromise = null;
+    }
     if (dbRequests || apiFailed || loadPromise) return loadPromise;
     loadPromise = (async () => {
       try {
         const api = await import('./api.js');
         const raw = await api.fetchRequests();
+        raw.forEach(mergeApiLinkedRecord);
         dbRequests = raw.map(mapApiRequestToFrontend);
         refresh();
       } catch (e) {
@@ -34,7 +39,9 @@
       "new": "new_enquiry",
       "contacted": "contacted",
       "assessment": "assessment_needed",
+      "quote_needed": "quote_required",
       "quote-prep": "quote_required",
+      "quoted": "quote_sent",
       "quote-sent": "quote_sent",
       "won": "won",
       "lost": "lost",
@@ -43,57 +50,125 @@
     return map[apiStatus] || "new_enquiry";
   }
 
+  function apiStatus(status) {
+    const map = {
+      new_enquiry: "new",
+      quote_required: "quote_needed",
+      quote_sent: "quoted"
+    };
+    return map[status] || status || "new";
+  }
+
+  function cleanSelectValue(value) {
+    if (!value || value === "unknown" || value === "to_confirm") return null;
+    return value;
+  }
+
   function mapApiRequestToFrontend(apiReq) {
     return {
       id: apiReq.id,
       number: `RQ-${apiReq.id.slice(-4).toUpperCase()}`,
-      title: apiReq.customerMessage ? apiReq.customerMessage.split('\n')[0].slice(0, 50) : (apiReq.notes ? apiReq.notes.split('\n')[0].slice(0, 50) : "Customer Enquiry"),
+      title: apiReq.customerMessage ? apiReq.customerMessage.split('\n')[0].slice(0, 50) : `${requestStatusLabels[apiReq.status] || "New"} request`,
       client_id: apiReq.customerId,
       property_id: apiReq.propertyId,
       request_type: apiReq.requestType || "regular_domestic_clean",
       status: mapStatus(apiReq.status),
       source: apiReq.sourceType,
-      cadence: apiReq.cadence || "to_confirm",
-      how_soon: apiReq.howSoon || "to_confirm",
-      preferred_day: apiReq.preferredDay || "to_confirm",
-      preferred_time_window: apiReq.preferredTimeWindow || "to_confirm",
-      approx_size: apiReq.approxSize || "unknown",
-      photos_helpful: apiReq.photosHelpful || "to_confirm",
-      pricing_basis: apiReq.pricingBasis || "to_confirm",
+      preferred_cadence: apiReq.cadence || null,
+      how_soon: apiReq.howSoon || null,
+      preferred_day: apiReq.preferredDay || null,
+      preferred_time_window: apiReq.preferredTimeWindow || null,
+      approx_size: apiReq.approxSize || null,
+      photos_helpful: apiReq.photosHelpful || null,
+      pricing_basis: apiReq.pricingBasis || null,
       estimated_regular_duration_minutes: apiReq.estimatedRegularDurationMinutes || "",
       estimated_initial_duration_minutes: apiReq.estimatedInitialDurationMinutes || "",
       estimated_team_size: apiReq.estimatedTeamSize || "",
-      scope_confidence: apiReq.scopeConfidence || "to_confirm",
+      scope_confidence: apiReq.scopeConfidence || null,
       main_priorities: Array.isArray(apiReq.mainPriorities) ? apiReq.mainPriorities : [],
       quote_considerations: Array.isArray(apiReq.quoteConsiderations) ? apiReq.quoteConsiderations : [],
       setup_confirmed: apiReq.setupConfirmed || false,
       short_scoping_note: apiReq.shortScopingNote || "",
       property_notes: apiReq.propertyNotes || "",
       cleaning_notes: apiReq.cleaningNotes || "",
-      received_at: apiReq.createdAt ? new Date(apiReq.createdAt).toLocaleDateString() : "Unknown",
+      received_at: apiReq.createdAt ? new Date(apiReq.createdAt).toLocaleDateString() : "To confirm",
       updated_at: apiReq.updatedAt ? new Date(apiReq.updatedAt).toLocaleDateString() : "",
       next_action: "Review request",
-      intake_property_type: apiReq.propertyType || "unknown",
-      bedrooms: apiReq.bedrooms || "unknown",
-      bathrooms: apiReq.bathrooms || "unknown",
-      pets_present: apiReq.petsPresent || "unknown",
-      parking: apiReq.parking || "unknown",
-      cleaning_products: apiReq.cleaningProducts || "to_confirm",
-      vacuum_hoover: apiReq.vacuumHoover || "to_confirm",
-      mop: apiReq.mop || "to_confirm",
-      assessment_required: apiReq.assessmentRequired || "to_confirm",
-      initial_clean_required: apiReq.initialCleanRequired || "to_confirm",
+      intake_property_type: apiReq.propertyType || null,
+      bedrooms: apiReq.bedrooms || null,
+      bathrooms: apiReq.bathrooms || null,
+      pets_present: apiReq.petsPresent || null,
+      parking: apiReq.parking || null,
+      cleaning_products: apiReq.cleaningProducts || null,
+      vacuum_hoover: apiReq.vacuumHoover || null,
+      mop: apiReq.mop || null,
+      assessment_required: apiReq.assessmentRequired || null,
+      initial_clean_required: apiReq.initialCleanRequired || null,
       quote_readiness: apiReq.quoteReadiness || "missing_scope",
       internal_notes: apiReq.internalNotes || apiReq.notes || "",
       customer_message: apiReq.customerMessage || apiReq.notes || "",
       api_customer_name: apiReq.customerName,
+      api_customer_email: apiReq.email,
+      api_customer_phone: apiReq.phone,
       api_property_label: apiReq.propertyLabel || apiReq.propertyAddressLine1,
-      api_property_area: apiReq.propertyCity || apiReq.propertyPostcode
+      api_property_line1: apiReq.propertyAddressLine1,
+      api_property_line2: apiReq.propertyAddressLine2,
+      api_property_city: apiReq.propertyCity,
+      api_property_postcode: apiReq.propertyPostcode,
+      api_property_area: [apiReq.propertyCity, apiReq.propertyPostcode].filter(Boolean).join(" ")
     };
   }
 
+  function mergeApiLinkedRecord(apiReq) {
+    if (!apiReq.customerId) return;
+    let client = clients().find((item) => item.id === apiReq.customerId);
+    if (!client) {
+      client = {
+        id: apiReq.customerId,
+        api_backed: true,
+        display_name: apiReq.customerName || "Unlinked client",
+        name: apiReq.customerName || "Unlinked client",
+        first_name: apiReq.firstName || "",
+        last_name: apiReq.lastName || "",
+        company_name: apiReq.companyName || "",
+        status: "lead",
+        email: apiReq.email || "",
+        phone: apiReq.phone || "",
+        mainProperty: apiReq.propertyLabel || apiReq.propertyAddressLine1 || "Property to confirm",
+        area: [apiReq.propertyCity, apiReq.propertyPostcode].filter(Boolean).join(" "),
+        properties: []
+      };
+      clients().unshift(client);
+    } else {
+      client.api_backed = true;
+      client.email = client.email || apiReq.email || "";
+      client.phone = client.phone || apiReq.phone || "";
+    }
+
+    if (!apiReq.propertyId) return;
+    client.properties = client.properties || [];
+    if (client.properties.some((property) => property.id === apiReq.propertyId)) return;
+    client.properties.push({
+      id: apiReq.propertyId,
+      api_backed: true,
+      client_id: apiReq.customerId,
+      label: apiReq.propertyLabel || apiReq.propertyAddressLine1 || "Property to confirm",
+      name: apiReq.propertyLabel || apiReq.propertyAddressLine1 || "Property to confirm",
+      addressLine1: apiReq.propertyAddressLine1 || "",
+      addressLine2: apiReq.propertyAddressLine2 || "",
+      city: apiReq.propertyCity || "",
+      area: apiReq.propertyCity || "",
+      postcode: apiReq.propertyPostcode || "",
+      property_type: apiReq.propertyType || null,
+      bedrooms: apiReq.bedrooms || null,
+      bathrooms: apiReq.bathrooms || null,
+      pets_present: apiReq.petsPresent || null,
+      parking: apiReq.parking || null
+    });
+  }
+
   const requestStatusLabels = {
-    new_enquiry: "New enquiry",
+    new: "New enquiry",
     contacted: "Contacted",
     waiting_customer: "Waiting customer",
     assessment_needed: "Assessment needed",
@@ -105,7 +180,7 @@
   };
 
   const requestStatusTones = {
-    new_enquiry: "success",
+    new: "success",
     contacted: "info",
     waiting_customer: "warning",
     assessment_needed: "warning",
@@ -166,8 +241,8 @@
     "3": "3",
     "4": "4",
     "5_plus": "5+",
-    not_applicable: "N/A",
-    unknown: "Unknown"
+    not_applicable: "Not applicable",
+    unknown: "To confirm"
   };
 
   const bathroomsLabels = {
@@ -175,8 +250,8 @@
     "2": "2",
     "3": "3",
     "4_plus": "4+",
-    not_applicable: "N/A",
-    unknown: "Unknown"
+    not_applicable: "Not applicable",
+    unknown: "To confirm"
   };
 
   const cadenceLabels = {
@@ -239,7 +314,7 @@
     commercial_small: "Small commercial",
     commercial_medium: "Medium commercial",
     commercial_large: "Large commercial",
-    unknown: "Unknown"
+    unknown: "To confirm"
   };
 
   const petsLabels = {
@@ -248,8 +323,8 @@
     cat: "Cat",
     multiple_pets: "Multiple pets",
     other: "Other pets",
-    not_applicable: "N/A",
-    unknown: "Unknown"
+    not_applicable: "Not applicable",
+    unknown: "To confirm"
   };
 
   const parkingLabels = {
@@ -258,8 +333,10 @@
     permit_required: "Permit required",
     paid_parking: "Paid parking",
     staff_bays: "Staff bays",
-    no_easy_parking: "No easy parking",
-    unknown: "Unknown"
+    no_parking: "No parking",
+    not_applicable: "Not applicable",
+    no_easy_parking: "No parking",
+    unknown: "To confirm"
   };
 
   const photoHelpLabels = {
@@ -312,7 +389,7 @@
     yes: "Initial clean required",
     no: "No initial clean",
     to_confirm: "To confirm",
-    not_applicable: "N/A"
+    not_applicable: "Not applicable"
   };
 
   const pricingBasisLabels = {
@@ -334,7 +411,7 @@
     suggested: "Suggested",
     confirmed: "Confirmed",
     to_confirm: "To confirm",
-    not_estimated: "Not estimated yet"
+    not_estimated: "To confirm"
   };
 
   const quoteConsiderationLabels = {
@@ -381,7 +458,7 @@
     window.CleanOpsShell?.toast?.(message);
   }
 
-  function labelFrom(map, value, fallback = "Not set") {
+  function labelFrom(map, value, fallback = "To confirm") {
     if (!value) return fallback;
     return map[value] || value;
   }
@@ -394,8 +471,13 @@
   function requests() {
     if (dbRequests) return dbRequests;
     loadApiRequests();
+    if (!apiFailed) return [];
     if (!Array.isArray(data.requests)) data.requests = [];
     return data.requests;
+  }
+
+  function requestsLoading() {
+    return !dbRequests && !apiFailed;
   }
 
   function displayName(client, requestFallback) {
@@ -405,9 +487,44 @@
   }
 
   function propertyLabel(property, requestFallback) {
-    if (property) return property.label || property.name || "Property to confirm";
+    if (property) return property.label || property.name || "To confirm";
     if (requestFallback && requestFallback.api_property_label) return requestFallback.api_property_label;
-    return "Property to confirm";
+    return "To confirm";
+  }
+
+  function propertyLine1(property, requestFallback) {
+    if (property?.addressLine1) return property.addressLine1;
+    if (property?.address_line1) return property.address_line1;
+    if (property?.address) return property.address.split(",")[0].trim();
+    if (requestFallback?.api_property_line1) return requestFallback.api_property_line1;
+    if (requestFallback?.api_property_label) return requestFallback.api_property_label;
+    return "";
+  }
+
+  function propertyLine2(property, requestFallback) {
+    return property?.addressLine2 || property?.address_line2 || requestFallback?.api_property_line2 || "";
+  }
+
+  function propertyCity(property, requestFallback) {
+    return property?.city || property?.area || requestFallback?.api_property_city || "";
+  }
+
+  function propertyPostcode(property, requestFallback) {
+    return property?.postcode || requestFallback?.api_property_postcode || "";
+  }
+
+  function propertyAddressText(property, requestFallback) {
+    return [propertyLine1(property, requestFallback), propertyLine2(property, requestFallback), propertyCity(property, requestFallback), propertyPostcode(property, requestFallback)]
+      .filter(Boolean)
+      .join(", ") || "To confirm";
+  }
+
+  function propertyTypeValue(property) {
+    return property?.property_type || property?.propertyType || null;
+  }
+
+  function propertyPetsValue(property) {
+    return property?.pets_present || property?.petsPresent || null;
   }
 
   function findClient(id) {
@@ -456,7 +573,7 @@
   function deriveQuoteReadiness(request) {
     if (request.status === "quote_sent") return "quote_created";
     if (request.assessment_required === "yes" || request.assessment_required === "to_confirm") return "needs_assessment";
-    if (!request.customer_message || !request.request_type || request.preferred_cadence === "to_confirm") return "missing_scope";
+    if (!request.customer_message || !request.request_type || needsValue(request.preferred_cadence)) return "missing_scope";
     if (request.status === "new_enquiry" || request.status === "waiting_customer") return "needs_contact";
     return "ready_to_quote";
   }
@@ -489,12 +606,12 @@
   }
 
   function prepValue(label, state = "to_confirm") {
-    if (!label) return state === "to_confirm" ? "To confirm" : "Not estimated yet";
+    if (!label) return "To confirm";
     if (label === "To confirm") return labelFrom(prepStateLabels, state, "To confirm");
     if (state === "confirmed") return `Confirmed - ${label}`;
     if (state === "suggested") return `Suggested - ${label}`;
-    if (state === "not_estimated") return "Not estimated yet";
-    if (state === "to_confirm") return "To confirm";
+    if (state === "not_estimated") return label;
+    if (state === "to_confirm") return label;
     return label;
   }
 
@@ -507,19 +624,20 @@
   }
 
   function inlineConfirmation(label, confirmed) {
+    if (!label || label === "To confirm") return "To confirm";
     const state = confirmed ? "Confirmed" : "To confirm";
     return `${label || "To confirm"} - ${state}`;
   }
 
   function priorityChips(request) {
     const items = Array.isArray(request.main_priorities) ? request.main_priorities : [];
-    if (!items.length) return chip("No priorities supplied", "muted");
+    if (!items.length) return chip("To confirm", "muted");
     return items.map((item) => chip(labelFrom(priorityLabels, item, item), "info")).join("");
   }
 
   function considerationChips(request) {
     const items = Array.isArray(request.quote_considerations) ? request.quote_considerations : [];
-    if (!items.length) return chip("No quote considerations", "muted");
+    if (!items.length) return chip("To confirm", "muted");
     return items
       .map((item) => chip(labelFrom(quoteConsiderationLabels, item, item), "info"))
       .join("");
@@ -545,7 +663,7 @@
   function renderMissingChecklist(request) {
     const items = missingChecklist(request);
     if (!items.length) {
-      return `<div class="empty mini"><div class="empty-icon">OK</div><div><h3>Ready for quote</h3><p class="muted">Core quote-prep fields look complete for this mock request.</p></div></div>`;
+      return `<div class="empty mini"><div class="empty-icon">OK</div><div><h3>Ready for quote</h3><p class="muted">Core quote-prep fields look complete for this request.</p></div></div>`;
     }
     return `<ul class="request-checklist">${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
   }
@@ -593,9 +711,9 @@
   }
 
   function propertyArea(property, requestFallback) {
-    if (property) return property.postcode || property.area || "Area to confirm";
+    if (property) return [propertyCity(property), propertyPostcode(property)].filter(Boolean).join(" ") || "To confirm";
     if (requestFallback && requestFallback.api_property_area) return requestFallback.api_property_area;
-    return "Area to confirm";
+    return "To confirm";
   }
 
   function table(headers, rows) {
@@ -619,18 +737,20 @@
   }
 
   function renderList() {
-    const rows = requests().map((request) => {
+    const rows = requestsLoading() ? [
+      `<tr><td colspan="7"><div class="empty mini"><div class="empty-icon">...</div><div><h3>Loading requests</h3><p class="muted">Fetching current CleanOps request data.</p></div></div></td></tr>`
+    ] : requests().map((request) => {
       const client = findClient(request.client_id);
       const property = findProperty(request.client_id, request.property_id) || findAnyProperty(request.property_id).property;
       return `
         <tr class="request-row" data-request-id="${escapeHtml(request.id)}" tabindex="0" role="button" aria-label="Open ${escapeHtml(request.title)}">
           <td><strong>${escapeHtml(request.title)}</strong><br><span class="muted">${escapeHtml(request.number)}</span></td>
           <td>${escapeHtml(displayName(client, request))}</td>
-          <td><strong>${escapeHtml(propertyLabel(property, request))}</strong><br><span class="muted">${escapeHtml(property?.address || propertyArea(property, request))}</span></td>
+          <td><strong>${escapeHtml(propertyLabel(property, request))}</strong><br><span class="muted">${escapeHtml(propertyAddressText(property, request))}</span></td>
           <td>${requestTypeChip(request)}</td>
           <td>${requestStatusChip(request)}</td>
           <td>${escapeHtml(request.next_action || "Review request")}</td>
-          <td>${escapeHtml(request.received_at || "Unknown")}<br><span class="muted">${escapeHtml(request.updated_at ? `Updated ${request.updated_at}` : "")}</span></td>
+          <td>${escapeHtml(request.received_at || "To confirm")}<br><span class="muted">${escapeHtml(request.updated_at ? `Updated ${request.updated_at}` : "")}</span></td>
         </tr>
       `;
     });
@@ -725,7 +845,7 @@
       <section class="grid-detail">
         <div class="stack">
           <article class="panel">
-            <div class="panel-head"><h2>Request summary</h2>${button("Mark lost/archive", "mark-lost-archive", "small")}</div>
+            <div class="panel-head"><h2>Request summary</h2>${button("Mark lost", "mark-lost", "small")}</div>
             <div class="panel-body request-summary-grid">
               <div>
                 <h3>Linked records</h3>
@@ -737,8 +857,8 @@
               <div>
                 <h3>Request state</h3>
                 <div class="field-row"><span>Request number</span><strong>${escapeHtml(request.number)}</strong></div>
-                <div class="field-row"><span>Received</span><strong>${escapeHtml(request.received_at || "Unknown")}</strong></div>
-                <div class="field-row"><span>Updated</span><strong>${escapeHtml(request.updated_at || "Unknown")}</strong></div>
+                <div class="field-row"><span>Received</span><strong>${escapeHtml(request.received_at || "To confirm")}</strong></div>
+                <div class="field-row"><span>Updated</span><strong>${escapeHtml(request.updated_at || "To confirm")}</strong></div>
                 <div class="field-row"><span>Next action</span><strong>${escapeHtml(request.next_action || "Review request")}</strong></div>
                 <div class="field-row"><span>Quote readiness</span><strong>${escapeHtml(labelFrom(quoteReadinessLabels, request.quote_readiness || deriveQuoteReadiness(request), "Missing scope"))}</strong></div>
               </div>
@@ -758,12 +878,12 @@
               </div>
               <div>
                 <h3>Property snapshot from intake</h3>
-                <div class="field-row"><span>Property type</span><strong>${escapeHtml(labelFrom(propertyTypeLabels, request.intake_property_type || property?.property_type, "To confirm"))}</strong></div>
-                <div class="field-row"><span>Approx size</span><strong>${escapeHtml(labelFrom(approxSizeLabels, request.approx_size, "Unknown"))}</strong></div>
-                <div class="field-row"><span>Bedrooms</span><strong>${escapeHtml(labelFrom(bedroomsLabels, request.bedrooms || property?.bedrooms, "Unknown"))}</strong></div>
-                <div class="field-row"><span>Bathrooms</span><strong>${escapeHtml(labelFrom(bathroomsLabels, request.bathrooms || property?.bathrooms, "Unknown"))}</strong></div>
-                <div class="field-row"><span>Pets</span><strong>${escapeHtml(labelFrom(petsLabels, request.pets_present || property?.pets_present, "Unknown"))}</strong></div>
-                <div class="field-row"><span>Parking</span><strong>${escapeHtml(labelFrom(parkingLabels, request.parking || property?.parking, "Unknown"))}</strong></div>
+                <div class="field-row"><span>Property type</span><strong>${escapeHtml(labelFrom(propertyTypeLabels, request.intake_property_type || propertyTypeValue(property), "To confirm"))}</strong></div>
+                <div class="field-row"><span>Approx size</span><strong>${escapeHtml(labelFrom(approxSizeLabels, request.approx_size, "To confirm"))}</strong></div>
+                <div class="field-row"><span>Bedrooms</span><strong>${escapeHtml(labelFrom(bedroomsLabels, request.bedrooms || property?.bedrooms, "To confirm"))}</strong></div>
+                <div class="field-row"><span>Bathrooms</span><strong>${escapeHtml(labelFrom(bathroomsLabels, request.bathrooms || property?.bathrooms, "To confirm"))}</strong></div>
+                <div class="field-row"><span>Pets</span><strong>${escapeHtml(labelFrom(petsLabels, request.pets_present || propertyPetsValue(property), "To confirm"))}</strong></div>
+                <div class="field-row"><span>Parking / access</span><strong>${escapeHtml(labelFrom(parkingLabels, request.parking || property?.parking, "To confirm"))}</strong></div>
               </div>
               <div class="wide">
                 <h3>Main priorities</h3>
@@ -778,7 +898,7 @@
               </div>
               <div class="wide">
                 <h3>Customer message</h3>
-                <p class="muted">${escapeHtml(request.customer_message || "No customer message recorded.")}</p>
+                <p class="muted">${escapeHtml(request.customer_message || "To confirm")}</p>
               </div>
             </div>
           </article>
@@ -802,7 +922,7 @@
               </div>
               <div class="wide">
                 <h3>Short scoping note</h3>
-                <p class="muted">${escapeHtml(request.short_scoping_note || request.service_summary || "No internal scoping note yet.")}</p>
+                <p class="muted">${escapeHtml(request.short_scoping_note || request.service_summary || "To confirm")}</p>
               </div>
               <div class="wide">
                 <h3>Quote considerations</h3>
@@ -832,15 +952,15 @@
             <div class="side-section">
               <h2>Client</h2>
               <div class="field-row"><span>Name</span><strong>${escapeHtml(displayName(client, request))}</strong></div>
-              <div class="field-row"><span>Email</span><strong>${escapeHtml(client?.email || "Not set")}</strong></div>
-              <div class="field-row"><span>Phone</span><strong>${escapeHtml(client?.phone || "Not set")}</strong></div>
+              <div class="field-row"><span>Email</span><strong>${escapeHtml(client?.email || request.api_customer_email || "To confirm")}</strong></div>
+              <div class="field-row"><span>Phone</span><strong>${escapeHtml(client?.phone || request.api_customer_phone || "To confirm")}</strong></div>
             </div>
             <div class="side-section">
               <h2>Property setup</h2>
-              <div class="field-row"><span>Address</span><strong>${escapeHtml(property?.address || "To confirm")}</strong></div>
-              <div class="field-row"><span>Type</span><strong>${escapeHtml(labelFrom(propertyTypeLabels, property?.property_type, "To confirm"))}</strong></div>
-              <div class="field-row"><span>Bedrooms</span><strong>${escapeHtml(labelFrom(bedroomsLabels, property?.bedrooms, "Unknown"))}</strong></div>
-              <div class="field-row"><span>Bathrooms</span><strong>${escapeHtml(labelFrom(bathroomsLabels, property?.bathrooms, "Unknown"))}</strong></div>
+              <div class="field-row"><span>Address</span><strong>${escapeHtml(propertyAddressText(property, request))}</strong></div>
+              <div class="field-row"><span>Type</span><strong>${escapeHtml(labelFrom(propertyTypeLabels, propertyTypeValue(property) || request.intake_property_type, "To confirm"))}</strong></div>
+              <div class="field-row"><span>Bedrooms</span><strong>${escapeHtml(labelFrom(bedroomsLabels, property?.bedrooms || request.bedrooms, "To confirm"))}</strong></div>
+              <div class="field-row"><span>Bathrooms</span><strong>${escapeHtml(labelFrom(bathroomsLabels, property?.bathrooms || request.bathrooms, "To confirm"))}</strong></div>
             </div>
             <div>
               <h2>Actions</h2>
@@ -860,13 +980,13 @@
     return `
       <div class="request-note-block">
         <h3>${escapeHtml(title)}</h3>
-        <p class="muted">${escapeHtml(copy || "None recorded.")}</p>
+        <p class="muted">${escapeHtml(copy || "To confirm")}</p>
       </div>
     `;
   }
 
   function renderMoreMenu(request, client, property) {
-    const items = ["Duplicate request", "Attach file/photo", "Convert to quote", "Create task", "Archive request"];
+    const items = ["Duplicate request", "Attach file/photo", "Create task", "Archive request"];
     return `
       <div class="client-more-menu" role="menu">
         <p class="eyebrow">Request tools</p>
@@ -882,11 +1002,14 @@
       .join("");
   }
 
-  function propertyOptions() {
+  function propertyOptions(clientId = "") {
     const options = [];
-    clients().forEach((client) => {
+    if (!clientId) return "";
+    const list = clientId ? clients().filter((client) => client.id === clientId) : clients();
+    list.forEach((client) => {
       (client.properties || []).forEach((property) => {
-        options.push(`<option value="${escapeHtml(property.id)}">${escapeHtml(displayName(client))} - ${escapeHtml(propertyLabel(property))}</option>`);
+        const label = clientId ? propertyLabel(property) : `${displayName(client)} - ${propertyLabel(property)}`;
+        options.push(`<option value="${escapeHtml(property.id)}">${escapeHtml(label)}</option>`);
       });
     });
     return options.join("");
@@ -933,11 +1056,15 @@
           <div class="request-form-section">
             <h3>Property details</h3>
             <div class="request-form-grid">
-              <label class="client-field">Property type <select id="review-property-type">${optionList(propertyTypeLabels, request.intake_property_type || property.property_type || "unknown")}</select></label>
+              <label class="client-field">Address line 1 <input id="review-property-address-line-1" type="text" autocomplete="off" value="${escapeHtml(propertyLine1(property, request))}"></label>
+              <label class="client-field">Address line 2 <input id="review-property-address-line-2" type="text" autocomplete="off" value="${escapeHtml(propertyLine2(property, request))}"></label>
+              <label class="client-field">Town / city <input id="review-property-city" type="text" autocomplete="off" value="${escapeHtml(propertyCity(property, request))}"></label>
+              <label class="client-field">Postcode <input id="review-property-postcode" type="text" autocomplete="off" value="${escapeHtml(propertyPostcode(property, request))}"></label>
+              <label class="client-field">Property type <select id="review-property-type">${optionList(propertyTypeLabels, request.intake_property_type || propertyTypeValue(property) || "unknown")}</select></label>
               <label class="client-field">Bedrooms <select id="review-bedrooms">${optionList(bedroomsLabels, request.bedrooms || property.bedrooms || "unknown")}</select></label>
               <label class="client-field">Bathrooms <select id="review-bathrooms">${optionList(bathroomsLabels, request.bathrooms || property.bathrooms || "unknown")}</select></label>
-              <label class="client-field">Pets <select id="review-pets">${optionList(petsLabels, request.pets_present || property.pets_present || "unknown")}</select></label>
-              <label class="client-field">Parking <select id="review-parking">${optionList(parkingLabels, request.parking || property.parking || "unknown")}</select></label>
+              <label class="client-field">Pets <select id="review-pets">${optionList(petsLabels, request.pets_present || propertyPetsValue(property) || "unknown")}</select></label>
+              <label class="client-field">Parking / access <select id="review-parking">${optionList(parkingLabels, request.parking || property.parking || "unknown")}</select></label>
             </div>
           </div>
 
@@ -1022,11 +1149,14 @@
             <div class="request-form-grid">
               <label class="client-field wide">Existing property
                 <select id="new-request-property">
-                  <option value="">Create a new property shell</option>
+                  <option value="">Create a new property</option>
                   ${propertyOptions()}
                 </select>
               </label>
-              <label class="client-field wide">New property address <input id="new-request-property-address" type="text" autocomplete="off"></label>
+              <label class="client-field">Address line 1 <input id="new-request-property-address-line-1" type="text" autocomplete="off"></label>
+              <label class="client-field">Address line 2 <input id="new-request-property-address-line-2" type="text" autocomplete="off"></label>
+              <label class="client-field">Town / city <input id="new-request-property-city" type="text" autocomplete="off"></label>
+              <label class="client-field">Postcode <input id="new-request-property-postcode" type="text" autocomplete="off"></label>
               <label class="client-field">Property type <select id="new-request-property-type">${optionList(propertyTypeLabels, "unknown")}</select></label>
               <label class="client-field">Bedrooms <select id="new-request-bedrooms">${optionList(bedroomsLabels, "unknown")}</select></label>
               <label class="client-field">Bathrooms <select id="new-request-bathrooms">${optionList(bathroomsLabels, "unknown")}</select></label>
@@ -1044,7 +1174,7 @@
               <label class="client-field">Preferred times <select id="new-request-time">${optionList(timeWindowLabels, "to_confirm")}</select></label>
               <label class="client-field">Approx size <select id="new-request-approx-size">${optionList(approxSizeLabels, "unknown")}</select></label>
               <label class="client-field">Pets <select id="new-request-pets">${optionList(petsLabels, "unknown")}</select></label>
-              <label class="client-field">Parking <select id="new-request-parking">${optionList(parkingLabels, "unknown")}</select></label>
+              <label class="client-field">Parking / access <select id="new-request-parking">${optionList(parkingLabels, "unknown")}</select></label>
               <label class="client-field">Would photos help? <select id="new-request-photos">${optionList(photoHelpLabels, "to_confirm")}</select></label>
               <label class="client-field">Next action <input id="new-request-next-action" type="text" value="Contact customer"></label>
               <label class="schedule-check wide"><input id="new-request-priority-kitchen" type="checkbox"><span>Kitchen priority</span></label>
@@ -1251,15 +1381,21 @@
   }
 
   function createPropertyShell(client) {
-    const address = value("new-request-property-address");
+    const addressLine1 = value("new-request-property-address-line-1");
+    const addressLine2 = value("new-request-property-address-line-2");
+    const city = value("new-request-property-city");
+    const postcode = value("new-request-property-postcode");
+    const address = [addressLine1, addressLine2, city, postcode].filter(Boolean).join(", ");
     const property = {
       id: `PROP-${Date.now()}`,
       client_id: client.id,
       label: address || "Property to confirm",
       name: address || "Property to confirm",
+      addressLine1,
+      addressLine2,
       address,
-      area: "",
-      postcode: "",
+      area: city,
+      postcode,
       property_type: value("new-request-property-type") || "unknown",
       bedrooms: value("new-request-bedrooms") || "unknown",
       bathrooms: value("new-request-bathrooms") || "unknown",
@@ -1284,167 +1420,204 @@
     return property;
   }
 
-  function saveNewRequest() {
-    let client = findClient(value("new-request-client"));
-    if (!client) client = createClientShell();
-    if (!client) return;
+  async function saveNewRequest() {
+    const api = await import('./api.js');
 
-    const existingPropertyId = value("new-request-property");
-    let property = null;
-    if (existingPropertyId) {
-      const found = findAnyProperty(existingPropertyId);
-      property = found.property;
-      if (found.client && found.client.id !== client.id) client = found.client;
+    const clientName = value("new-request-client-name");
+    const nameParts = clientName.split(/\s+/);
+    const firstName = nameParts[0] || "";
+    const lastName = nameParts.slice(1).join(" ") || "";
+
+    const phone = value("new-request-phone");
+    const email = value("new-request-email");
+    const customerMessage = value("new-request-message");
+    const selectedClient = findClient(value("new-request-client"));
+    const selectedProperty = findProperty(value("new-request-client"), value("new-request-property")) || findAnyProperty(value("new-request-property")).property;
+    const useExistingCustomer = selectedClient?.api_backed ? selectedClient.id : "";
+    const useExistingProperty = selectedProperty?.api_backed ? selectedProperty.id : "";
+
+    if (!useExistingCustomer && !firstName && !lastName && !phone && !email && !customerMessage) {
+      toast("Please provide at least a name, contact info, or a message.");
+      return;
     }
-    if (!property) property = createPropertyShell(client);
 
-    const type = value("new-request-type") || "regular_domestic_clean";
-    const pricingBasis = value("new-request-pricing-basis") || "to_confirm";
-    const initialCleanRequired = value("new-request-initial-clean") || "to_confirm";
-    const regularDuration = numericValue("new-request-regular-duration");
-    const initialDuration = numericValue("new-request-initial-duration");
-    const teamSize = numericValue("new-request-team-size");
-    const requestNumber = `REQ-${1047 + requests().length}`;
-    const request = {
-      id: `request-${Date.now()}`,
-      number: requestNumber,
-      title: value("new-request-message").split(".")[0].slice(0, 56) || labelFrom(requestTypeLabels, type, "New request"),
-      client_id: client.id,
-      property_id: property.id,
-      request_type: type,
-      status: value("new-request-status") || "new_enquiry",
-      source: "manual",
-      received_at: "Just now",
-      updated_at: "Just now",
-      next_action: value("new-request-next-action") || "Contact customer",
-      customer_message: value("new-request-message") || "Manual request created by the office.",
-      service_summary: `${labelFrom(requestTypeLabels, type, "Request")} request. Confirm service scope before quote or job creation.`,
-      short_scoping_note: value("new-request-scoping-note") || `${labelFrom(requestTypeLabels, type, "Request")} request. Internal scoping still needs confirmation before quote.`,
-      preferred_cadence: value("new-request-cadence") || "to_confirm",
-      how_soon: value("new-request-how-soon") || "to_confirm",
-      preferred_day: value("new-request-day") || "to_confirm",
-      preferred_time_window: value("new-request-time") || "to_confirm",
-      intake_property_type: property.property_type || "unknown",
-      approx_size: value("new-request-approx-size") || "unknown",
-      bedrooms: property.bedrooms || "unknown",
-      bathrooms: property.bathrooms || "unknown",
-      pets_present: value("new-request-pets") || property.pets_present || "unknown",
-      parking: value("new-request-parking") || property.parking || "unknown",
-      main_priorities: selectedMainPriorities(),
-      photos_helpful: value("new-request-photos") || "to_confirm",
-      cleaning_products: value("new-request-products") || "to_confirm",
-      vacuum_hoover: value("new-request-vacuum") || "to_confirm",
-      mop: value("new-request-mop") || "to_confirm",
-      quote_readiness: value("new-request-quote-readiness") || "needs_contact",
-      assessment_required: value("new-request-assessment") || "to_confirm",
-      assessment_state: prepStateFor(value("new-request-assessment")),
-      initial_clean_required: initialCleanRequired,
-      initial_clean_state: prepStateFor(initialCleanRequired),
-      pricing_basis: pricingBasis,
-      pricing_basis_state: prepStateFor(pricingBasis),
-      estimated_regular_duration_minutes: regularDuration,
-      regular_duration_state: estimateStateFor(regularDuration),
-      estimated_initial_duration_minutes: initialDuration,
-      initial_duration_state: estimateStateFor(initialDuration),
-      estimated_team_size: teamSize,
-      team_size_state: estimateStateFor(teamSize),
-      scope_confidence: value("new-request-scope-confidence") || "to_confirm",
-      quote_considerations: selectedQuoteConsiderations(),
-      property_notes: value("new-request-property-notes") || property.property_notes || "",
-      cleaning_notes: value("new-request-cleaning-notes") || property.cleaning_notes || "",
-      internal_notes: value("new-request-internal-notes"),
-      owner: "Office"
+    const payload = {
+      sourceType: "manual",
+      customerId: useExistingCustomer,
+      propertyId: useExistingProperty,
+      firstName,
+      lastName,
+      email,
+      phone,
+      propertyAddressLine1: value("new-request-property-address-line-1"),
+      propertyAddressLine2: value("new-request-property-address-line-2"),
+      propertyCity: value("new-request-property-city"),
+      propertyPostcode: value("new-request-property-postcode"),
+      propertyType: cleanSelectValue(value("new-request-property-type")),
+      bedrooms: cleanSelectValue(value("new-request-bedrooms")),
+      bathrooms: cleanSelectValue(value("new-request-bathrooms")),
+      requestType: value("new-request-type"),
+      status: apiStatus(value("new-request-status")),
+      cadence: cleanSelectValue(value("new-request-cadence")),
+      howSoon: cleanSelectValue(value("new-request-how-soon")),
+      preferredDay: cleanSelectValue(value("new-request-day")),
+      preferredTimeWindow: cleanSelectValue(value("new-request-time")),
+      approxSize: cleanSelectValue(value("new-request-approx-size")),
+      petsPresent: cleanSelectValue(value("new-request-pets")),
+      parking: cleanSelectValue(value("new-request-parking")),
+      photosHelpful: cleanSelectValue(value("new-request-photos")),
+      customerMessage: customerMessage,
+      cleaningProducts: cleanSelectValue(value("new-request-products")),
+      vacuumHoover: cleanSelectValue(value("new-request-vacuum")),
+      mop: cleanSelectValue(value("new-request-mop")),
+      quoteReadiness: value("new-request-quote-readiness"),
+      assessmentRequired: cleanSelectValue(value("new-request-assessment")),
+      initialCleanRequired: cleanSelectValue(value("new-request-initial-clean")),
+      pricingBasis: cleanSelectValue(value("new-request-pricing-basis")),
+      estimatedRegularDurationMinutes: numericValue("new-request-regular-duration"),
+      estimatedInitialDurationMinutes: numericValue("new-request-initial-duration"),
+      estimatedTeamSize: numericValue("new-request-team-size"),
+      scopeConfidence: cleanSelectValue(value("new-request-scope-confidence")),
+      shortScopingNote: value("new-request-scoping-note"),
+      propertyNotes: value("new-request-property-notes"),
+      cleaningNotes: value("new-request-cleaning-notes"),
+      internalNotes: value("new-request-internal-notes"),
+      mainPriorities: selectedMainPriorities(),
+      quoteConsiderations: selectedQuoteConsiderations()
     };
 
-    requests().unshift(request);
-    client.requests = client.requests || [];
-    client.requests.unshift({ number: request.number, title: request.title, status: requestStatusLabel(request), tone: requestStatusTones[request.status] || "info", propertyId: property.id });
-    client.activeSummary = client.activeSummary || "Request open";
-    client.lastCommunication = "Just now";
-
-    state.selectedRequestId = request.id;
-    state.newRequestOpen = false;
-    state.moreOpen = false;
-    toast(`Created ${request.number}.`);
-    refresh();
+    try {
+      const response = await api.createRequest(payload);
+      if (response) {
+        state.selectedRequestId = response.id;
+        state.newRequestOpen = false;
+        state.moreOpen = false;
+        toast(`Created ${response.number || 'new request'}.`);
+        await loadApiRequests(true);
+      } else {
+        toast(response?.error || "Failed to create request.");
+      }
+    } catch (e) {
+      toast(e?.message || "Error creating request.");
+    }
   }
 
-  function saveReviewRequest() {
+  async function saveReviewRequest() {
+    const api = await import('./api.js');
     const request = selectedRequest();
     if (!request) return;
-    const property = findProperty(request.client_id, request.property_id) || findAnyProperty(request.property_id).property;
-    const regularDuration = numericValue("review-regular-duration");
-    const initialDuration = numericValue("review-initial-duration");
-    const teamSize = numericValue("review-team-size");
-    const readiness = value("review-quote-readiness") || "needs_contact";
-    const confirmed = readiness === "ready_to_quote";
 
-    request.request_type = value("review-request-type") || request.request_type;
-    request.status = value("review-request-status") || request.status;
-    request.preferred_cadence = value("review-request-cadence") || "to_confirm";
-    request.how_soon = value("review-request-how-soon") || "to_confirm";
-    request.preferred_day = value("review-request-day") || "to_confirm";
-    request.preferred_time_window = value("review-request-time") || "to_confirm";
-    request.approx_size = value("review-request-approx-size") || "unknown";
-    request.photos_helpful = value("review-request-photos") || "to_confirm";
-    request.customer_message = value("review-request-message") || request.customer_message;
-    request.main_priorities = selectedReviewPriorities();
+    const payload = {
+      requestType: value("review-request-type"),
+      status: apiStatus(value("review-request-status")),
+      cadence: cleanSelectValue(value("review-request-cadence")),
+      howSoon: cleanSelectValue(value("review-request-how-soon")),
+      preferredDay: cleanSelectValue(value("review-request-day")),
+      preferredTimeWindow: cleanSelectValue(value("review-request-time")),
+      approxSize: cleanSelectValue(value("review-request-approx-size")),
+      photosHelpful: cleanSelectValue(value("review-request-photos")),
+      customerMessage: value("review-request-message"),
+      mainPriorities: selectedReviewPriorities(),
 
-    request.intake_property_type = value("review-property-type") || "unknown";
-    request.bedrooms = value("review-bedrooms") || "unknown";
-    request.bathrooms = value("review-bathrooms") || "unknown";
-    request.pets_present = value("review-pets") || "unknown";
-    request.parking = value("review-parking") || "unknown";
+      propertyAddressLine1: value("review-property-address-line-1"),
+      propertyAddressLine2: value("review-property-address-line-2"),
+      propertyCity: value("review-property-city"),
+      propertyPostcode: value("review-property-postcode"),
+      propertyType: cleanSelectValue(value("review-property-type")),
+      bedrooms: cleanSelectValue(value("review-bedrooms")),
+      bathrooms: cleanSelectValue(value("review-bathrooms")),
+      petsPresent: cleanSelectValue(value("review-pets")),
+      parking: cleanSelectValue(value("review-parking")),
 
-    request.cleaning_products = value("review-products") || "to_confirm";
-    request.vacuum_hoover = value("review-vacuum") || "to_confirm";
-    request.mop = value("review-mop") || "to_confirm";
-    request.setup_confirmed = checked("review-setup-confirmed");
-    request.cleaning_products_state = request.setup_confirmed ? "confirmed" : prepStateFor(request.cleaning_products);
+      cleaningProducts: cleanSelectValue(value("review-products")),
+      vacuumHoover: cleanSelectValue(value("review-vacuum")),
+      mop: cleanSelectValue(value("review-mop")),
+      setupConfirmed: checked("review-setup-confirmed") ? 1 : 0,
 
-    request.quote_readiness = readiness;
-    request.assessment_required = value("review-assessment") || "to_confirm";
-    request.assessment_state = confirmed ? "confirmed" : prepStateFor(request.assessment_required);
-    request.pricing_basis = value("review-pricing-basis") || "to_confirm";
-    request.pricing_basis_state = confirmed ? "confirmed" : prepStateFor(request.pricing_basis);
-    request.initial_clean_required = value("review-initial-clean") || "to_confirm";
-    request.initial_clean_state = confirmed ? "confirmed" : prepStateFor(request.initial_clean_required);
-    request.estimated_regular_duration_minutes = regularDuration;
-    request.regular_duration_state = confirmed && regularDuration ? "confirmed" : estimateStateFor(regularDuration);
-    request.estimated_initial_duration_minutes = initialDuration;
-    request.initial_duration_state = confirmed && initialDuration ? "confirmed" : estimateStateFor(initialDuration);
-    request.estimated_team_size = teamSize;
-    request.team_size_state = confirmed && teamSize ? "confirmed" : estimateStateFor(teamSize);
-    request.scope_confidence = value("review-scope-confidence") || "to_confirm";
-    request.short_scoping_note = value("review-scoping-note");
-    request.quote_considerations = selectedReviewConsiderations();
+      quoteReadiness: value("review-quote-readiness"),
+      assessmentRequired: cleanSelectValue(value("review-assessment")),
+      pricingBasis: cleanSelectValue(value("review-pricing-basis")),
+      initialCleanRequired: cleanSelectValue(value("review-initial-clean")),
+      estimatedRegularDurationMinutes: numericValue("review-regular-duration"),
+      estimatedInitialDurationMinutes: numericValue("review-initial-duration"),
+      estimatedTeamSize: numericValue("review-team-size"),
+      scopeConfidence: cleanSelectValue(value("review-scope-confidence")),
+      shortScopingNote: value("review-scoping-note"),
+      quoteConsiderations: selectedReviewConsiderations(),
 
-    request.property_notes = value("review-property-notes");
-    request.cleaning_notes = value("review-cleaning-notes");
-    request.internal_notes = value("review-internal-notes");
-    request.updated_at = "Just now";
-    request.next_action = confirmed ? "Create quote" : (missingChecklist(request)[0] || "Review request");
+      propertyNotes: value("review-property-notes"),
+      cleaningNotes: value("review-cleaning-notes"),
+      internalNotes: value("review-internal-notes")
+    };
 
-    if (property) {
-      property.property_type = request.intake_property_type;
-      property.bedrooms = request.bedrooms;
-      property.bathrooms = request.bathrooms;
-      property.pets_present = request.pets_present;
-      property.parking = request.parking;
-      property.cleaning_products = request.cleaning_products;
-      property.vacuum_hoover = request.vacuum_hoover;
-      property.mop = request.mop;
-      property.property_notes = request.property_notes;
-      property.cleaning_notes = request.cleaning_notes;
-      property.default_service_type = request.request_type;
-      property.default_cadence = request.preferred_cadence;
-      property.preferred_day = request.preferred_day;
-      property.preferred_time_window = request.preferred_time_window;
+    try {
+      const response = await api.updateRequest(request.id, payload);
+      if (response) {
+        state.reviewRequestOpen = false;
+        toast("Request saved.");
+        await loadApiRequests(true);
+      } else {
+        toast(response?.error || "Failed to save request.");
+      }
+    } catch (e) {
+      toast(e?.message || "Error saving request.");
+    }
+  }
+
+  function setInputValue(id, nextValue) {
+    const element = document.getElementById(id);
+    if (element) element.value = nextValue || "";
+  }
+
+  function selectedOption(selectId) {
+    return document.getElementById(selectId)?.value || "";
+  }
+
+  function populateClientFields(client) {
+    if (!client) return;
+    setInputValue("new-request-client-name", displayName(client));
+    setInputValue("new-request-phone", client.phone || "");
+    setInputValue("new-request-email", client.email || "");
+  }
+
+  function populatePropertyFields(property) {
+    if (!property) return;
+    setInputValue("new-request-property-address-line-1", propertyLine1(property));
+    setInputValue("new-request-property-address-line-2", propertyLine2(property));
+    setInputValue("new-request-property-city", propertyCity(property));
+    setInputValue("new-request-property-postcode", propertyPostcode(property));
+    setInputValue("new-request-property-type", propertyTypeValue(property) || "unknown");
+    setInputValue("new-request-bedrooms", property.bedrooms || "unknown");
+    setInputValue("new-request-bathrooms", property.bathrooms || "unknown");
+    setInputValue("new-request-pets", propertyPetsValue(property) || "unknown");
+    setInputValue("new-request-parking", property.parking || "unknown");
+  }
+
+  function refreshPropertySelectForClient(clientId) {
+    const select = document.getElementById("new-request-property");
+    if (!select) return;
+    select.innerHTML = `<option value="">Create a new property</option>${propertyOptions(clientId)}`;
+  }
+
+  function handleChange(event) {
+    const target = event.target;
+    if (!target) return false;
+
+    if (target.id === "new-request-client") {
+      const client = findClient(target.value);
+      refreshPropertySelectForClient(client?.id || "");
+      populateClientFields(client);
+      return true;
     }
 
-    state.reviewRequestOpen = false;
-    toast(confirmed ? "Request marked ready to quote." : "Request review saved.");
-    refresh();
+    if (target.id === "new-request-property") {
+      const clientId = selectedOption("new-request-client");
+      const property = findProperty(clientId, target.value);
+      populatePropertyFields(property);
+      return true;
+    }
+
+    return false;
   }
 
   function handleClick(event) {
@@ -1482,6 +1655,23 @@
     if (moreAction) {
       const request = selectedRequest();
       state.moreOpen = false;
+      if (moreAction === "Archive request" && request) {
+        if (confirm("Archive this request?")) {
+          toast("Archiving request...");
+          import('./api.js').then(api => {
+            api.updateRequest(request.id, { status: "archived" }).then(res => {
+              if (res) {
+                toast(`Request ${request.number} archived.`);
+                loadApiRequests(true);
+              } else {
+                toast(res?.error || "Failed to archive request.");
+              }
+            });
+          });
+        }
+        refresh();
+        return true;
+      }
       toast(`${moreAction} is mocked for ${request?.number || "request"}.`);
       refresh();
       return true;
@@ -1511,8 +1701,10 @@
       return true;
     }
     if (action === "close-review-request") {
-      state.reviewRequestOpen = false;
-      refresh();
+      if (confirm("Cancel and discard any unsaved changes?")) {
+        state.reviewRequestOpen = false;
+        refresh();
+      }
       return true;
     }
     if (action === "save-review-request") {
@@ -1543,7 +1735,49 @@
         toast(`Quote opened for ${request.number}.`);
         return true;
       }
-      toast(`Create quote is mocked for ${request?.number || "request"}.`);
+      toast(`Create quote workflow is coming in the next backend stage.`);
+      return true;
+    }
+    if (action === "create-job" || action === "schedule-assessment") {
+      toast(`${action.replace(/-/g, " ")} workflow is coming in the next backend stage.`);
+      return true;
+    }
+    if (action === "contact-customer") {
+      const request = selectedRequest();
+      const client = findClient(request?.client_id);
+      if (client?.email || request?.api_customer_email) {
+        window.location.href = `mailto:${client?.email || request.api_customer_email}`;
+      } else if (client?.phone || request?.api_customer_phone) {
+        window.location.href = `tel:${client?.phone || request.api_customer_phone}`;
+      } else {
+        toast("No contact information available.");
+      }
+      return true;
+    }
+    if (action === "add-note") {
+      state.reviewRequestOpen = true;
+      refresh();
+      setTimeout(() => {
+        const el = document.getElementById("review-internal-notes");
+        if (el) el.focus();
+      }, 0);
+      return true;
+    }
+    if (action === "mark-lost") {
+      const request = selectedRequest();
+      if (request && confirm("Mark this request as lost?")) {
+        toast("Marking request as lost...");
+        import('./api.js').then(api => {
+          api.updateRequest(request.id, { status: "lost" }).then(res => {
+            if (res) {
+              toast(`Request ${request.number} marked as lost.`);
+              loadApiRequests(true);
+            } else {
+              toast(res?.error || "Failed to mark request as lost.");
+            }
+          });
+        });
+      }
       return true;
     }
 
@@ -1553,6 +1787,7 @@
   }
 
   document.addEventListener("click", handleClick);
+  document.addEventListener("change", handleChange);
 
   window.CleanOpsRequests = {
     render,

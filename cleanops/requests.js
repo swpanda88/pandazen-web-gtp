@@ -588,9 +588,22 @@
     return labelFrom(requestTypeLabels, request.request_type, "Other");
   }
 
+  function requestDisplayTitle(request, client, property) {
+    const serviceType = requestTypeLabel(request);
+    let suffix = displayName(client, request);
+    
+    if (!suffix || suffix === "Unlinked client" || suffix === "To confirm") {
+      suffix = propertyArea(property, request);
+    }
+    
+    if (!suffix || suffix === "To confirm" || suffix === "Unlinked client") {
+      return `${serviceType} enquiry`;
+    }
+    return `${serviceType} enquiry — ${suffix}`;
+  }
+
   function requestTypeChip(request) {
-    const typeClass = requestTypeClasses[request.request_type] || "type-task-reminder";
-    return `<span class="type-pill ${typeClass}">${escapeHtml(requestTypeLabel(request))}</span>`;
+    return chip(requestTypeLabel(request), "info");
   }
 
   function requestStatusChip(request) {
@@ -770,18 +783,21 @@
 
   function renderList() {
     const rows = requestsLoading() ? [
-      `<tr><td colspan="7"><div class="empty mini"><div class="empty-icon">...</div><div><h3>Loading requests</h3><p class="muted">Fetching current CleanOps request data.</p></div></div></td></tr>`
+      `<tr><td colspan="4"><div class="empty mini"><div class="empty-icon">...</div><div><h3>Loading requests</h3><p class="muted">Fetching current CleanOps request data.</p></div></div></td></tr>`
     ] : requests().map((request) => {
       const client = findClient(request.client_id);
       const property = findProperty(request.client_id, request.property_id) || findAnyProperty(request.property_id).property;
+      
+      const sourceLabel = labelFrom(sourceLabels, request.source, "Manual");
+      const statusLabel = requestStatusLabel(request);
+      const readiness = request.quote_readiness || deriveQuoteReadiness(request);
+      const readinessLabel = labelFrom(quoteReadinessLabels, readiness, "Missing scope");
+      
       return `
-        <tr class="request-row" data-request-id="${escapeHtml(request.id)}" tabindex="0" role="button" aria-label="Open ${escapeHtml(request.title)}">
-          <td><strong>${escapeHtml(request.title)}</strong><br><span class="muted">${escapeHtml(request.number)}</span></td>
-          <td>${escapeHtml(displayName(client, request))}</td>
+        <tr class="request-row" data-request-id="${escapeHtml(request.id)}" tabindex="0" role="button" aria-label="Open ${escapeHtml(requestDisplayTitle(request, client, property))}">
+          <td><strong>${escapeHtml(requestDisplayTitle(request, client, property))}</strong><br><span class="muted">${escapeHtml(request.number)} &middot; ${escapeHtml(sourceLabel)} &middot; ${escapeHtml(statusLabel)}</span></td>
           <td><strong>${escapeHtml(propertyLabel(property, request))}</strong><br><span class="muted">${escapeHtml(propertyAddressText(property, request))}</span></td>
-          <td>${requestTypeChip(request)}</td>
-          <td>${requestStatusChip(request)}</td>
-          <td>${escapeHtml(request.next_action || "Review request")}</td>
+          <td>${escapeHtml(readinessLabel)} &middot; <span class="muted">${escapeHtml(request.next_action || "Review request")}</span></td>
           <td>${escapeHtml(request.received_at || "To confirm")}<br><span class="muted">${escapeHtml(request.updated_at ? `Updated ${request.updated_at}` : "")}</span></td>
         </tr>
       `;
@@ -804,7 +820,7 @@
             <span class="selectish">All request types</span>
             <span class="selectish">Next action</span>
           </div>
-          ${table(["Request", "Client", "Property / area", "Type", "Status", "Next action", "Received / updated"], rows)}
+          ${table(["Request", "Property / area", "Readiness / next action", "Received / updated"], rows)}
         </article>
 
         <aside class="panel pad">
@@ -849,14 +865,14 @@
         <span>/</span>
         <button type="button" data-request-action="back-to-list">Requests</button>
         <span>/</span>
-        <strong>${escapeHtml(request.title)}</strong>
+        <strong>${escapeHtml(request.number)}</strong>
       </div>
 
       <div class="page-head">
         <div>
           <div class="title-row">
-            <div class="avatar">${escapeHtml((request.number || "RQ").slice(-2))}</div>
-            <h1>${escapeHtml(request.title)}</h1>
+            <span class="chip muted" style="font-family:monospace; font-size:16px;">${escapeHtml(request.number)}</span>
+            <h1>${escapeHtml(requestDisplayTitle(request, client, property))}</h1>
             ${requestStatusChip(request)}
           </div>
           <div class="button-row request-title-chips" style="justify-content:flex-start">${requestTypeChip(request)} ${quoteReadinessChip(request)} ${chip(labelFrom(sourceLabels, request.source, "Manual"), "info")}</div>

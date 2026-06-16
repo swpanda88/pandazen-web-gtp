@@ -40,7 +40,8 @@ function formPayload(form) {
 
 const fieldMessages = {
   name: "Please enter your name.",
-  contact: "Please enter either an email address or a phone number.",
+  phone: "Please enter a phone number.",
+  email_empty: "Please enter an email address.",
   email: "Please enter a valid email address.",
   area: "Please enter your area or postcode.",
   service: "Please choose a cleaning service.",
@@ -88,25 +89,25 @@ function showFormErrors(errors) {
   clearFormErrors();
   const entries = Object.entries(errors).filter(([, message]) => message);
   entries.forEach(([field, message]) => {
-    if (field === "contact") {
-      markField("email", message);
-      markField("phone", null, "field-error-email");
-      return;
-    }
     markField(field, message);
   });
 
   submitStatus.classList.add("error");
-  submitStatus.textContent = entries.map(([, message]) => message).join(" ");
+  // Only use unique messages for the status banner to avoid clutter
+  const uniqueMessages = [...new Set(entries.map(([, message]) => message))];
+  submitStatus.textContent = uniqueMessages.join(" ");
 
-  const firstField = entries[0]?.[0] === "contact" ? "email" : entries[0]?.[0];
+  const firstField = entries[0]?.[0];
   fieldControl(firstField)?.focus();
 }
 
 function frontendErrors(payload) {
   const errors = {};
   if (!payload.name) errors.name = fieldMessages.name;
-  if (!payload.phone && !payload.email) errors.contact = fieldMessages.contact;
+  if (!payload.phone && !payload.email) {
+    errors.email = fieldMessages.email_empty;
+    errors.phone = fieldMessages.phone;
+  }
   if (payload.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) errors.email = fieldMessages.email;
   if (!payload.area) errors.area = fieldMessages.area;
   if (!payload.service) errors.service = fieldMessages.service;

@@ -69,7 +69,7 @@ export async function onRequest(context) {
 
       const formattedNotes = notesBlocks.join('\n\n') || null;
 
-      const validSourceTypes = ['request', 'assessment', 'job', 'visit', 'billable_event', 'manual', 'manual_quote', 'manual_invoice', 'imported', 'other'];
+      const validSourceTypes = ['request', 'assessment', 'job', 'visit', 'billable_event', 'manual', 'manual_quote', 'manual_invoice', 'imported', 'website_enquiry', 'other'];
       const finalSourceType = body.sourceType && validSourceTypes.includes(body.sourceType) ? body.sourceType : 'other';
 
       // Check if customer exists by email

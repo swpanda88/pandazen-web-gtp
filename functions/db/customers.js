@@ -86,6 +86,15 @@ function mapPropertyRow(row) {
     bathrooms: row.bathrooms,
     petsPresent: row.pets_present,
     parking: row.parking,
+    defaultServiceType: row.default_service_type,
+    defaultCadence: row.default_cadence,
+    preferredDay: row.preferred_day,
+    preferredTimeWindow: row.preferred_time_window,
+    cleaningProducts: row.cleaning_products,
+    vacuumHoover: row.vacuum_hoover,
+    mop: row.mop,
+    propertyNotes: row.property_notes,
+    cleaningNotes: row.cleaning_notes,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -130,9 +139,11 @@ export async function createProperty(db, input) {
   const query = `
     INSERT INTO properties (
       id, customer_id, address_line1, address_line2, city, postcode, country, access_notes,
-      property_type, bedrooms, bathrooms, pets_present, parking
+      property_type, bedrooms, bathrooms, pets_present, parking,
+      default_service_type, default_cadence, preferred_day, preferred_time_window,
+      cleaning_products, vacuum_hoover, mop, property_notes, cleaning_notes
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     RETURNING *
   `;
   const row = await db.prepare(query).bind(
@@ -148,7 +159,16 @@ export async function createProperty(db, input) {
     input.bedrooms || null,
     input.bathrooms || null,
     input.petsPresent || null,
-    input.parking || null
+    input.parking || null,
+    input.defaultServiceType || null,
+    input.defaultCadence || null,
+    input.preferredDay || null,
+    input.preferredTimeWindow || null,
+    input.cleaningProducts || null,
+    input.vacuumHoover || null,
+    input.mop || null,
+    input.propertyNotes || null,
+    input.cleaningNotes || null
   ).first();
   return mapPropertyRow(row);
 }
@@ -163,6 +183,7 @@ export async function updateCustomer(db, customerId, updates) {
   if (updates.companyName !== undefined) { sets.push('company_name = ?'); params.push(updates.companyName); }
   if (updates.email !== undefined) { sets.push('email = ?'); params.push(updates.email); }
   if (updates.phone !== undefined) { sets.push('phone = ?'); params.push(updates.phone); }
+  if (updates.sourceType !== undefined) { sets.push('source_type = ?'); params.push(updates.sourceType); }
 
   if (sets.length === 0) return await getCustomerById(db, customerId);
 
@@ -192,6 +213,17 @@ export async function updateProperty(db, propertyId, updates) {
   if (updates.bathrooms !== undefined) { sets.push('bathrooms = ?'); params.push(updates.bathrooms); }
   if (updates.petsPresent !== undefined) { sets.push('pets_present = ?'); params.push(updates.petsPresent); }
   if (updates.parking !== undefined) { sets.push('parking = ?'); params.push(updates.parking); }
+  if (updates.accessNotes !== undefined) { sets.push('access_notes = ?'); params.push(updates.accessNotes); }
+
+  if (updates.defaultServiceType !== undefined) { sets.push('default_service_type = ?'); params.push(updates.defaultServiceType); }
+  if (updates.defaultCadence !== undefined) { sets.push('default_cadence = ?'); params.push(updates.defaultCadence); }
+  if (updates.preferredDay !== undefined) { sets.push('preferred_day = ?'); params.push(updates.preferredDay); }
+  if (updates.preferredTimeWindow !== undefined) { sets.push('preferred_time_window = ?'); params.push(updates.preferredTimeWindow); }
+  if (updates.cleaningProducts !== undefined) { sets.push('cleaning_products = ?'); params.push(updates.cleaningProducts); }
+  if (updates.vacuumHoover !== undefined) { sets.push('vacuum_hoover = ?'); params.push(updates.vacuumHoover); }
+  if (updates.mop !== undefined) { sets.push('mop = ?'); params.push(updates.mop); }
+  if (updates.propertyNotes !== undefined) { sets.push('property_notes = ?'); params.push(updates.propertyNotes); }
+  if (updates.cleaningNotes !== undefined) { sets.push('cleaning_notes = ?'); params.push(updates.cleaningNotes); }
 
   if (sets.length === 0) return await getPropertyById(db, propertyId);
 

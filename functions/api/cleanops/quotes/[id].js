@@ -18,17 +18,11 @@ export async function onRequest(context) {
 
     if (context.request.method === "PATCH") {
       const body = await context.request.json();
-      
+
       const existing = await getQuoteById(db, id);
       if (!existing) return error("Not found", 404);
 
-      if (body.quoteStatus && body.quoteStatus !== existing.quoteStatus) {
-        await updateQuoteStatus(db, id, body.quoteStatus);
-      }
-
-      if (body.lines || body.documentStatus !== undefined || body.validUntil !== undefined) {
-        await updateQuote(db, id, body);
-      }
+      await updateQuote(db, id, body);
 
       const updated = await getQuoteById(db, id);
       return json({ ok: true, data: updated });

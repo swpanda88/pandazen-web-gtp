@@ -1,13 +1,13 @@
 // functions/db/quotes.js
 
-import { 
-  calculateLineTotals, 
-  calculateDocumentTotals, 
-  parseSnapshot, 
-  serializeSnapshot, 
-  boolFromDb, 
-  boolToDb, 
-  fromPence 
+import {
+  calculateLineTotals,
+  calculateDocumentTotals,
+  parseSnapshot,
+  serializeSnapshot,
+  boolFromDb,
+  boolToDb,
+  fromPence
 } from './utils.js';
 
 function mapQuoteRow(row) {
@@ -83,6 +83,10 @@ export async function listQuotes(db, options = {}) {
     query += " AND q.property_id = ?";
     params.push(options.propertyId);
   }
+  if (options.requestId) {
+    query += " AND q.request_id = ?";
+    params.push(options.requestId);
+  }
   if (options.incomeCategory) {
     query += " AND q.income_category = ?";
     params.push(options.incomeCategory);
@@ -122,7 +126,7 @@ export async function getQuoteById(db, quoteId) {
   const query = "SELECT q.*, c.first_name, c.last_name, c.company_name, p.address_line1, p.city, p.postcode FROM quotes q LEFT JOIN customers c ON c.id = q.customer_id LEFT JOIN properties p ON p.id = q.property_id WHERE q.id = ?";
   const row = await db.prepare(query).bind(quoteId).first();
   if (!row) return null;
-  
+
   const quote = mapQuoteRow(row);
   quote.lines = await listQuoteLines(db, quoteId);
   return quote;
@@ -132,7 +136,7 @@ export async function getQuoteByDisplayRef(db, displayRef) {
   const query = "SELECT q.*, c.first_name, c.last_name, c.company_name, p.address_line1, p.city, p.postcode FROM quotes q LEFT JOIN customers c ON c.id = q.customer_id LEFT JOIN properties p ON p.id = q.property_id WHERE q.display_ref = ?";
   const row = await db.prepare(query).bind(displayRef).first();
   if (!row) return null;
-  
+
   const quote = mapQuoteRow(row);
   quote.lines = await listQuoteLines(db, quote.id);
   return quote;
@@ -150,7 +154,7 @@ export async function createQuote(db, input) {
   }
 
   const businessVatStatus = input.businessVatStatusSnapshot || "not_registered";
-  
+
   const preparedLines = (input.lines || []).map((line, index) => {
     const totals = calculateLineTotals({
       quantity: line.quantity,
@@ -160,7 +164,7 @@ export async function createQuote(db, input) {
     });
 
     return {
-      id: line.id,
+      id: line.id || crypto.randomUUID(),
       quote_id: input.id,
       catalogue_item_id: line.catalogueItemId || null,
       name: line.name,
@@ -243,7 +247,7 @@ export async function updateQuote(db, quoteId, input) {
     });
 
     return {
-      id: line.id,
+      id: line.id || crypto.randomUUID(),
       quote_id: quoteId,
       catalogue_item_id: line.catalogueItemId || null,
       name: line.name,
@@ -268,10 +272,15 @@ export async function updateQuote(db, quoteId, input) {
     updates.push("valid_until = ?");
     params.push(input.validUntil);
   }
-  
+
   if (input.documentStatus !== undefined) {
     updates.push("document_status = ?");
     params.push(input.documentStatus);
+  }
+
+  if (input.quoteStatus !== undefined) {
+    updates.push("quote_status = ?");
+    params.push(input.quoteStatus);
   }
 
   updates.push("net_total_pence = ?", "vat_total_pence = ?", "gross_total_pence = ?", "updated_at = CURRENT_TIMESTAMP");

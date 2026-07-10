@@ -591,11 +591,11 @@
   function requestDisplayTitle(request, client, property) {
     const serviceType = requestTypeLabel(request);
     let suffix = displayName(client, request);
-    
+
     if (!suffix || suffix === "Unlinked client" || suffix === "To confirm") {
       suffix = propertyArea(property, request);
     }
-    
+
     if (!suffix || suffix === "To confirm" || suffix === "Unlinked client") {
       return `${serviceType} enquiry`;
     }
@@ -787,12 +787,12 @@
     ] : requests().map((request) => {
       const client = findClient(request.client_id);
       const property = findProperty(request.client_id, request.property_id) || findAnyProperty(request.property_id).property;
-      
+
       const sourceLabel = labelFrom(sourceLabels, request.source, "Manual");
       const statusLabel = requestStatusLabel(request);
       const readiness = request.quote_readiness || deriveQuoteReadiness(request);
       const readinessLabel = labelFrom(quoteReadinessLabels, readiness, "Missing scope");
-      
+
       return `
         <tr class="request-row" data-request-id="${escapeHtml(request.id)}" tabindex="0" role="button" aria-label="Open ${escapeHtml(requestDisplayTitle(request, client, property))}">
           <td><strong>${escapeHtml(requestDisplayTitle(request, client, property))}</strong><br><span class="muted">${escapeHtml(request.number)} &middot; ${escapeHtml(sourceLabel)} &middot; ${escapeHtml(statusLabel)}</span></td>
@@ -1783,7 +1783,7 @@
         toast(blocker);
         return true;
       }
-      
+
       if (request && window.CleanOpsQuotes?.openFromRequest) {
         // Run async but don't block handleClick return
         (async () => {

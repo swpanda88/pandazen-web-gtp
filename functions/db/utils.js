@@ -20,8 +20,13 @@ export function normaliseVatCode(vatCode, businessVatStatus) {
 }
 
 export function calculateLineTotals({ quantity, unitPricePence, vatCode, businessVatStatus }) {
-  const safeQty = typeof quantity === "number" ? quantity : parseFloat(quantity || 0);
-  const netAmountPence = Math.round(safeQty * unitPricePence);
+  let qty = parseFloat(quantity);
+  if (isNaN(qty) || !isFinite(qty) || qty < 0) qty = 0;
+
+  let price = parseInt(unitPricePence, 10);
+  if (isNaN(price) || !isFinite(price) || price < 0) price = 0;
+
+  const netAmountPence = Math.round(qty * price);
   const code = normaliseVatCode(vatCode, businessVatStatus);
   
   let vatAmountPence = 0;
@@ -45,9 +50,9 @@ export function calculateDocumentTotals(lines) {
   let grossTotalPence = 0;
   
   for (const line of lines) {
-    netTotalPence += line.netAmountPence || 0;
-    vatTotalPence += line.vatAmountPence || 0;
-    grossTotalPence += line.grossAmountPence || 0;
+    netTotalPence += line.netAmountPence ?? line.net_amount_pence ?? 0;
+    vatTotalPence += line.vatAmountPence ?? line.vat_amount_pence ?? 0;
+    grossTotalPence += line.grossAmountPence ?? line.gross_amount_pence ?? 0;
   }
   
   return { netTotalPence, vatTotalPence, grossTotalPence };

@@ -16,4 +16,4 @@ Created from a Request. Once accepted, converted into a Job.
 - None yet.
 
 ## Next Milestone
-- [ ] Wire up Quotes UI to D1.
+- [x] Wire up Quotes UI to D1 (Request -> Persisted Draft Quote).

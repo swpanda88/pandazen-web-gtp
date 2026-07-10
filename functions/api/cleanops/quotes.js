@@ -1,5 +1,6 @@
 import { json, error, requireDb } from "../_util.js";
 import { listQuotes, getQuoteById, getQuoteByDisplayRef, createQuote } from "../../db/quotes.js";
+import { getRequestById } from "../../db/requests.js";
 import { getNextDocumentNumber, formatQuoteNumber, formatQuoteDisplayRef } from "../../db/sequences.js";
 
 export async function onRequest(context) {
@@ -12,13 +13,27 @@ export async function onRequest(context) {
 
     if (context.request.method === "POST") {
       const body = await context.request.json();
-      
+
       if (body.requestId) {
         const existingQuotes = await listQuotes(db, { requestId: body.requestId });
-        const activeQuote = existingQuotes.find(q => !['rejected', 'archived', 'superseded'].includes(q.quoteStatus));
-        if (activeQuote) {
-          return json({ ok: false, error: "Active quote already exists for this request", quoteId: activeQuote.id }, 409);
+        if (existingQuotes.length > 0) {
+          return json({ ok: false, error: "A quote already exists for this request", quoteId: existingQuotes[0].id }, 409);
         }
+
+        const request = await getRequestById(db, body.requestId);
+        if (!request) {
+          return json({ ok: false, error: "Request not found" }, 400);
+        }
+        if (body.customerId && request.customerId !== body.customerId) {
+          return json({ ok: false, error: "Customer ID does not match the request" }, 400);
+        }
+        if (body.propertyId && request.propertyId !== body.propertyId) {
+          return json({ ok: false, error: "Property ID does not match the request" }, 400);
+        }
+
+        // Derive if missing
+        body.customerId = body.customerId || request.customerId;
+        body.propertyId = body.propertyId || request.propertyId;
       }
 
       const seqNum = await getNextDocumentNumber(db, 'quote');
@@ -27,16 +42,26 @@ export async function onRequest(context) {
       const displayRef = formatQuoteDisplayRef(quoteNumber, version);
 
       const id = crypto.randomUUID();
-      const newQuote = await createQuote(db, {
-        ...body,
-        id,
-        quoteNumber,
-        version,
-        displayRef,
-        quoteStatus: "draft",
-        documentStatus: "not_generated"
-      });
-      return json({ ok: true, data: newQuote });
+      try {
+        const newQuote = await createQuote(db, {
+          ...body,
+          id,
+          quoteNumber,
+          version,
+          displayRef,
+          quoteStatus: "draft",
+          documentStatus: "not_generated"
+        });
+        return json({ ok: true, data: newQuote });
+      } catch (err) {
+        if (err.message && err.message.includes("UNIQUE constraint failed")) {
+          const existingQuotes = await listQuotes(db, { requestId: body.requestId });
+          if (existingQuotes.length > 0) {
+            return json({ ok: false, error: "A quote already exists for this request", quoteId: existingQuotes[0].id }, 409);
+          }
+        }
+        throw err;
+      }
     }
 
 

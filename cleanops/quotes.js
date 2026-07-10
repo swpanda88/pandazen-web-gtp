@@ -1,3 +1,4 @@
+(function () {
   const state = {
     quotes: [],
     requests: [],
@@ -1830,7 +1831,7 @@
     const request = findRequest(requestId);
     if (!request) return null;
 
-    const existing = quotes().find((quote) => quote.request_id === requestId && !["rejected", "archived", "superseded"].includes(quote.quote_status));
+    const existing = quotes().find((quote) => (quote.request_id === requestId || quote.requestId === requestId));
     if (existing) {
       state.selectedQuoteId = quoteId(existing);
       state.newQuoteOpen = false;
@@ -1872,11 +1873,20 @@
 
     try {
       const api = await import('./api.js');
-      const newQuote = await api.createQuote(payload);
+      const result = await api.createQuote(payload);
+      if (result.duplicate && result.quoteId) {
+        state.selectedQuoteId = result.quoteId;
+        state.newQuoteOpen = false;
+        refresh();
+        return result;
+      }
+
+      const newQuote = result;
       state.quotes.unshift(newQuote);
       updateQuoteCompatibility(newQuote);
       state.selectedQuoteId = newQuote.id;
       state.newQuoteOpen = false;
+      refresh();
       return newQuote;
     } catch (e) {
       console.error(e);
@@ -2060,7 +2070,7 @@
       }
       return false;
     }
-    
+
     event.preventDefault();
     event.stopPropagation();
 
@@ -2266,7 +2276,7 @@
         try {
           const api = await import('./api.js');
           const status = quote.status === "ready_to_send" ? quote.status : "draft";
-          
+
           const payload = {
             quoteStatus: status,
             lines: (quote.quote_items || []).map((item, index) => ({
@@ -2348,7 +2358,7 @@
       const qId = action.split(":")[1];
       state.selectedQuoteId = qId;
       refresh();
-      
+
       (async () => {
         try {
           const api = await import('./api.js');
@@ -2639,8 +2649,9 @@
     }
   }
 
-  function openFromRequest(requestId) {
-    return Boolean(createQuoteFromRequest(requestId));
+  async function openFromRequest(requestId) {
+    const result = await createQuoteFromRequest(requestId);
+    return Boolean(result);
   }
 
   document.addEventListener("click", handleClick);

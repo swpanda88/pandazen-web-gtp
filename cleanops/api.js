@@ -114,6 +114,14 @@ export async function fetchQuotes(options = {}) {
   return fetchJson("/api/cleanops/quotes", options);
 }
 
+export async function createQuote(payload) {
+  return postJson("/api/cleanops/quotes", payload);
+}
+
+export async function updateQuote(id, payload) {
+  return patchJson("/api/cleanops/quotes/" + encodeURIComponent(id), payload);
+}
+
 export async function fetchJobs(options = {}) {
   return fetchJson("/api/cleanops/jobs", options);
 }

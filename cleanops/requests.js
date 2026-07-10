@@ -1783,9 +1783,20 @@
         toast(blocker);
         return true;
       }
-      if (request && window.CleanOpsQuotes?.openFromRequest?.(request.id)) {
-        window.CleanOpsShell?.navigate?.("quotes");
-        toast(`Quote opened for ${request.number}.`);
+      
+      if (request && window.CleanOpsQuotes?.openFromRequest) {
+        // Run async but don't block handleClick return
+        (async () => {
+          try {
+            const success = await window.CleanOpsQuotes.openFromRequest(request.id);
+            if (success) {
+              window.CleanOpsShell?.navigate?.("quotes");
+              toast(`Quote opened for ${request.number}.`);
+            }
+          } catch (err) {
+            toast("Error creating quote: " + err.message);
+          }
+        })();
         return true;
       }
       toast(`Create quote workflow is coming in the next backend stage.`);

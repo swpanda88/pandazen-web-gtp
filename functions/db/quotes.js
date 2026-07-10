@@ -19,6 +19,7 @@ function mapQuoteRow(row) {
     displayRef: row.display_ref,
     customerId: row.customer_id,
     propertyId: row.property_id,
+    requestId: row.request_id,
     sourceType: row.source_type,
     incomeCategory: row.income_category,
     quoteStatus: row.quote_status,
@@ -178,7 +179,7 @@ export async function createQuote(db, input) {
   const docTotals = calculateDocumentTotals(preparedLines);
 
   const quoteStmt = db.prepare(
-    "INSERT INTO quotes (id, quote_number, version, display_ref, customer_id, property_id, source_type, income_category, quote_status, document_status, business_vat_status_snapshot, customer_snapshot_json, billing_address_snapshot_json, service_address_snapshot_json, valid_until, net_total_pence, vat_total_pence, gross_total_pence) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    "INSERT INTO quotes (id, quote_number, version, display_ref, customer_id, property_id, request_id, source_type, income_category, quote_status, document_status, business_vat_status_snapshot, customer_snapshot_json, billing_address_snapshot_json, service_address_snapshot_json, valid_until, net_total_pence, vat_total_pence, gross_total_pence) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
   ).bind(
     input.id,
     input.quoteNumber,
@@ -186,6 +187,7 @@ export async function createQuote(db, input) {
     input.displayRef,
     input.customerId,
     input.propertyId || null,
+    input.requestId || null,
     input.sourceType || null,
     input.incomeCategory || null,
     input.quoteStatus || "draft",
@@ -210,7 +212,12 @@ export async function createQuote(db, input) {
     );
   });
 
-  await db.batch([quoteStmt, ...lineStmts]);
+  const batchStmts = [quoteStmt, ...lineStmts];
+  if (input.requestId) {
+    batchStmts.push(db.prepare("UPDATE requests SET quote_readiness = 'quote_created' WHERE id = ?").bind(input.requestId));
+  }
+
+  await db.batch(batchStmts);
 
   return getQuoteById(db, input.id);
 }
@@ -219,4 +226,79 @@ export async function updateQuoteStatus(db, quoteId, status, options = {}) {
   const query = "UPDATE quotes SET quote_status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? RETURNING *";
   const row = await db.prepare(query).bind(status, quoteId).first();
   return mapQuoteRow(row);
+}
+
+export async function updateQuote(db, quoteId, input) {
+  const existingRow = await db.prepare("SELECT business_vat_status_snapshot FROM quotes WHERE id = ?").bind(quoteId).first();
+  if (!existingRow) throw new Error("Quote not found");
+
+  const businessVatStatus = existingRow.business_vat_status_snapshot || "not_registered";
+
+  const preparedLines = (input.lines || []).map((line, index) => {
+    const totals = calculateLineTotals({
+      quantity: line.quantity,
+      unitPricePence: line.unitPricePence,
+      vatCode: line.vatCode,
+      businessVatStatus: businessVatStatus
+    });
+
+    return {
+      id: line.id,
+      quote_id: quoteId,
+      catalogue_item_id: line.catalogueItemId || null,
+      name: line.name,
+      description: line.description || null,
+      quantity: line.quantity,
+      unit_price_pence: line.unitPricePence,
+      net_amount_pence: totals.netAmountPence,
+      vat_code: totals.vatCode,
+      vat_amount_pence: totals.vatAmountPence,
+      gross_amount_pence: totals.grossAmountPence,
+      is_optional: boolToDb(line.isOptional),
+      sort_order: line.sortOrder !== undefined ? line.sortOrder : index
+    };
+  });
+
+  const docTotals = calculateDocumentTotals(preparedLines);
+
+  const updates = [];
+  const params = [];
+
+  if (input.validUntil !== undefined) {
+    updates.push("valid_until = ?");
+    params.push(input.validUntil);
+  }
+  
+  if (input.documentStatus !== undefined) {
+    updates.push("document_status = ?");
+    params.push(input.documentStatus);
+  }
+
+  updates.push("net_total_pence = ?", "vat_total_pence = ?", "gross_total_pence = ?", "updated_at = CURRENT_TIMESTAMP");
+  params.push(docTotals.netTotalPence, docTotals.vatTotalPence, docTotals.grossTotalPence, quoteId);
+
+  const stmts = [];
+
+  const quoteStmt = db.prepare(
+    `UPDATE quotes SET ${updates.join(", ")} WHERE id = ?`
+  ).bind(...params);
+  stmts.push(quoteStmt);
+
+  // Replace lines safely
+  stmts.push(db.prepare("DELETE FROM quote_lines WHERE quote_id = ?").bind(quoteId));
+
+  const lineStmts = preparedLines.map(line => {
+    return db.prepare(
+      "INSERT INTO quote_lines (id, quote_id, catalogue_item_id, name, description, quantity, unit_price_pence, net_amount_pence, vat_code, vat_amount_pence, gross_amount_pence, is_optional, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    ).bind(
+      line.id, line.quote_id, line.catalogue_item_id, line.name, line.description,
+      line.quantity, line.unit_price_pence, line.net_amount_pence, line.vat_code,
+      line.vat_amount_pence, line.gross_amount_pence, line.is_optional, line.sort_order
+    );
+  });
+  stmts.push(...lineStmts);
+
+  await db.batch(stmts);
+
+  return getQuoteById(db, quoteId);
 }

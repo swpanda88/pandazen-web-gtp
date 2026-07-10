@@ -1,6 +1,9 @@
-(function () {
-  const data = window.CLEANOPS_DATA;
   const state = {
+    quotes: [],
+    requests: [],
+    clients: [],
+    catalogue: [],
+    loading: true,
     selectedQuoteId: null,
     newQuoteOpen: false,
     previewQuoteId: null,
@@ -176,15 +179,39 @@
   };
 
   function quotes() {
-    return data.quotes || [];
+    return state.quotes || [];
   }
 
   function requests() {
-    return data.requests || [];
+    return state.requests || [];
   }
 
   function clients() {
-    return data.clients || [];
+    return state.clients || [];
+  }
+
+  async function loadData() {
+    state.loading = true;
+    refresh();
+    try {
+      const api = await import('./api.js');
+      const [fetchedQuotes, fetchedRequests, fetchedClients, fetchedCatalogue] = await Promise.all([
+        api.fetchQuotes(),
+        api.fetchRequests(),
+        api.fetchCustomers(),
+        api.fetchCatalogue()
+      ]);
+      state.quotes = fetchedQuotes || [];
+      state.requests = fetchedRequests || [];
+      state.clients = fetchedClients || [];
+      state.catalogue = fetchedCatalogue || [];
+    } catch (e) {
+      console.error("Failed to load quote data", e);
+      toast("Error loading data");
+    } finally {
+      state.loading = false;
+      refresh();
+    }
   }
 
   function escapeHtml(value) {
@@ -416,6 +443,9 @@
   }
 
   function primaryTotalLabel(quote) {
+    if ((!quote.quote_items || quote.quote_items.length === 0) && quote.grossTotalPence !== undefined) {
+      return money(quote.grossTotalPence / 100);
+    }
     const totals = calculateTotals(quote);
     if (totals.monthly) return `${money(totals.monthly)} / month`;
     if (totals.recurring) return `${money(totals.recurring)} / visit`;
@@ -1320,7 +1350,7 @@
 
   function renderUnifiedItemsTable(quote, locked) {
     const dis = locked ? " disabled" : "";
-    const catalogueOptions = data.catalogue ? data.catalogue.map(cat => `<option value="${cat.item_id}">${escapeHtml(cat.name)} — ${money(cat.default_rate)}</option>`).join("") : "";
+    const catalogueOptions = state.catalogue ? state.catalogue.map(cat => `<option value="${cat.item_id}">${escapeHtml(cat.name)} — ${money(cat.default_rate)}</option>`).join("") : "";
 
     const rows = (quote.quote_items || []).map((item) => `
       <tr data-quote-item-id="${escapeHtml(item.item_id)}" style="border-bottom: 1px solid var(--border);">
@@ -1470,9 +1500,9 @@
     quote.exclusions = tpl.exclusions ? tpl.exclusions.split("\n") : [];
     quote.terms = tpl.terms || "";
 
-    if (tpl.items && data.catalogue) {
+    if (tpl.items && state.catalogue) {
       quote.quote_items = tpl.items.map(ti => {
-        const cat = data.catalogue.find(c => c.item_id === ti.catalogue_id);
+        const cat = state.catalogue.find(c => c.item_id === ti.catalogue_id);
         if (!cat) return null;
         return {
           item_id: `qi-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
@@ -1576,7 +1606,7 @@
 
     const totals = calculateTotals(quote);
 
-    const catalogueOptions = data.catalogue ? data.catalogue.map(cat => `<option value="${cat.item_id}">${escapeHtml(cat.name)} — ${money(cat.default_rate)}</option>`).join("") : "";
+    const catalogueOptions = state.catalogue ? state.catalogue.map(cat => `<option value="${cat.item_id}">${escapeHtml(cat.name)} — ${money(cat.default_rate)}</option>`).join("") : "";
 
     return `
       <article class="panel quote-items-panel">
@@ -1796,11 +1826,11 @@
     ];
   }
 
-  function createQuoteFromRequest(requestId) {
+  async function createQuoteFromRequest(requestId) {
     const request = findRequest(requestId);
     if (!request) return null;
 
-    const existing = quotes().find((quote) => quote.request_id === requestId);
+    const existing = quotes().find((quote) => quote.request_id === requestId && !["rejected", "archived", "superseded"].includes(quote.quote_status));
     if (existing) {
       state.selectedQuoteId = quoteId(existing);
       state.newQuoteOpen = false;
@@ -1809,9 +1839,6 @@
 
     const client = requestClient(request);
     const property = requestProperty(request);
-    const nextGroup = `qg-${Date.now()}`;
-    const nextNumber = `Q-${2090 + quotes().length}`;
-    const ref = `${nextNumber}/01`;
 
     let summaryText = `${requestTypeLabel(request)} for ${property?.address || property?.label || request.property || "the property"}`;
     if (request.preferred_cadence && request.preferred_cadence !== "to_confirm") {
@@ -1823,50 +1850,39 @@
       summaryText += `, based on the request details provided.`;
     }
 
-    let quote = {
-      quote_id: `quote-${Date.now()}`,
-      id: `quote-${Date.now()}`,
-      quote_group_id: nextGroup,
-      quote_number_base: nextNumber,
-      version: 1,
-      quote_ref: ref,
-      quote_number: ref,
-      number: ref,
-      status: "draft",
-      document_status: "not_generated",
-      client_id: client?.id || "",
-      property_id: property?.id || "",
-      request_id: requestId,
-      pricing_basis: request.pricing_basis || "to_confirm",
-      quote_scope: scopeFromRequest(request),
-      custom_scope: scopeFromRequest(request) === "custom_service" ? requestTypeLabel(request) : "",
-      valid_until: "To confirm",
-      client: client?.display_name || request.client || "Client",
-      property: property?.label || property?.address || request.property || "Property",
-      service: labelFrom(quoteScopeLabels, scopeFromRequest(request), requestTypeLabel(request)),
-      billing_address: client?.billingAddress || client?.billing_address || property?.address || "",
-      service_same_as_billing: false,
-      service_address: property?.address || property?.label || request.property || "",
-      quote_items: buildItemsFromRequest(request),
-      client_facing_summary: summaryText,
-      included_scope: ["Kitchen surfaces and general clean", "Bathrooms", "Floors (vacuum and mop)", "Dusting of accessible surfaces", "Bedrooms and living areas as time allows"],
-      exclusions: ["Inside cupboards and appliances (unless added as extra)", "Heavy descaling beyond agreed scope", "Waste removal", "Moving heavy furniture"],
-      special_notes: request.preferred_day && request.preferred_day !== "to_confirm" ? `Preferred time: ${labelFrom(dayLabels, request.preferred_day)} ${labelFrom(timeWindowLabels, request.preferred_time_window, "")}`.trim() : "",
-      terms: "Quote is based on information provided and may change if scope or condition changes upon arrival. Preferred day/time subject to availability.",
-      internal_notes: request.short_scoping_note || "",
-      created_at: new Date().toISOString().split("T")[0],
-      updated_at: new Date().toISOString().split("T")[0]
+    let payload = {
+      customerId: client?.id || "",
+      propertyId: property?.id || "",
+      requestId: requestId,
+      sourceType: "request",
+      customerSnapshot: client,
+      billingAddressSnapshot: client?.billingAddress || client?.billing_address || property?.address || "",
+      serviceAddressSnapshot: property?.address || property?.label || request.property || "",
+      lines: buildItemsFromRequest(request).map((item, index) => ({
+        name: item.name,
+        description: item.description,
+        quantity: item.quantity_or_hours,
+        unitPricePence: Math.round((item.rate || 0) * 100),
+        vatCode: "none",
+        isOptional: item.optional,
+        sortOrder: index,
+        catalogueItemId: item.catalogue_id
+      }))
     };
 
-    if (state.newQuoteTemplateId) {
-      quote = applyTemplate(quote, state.newQuoteTemplateId);
+    try {
+      const api = await import('./api.js');
+      const newQuote = await api.createQuote(payload);
+      state.quotes.unshift(newQuote);
+      updateQuoteCompatibility(newQuote);
+      state.selectedQuoteId = newQuote.id;
+      state.newQuoteOpen = false;
+      return newQuote;
+    } catch (e) {
+      console.error(e);
+      toast("Error creating quote: " + e.message);
+      return null;
     }
-
-    quotes().unshift(quote);
-    updateQuoteCompatibility(quote);
-    state.selectedQuoteId = quote.id;
-    state.newQuoteOpen = false;
-    return quote;
   }
 
   function createBlankQuote() {
@@ -2245,10 +2261,37 @@
       return true;
     }
     if (action === "save-draft" && quote) {
-      quote.status = quote.status === "ready_to_send" ? quote.status : "draft";
-      updateQuoteCompatibility(quote);
-      toast(`${quoteNumber(quote)} saved as draft.`);
-      refresh();
+      // Run async to save draft
+      (async () => {
+        try {
+          const api = await import('./api.js');
+          const status = quote.status === "ready_to_send" ? quote.status : "draft";
+          
+          const payload = {
+            quoteStatus: status,
+            lines: (quote.quote_items || []).map((item, index) => ({
+              id: item.id || `ql-${Date.now()}-${index}`,
+              name: item.name,
+              description: item.description,
+              quantity: item.quantity_or_hours,
+              unitPricePence: Math.round((item.rate || 0) * 100),
+              vatCode: "none",
+              isOptional: item.optional,
+              sortOrder: index,
+              catalogueItemId: item.catalogue_id
+            }))
+          };
+
+          const updatedQuote = await api.updateQuote(quote.id, payload);
+          Object.assign(quote, updatedQuote);
+          updateQuoteCompatibility(quote);
+          toast(`${quoteNumber(quote)} saved as draft.`);
+          refresh();
+        } catch (e) {
+          console.error(e);
+          toast("Error saving draft: " + e.message);
+        }
+      })();
       return true;
     }
     if (action === "convert-to-job") {
@@ -2302,8 +2345,36 @@
     }
     if (action.startsWith("open-quote:")) {
       state.historyModalOpen = false;
-      state.selectedQuoteId = action.split(":")[1];
+      const qId = action.split(":")[1];
+      state.selectedQuoteId = qId;
       refresh();
+      
+      (async () => {
+        try {
+          const api = await import('./api.js');
+          const fullQuote = await api.fetchQuoteById(qId);
+          if (fullQuote) {
+             const index = state.quotes.findIndex(q => q.id === qId);
+             if (index !== -1) {
+                fullQuote.quote_items = (fullQuote.lines || []).map(line => ({
+                   id: line.id,
+                   name: line.name,
+                   description: line.description,
+                   quantity_or_hours: line.quantity,
+                   rate: line.unitPricePence / 100,
+                   amount: line.netAmountPence / 100,
+                   optional: line.isOptional,
+                   catalogue_id: line.catalogueItemId
+                }));
+                state.quotes[index] = { ...state.quotes[index], ...fullQuote };
+                updateQuoteCompatibility(state.quotes[index]);
+                refresh();
+             }
+          }
+        } catch(e) {
+          console.error(e);
+        }
+      })();
       return true;
     }
     if (action === "create-revision" && quote) {
@@ -2538,7 +2609,7 @@
       const quote = selectedQuote();
       if (!quote) return;
 
-      const catItem = window.CLEANOPS_DATA.catalogue.find(c => c.item_id === catId);
+      const catItem = state.catalogue.find(c => c.item_id === catId);
       if (catItem) {
         quote.quote_items = quote.quote_items || [];
         quote.quote_items.push({
@@ -2579,9 +2650,12 @@
     render,
     handleClick,
     openFromRequest,
+    loadData,
     labels: {
       quoteStatusLabels,
       quoteStatusTones
     }
   };
+
+  loadData();
 })();

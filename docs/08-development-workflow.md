@@ -38,46 +38,60 @@ Feature docs should be updated:
 ## Workflow States
 
 ```text
-Definition of Ready
-        ↓
+Planning
+      ↓
+Definition of Ready (DoR)
+      ↓
 Implementation
-        ↓
-Review
-        ↓
-Preview
-        ↓
-Approval
-        ↓
+      ↓
+Code Review
+      ↓
+Preview Validation
+      ↓
+User Acceptance
+      ↓
 Merge
+      ↓
+Production Rollout
+      ↓
+Documentation Review
 ```
 
 ### 1. Planning
 - **Input:** Human user requests a feature.
 - **Action:** ChatGPT scopes it, updates `features/feature-name.md`, and drafts the prompt for AG.
 
-### 2. Definition of Ready
+### 2. Definition of Ready (DoR)
 - **Action:** Before AG begins implementation, verify that the task satisfies `docs/checklists/definition-of-ready.md`.
-- **Validation:** Scope, Product, Technical, and Workflow criteria must be clear and agreed upon.
+- **Validation:** Scope, Product, Technical, Workflow, and Dependencies criteria must be clear and agreed upon.
 
-### 3. Implementation (AG)
+### 3. Implementation
 - **Branch:** AG creates `feat/feature-name` from `main`.
 - **Code:** AG implements the frontend, API, and DB migrations.
 - **Local Validation:** AG runs `wrangler pages dev` or local curl commands to ensure it compiles and responds.
 - **Commit:** AG commits the code and pauses for review.
 
-### 4. Review (Codex)
+### 4. Code Review
 - **Action:** Codex checks out the branch.
 - **Validation:** Codex runs the checks listed in `docs/checklists/review.md`.
 - **Feedback:** If issues are found, Codex hands it back to AG. If clean, Codex approves.
 
-### 5. Preview & Approval
+### 5. Preview Validation
 - **Action:** AG deploys the branch to a Cloudflare Pages preview environment if requested.
-- **Action:** The human user reviews the final UI or git diff on the preview.
+- **Action:** The team verifies the preview environment functionally works as expected.
+
+### 6. User Acceptance
+- **Action:** The human user reviews the final UI or git diff on the preview and gives the final sign-off.
+
+### 7. Merge
 - **Merge:** Only a human or explicitly authorized agent merges the branch into `main`.
 
-### 6. Release
+### 8. Production Rollout
 - **Action:** Human triggers or pushes `main` to Cloudflare.
 - **Remote Migrations:** Human explicitly applies `wrangler d1 migrations apply DB --remote`.
+
+### 9. Documentation Review
+- **Action:** Confirm that any necessary documentation impact from the merged feature has been fully captured.
 
 ## Commit Guidelines
 - Use Conventional Commits (`feat:`, `fix:`, `refactor:`, `docs:`).

@@ -24,3 +24,7 @@ A milestone must satisfy the Definition of Ready before AG begins implementation
 - [ ] Testing approach defined.
 - [ ] Success criteria defined.
 - [ ] Documentation impact expectations defined.
+
+## Dependencies
+- [ ] No conflicting feature branch exists.
+- [ ] Required upstream milestone(s) are complete.

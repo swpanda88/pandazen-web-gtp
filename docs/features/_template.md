@@ -1,5 +1,17 @@
 # Feature: [Feature Name]
 
+**Status:** [Active | Draft | Deprecated]  
+**Owner:** PandaZen  
+**Last Reviewed:** [YYYY-MM]  
+**Applies To:**  
+- AG  
+- Codex  
+- ChatGPT  
+
+## Related Documents
+- `docs/00-operating-manual.md`
+- [List any specific knowledge docs or standards here]
+
 ## Purpose
 [A brief 1-2 sentence description of what this feature does and why it exists.]
 

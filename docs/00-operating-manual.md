@@ -56,8 +56,9 @@ See `08-development-workflow.md` for detailed lifecycle states.
 
 ## Prompt Philosophy
 We operate on a **Documentation-First Workflow**.
+- **The Golden Rule**: Before writing ANY AG or Codex prompt, ask: *"Which documents contain the context for this task?"*
 - Prompts should be **very small**.
-- Prompts should only describe: (1) the current task, (2) exceptional constraints, and (3) references to relevant documentation.
+- Prompts should only describe: (1) the current task, (2) exceptional constraints, and (3) references to the specific documents identified above.
 - Do not restate the entire project history. 
 
 ## Updating Documentation

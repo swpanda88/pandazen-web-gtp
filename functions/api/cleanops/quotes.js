@@ -1,7 +1,9 @@
 import { json, error, requireDb } from "../_util.js";
-import { listQuotes, getQuoteById, getQuoteByDisplayRef, createQuote } from "../../db/quotes.js";
+import { listQuotes, getQuoteById, getQuoteByDisplayRef, createQuote, validateQuoteLines, QuoteValidationError } from "../../db/quotes.js";
 import { getRequestById } from "../../db/requests.js";
 import { getNextDocumentNumber, formatQuoteNumber, formatQuoteDisplayRef } from "../../db/sequences.js";
+
+const INELIGIBLE_REQUEST_STATUSES = new Set(["archived", "lost", "won", "not_suitable", "deleted"]);
 
 export async function onRequest(context) {
   if (context.request.method !== "GET" && context.request.method !== "POST") {
@@ -12,7 +14,12 @@ export async function onRequest(context) {
     const url = new URL(context.request.url);
 
     if (context.request.method === "POST") {
-      const body = await context.request.json();
+      let body;
+      try {
+        body = await context.request.json();
+      } catch {
+        return error("Invalid JSON request body.", 400);
+      }
 
       if (body.requestId) {
         const existingQuotes = await listQuotes(db, { requestId: body.requestId });
@@ -22,19 +29,24 @@ export async function onRequest(context) {
 
         const request = await getRequestById(db, body.requestId);
         if (!request) {
-          return json({ ok: false, error: "Request not found" }, 400);
+          return error("Request not found", 404);
+        }
+        if (INELIGIBLE_REQUEST_STATUSES.has(request.status)) {
+          return error("This request cannot be quoted in its current status.", 422);
         }
         if (body.customerId && request.customerId !== body.customerId) {
-          return json({ ok: false, error: "Customer ID does not match the request" }, 400);
+          return error("Customer ID does not match the request", 422);
         }
         if (body.propertyId && request.propertyId !== body.propertyId) {
-          return json({ ok: false, error: "Property ID does not match the request" }, 400);
+          return error("Property ID does not match the request", 422);
         }
 
         // Derive if missing
         body.customerId = body.customerId || request.customerId;
         body.propertyId = body.propertyId || request.propertyId;
       }
+
+      validateQuoteLines(body.lines || [], body.businessVatStatusSnapshot || "not_registered");
 
       const seqNum = await getNextDocumentNumber(db, 'quote');
       const quoteNumber = formatQuoteNumber(seqNum);
@@ -68,14 +80,14 @@ export async function onRequest(context) {
     const id = url.searchParams.get("id");
     if (id) {
       const data = await getQuoteById(db, id);
-      if (!data) return error("Not found", 404);
+      if (!data) return error("Quote not found", 404);
       return json({ ok: true, data });
     }
 
     const displayRef = url.searchParams.get("displayRef");
     if (displayRef) {
       const data = await getQuoteByDisplayRef(db, displayRef);
-      if (!data) return error("Not found", 404);
+      if (!data) return error("Quote not found", 404);
       return json({ ok: true, data });
     }
 
@@ -94,6 +106,10 @@ export async function onRequest(context) {
     const data = await listQuotes(db, options);
     return json({ ok: true, data });
   } catch (err) {
-    return error(err.message || "Internal error", 500);
+    if (err instanceof QuoteValidationError || err?.name === "QuoteValidationError") {
+      return error(err.message, err.status);
+    }
+    console.error("Quote API error", err);
+    return error("Quote could not be saved. Please try again.", 500);
   }
 }

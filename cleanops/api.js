@@ -51,7 +51,7 @@ async function postJson(path, payload) {
   }
 
   if (!response.ok) {
-    if (response.status === 409 && json?.quoteId) {
+    if (response.status === 409 && typeof json?.quoteId === "string" && json.quoteId.trim()) {
       return { duplicate: true, quoteId: json.quoteId };
     }
     const message = json?.error || "HTTP error: " + response.status + " " + response.statusText;

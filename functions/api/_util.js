@@ -1,10 +1,11 @@
 export function json(data, init = {}) {
+  const options = typeof init === "number" ? { status: init } : init;
   return Response.json(data, {
     headers: {
       "cache-control": "no-store",
-      ...(init.headers || {})
+      ...(options.headers || {})
     },
-    status: init.status || 200
+    status: options.status || 200
   });
 }
 

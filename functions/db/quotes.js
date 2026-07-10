@@ -10,6 +10,116 @@ import {
   fromPence
 } from './utils.js';
 
+const SUPPORTED_VAT_CODES = new Set(["not_applicable", "standard", "zero", "exempt", "outside_scope"]);
+
+export class QuoteValidationError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "QuoteValidationError";
+    this.status = 422;
+  }
+}
+
+function requireText(value, field, lineNumber) {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new QuoteValidationError(`Line ${lineNumber}: ${field} is required.`);
+  }
+  return value.trim();
+}
+
+function normaliseQuantity(value, lineNumber) {
+  if (value === null || value === undefined || value === "") {
+    throw new QuoteValidationError(`Line ${lineNumber}: quantity is required.`);
+  }
+  const quantity = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(quantity) || quantity <= 0) {
+    throw new QuoteValidationError(`Line ${lineNumber}: quantity must be greater than zero.`);
+  }
+  return quantity;
+}
+
+function normaliseUnitPricePence(value, lineNumber) {
+  if (value === null || value === undefined || value === "") {
+    throw new QuoteValidationError(`Line ${lineNumber}: unit amount is required.`);
+  }
+  const unitPricePence = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(unitPricePence) || unitPricePence < 0 || !Number.isInteger(unitPricePence)) {
+    throw new QuoteValidationError(`Line ${lineNumber}: unit amount must be a whole number of pence.`);
+  }
+  return unitPricePence;
+}
+
+function normaliseVatCode(value, businessVatStatus, lineNumber) {
+  const code = value === "none" || value === null || value === undefined || value === "" ? "not_applicable" : String(value);
+  if (!SUPPORTED_VAT_CODES.has(code)) {
+    throw new QuoteValidationError(`Line ${lineNumber}: VAT code is not supported.`);
+  }
+  if (businessVatStatus === "not_registered" && code !== "not_applicable") {
+    throw new QuoteValidationError(`Line ${lineNumber}: VAT code is not applicable while the business is not VAT registered.`);
+  }
+  return code;
+}
+
+function normaliseOptionalId(value, field, lineNumber) {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value !== "string" || !value.trim()) {
+    throw new QuoteValidationError(`Line ${lineNumber}: ${field} must be text.`);
+  }
+  return value.trim();
+}
+
+function normaliseSortOrder(value, index, lineNumber) {
+  if (value === null || value === undefined || value === "") return index;
+  const sortOrder = typeof value === "number" ? value : Number(value);
+  if (!Number.isInteger(sortOrder) || !Number.isFinite(sortOrder)) {
+    throw new QuoteValidationError(`Line ${lineNumber}: sort order must be a whole number.`);
+  }
+  return sortOrder;
+}
+
+function prepareQuoteLines(lines = [], quoteId, businessVatStatus) {
+  if (!Array.isArray(lines)) {
+    throw new QuoteValidationError("Quote lines must be an array.");
+  }
+
+  return lines.map((line, index) => {
+    const lineNumber = index + 1;
+    if (!line || typeof line !== "object") {
+      throw new QuoteValidationError(`Line ${lineNumber}: line data is required.`);
+    }
+
+    const quantity = normaliseQuantity(line.quantity, lineNumber);
+    const unitPricePence = normaliseUnitPricePence(line.unitPricePence, lineNumber);
+    const vatCode = normaliseVatCode(line.vatCode, businessVatStatus, lineNumber);
+    const totals = calculateLineTotals({
+      quantity,
+      unitPricePence,
+      vatCode,
+      businessVatStatus
+    });
+
+    return {
+      id: normaliseOptionalId(line.id, "id", lineNumber) || crypto.randomUUID(),
+      quote_id: quoteId,
+      catalogue_item_id: normaliseOptionalId(line.catalogueItemId, "catalogue item id", lineNumber),
+      name: requireText(line.name, "name", lineNumber),
+      description: line.description === null || line.description === undefined ? null : String(line.description),
+      quantity,
+      unit_price_pence: unitPricePence,
+      net_amount_pence: totals.netAmountPence,
+      vat_code: totals.vatCode,
+      vat_amount_pence: totals.vatAmountPence,
+      gross_amount_pence: totals.grossAmountPence,
+      is_optional: boolToDb(line.isOptional),
+      sort_order: normaliseSortOrder(line.sortOrder, index, lineNumber)
+    };
+  });
+}
+
+export function validateQuoteLines(lines = [], businessVatStatus = "not_registered") {
+  prepareQuoteLines(lines || [], "validation-quote", businessVatStatus);
+}
+
 function mapQuoteRow(row) {
   if (!row) return null;
   return {
@@ -155,30 +265,7 @@ export async function createQuote(db, input) {
 
   const businessVatStatus = input.businessVatStatusSnapshot || "not_registered";
 
-  const preparedLines = (input.lines || []).map((line, index) => {
-    const totals = calculateLineTotals({
-      quantity: line.quantity,
-      unitPricePence: line.unitPricePence,
-      vatCode: line.vatCode,
-      businessVatStatus: businessVatStatus
-    });
-
-    return {
-      id: line.id || crypto.randomUUID(),
-      quote_id: input.id,
-      catalogue_item_id: line.catalogueItemId || null,
-      name: line.name,
-      description: line.description || null,
-      quantity: line.quantity,
-      unit_price_pence: line.unitPricePence,
-      net_amount_pence: totals.netAmountPence,
-      vat_code: totals.vatCode,
-      vat_amount_pence: totals.vatAmountPence,
-      gross_amount_pence: totals.grossAmountPence,
-      is_optional: boolToDb(line.isOptional),
-      sort_order: line.sortOrder !== undefined ? line.sortOrder : index
-    };
-  });
+  const preparedLines = prepareQuoteLines(input.lines || [], input.id, businessVatStatus);
 
   const docTotals = calculateDocumentTotals(preparedLines);
 
@@ -238,30 +325,7 @@ export async function updateQuote(db, quoteId, input) {
 
   const businessVatStatus = existingRow.business_vat_status_snapshot || "not_registered";
 
-  const preparedLines = (input.lines || []).map((line, index) => {
-    const totals = calculateLineTotals({
-      quantity: line.quantity,
-      unitPricePence: line.unitPricePence,
-      vatCode: line.vatCode,
-      businessVatStatus: businessVatStatus
-    });
-
-    return {
-      id: line.id || crypto.randomUUID(),
-      quote_id: quoteId,
-      catalogue_item_id: line.catalogueItemId || null,
-      name: line.name,
-      description: line.description || null,
-      quantity: line.quantity,
-      unit_price_pence: line.unitPricePence,
-      net_amount_pence: totals.netAmountPence,
-      vat_code: totals.vatCode,
-      vat_amount_pence: totals.vatAmountPence,
-      gross_amount_pence: totals.grossAmountPence,
-      is_optional: boolToDb(line.isOptional),
-      sort_order: line.sortOrder !== undefined ? line.sortOrder : index
-    };
-  });
+  const preparedLines = prepareQuoteLines(input.lines || [], quoteId, businessVatStatus);
 
   const docTotals = calculateDocumentTotals(preparedLines);
 

@@ -1778,18 +1778,25 @@
     }
     if (action === "create-quote") {
       const request = selectedRequest();
-      const blocker = request ? quoteBlocker(request) : "";
-      if (blocker) {
-        toast(blocker);
-        return true;
-      }
-
       if (request && window.CleanOpsQuotes?.openFromRequest) {
         // Run async but don't block handleClick return
         (async () => {
           try {
-            const success = await window.CleanOpsQuotes.openFromRequest(request.id);
-            if (success) {
+            const existingOpened = await window.CleanOpsQuotes.openExistingFromRequest?.(request.id);
+            if (existingOpened) {
+              window.CleanOpsShell?.navigate?.("quotes");
+              toast(`Quote opened for ${request.number}.`);
+              return;
+            }
+
+            const blocker = quoteBlocker(request);
+            if (blocker) {
+              toast(blocker);
+              return;
+            }
+
+            const created = await window.CleanOpsQuotes.openFromRequest(request.id);
+            if (created) {
               window.CleanOpsShell?.navigate?.("quotes");
               toast(`Quote opened for ${request.number}.`);
             }

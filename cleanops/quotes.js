@@ -191,6 +191,40 @@
     return state.clients || [];
   }
 
+  function normaliseQuoteFromApi(quote) {
+    if (!quote) return quote;
+    const normalised = { ...quote };
+    normalised.quote_id = normalised.quote_id || normalised.id;
+    normalised.quote_ref = normalised.quote_ref || normalised.displayRef || normalised.quoteDisplayRef;
+    normalised.quote_number_base = normalised.quote_number_base || normalised.quoteNumber || normalised.quote_number;
+    normalised.quote_number = normalised.quote_ref || normalised.quote_number || normalised.quoteNumber;
+    normalised.status = normalised.status || normalised.quoteStatus || "draft";
+    normalised.document_status = normalised.document_status || normalised.documentStatus || "not_generated";
+    normalised.client_id = normalised.client_id || normalised.customerId;
+    normalised.property_id = normalised.property_id || normalised.propertyId;
+    normalised.request_id = normalised.request_id || normalised.requestId || "";
+    normalised.valid_until = normalised.valid_until || normalised.validUntil || "";
+    normalised.created_at = normalised.created_at || normalised.createdAt || "";
+    normalised.updated_at = normalised.updated_at || normalised.updatedAt || "";
+    if (Array.isArray(normalised.lines) && !normalised.quote_items) {
+      normalised.quote_items = normalised.lines.map((line, index) => ({
+        id: line.id,
+        item_id: line.id || `line-${index}`,
+        name: line.name,
+        description: line.description || "",
+        quantity_or_hours: line.quantity,
+        rate: Number(line.unitPricePence || 0) / 100,
+        amount: Number(line.netAmountPence || 0) / 100,
+        type: "one_off",
+        optional: Boolean(line.isOptional),
+        catalogue_id: line.catalogueItemId,
+        sort_order: line.sortOrder ?? index
+      }));
+    }
+    updateQuoteCompatibility(normalised);
+    return normalised;
+  }
+
   async function loadData() {
     state.loading = true;
     refresh();
@@ -202,10 +236,10 @@
         api.fetchCustomers(),
         api.fetchCatalogue()
       ]);
-      state.quotes = fetchedQuotes || [];
       state.requests = fetchedRequests || [];
       state.clients = fetchedClients || [];
       state.catalogue = fetchedCatalogue || [];
+      state.quotes = (fetchedQuotes || []).map(normaliseQuoteFromApi);
     } catch (e) {
       console.error("Failed to load quote data", e);
       toast("Error loading data");
@@ -457,8 +491,8 @@
     const client = findClient(quote.client_id);
     const property = findProperty(quote.property_id, quote.client_id);
     quote.number = quoteNumber(quote);
-    quote.client = isManualCustomerQuote(quote) ? manualCustomerName(quote) : client?.display_name || quote.client || "Client to confirm";
-    quote.property = property?.label || property?.address || quote.property || "Property to confirm";
+    quote.client = isManualCustomerQuote(quote) ? manualCustomerName(quote) : client?.display_name || quote.customerName || quote.client || "Client to confirm";
+    quote.property = property?.label || property?.address || quote.propertyLabel || quote.propertyAddressLine1 || quote.property || "Property to confirm";
     quote.service = quoteScopeDisplay(quote) || (quote.request_id ? requestTypeLabel(findRequest(quote.request_id)) : "Quote draft");
     quote.total = primaryTotalLabel(quote);
     quote.validUntil = quote.valid_until || quote.validUntil || "To confirm";
@@ -1827,16 +1861,38 @@
     ];
   }
 
-  async function createQuoteFromRequest(requestId) {
-    const request = findRequest(requestId);
-    if (!request) return null;
-
+  async function findExistingQuoteForRequest(requestId) {
     const existing = quotes().find((quote) => (quote.request_id === requestId || quote.requestId === requestId));
     if (existing) {
       state.selectedQuoteId = quoteId(existing);
       state.newQuoteOpen = false;
       return existing;
     }
+
+    const api = await import('./api.js');
+    const existingFromApi = await api.fetchQuotes({ requestId });
+    if (existingFromApi?.length) {
+      const existingQuote = normaliseQuoteFromApi(existingFromApi[0]);
+      const index = state.quotes.findIndex((quote) => quoteId(quote) === quoteId(existingQuote));
+      if (index >= 0) {
+        state.quotes[index] = { ...state.quotes[index], ...existingQuote };
+      } else {
+        state.quotes.unshift(existingQuote);
+      }
+      state.selectedQuoteId = quoteId(existingQuote);
+      state.newQuoteOpen = false;
+      refresh();
+      return existingQuote;
+    }
+    return null;
+  }
+
+  async function createQuoteFromRequest(requestId) {
+    const request = findRequest(requestId);
+    if (!request) return null;
+
+    const existing = await findExistingQuoteForRequest(requestId);
+    if (existing) return existing;
 
     const client = requestClient(request);
     const property = requestProperty(request);
@@ -1875,16 +1931,22 @@
       const api = await import('./api.js');
       const result = await api.createQuote(payload);
       if (result.duplicate && result.quoteId) {
-        state.selectedQuoteId = result.quoteId;
+        const duplicateQuote = normaliseQuoteFromApi(await api.fetchQuoteById(result.quoteId));
+        const index = state.quotes.findIndex((quote) => quoteId(quote) === quoteId(duplicateQuote));
+        if (index >= 0) {
+          state.quotes[index] = { ...state.quotes[index], ...duplicateQuote };
+        } else {
+          state.quotes.unshift(duplicateQuote);
+        }
+        state.selectedQuoteId = quoteId(duplicateQuote);
         state.newQuoteOpen = false;
         refresh();
-        return result;
+        return duplicateQuote;
       }
 
-      const newQuote = result;
+      const newQuote = normaliseQuoteFromApi(result);
       state.quotes.unshift(newQuote);
-      updateQuoteCompatibility(newQuote);
-      state.selectedQuoteId = newQuote.id;
+      state.selectedQuoteId = quoteId(newQuote);
       state.newQuoteOpen = false;
       refresh();
       return newQuote;
@@ -2046,7 +2108,7 @@
     refresh();
   }
 
-  function handleClick(event) {
+  async function handleClick(event) {
     const actionTarget = event.target.closest("[data-quote-action]");
     const modalTarget = event.target.closest("[data-quote-modal]");
     const row = event.target.closest("[data-quote-id]");
@@ -2125,7 +2187,7 @@
       if (tplId) {
         state.newQuoteTemplateId = tplId;
       }
-      const created = createQuoteFromRequest(requestId);
+      const created = await createQuoteFromRequest(requestId);
       if (created) {
         state.newQuoteOpen = false;
         toast(`Draft opened for ${quoteNumber(created)}.`);
@@ -2292,9 +2354,8 @@
             }))
           };
 
-          const updatedQuote = await api.updateQuote(quote.id, payload);
+          const updatedQuote = normaliseQuoteFromApi(await api.updateQuote(quote.id, payload));
           Object.assign(quote, updatedQuote);
-          updateQuoteCompatibility(quote);
           toast(`${quoteNumber(quote)} saved as draft.`);
           refresh();
         } catch (e) {
@@ -2365,21 +2426,10 @@
           const fullQuote = await api.fetchQuoteById(qId);
           if (fullQuote) {
              const index = state.quotes.findIndex(q => q.id === qId);
-             if (index !== -1) {
-                fullQuote.quote_items = (fullQuote.lines || []).map(line => ({
-                   id: line.id,
-                   name: line.name,
-                   description: line.description,
-                   quantity_or_hours: line.quantity,
-                   rate: line.unitPricePence / 100,
-                   amount: line.netAmountPence / 100,
-                   optional: line.isOptional,
-                   catalogue_id: line.catalogueItemId
-                }));
-                state.quotes[index] = { ...state.quotes[index], ...fullQuote };
-                updateQuoteCompatibility(state.quotes[index]);
-                refresh();
-             }
+              if (index !== -1) {
+                 state.quotes[index] = { ...state.quotes[index], ...normaliseQuoteFromApi(fullQuote) };
+                 refresh();
+              }
           }
         } catch(e) {
           console.error(e);
@@ -2654,6 +2704,11 @@
     return Boolean(result);
   }
 
+  async function openExistingFromRequest(requestId) {
+    const result = await findExistingQuoteForRequest(requestId);
+    return Boolean(result);
+  }
+
   document.addEventListener("click", handleClick);
   document.addEventListener("change", handleChange);
 
@@ -2661,6 +2716,7 @@
     render,
     handleClick,
     openFromRequest,
+    openExistingFromRequest,
     loadData,
     labels: {
       quoteStatusLabels,

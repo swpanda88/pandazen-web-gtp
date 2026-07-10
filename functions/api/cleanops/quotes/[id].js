@@ -1,5 +1,5 @@
 import { json, error, requireDb } from "../../_util.js";
-import { getQuoteById, updateQuote, updateQuoteStatus } from "../../../db/quotes.js";
+import { getQuoteById, updateQuote, QuoteValidationError } from "../../../db/quotes.js";
 
 export async function onRequest(context) {
   if (context.request.method !== "GET" && context.request.method !== "PATCH") {
@@ -12,15 +12,20 @@ export async function onRequest(context) {
 
     if (context.request.method === "GET") {
       const data = await getQuoteById(db, id);
-      if (!data) return error("Not found", 404);
+      if (!data) return error("Quote not found", 404);
       return json({ ok: true, data });
     }
 
     if (context.request.method === "PATCH") {
-      const body = await context.request.json();
+      let body;
+      try {
+        body = await context.request.json();
+      } catch {
+        return error("Invalid JSON request body.", 400);
+      }
 
       const existing = await getQuoteById(db, id);
-      if (!existing) return error("Not found", 404);
+      if (!existing) return error("Quote not found", 404);
 
       await updateQuote(db, id, body);
 
@@ -29,6 +34,10 @@ export async function onRequest(context) {
     }
 
   } catch (err) {
-    return error(err.message || "Internal error", 500);
+    if (err instanceof QuoteValidationError || err?.name === "QuoteValidationError") {
+      return error(err.message, err.status);
+    }
+    console.error("Quote detail API error", err);
+    return error("Quote could not be saved. Please try again.", 500);
   }
 }

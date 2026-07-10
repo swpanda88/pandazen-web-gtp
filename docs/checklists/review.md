@@ -8,4 +8,5 @@ This checklist is used by Codex (or human reviewers) to validate a PR/branch bef
 4. [ ] **SQL Injection**: Are all database inputs properly parameterized (`.bind(...)`)?
 5. [ ] **XSS Prevention**: Are all user-supplied strings properly escaped (`escapeHtml()`) before being injected via JS template literals?
 6. [ ] **Rule Alignment**: Does this change adhere to `01-project-principles.md`? Does it duplicate logic that already existed?
-7. [ ] **Documentation Sync**: Were the relevant `docs/features/` updated to reflect the new state of the app?
+7. [ ] **Documentation Impact**: Is the documentation-impact declaration reasonable? Were the required docs updated, and unrelated docs left unchanged?
+8. [ ] **Single Source of Truth**: Is the PR history being used as a substitute for current documentation? Ensure the permanent docs (`docs/features/`) reflect the new state.

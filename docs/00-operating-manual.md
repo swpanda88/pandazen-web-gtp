@@ -62,13 +62,14 @@ We operate on a **Documentation-First Workflow**.
 - Do not restate the entire project history. 
 
 ## Updating Documentation
-Every AG task should end by asking/verifying:
-- [ ] none
-- [ ] update feature doc
-- [ ] update checklist
-- [ ] update principles
-- [ ] create ADR
-- [ ] update roadmap
+Every AG implementation report must include:
+
+```md
+Documentation impact:
+- Result: 
+- Files updated: 
+- Reason: 
+```
 
 This prevents the documentation from becoming stale.
 

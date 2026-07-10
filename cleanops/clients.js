@@ -729,9 +729,6 @@
       return;
     }
 
-    state.newClientOpen = false;
-    state.loading = true;
-    refresh();
     toast("Creating client...");
 
     try {
@@ -769,14 +766,15 @@
         }
       }
 
-      toast(`Created ${displayName(newCust)}.`);
+      state.newClientOpen = false;
       state.selectedClientId = newCust.id;
       state.detailTab = "active";
       state.loading = false;
+      toast(`Created ${displayName(newCust)}.`);
       await loadData(); // Reloads all and handles refresh()
-    } catch (e) {
-      console.error(e);
-      toast("Failed to create client: " + e.message);
+    } catch (err) {
+      console.error(err);
+      toast("Failed to create client: " + err.message);
       state.newClientOpen = true;
       state.loading = false;
       refresh();

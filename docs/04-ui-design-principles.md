@@ -13,7 +13,7 @@ The PandaZen CleanOps dashboard relies on a highly bespoke, approved Vanilla CSS
 - Do not invent new CSS classes for one-off layouts if an existing utility or grid class suffices.
 
 ## 3. Preserving the UI
-- **Do not hide or remove UI controls** simply because the backend API isn't ready for them yet. 
+- **Do not hide or remove UI controls** simply because the backend API isn't ready for them yet.
 - A control without backend wiring should remain visible as a placeholder so the design intent is preserved and the visual layout remains stable.
 
 ## 4. Drawers & Modals

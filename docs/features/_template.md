@@ -1,12 +1,12 @@
 # Feature: [Feature Name]
 
-**Status:** [Active | Draft | Deprecated]  
-**Owner:** PandaZen  
-**Last Reviewed:** [YYYY-MM]  
-**Applies To:**  
-- AG  
-- Codex  
-- ChatGPT  
+**Status:** [Active | Draft | Deprecated]
+**Owner:** PandaZen
+**Last Reviewed:** [YYYY-MM]
+**Applies To:**
+- AG
+- Codex
+- ChatGPT
 
 ## Related Documents
 - `docs/00-operating-manual.md`

@@ -1,6 +1,6 @@
 # CleanOps Jobs Workflow and Recurring Schedule Model
 
-Status: Jobs v0 planning only  
+Status: Jobs v0 planning only
 Scope: Documentation and product model, not implemented runtime functionality
 
 This document defines the CleanOps Jobs model before Jobs v0 is built. It exists to keep future implementation aligned around recurring cleaning plans, generated scheduled work, cleaner reports, billable events, and invoices.
@@ -23,19 +23,19 @@ Accepted quote
 
 ### Object Definitions
 
-**Job Plan**  
+**Job Plan**
 The parent service/control record. For one-off work, it may only generate one scheduled job. For recurring work, it defines the recurrence and default rules.
 
-**Scheduled Job / Clean**  
+**Scheduled Job / Clean**
 A dated occurrence generated from a Job Plan and shown on the Schedule/calendar. User-facing wording can be "Scheduled clean", "Scheduled job", or "Job occurrence". Avoid making "Visit" a major separate user-facing module in v0.
 
-**Job Report**  
+**Job Report**
 The completion record: what happened after a scheduled job/clean was completed.
 
-**Billable Event**  
+**Billable Event**
 The chargeable output created from a completed and approved scheduled job/report.
 
-**Invoice**  
+**Invoice**
 The accounting document created from selected billable events.
 
 ## 1.1 Master Plan, Visit, Checklist, and Billing Model

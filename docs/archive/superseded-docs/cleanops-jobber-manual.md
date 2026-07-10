@@ -1,7 +1,7 @@
 # Jobber Operating Manual for a UK Cleaning Company
 
-Version: 1.0  
-Prepared for: UK-based domestic and commercial cleaning operations  
+Version: 1.0
+Prepared for: UK-based domestic and commercial cleaning operations
 Scope: Jobber setup, daily operations, field team usage, client communications, invoicing, reporting, and compliance considerations.
 
 > Note: This manual is an operational guide, not legal, tax, employment, insurance, or health-and-safety advice. Confirm VAT, employment, insurance, chemical safety, and data-protection obligations with your accountant, solicitor, competent H&S adviser, or official UK guidance where needed.

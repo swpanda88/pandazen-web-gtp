@@ -9,7 +9,7 @@ Work is executed by three entities:
 3. **Codex (Reviewer)**: Challenges AG's logic, runs regression tests against `docs/checklists/testing.md`, and validates Definition of Done.
 
 ## Source Responsibilities
-- **Documentation**: The single current source of truth for the project. Agents should not force users or future agents to read old PRs to understand current behaviour.
+- **Documentation**: The single current source of truth for the project. This refers specifically to the maintained permanent documentation set under `docs/`, including standards, features, knowledge, context, and accepted ADRs. Agents should not force users or future agents to read old PRs to understand current behaviour.
 - **PR/Git History**: A historical record of how and why code changed, not a substitute for current documentation.
 - **Feature Docs**: Describe current feature behaviour and future direction.
 - **Context Docs**: Outline the roadmap, priorities, and recent project state.

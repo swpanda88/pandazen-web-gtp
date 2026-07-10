@@ -1,6 +1,6 @@
 # ADR-0002: Vanilla JS and CSS Without Frameworks
 
-**Status:** Accepted  
+**Status:** Accepted
 
 ## Context
 Modern frontend development often defaults to large frameworks (React, Vue) or utility libraries (Tailwind). However, PandaZen CleanOps requires rapid AI development, minimal build steps, and straightforward logic without abstract layers.

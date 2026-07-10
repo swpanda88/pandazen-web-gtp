@@ -13,7 +13,7 @@ These principles guide all decisions made by AI agents and humans on PandaZen. I
 
 ## 3. Frontend First
 - Always start with the UI and user experience.
-- The UI drives the API requirements, not the other way around. 
+- The UI drives the API requirements, not the other way around.
 - Build the DOM structures, wire up state, and then conform the API endpoint to serve exactly what the frontend needs.
 
 ## 4. Business Workflow First

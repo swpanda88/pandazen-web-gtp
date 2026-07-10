@@ -1,6 +1,6 @@
 # ADR-0001: Cloudflare Pages and D1 for Hosting and Database
 
-**Status:** Accepted  
+**Status:** Accepted
 
 ## Context
 PandaZen requires a reliable, fast, and low-maintenance backend. We need to avoid managing complex server infrastructure (like AWS EC2 or RDS) while maintaining rapid deployment cycles and low latency.

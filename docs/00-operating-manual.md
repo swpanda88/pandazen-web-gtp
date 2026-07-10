@@ -24,7 +24,7 @@ To minimise overlap and reduce duplicated effort, we strictly enforce these role
 
 ### AG (The Builder)
 - Implementation and refactoring
-- Authoring and updating this permanent documentation
+- Updates relevant feature/context docs as part of implementation when required
 - Running local tests and fixing immediate failures
 - Making granular, descriptive Git commits
 - *Does not merge.*
@@ -32,13 +32,13 @@ To minimise overlap and reduce duplicated effort, we strictly enforce these role
 ### Codex (The Reviewer)
 - Peer review and challenging AG's assumptions
 - Regression testing and verification
-- Validating the Definition of Done (`docs/checklists/definition-of-done.md`)
+- Verifies the documentation-impact declaration and flags missing or unnecessary updates
 - Recommending merges or finding logical holes
 
 ### ChatGPT (The Architect)
 - Architecture, high-level planning, and product decisions
 - Prompt generation and technical discussions
-- Discussing open decisions for Feature Docs or drafting ADRs
+- Coordinates cross-feature decisions and drafts/proposes ADRs or permanent rules
 
 ## Branch Workflow
 We use a standard feature-branch workflow.
@@ -59,16 +59,16 @@ We operate on a **Documentation-First Workflow**.
 - **The Golden Rule**: Before writing ANY AG or Codex prompt, ask: *"Which documents contain the context for this task?"*
 - Prompts should be **very small**.
 - Prompts should only describe: (1) the current task, (2) exceptional constraints, and (3) references to the specific documents identified above.
-- Do not restate the entire project history. 
+- Do not restate the entire project history.
 
 ## Updating Documentation
 Every AG implementation report must include:
 
 ```md
 Documentation impact:
-- Result: 
-- Files updated: 
-- Reason: 
+- Result:
+- Files updated:
+- Reason:
 ```
 
 This prevents the documentation from becoming stale.

@@ -1234,8 +1234,8 @@ Useful templates:
 - lost quote close
 - marketing only if opted in
 
-Stage 1: generate copy/manual send.  
-Stage 2: send via system and log.  
+Stage 1: generate copy/manual send.
+Stage 2: send via system and log.
 Stage 3: inbound email integration much later.
 
 #### Admin Email Notifications

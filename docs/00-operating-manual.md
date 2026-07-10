@@ -44,6 +44,7 @@ To minimise overlap and reduce duplicated effort, we strictly enforce these role
 We use a standard feature-branch workflow.
 - **Main branch:** `main` (Production)
 - **Feature branches:** `feat/feature-name` or `fix/bug-name`
+- **Definition of Ready:** All tasks must satisfy the Definition of Ready (`docs/checklists/definition-of-ready.md`) before implementation begins.
 - **Merging:** Never merge automatically. Always wait for Codex to review and the human user to approve.
 
 See `08-development-workflow.md` for detailed lifecycle states.

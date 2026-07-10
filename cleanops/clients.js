@@ -1,12 +1,33 @@
 (function () {
   const data = window.CLEANOPS_DATA;
   const state = {
+    clients: [],
+    loading: true,
     selectedClientId: null,
     selectedPropertyByClient: {},
     detailTab: "active",
     newClientOpen: false,
     moreOpen: false
   };
+
+  async function loadData() {
+    state.loading = true;
+    refresh();
+    try {
+      const api = await import('./api.js');
+      state.clients = await api.fetchCustomers();
+    } catch (e) {
+      console.error(e);
+      toast("Error loading clients from DB. Please try again.");
+      state.clients = [];
+    }
+    state.loading = false;
+    refresh();
+  }
+
+  function clients() {
+    return state.clients || [];
+  }
 
   function escapeHtml(value) {
     return String(value ?? "")
@@ -65,8 +86,8 @@
     "3": "3",
     "4": "4",
     "5_plus": "5+",
-    not_applicable: "N/A",
-    unknown: "Unknown"
+    not_applicable: "Not applicable",
+    unknown: "To confirm"
   };
 
   const bathroomsLabels = {
@@ -74,8 +95,8 @@
     "2": "2",
     "3": "3",
     "4_plus": "4+",
-    not_applicable: "N/A",
-    unknown: "Unknown"
+    not_applicable: "Not applicable",
+    unknown: "To confirm"
   };
 
   const serviceLabels = {
@@ -126,7 +147,7 @@
     agent_landlord_access: "Agent / landlord access",
     staff_opens: "Staff opens",
     to_arrange: "To arrange",
-    unknown: "Unknown"
+    unknown: "To confirm"
   };
 
   const parkingLabels = {
@@ -136,7 +157,7 @@
     paid_parking: "Paid parking",
     staff_bays: "Staff bays",
     no_easy_parking: "No easy parking",
-    unknown: "Unknown"
+    unknown: "To confirm"
   };
 
   const petsLabels = {
@@ -145,8 +166,8 @@
     cat: "Cat",
     multiple_pets: "Multiple pets",
     other: "Other pets",
-    not_applicable: "N/A",
-    unknown: "Unknown"
+    not_applicable: "Not applicable",
+    unknown: "To confirm"
   };
 
   const supplyLabels = {
@@ -164,7 +185,7 @@
   }
 
   function displayName(client) {
-    return client.display_name || client.name || [client.first_name, client.last_name].filter(Boolean).join(" ") || "Unnamed client";
+    return client.companyName || [client.firstName, client.lastName].filter(Boolean).join(" ") || "Unnamed client";
   }
 
   function statusLabel(client) {
@@ -172,32 +193,33 @@
   }
 
   function sourceLabel(client) {
-    return labelFrom(leadSourceLabels, client.lead_source || client.source, "Manual");
+    return labelFrom(leadSourceLabels, client.sourceType, "Manual");
   }
 
   function propertyLabel(property) {
-    return property?.label || property?.name || "Property";
+    if (!property) return "Property";
+    return property.addressLine1 || property.postcode || property.city || "Property";
   }
 
   function propertyTypeLabel(property) {
-    return labelFrom(propertyTypeLabels, property?.property_type || property?.type, "Property");
+    return labelFrom(propertyTypeLabels, property?.propertyType, "To confirm");
   }
 
   function propertyArea(property) {
-    return property?.postcode || property?.area || "";
+    return property?.postcode || property?.city || "";
   }
 
   function defaultServiceLabel(property) {
-    return labelFrom(serviceLabels, property?.default_service_type || property?.service, "To confirm");
+    return labelFrom(serviceLabels, property?.defaultServiceType, "To confirm");
   }
 
   function cadenceLabel(property) {
-    return labelFrom(cadenceLabels, property?.default_cadence || property?.cadence, "To confirm");
+    return labelFrom(cadenceLabels, property?.defaultCadence, "To confirm");
   }
 
   function compactServiceChip(property) {
-    const cadence = labelFrom(cadenceLabels, property?.default_cadence, "");
-    const service = labelFrom(serviceLabels, property?.default_service_type, "");
+    const cadence = labelFrom(cadenceLabels, property?.defaultCadence, "");
+    const service = labelFrom(serviceLabels, property?.defaultServiceType, "");
     if (cadence && service && service !== "To confirm") return `${cadence} clean`;
     return cadence || service || "To confirm";
   }
@@ -206,11 +228,11 @@
     const property = client.properties?.[0];
     const chips = [
       chip(statusLabel(client), client.statusTone || statusTone(client.status)),
-      client.client_type ? chip(labelFrom(clientTypeLabels, client.client_type), "info") : "",
+      client.type ? chip(labelFrom(clientTypeLabels, client.type), "info") : "",
       property ? chip(propertyTypeLabel(property).startsWith("Commercial") ? "Commercial" : "Domestic", "info") : "",
       propertyArea(property) ? chip(propertyArea(property), "info") : "",
-      property?.access_method === "key_held" ? chip("Key held", "success") : "",
-      property?.default_cadence && property.default_cadence !== "to_confirm" ? chip(compactServiceChip(property), "success") : ""
+      property?.accessNotes ? chip("Access notes", "success") : "",
+      property?.defaultCadence && property.defaultCadence !== "to_confirm" ? chip(compactServiceChip(property), "success") : ""
     ].filter(Boolean);
     return chips.slice(0, 5).join("");
   }
@@ -224,12 +246,7 @@
     window.CleanOpsShell?.toast?.(message);
   }
 
-  function clients() {
-    if (!Array.isArray(data.clients) || !data.clients.length) {
-      data.clients = data.selectedClient ? [data.selectedClient] : [];
-    }
-    return data.clients;
-  }
+
 
   function findClient(id) {
     return clients().find((client) => client.id === id) || clients()[0];
@@ -294,7 +311,16 @@
     `;
   }
 
+  function mainPropertyText(client) {
+    const prop = client.properties?.[0];
+    return prop ? propertyLabel(prop) : "No property yet";
+  }
+
   function renderList() {
+    if (state.loading) {
+      return `<div class="page-head"><div><h1>Clients</h1></div></div><div class="empty"><h3>Loading clients...</h3></div>`;
+    }
+
     const rows = clients().map((client) => `
       <tr class="client-row" data-client-id="${escapeHtml(client.id)}" tabindex="0" role="button" aria-label="Open ${escapeHtml(displayName(client))}">
         <td>
@@ -302,11 +328,11 @@
             <div class="avatar small">${escapeHtml(client.initials || initials(displayName(client)))}</div>
             <div>
               <strong>${escapeHtml(displayName(client))}</strong>
-              ${client.company ? `<span class="muted">${escapeHtml(client.company)}</span>` : `<span class="muted">${escapeHtml(client.email || client.phone || "No contact method")}</span>`}
+              ${client.companyName ? `<span class="muted">${escapeHtml(client.companyName)}</span>` : `<span class="muted">${escapeHtml(client.email || client.phone || "No contact method")}</span>`}
             </div>
           </div>
         </td>
-        <td><strong>${escapeHtml(client.mainProperty || "No property yet")}</strong><br><span class="muted">${escapeHtml(client.area || "")}</span></td>
+        <td><strong>${escapeHtml(mainPropertyText(client))}</strong><br><span class="muted">${escapeHtml(propertyArea(client.properties?.[0]))}</span></td>
         <td>${chip(statusLabel(client), client.statusTone || statusTone(client.status))}</td>
         <td>${escapeHtml(client.activeSummary || "No active work")}</td>
         <td>${escapeHtml(client.balance || "GBP 0.00")}</td>
@@ -320,7 +346,7 @@
           <div class="title-row"><h1>Clients</h1></div>
           <p class="muted" style="margin-top:10px">Manage customers, properties, and active work.</p>
         </div>
-        <div class="page-actions">${button("New Client", "open-new-client", "primary")}</div>
+        <div class="page-actions">${button("New client", "open-new-client", "primary")}</div>
       </div>
 
       <section class="grid-detail clients-list-layout">
@@ -331,7 +357,19 @@
             <span class="selectish">Active work</span>
             <span class="selectish">Balance</span>
           </div>
-          ${table(["Client", "Main property / area", "Status", "Active work", "Balance", "Last contact"], rows)}
+          <table class="table hoverable">
+            <thead>
+              <tr>
+                <th>Client</th>
+                <th>Main property</th>
+                <th>Status</th>
+                <th>Active work</th>
+                <th>Balance</th>
+                <th>Last contact</th>
+              </tr>
+            </thead>
+            <tbody>${rows.length ? rows.join("") : `<tr><td colspan="6" class="muted" style="text-align:center; padding: 24px;">No clients found.</td></tr>`}</tbody>
+          </table>
         </article>
 
         <aside class="panel pad">
@@ -367,7 +405,7 @@
           <strong>${escapeHtml(propertyLabel(item))}</strong>
           ${property?.id === item.id ? chip("Selected", "success") : chip("Secondary", "info")}
         </div>
-        <p class="muted">${escapeHtml(item.address || "No address yet")}</p>
+        <p class="muted">${escapeHtml(propertyArea(item) || "No area set")}</p>
         <div class="field-row"><span>Type</span><strong>${escapeHtml(propertyTypeLabel(item))}</strong></div>
         <div class="field-row"><span>Cadence</span><strong>${escapeHtml(cadenceLabel(item))}</strong></div>
       </button>
@@ -459,6 +497,8 @@
           </article>
         </aside>
       </section>
+      ${state.editClientOpen ? renderEditClientModal(client) : ""}
+      ${state.propertyModalOpen ? renderPropertyModal(state.editPropertyId ? property : null) : ""}
     `;
   }
 
@@ -476,51 +516,54 @@
       `;
     }
 
-    return `
-      <article class="panel property-workspace">
-        <div class="panel-head">
-          <div>
-            <p class="eyebrow">Selected property workspace</p>
-            <h2>${escapeHtml(propertyLabel(property))}</h2>
+      return `
+        <article class="panel property-workspace">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Selected property workspace</p>
+              <h2>${escapeHtml(propertyLabel(property))}</h2>
+            </div>
+            <div>
+              ${button("Edit property", "edit-property", "small")}
+              ${button("Create request", "create-request", "small primary")}
+            </div>
           </div>
-          ${button("Create request", "create-request", "small primary")}
-        </div>
-        <div class="panel-body grid-2">
-          <div>
-            <h3>Property setup</h3>
-            <div class="field-row"><span>Address</span><strong>${escapeHtml(property.address || "Not set")}</strong></div>
-            <div class="field-row"><span>Property type</span><strong>${escapeHtml(propertyTypeLabel(property))}</strong></div>
-            <div class="field-row"><span>Bedrooms</span><strong>${escapeHtml(labelFrom(bedroomsLabels, property.bedrooms, "Unknown"))}</strong></div>
-            <div class="field-row"><span>Bathrooms</span><strong>${escapeHtml(labelFrom(bathroomsLabels, property.bathrooms, "Unknown"))}</strong></div>
-            <div class="field-row"><span>Default service</span><strong>${escapeHtml(defaultServiceLabel(property))}</strong></div>
-            <div class="field-row"><span>Cadence</span><strong>${escapeHtml(cadenceLabel(property))}</strong></div>
-            <div class="field-row"><span>Preferred day</span><strong>${escapeHtml(labelFrom(dayLabels, property.preferred_day, "To confirm"))}</strong></div>
-            <div class="field-row"><span>Time window</span><strong>${escapeHtml(labelFrom(timeWindowLabels, property.preferred_time_window, "To confirm"))}</strong></div>
+          <div class="panel-body grid-2">
+            <div>
+              <h3>Property setup</h3>
+              <div class="field-row"><span>Address</span><strong>${escapeHtml([property.addressLine1, property.addressLine2, property.city, property.postcode].filter(Boolean).join(", ") || "Not set")}</strong></div>
+              <div class="field-row"><span>Property type</span><strong>${escapeHtml(propertyTypeLabel(property))}</strong></div>
+              <div class="field-row"><span>Bedrooms</span><strong>${escapeHtml(labelFrom(bedroomsLabels, property.bedrooms, "To confirm"))}</strong></div>
+              <div class="field-row"><span>Bathrooms</span><strong>${escapeHtml(labelFrom(bathroomsLabels, property.bathrooms, "To confirm"))}</strong></div>
+              <div class="field-row"><span>Default service</span><strong>${escapeHtml(defaultServiceLabel(property))}</strong></div>
+              <div class="field-row"><span>Cadence</span><strong>${escapeHtml(cadenceLabel(property))}</strong></div>
+              <div class="field-row"><span>Preferred day</span><strong>${escapeHtml(labelFrom(dayLabels, property.preferredDay, "To confirm"))}</strong></div>
+              <div class="field-row"><span>Time window</span><strong>${escapeHtml(labelFrom(timeWindowLabels, property.preferredTimeWindow, "To confirm"))}</strong></div>
+            </div>
+            <div>
+              <h3>Practical details</h3>
+              <div class="field-row"><span>Access</span><strong>${escapeHtml(property.accessNotes || "To arrange")}</strong></div>
+              <div class="field-row"><span>Parking</span><strong>${escapeHtml(labelFrom(parkingLabels, property.parking, "To confirm"))}</strong></div>
+              <div class="field-row"><span>Pets</span><strong>${escapeHtml(labelFrom(petsLabels, property.petsPresent, "To confirm"))}</strong></div>
+              <div class="field-row"><span>Products</span><strong>${escapeHtml(labelFrom(supplyLabels, property.cleaningProducts, "To confirm"))}</strong></div>
+              <div class="field-row"><span>Vacuum / hoover</span><strong>${escapeHtml(labelFrom(supplyLabels, property.vacuumHoover, "To confirm"))}</strong></div>
+              <div class="field-row"><span>Mop</span><strong>${escapeHtml(labelFrom(supplyLabels, property.mop, "To confirm"))}</strong></div>
+              <div class="field-row"><span>Property notes</span><strong>${escapeHtml(property.propertyNotes || "None")}</strong></div>
+              <div class="field-row"><span>Cleaning notes</span><strong>${escapeHtml(property.cleaningNotes || "None")}</strong></div>
+            </div>
           </div>
-          <div>
-            <h3>Practical details</h3>
-            <div class="field-row"><span>Access</span><strong>${escapeHtml(labelFrom(accessLabels, property.access_method || property.access, "To arrange"))}</strong></div>
-            <div class="field-row"><span>Parking</span><strong>${escapeHtml(labelFrom(parkingLabels, property.parking, "Unknown"))}</strong></div>
-            <div class="field-row"><span>Pets</span><strong>${escapeHtml(labelFrom(petsLabels, property.pets_present, "Unknown"))}</strong></div>
-            <div class="field-row"><span>Products</span><strong>${escapeHtml(labelFrom(supplyLabels, property.cleaning_products, "To confirm"))}</strong></div>
-            <div class="field-row"><span>Vacuum / hoover</span><strong>${escapeHtml(labelFrom(supplyLabels, property.vacuum_hoover, "To confirm"))}</strong></div>
-            <div class="field-row"><span>Mop</span><strong>${escapeHtml(labelFrom(supplyLabels, property.mop, "To confirm"))}</strong></div>
-            <div class="field-row"><span>Property notes</span><strong>${escapeHtml(property.property_notes || "None")}</strong></div>
-            <div class="field-row"><span>Cleaning notes</span><strong>${escapeHtml(property.cleaning_notes || "None")}</strong></div>
-            <div class="field-row"><span>Next action</span><strong>${escapeHtml(property.next_action || property.nextAction || "No next action")}</strong></div>
-          </div>
-        </div>
-      </article>
-    `;
-  }
+        </article>
+      `;
+    }
 
   function renderTab(id, label) {
     return `<button class="tab${state.detailTab === id ? " active" : ""}" type="button" data-client-tab="${id}">${escapeHtml(label)}</button>`;
   }
 
   function renderWorkCard(item) {
+    const actionAttr = item.type === "Request" && item.id ? ` data-client-action="open-request" data-target-id="${escapeHtml(item.id)}" tabindex="0" role="button"` : "";
     return `
-      <article class="work-card">
+      <article class="work-card"${actionAttr}>
         <div class="button-row" style="justify-content:space-between">
           <strong>${escapeHtml(item.type || item.number || "Item")} - ${escapeHtml(item.title)}</strong>
           ${chip(item.status, item.tone)}
@@ -540,6 +583,7 @@
         const statusTones = window.CleanOpsRequests?.labels?.requestStatusTones || {};
         return linkedRequests.map((request) => renderWorkCard({
           type: "Request",
+          id: request.id,
           title: request.title,
           status: statusLabels[request.status] || request.status,
           tone: statusTones[request.status] || "info",
@@ -652,13 +696,30 @@
   }
 
   function value(id) {
-    return document.getElementById(id)?.value?.trim() || "";
+    const el = document.getElementById(id);
+    if (!el) return "";
+    if (el.tagName === "SELECT") {
+      return el.options[el.selectedIndex]?.value || "";
+    }
+    return el.value.trim();
   }
 
-  function saveNewClient() {
+  async function saveNewClient() {
     const name = value("new-client-name");
     const phone = value("new-client-phone");
     const email = value("new-client-email");
+    const company = value("new-client-company");
+    const source = value("new-client-source") || "manual";
+    const status = value("new-client-status") || "lead";
+    const billingAddress = value("new-client-billing");
+    const internalNote = value("new-client-note");
+
+    const createProp = document.getElementById("new-client-add-property")?.checked;
+    const propertyName = createProp ? value("new-property-name") : null;
+    const propertyAddress = createProp ? value("new-property-address") : null;
+    const propertyType = createProp ? value("new-property-type") : null;
+    const propertyNotes = createProp ? value("new-property-notes") : null;
+
     if (!name) {
       toast("Client name is required.");
       return;
@@ -668,77 +729,56 @@
       return;
     }
 
-    const addProperty = document.getElementById("new-client-add-property")?.checked;
-    const propertyName = value("new-property-name");
-    const propertyAddress = value("new-property-address");
-    const propertyType = value("new-property-type");
-    const propertyId = `PROP-${Date.now()}`;
-    const properties = addProperty ? [{
-      id: propertyId,
-      label: propertyName || propertyAddress || "Main property",
-      address: propertyAddress,
-      area: "",
-      postcode: "",
-      property_type: propertyType || "unknown",
-      bedrooms: "unknown",
-      bathrooms: "unknown",
-      default_service_type: "to_confirm",
-      default_cadence: "to_confirm",
-      preferred_day: "to_confirm",
-      preferred_time_window: "to_confirm",
-      access_method: "to_arrange",
-      parking: "unknown",
-      pets_present: "unknown",
-      cleaning_products: "to_confirm",
-      vacuum_hoover: "to_confirm",
-      mop: "to_confirm",
-      property_notes: value("new-property-notes"),
-      cleaning_notes: "",
-      next_action: "Create request if service scope is needed"
-    }] : [];
-    const status = value("new-client-status") || "lead";
-    const billingSame = document.getElementById("new-client-billing-same")?.checked;
-    const client = {
-      id: `client-${Date.now()}`,
-      initials: initials(name),
-      display_name: name,
-      name,
-      client_type: value("new-client-company") ? "company" : "individual",
-      company_name: value("new-client-company"),
-      company: value("new-client-company"),
-      first_name: name.split(/\s+/)[0] || "",
-      last_name: name.split(/\s+/).slice(1).join(" "),
-      status,
-      statusTone: statusTone(status),
-      lead_source: value("new-client-source") || "manual",
-      email,
-      phone,
-      balance: "GBP 0.00",
-      mainProperty: properties[0]?.label || "No property yet",
-      area: properties[0]?.address || "",
-      activeSummary: "Client shell",
-      lastCommunication: "Just now",
-      internalNote: value("new-client-note") || "Manual client created in CleanOps prototype.",
-      billingAddress: value("new-client-billing") || (billingSame ? properties[0]?.address || "" : ""),
-      properties,
-      activeWork: [],
-      requests: [],
-      quotes: [],
-      jobs: [],
-      invoices: [],
-      billingHistory: [
-        { invoice: "No billing history", detail: "This client has not been billed yet", amount: "GBP 0.00" }
-      ]
-    };
+    toast("Creating client...");
 
-    data.clients.unshift(client);
-    state.selectedClientId = client.id;
-    state.selectedPropertyByClient[client.id] = properties[0]?.id;
-    state.detailTab = "active";
-    state.newClientOpen = false;
-    state.moreOpen = false;
-    toast(`Created ${displayName(client)}.`);
-    refresh();
+    try {
+      const api = await import('./api.js');
+
+      const newCust = await api.createCustomer({
+        name,
+        companyName: company,
+        email,
+        phone,
+        sourceType: source,
+        type: company ? "company" : "individual",
+        status,
+        billingAddress,
+        internalNote
+      });
+
+      if (createProp) {
+        try {
+          await api.createProperty({
+            customerId: newCust.id,
+            addressLine1: propertyName || propertyAddress,
+            addressLine2: propertyName ? propertyAddress : "",
+            propertyType: propertyType || "unknown",
+            propertyNotes
+          });
+        } catch (propErr) {
+          console.error(propErr);
+          toast(`Client created, but failed to add property: ${propErr.message || "Unknown error"}`);
+          state.selectedClientId = newCust.id;
+          state.detailTab = "active";
+          state.loading = false;
+          await loadData();
+          return;
+        }
+      }
+
+      state.newClientOpen = false;
+      state.selectedClientId = newCust.id;
+      state.detailTab = "active";
+      state.loading = false;
+      toast(`Created ${displayName(newCust)}.`);
+      await loadData(); // Reloads all and handles refresh()
+    } catch (err) {
+      console.error(err);
+      toast("Failed to create client: " + err.message);
+      state.newClientOpen = true;
+      state.loading = false;
+      refresh();
+    }
   }
 
   function handleClick(event) {
@@ -818,6 +858,54 @@
       refresh();
       return true;
     }
+    if (action === "edit-client") {
+      state.editClientOpen = true;
+      refresh();
+      return true;
+    }
+    if (action === "close-edit-client") {
+      state.editClientOpen = false;
+      refresh();
+      return true;
+    }
+    if (action === "save-edit-client") {
+      saveEditClient();
+      return true;
+    }
+    if (action === "create-property") {
+      state.editPropertyId = null;
+      state.propertyModalOpen = true;
+      refresh();
+      return true;
+    }
+    if (action === "edit-property") {
+      const client = selectedClient();
+      const property = selectedProperty(client);
+      if (property) {
+        state.editPropertyId = property.id;
+        state.propertyModalOpen = true;
+        refresh();
+      }
+      return true;
+    }
+    if (action === "close-property") {
+      state.propertyModalOpen = false;
+      refresh();
+      return true;
+    }
+    if (action === "save-property") {
+      saveProperty();
+      return true;
+    }
+    if (action === "open-request") {
+      const requestId = actionTarget.dataset.targetId || actionTarget.closest("[data-request-id]")?.dataset.requestId;
+      if (requestId && window.CleanOpsRequests?.openRequest) {
+        window.CleanOpsRequests.openRequest(requestId);
+      } else {
+        toast("Unable to open request: Module not loaded or ID missing");
+      }
+      return true;
+    }
 
     const client = selectedClient();
     const property = selectedProperty(client);
@@ -825,10 +913,282 @@
     return true;
   }
 
+  async function saveEditClient() {
+    const clientId = state.selectedClientId;
+    if (!clientId) return;
+
+    const name = value("ec-name");
+    const company = value("ec-company");
+    const email = value("ec-email");
+    const phone = value("ec-phone");
+    const sourceType = value("ec-source") || "manual";
+    const status = value("ec-status") || "lead";
+    const billingAddress = value("ec-billing");
+    const internalNote = value("ec-note");
+    const type = company ? "company" : "individual";
+
+    toast("Saving client...");
+    state.editClientOpen = false;
+    state.loading = true;
+    refresh();
+
+    try {
+      const api = await import('./api.js');
+      await api.updateCustomer(clientId, {
+        name,
+        companyName: company,
+        email,
+        phone,
+        sourceType,
+        status,
+        billingAddress,
+        internalNote,
+        type
+      });
+      toast("Client updated.");
+      state.loading = false;
+      await loadData();
+    } catch (e) {
+      state.loading = false;
+      toast("Failed to update client: " + e.message);
+      refresh();
+    }
+  }
+
+  function renderEditClientModal(client) {
+    if (!client) return "";
+    return `
+      <div class="client-modal-backdrop" data-client-backdrop="true">
+        <section class="client-modal" role="dialog" aria-modal="true" aria-label="Edit Client" data-client-modal="true">
+          <div class="drawer-header">
+            <div>
+              <p class="eyebrow">Client record</p>
+              <h2>Edit Client</h2>
+            </div>
+            <button class="icon-button" type="button" data-client-action="close-edit-client" aria-label="Close" title="Close"><span data-icon="x"></span></button>
+          </div>
+          <div class="pad" style="max-height: 70vh; overflow-y: auto;">
+            <div class="request-form-section">
+              <h3>Client details</h3>
+              <div class="request-form-grid">
+                <label class="client-field wide">Client name <input id="ec-name" type="text" value="${escapeHtml([client.firstName, client.lastName].filter(Boolean).join(" "))}" autocomplete="off"></label>
+                <label class="client-field wide">Company name <input id="ec-company" type="text" value="${escapeHtml(client.companyName || "")}" autocomplete="off"></label>
+              </div>
+            </div>
+            <div class="request-form-section">
+              <h3>Contact</h3>
+              <div class="request-form-grid">
+                <label class="client-field">Phone <input id="ec-phone" type="tel" value="${escapeHtml(client.phone || "")}" autocomplete="off"></label>
+                <label class="client-field">Email <input id="ec-email" type="email" value="${escapeHtml(client.email || "")}" autocomplete="off"></label>
+              </div>
+            </div>
+            <div class="request-form-section">
+              <h3>Source / type</h3>
+              <div class="request-form-grid">
+                <label class="client-field wide">Lead source
+                  <select id="ec-source">
+                    <option value="manual"${client.sourceType === "manual" ? " selected" : ""}>Manual</option>
+                    <option value="website_enquiry"${client.sourceType === "website_enquiry" ? " selected" : ""}>Website enquiry</option>
+                    <option value="phone"${client.sourceType === "phone" ? " selected" : ""}>Phone</option>
+                    <option value="email"${client.sourceType === "email" ? " selected" : ""}>Email</option>
+                    <option value="referral"${client.sourceType === "referral" ? " selected" : ""}>Referral</option>
+                    <option value="repeat_customer"${client.sourceType === "repeat_customer" ? " selected" : ""}>Repeat customer</option>
+                    <option value="other"${client.sourceType === "other" ? " selected" : ""}>Other</option>
+                  </select>
+                </label>
+                <label class="client-field wide">Client status
+                  <select id="ec-status">
+                    <option value="lead"${client.status === "lead" ? " selected" : ""}>Lead</option>
+                    <option value="prospect"${client.status === "prospect" ? " selected" : ""}>Prospect</option>
+                    <option value="active_client"${client.status === "active_client" ? " selected" : ""}>Active client</option>
+                    <option value="commercial"${client.status === "commercial" ? " selected" : ""}>Commercial</option>
+                    <option value="paused"${client.status === "paused" ? " selected" : ""}>Paused</option>
+                    <option value="inactive"${client.status === "inactive" ? " selected" : ""}>Inactive</option>
+                  </select>
+                </label>
+                <label class="client-field wide">Billing address <input id="ec-billing" type="text" value="${escapeHtml(client.billingAddress || "")}" autocomplete="off"></label>
+                <label class="client-field wide">Internal note <textarea id="ec-note" rows="3">${escapeHtml(client.internalNote || "")}</textarea></label>
+              </div>
+            </div>
+          </div>
+          <div class="panel-foot drawer-foot">
+            <button class="button" type="button" data-client-action="close-edit-client">Cancel</button>
+            <button class="button primary" type="button" data-client-action="save-edit-client">Save changes</button>
+          </div>
+        </section>
+      </div>
+    `;
+  }
+
+  async function saveProperty() {
+    const clientId = state.selectedClientId;
+    const propertyId = state.editPropertyId;
+    if (!clientId) return;
+
+    const propertyAddress = value("ep-address");
+    const propertyAddress2 = value("ep-address2");
+    const propertyCity = value("ep-city");
+    const propertyPostcode = value("ep-postcode");
+    const propertyType = value("ep-type") || "unknown";
+    const bedrooms = value("ep-bedrooms") || "unknown";
+    const bathrooms = value("ep-bathrooms") || "unknown";
+    const defaultServiceType = value("ep-service") || "to_confirm";
+    const defaultCadence = value("ep-cadence") || "to_confirm";
+    const preferredDay = value("ep-day") || "to_confirm";
+    const preferredTimeWindow = value("ep-time") || "to_confirm";
+    const parking = value("ep-parking") || "unknown";
+    const petsPresent = value("ep-pets") || "unknown";
+    const accessNotes = value("ep-access");
+    const cleaningProducts = value("ep-products") || "to_confirm";
+    const vacuumHoover = value("ep-vacuum") || "to_confirm";
+    const mop = value("ep-mop") || "to_confirm";
+    const propertyNotes = value("ep-pnotes");
+    const cleaningNotes = value("ep-cnotes");
+
+    toast("Saving property...");
+    state.propertyModalOpen = false;
+    state.loading = true;
+    refresh();
+
+    try {
+      const payload = {
+        customerId: clientId,
+        addressLine1: propertyAddress,
+        addressLine2: propertyAddress2,
+        city: propertyCity,
+        postcode: propertyPostcode,
+        propertyType,
+        bedrooms,
+        bathrooms,
+        defaultServiceType,
+        defaultCadence,
+        preferredDay,
+        preferredTimeWindow,
+        parking,
+        petsPresent,
+        accessNotes,
+        cleaningProducts,
+        vacuumHoover,
+        mop,
+        propertyNotes,
+        cleaningNotes
+      };
+
+      const api = await import('./api.js');
+      const isEdit = !!propertyId;
+
+      if (isEdit) {
+        await api.updateProperty(propertyId, payload);
+      } else {
+        const newProp = await api.createProperty(payload);
+        state.selectedPropertyByClient[clientId] = newProp.id;
+      }
+
+      toast("Property saved.");
+      state.loading = false;
+      await loadData();
+    } catch (e) {
+      state.loading = false;
+      toast("Failed to save property: " + e.message);
+    }
+  }
+
+  function renderPropertyModal(property) {
+    const isEdit = !!property;
+    const sel = (id, val, opts) => {
+      const options = opts.map(o => `<option value="${o[0]}" ${o[0] === val ? "selected" : ""}>${escapeHtml(o[1])}</option>`).join("");
+      return `<select id="${id}">${options}</select>`;
+    };
+
+    const toOptions = (map) => Object.entries(map).map(([k, v]) => [k, v]);
+
+    const typeOpts = toOptions(propertyTypeLabels);
+    const bedOpts = toOptions(bedroomsLabels);
+    const bathOpts = toOptions(bathroomsLabels);
+    const serviceOpts = toOptions(serviceLabels);
+    const cadenceOpts = toOptions(cadenceLabels);
+    const dayOpts = toOptions(dayLabels);
+    const timeOpts = toOptions(timeWindowLabels);
+    const parkingOpts = toOptions(parkingLabels);
+    const petsOpts = toOptions(petsLabels);
+    const supplyOpts = toOptions(supplyLabels);
+
+    return `
+      <div class="client-modal-backdrop" data-client-backdrop="true">
+        <section class="client-modal" role="dialog" aria-modal="true" data-client-modal="true">
+          <div class="drawer-header">
+            <div>
+              <p class="eyebrow">${isEdit ? "Edit" : "Create"} property</p>
+              <h2>Property Details</h2>
+            </div>
+            <button class="icon-button" type="button" data-client-action="close-property" aria-label="Close" title="Close"><span data-icon="x"></span></button>
+          </div>
+          <div class="pad" style="max-height: 70vh; overflow-y: auto;">
+            <div class="request-form-section">
+              <h3>Location</h3>
+              <div class="request-form-grid">
+                <label class="client-field wide">Address line 1 <input id="ep-address" type="text" value="${escapeHtml(property?.addressLine1 || "")}" autocomplete="off"></label>
+                <label class="client-field wide">Address line 2 <input id="ep-address2" type="text" value="${escapeHtml(property?.addressLine2 || "")}" autocomplete="off"></label>
+                <label class="client-field">Town / city <input id="ep-city" type="text" value="${escapeHtml(property?.city || "")}" autocomplete="off"></label>
+                <label class="client-field">Postcode <input id="ep-postcode" type="text" value="${escapeHtml(property?.postcode || "")}" autocomplete="off"></label>
+              </div>
+            </div>
+
+            <div class="request-form-section">
+              <h3>Setup</h3>
+              <div class="request-form-grid">
+                <label class="client-field">Property type ${sel("ep-type", property?.propertyType || "unknown", typeOpts)}</label>
+                <label class="client-field">Bedrooms ${sel("ep-bedrooms", property?.bedrooms || "unknown", bedOpts)}</label>
+                <label class="client-field">Bathrooms ${sel("ep-bathrooms", property?.bathrooms || "unknown", bathOpts)}</label>
+                <label class="client-field">Default service ${sel("ep-service", property?.defaultServiceType || "to_confirm", serviceOpts)}</label>
+                <label class="client-field">Cadence ${sel("ep-cadence", property?.defaultCadence || "to_confirm", cadenceOpts)}</label>
+              </div>
+            </div>
+
+            <div class="request-form-section">
+              <h3>Preferences & Access</h3>
+              <div class="request-form-grid">
+                <label class="client-field">Preferred day ${sel("ep-day", property?.preferredDay || "to_confirm", dayOpts)}</label>
+                <label class="client-field">Preferred time ${sel("ep-time", property?.preferredTimeWindow || "to_confirm", timeOpts)}</label>
+                <label class="client-field">Parking / access ${sel("ep-parking", property?.parking || "unknown", parkingOpts)}</label>
+                <label class="client-field">Pets ${sel("ep-pets", property?.petsPresent || "unknown", petsOpts)}</label>
+                <label class="client-field wide">Access notes <input id="ep-access" type="text" value="${escapeHtml(property?.accessNotes || "")}" autocomplete="off"></label>
+              </div>
+            </div>
+
+            <div class="request-form-section">
+              <h3>Equipment</h3>
+              <div class="request-form-grid">
+                <label class="client-field">Cleaning products ${sel("ep-products", property?.cleaningProducts || "to_confirm", supplyOpts)}</label>
+                <label class="client-field">Vacuum / hoover ${sel("ep-vacuum", property?.vacuumHoover || "to_confirm", supplyOpts)}</label>
+                <label class="client-field">Mop ${sel("ep-mop", property?.mop || "to_confirm", supplyOpts)}</label>
+              </div>
+            </div>
+
+            <div class="request-form-section">
+              <h3>Notes</h3>
+              <div class="request-form-grid">
+                <label class="client-field wide">Property notes <textarea id="ep-pnotes" rows="2">${escapeHtml(property?.propertyNotes || "")}</textarea></label>
+                <label class="client-field wide">Cleaning notes <textarea id="ep-cnotes" rows="2">${escapeHtml(property?.cleaningNotes || "")}</textarea></label>
+              </div>
+            </div>
+          </div>
+          <div class="panel-foot drawer-foot">
+            <button class="button" type="button" data-client-action="close-property">Cancel</button>
+            <button class="button primary" type="button" data-client-action="save-property">${isEdit ? "Save changes" : "Create property"}</button>
+          </div>
+        </section>
+      </div>
+    `;
+  }
+
   document.addEventListener("click", handleClick);
 
   window.CleanOpsClients = {
     render,
-    handleClick
+    handleClick,
+    load: loadData
   };
+
+  loadData();
 })();

@@ -7,3 +7,9 @@ binding = "DB"
 database_name = "pandazen-cleanops-v2"
 database_id = "a2beb40a-589f-40f9-940e-4d5e71654025"
 migrations_dir = "migrations"
+
+[env.preview]
+[[env.preview.d1_databases]]
+binding = "DB"
+database_name = "pandazen-cleanops-preview"
+database_id = "9d858868-56c9-4905-b566-2fc8a91de591"

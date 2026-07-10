@@ -1285,7 +1285,12 @@
   }
 
   function value(id) {
-    return document.getElementById(id)?.value?.trim() || "";
+    const el = document.getElementById(id);
+    if (!el) return "";
+    if (el.tagName === "SELECT") {
+      return el.options[el.selectedIndex]?.value || "";
+    }
+    return el.value.trim();
   }
 
   function numericValue(id) {
@@ -1837,9 +1842,24 @@
   document.addEventListener("click", handleClick);
   document.addEventListener("change", handleChange);
 
+  function openRequest(id) {
+    state.selectedRequestId = id;
+    state.detailTab = "active";
+    state.moreOpen = false;
+    refresh();
+    // Use shell to navigate to requests if available
+    if (window.CleanOpsShell?.navigate) {
+      window.CleanOpsShell.navigate("requests");
+    } else {
+      window.location.hash = "requests";
+    }
+  }
+
   window.CleanOpsRequests = {
     render,
     handleClick,
+    load: loadApiRequests,
+    openRequest,
     labels: {
       requestStatusLabels,
       requestStatusTones,

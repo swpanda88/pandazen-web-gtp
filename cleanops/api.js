@@ -150,3 +150,23 @@ export async function fetchInvoiceById(id) {
 export async function fetchInvoiceByNumber(invoiceNumber) {
   return fetchJson("/api/cleanops/invoices", { invoiceNumber });
 }
+
+export async function fetchCustomerById(id) {
+  return fetchJson("/api/cleanops/customers/" + encodeURIComponent(id));
+}
+
+export async function createCustomer(payload) {
+  return postJson("/api/cleanops/customers", payload);
+}
+
+export async function updateCustomer(id, payload) {
+  return patchJson("/api/cleanops/customers/" + encodeURIComponent(id), payload);
+}
+
+export async function createProperty(payload) {
+  return postJson("/api/cleanops/properties", payload);
+}
+
+export async function updateProperty(id, payload) {
+  return patchJson("/api/cleanops/properties/" + encodeURIComponent(id), payload);
+}

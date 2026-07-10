@@ -12,6 +12,9 @@ function mapCustomerRow(row) {
     companyName: row.company_name,
     email: row.email,
     phone: row.phone,
+    status: row.status,
+    billingAddress: row.billing_address,
+    internalNote: row.internal_note,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -118,8 +121,8 @@ export async function getCustomerByEmail(db, email) {
 
 export async function createCustomer(db, input) {
   const query = `
-    INSERT INTO customers (id, type, source_type, first_name, last_name, company_name, email, phone)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO customers (id, type, source_type, first_name, last_name, company_name, email, phone, status, billing_address, internal_note)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     RETURNING *
   `;
   const row = await db.prepare(query).bind(
@@ -130,7 +133,10 @@ export async function createCustomer(db, input) {
     input.lastName || null,
     input.companyName || null,
     input.email || null,
-    input.phone || null
+    input.phone || null,
+    input.status || 'lead',
+    input.billingAddress || null,
+    input.internalNote || null
   ).first();
   return mapCustomerRow(row);
 }
@@ -184,6 +190,9 @@ export async function updateCustomer(db, customerId, updates) {
   if (updates.email !== undefined) { sets.push('email = ?'); params.push(updates.email); }
   if (updates.phone !== undefined) { sets.push('phone = ?'); params.push(updates.phone); }
   if (updates.sourceType !== undefined) { sets.push('source_type = ?'); params.push(updates.sourceType); }
+  if (updates.status !== undefined) { sets.push('status = ?'); params.push(updates.status); }
+  if (updates.billingAddress !== undefined) { sets.push('billing_address = ?'); params.push(updates.billingAddress); }
+  if (updates.internalNote !== undefined) { sets.push('internal_note = ?'); params.push(updates.internalNote); }
 
   if (sets.length === 0) return await getCustomerById(db, customerId);
 

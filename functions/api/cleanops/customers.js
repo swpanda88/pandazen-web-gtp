@@ -55,7 +55,10 @@ export async function onRequest(context) {
         lastName,
         companyName: body.companyName || body.company,
         email: body.email,
-        phone: body.phone
+        phone: body.phone,
+        status: body.status,
+        billingAddress: body.billingAddress,
+        internalNote: body.internalNote
       });
       return json({ ok: true, data: newCust }, 201);
     }

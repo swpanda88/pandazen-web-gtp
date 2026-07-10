@@ -42,7 +42,10 @@ export async function onRequest(context) {
         companyName: body.companyName !== undefined ? body.companyName : body.company,
         email: body.email,
         phone: body.phone,
-        sourceType: body.sourceType
+        sourceType: body.sourceType,
+        status: body.status,
+        billingAddress: body.billingAddress,
+        internalNote: body.internalNote
       };
 
       // Clean undefined

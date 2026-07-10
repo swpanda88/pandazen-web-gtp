@@ -394,7 +394,6 @@
           </div>
         </aside>
       </section>
-      ${state.newClientOpen ? renderNewClientModal() : ""}
     `;
   }
 
@@ -925,6 +924,9 @@
     const email = value("ec-email");
     const phone = value("ec-phone");
     const sourceType = value("ec-source") || "manual";
+    const status = value("ec-status") || "lead";
+    const billingAddress = value("ec-billing");
+    const internalNote = value("ec-note");
     const type = company ? "company" : "individual";
 
     toast("Saving client...");
@@ -940,6 +942,9 @@
         email,
         phone,
         sourceType,
+        status,
+        billingAddress,
+        internalNote,
         type
       });
       toast("Client updated.");
@@ -993,6 +998,18 @@
                     <option value="other"${client.sourceType === "other" ? " selected" : ""}>Other</option>
                   </select>
                 </label>
+                <label class="client-field wide">Client status
+                  <select id="ec-status">
+                    <option value="lead"${client.status === "lead" ? " selected" : ""}>Lead</option>
+                    <option value="prospect"${client.status === "prospect" ? " selected" : ""}>Prospect</option>
+                    <option value="active_client"${client.status === "active_client" ? " selected" : ""}>Active client</option>
+                    <option value="commercial"${client.status === "commercial" ? " selected" : ""}>Commercial</option>
+                    <option value="paused"${client.status === "paused" ? " selected" : ""}>Paused</option>
+                    <option value="inactive"${client.status === "inactive" ? " selected" : ""}>Inactive</option>
+                  </select>
+                </label>
+                <label class="client-field wide">Billing address <input id="ec-billing" type="text" value="${escapeHtml(client.billingAddress || "")}" autocomplete="off"></label>
+                <label class="client-field wide">Internal note <textarea id="ec-note" rows="3">${escapeHtml(client.internalNote || "")}</textarea></label>
               </div>
             </div>
           </div>

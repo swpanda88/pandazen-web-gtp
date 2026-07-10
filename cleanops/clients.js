@@ -86,8 +86,8 @@
     "3": "3",
     "4": "4",
     "5_plus": "5+",
-    not_applicable: "N/A",
-    unknown: "Unknown"
+    not_applicable: "Not applicable",
+    unknown: "To confirm"
   };
 
   const bathroomsLabels = {
@@ -95,8 +95,8 @@
     "2": "2",
     "3": "3",
     "4_plus": "4+",
-    not_applicable: "N/A",
-    unknown: "Unknown"
+    not_applicable: "Not applicable",
+    unknown: "To confirm"
   };
 
   const serviceLabels = {
@@ -147,7 +147,7 @@
     agent_landlord_access: "Agent / landlord access",
     staff_opens: "Staff opens",
     to_arrange: "To arrange",
-    unknown: "Unknown"
+    unknown: "To confirm"
   };
 
   const parkingLabels = {
@@ -157,7 +157,7 @@
     paid_parking: "Paid parking",
     staff_bays: "Staff bays",
     no_easy_parking: "No easy parking",
-    unknown: "Unknown"
+    unknown: "To confirm"
   };
 
   const petsLabels = {
@@ -166,8 +166,8 @@
     cat: "Cat",
     multiple_pets: "Multiple pets",
     other: "Other pets",
-    not_applicable: "N/A",
-    unknown: "Unknown"
+    not_applicable: "Not applicable",
+    unknown: "To confirm"
   };
 
   const supplyLabels = {
@@ -534,8 +534,8 @@
               <h3>Property setup</h3>
               <div class="field-row"><span>Address</span><strong>${escapeHtml([property.addressLine1, property.addressLine2, property.city, property.postcode].filter(Boolean).join(", ") || "Not set")}</strong></div>
               <div class="field-row"><span>Property type</span><strong>${escapeHtml(propertyTypeLabel(property))}</strong></div>
-              <div class="field-row"><span>Bedrooms</span><strong>${escapeHtml(labelFrom(bedroomsLabels, property.bedrooms, "Unknown"))}</strong></div>
-              <div class="field-row"><span>Bathrooms</span><strong>${escapeHtml(labelFrom(bathroomsLabels, property.bathrooms, "Unknown"))}</strong></div>
+              <div class="field-row"><span>Bedrooms</span><strong>${escapeHtml(labelFrom(bedroomsLabels, property.bedrooms, "To confirm"))}</strong></div>
+              <div class="field-row"><span>Bathrooms</span><strong>${escapeHtml(labelFrom(bathroomsLabels, property.bathrooms, "To confirm"))}</strong></div>
               <div class="field-row"><span>Default service</span><strong>${escapeHtml(defaultServiceLabel(property))}</strong></div>
               <div class="field-row"><span>Cadence</span><strong>${escapeHtml(cadenceLabel(property))}</strong></div>
               <div class="field-row"><span>Preferred day</span><strong>${escapeHtml(labelFrom(dayLabels, property.preferredDay, "To confirm"))}</strong></div>
@@ -544,8 +544,8 @@
             <div>
               <h3>Practical details</h3>
               <div class="field-row"><span>Access</span><strong>${escapeHtml(property.accessNotes || "To arrange")}</strong></div>
-              <div class="field-row"><span>Parking</span><strong>${escapeHtml(labelFrom(parkingLabels, property.parking, "Unknown"))}</strong></div>
-              <div class="field-row"><span>Pets</span><strong>${escapeHtml(labelFrom(petsLabels, property.petsPresent, "Unknown"))}</strong></div>
+              <div class="field-row"><span>Parking</span><strong>${escapeHtml(labelFrom(parkingLabels, property.parking, "To confirm"))}</strong></div>
+              <div class="field-row"><span>Pets</span><strong>${escapeHtml(labelFrom(petsLabels, property.petsPresent, "To confirm"))}</strong></div>
               <div class="field-row"><span>Products</span><strong>${escapeHtml(labelFrom(supplyLabels, property.cleaningProducts, "To confirm"))}</strong></div>
               <div class="field-row"><span>Vacuum / hoover</span><strong>${escapeHtml(labelFrom(supplyLabels, property.vacuumHoover, "To confirm"))}</strong></div>
               <div class="field-row"><span>Mop</span><strong>${escapeHtml(labelFrom(supplyLabels, property.mop, "To confirm"))}</strong></div>
@@ -709,6 +709,18 @@
     const name = value("new-client-name");
     const phone = value("new-client-phone");
     const email = value("new-client-email");
+    const company = value("new-client-company");
+    const source = value("new-client-source") || "manual";
+    const status = value("new-client-status") || "lead";
+    const billingAddress = value("new-client-billing");
+    const internalNote = value("new-client-note");
+
+    const createProp = document.getElementById("new-client-add-property")?.checked;
+    const propertyName = createProp ? value("new-property-name") : null;
+    const propertyAddress = createProp ? value("new-property-address") : null;
+    const propertyType = createProp ? value("new-property-type") : null;
+    const propertyNotes = createProp ? value("new-property-notes") : null;
+
     if (!name) {
       toast("Client name is required.");
       return;
@@ -724,8 +736,6 @@
     toast("Creating client...");
 
     try {
-      const company = value("new-client-company");
-      const source = value("new-client-source") || "manual";
       const api = await import('./api.js');
 
       const newCust = await api.createCustomer({
@@ -734,23 +744,30 @@
         email,
         phone,
         sourceType: source,
-        type: company ? "company" : "individual"
+        type: company ? "company" : "individual",
+        status,
+        billingAddress,
+        internalNote
       });
 
-      const createProp = document.getElementById("new-client-add-property")?.checked;
       if (createProp) {
-        const propertyName = value("new-property-name");
-        const propertyAddress = value("new-property-address");
-        const propertyType = value("new-property-type");
-        const propertyNotes = value("new-property-notes");
-
-        await api.createProperty({
-          customerId: newCust.id,
-          addressLine1: propertyName || propertyAddress,
-          addressLine2: propertyName ? propertyAddress : "",
-          propertyType: propertyType || "unknown",
-          propertyNotes
-        });
+        try {
+          await api.createProperty({
+            customerId: newCust.id,
+            addressLine1: propertyName || propertyAddress,
+            addressLine2: propertyName ? propertyAddress : "",
+            propertyType: propertyType || "unknown",
+            propertyNotes
+          });
+        } catch (propErr) {
+          console.error(propErr);
+          toast(`Client created, but failed to add property: ${propErr.message || "Unknown error"}`);
+          state.selectedClientId = newCust.id;
+          state.detailTab = "active";
+          state.loading = false;
+          await loadData();
+          return;
+        }
       }
 
       toast(`Created ${displayName(newCust)}.`);

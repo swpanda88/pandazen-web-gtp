@@ -10,6 +10,15 @@ Read this document FIRST.
 4. **Use Pointer Prompts**: Read these permanent docs instead of asking the user to copy-paste architecture into the prompt.
 5. **Check `docs/context/` for what's next**: Never ask "what feature should I build next?". Read `docs/context/priorities.md`.
 
+## Documentation Hierarchy
+When information exists in multiple places, the following precedence applies:
+1. ADRs (accepted architectural decisions)
+2. Project Principles
+3. Architecture & Standards
+4. Feature documentation
+5. Context documents
+6. Current prompt
+
 ## Agent Responsibilities
 To minimise overlap and reduce duplicated effort, we strictly enforce these roles:
 
@@ -50,6 +59,17 @@ We operate on a **Documentation-First Workflow**.
 - Prompts should be **very small**.
 - Prompts should only describe: (1) the current task, (2) exceptional constraints, and (3) references to relevant documentation.
 - Do not restate the entire project history. 
+
+## Updating Documentation
+Every AG task should end by asking/verifying:
+- [ ] none
+- [ ] update feature doc
+- [ ] update checklist
+- [ ] update principles
+- [ ] create ADR
+- [ ] update roadmap
+
+This prevents the documentation from becoming stale.
 
 ---
 *If you are an AI starting a new session, you are now caught up. Proceed to your specific task instructions and consult `docs/context/` or `docs/features/` as needed.*

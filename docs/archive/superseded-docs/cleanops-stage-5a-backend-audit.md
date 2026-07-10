@@ -9,7 +9,7 @@ The current schema (`migrations/0001_cleanops_v1_schema.sql`) provides a robust 
 * **Quotes**: Uses `document_status`, stores snapshot of VAT status and customer/address details natively as JSON strings (`customer_snapshot_json`, etc.). Contains lines in `quote_lines`. Amounts stored strictly in pence (`net_total_pence`, `vat_total_pence`, `gross_total_pence`).
 * **Jobs**: Basic join table linking quotes, customers, and properties with a `status` field. Missing amount values.
 * **Visits**: Links to `jobs`. Has `scheduled_start`, `scheduled_end`, `status`, and `assigned_team` (stored as text instead of a relation).
-* **Billable Events**: Links `visit_id`, `job_id`, `invoice_id`. Holds `amount_pence` and `status`. 
+* **Billable Events**: Links `visit_id`, `job_id`, `invoice_id`. Holds `amount_pence` and `status`.
 * **Invoices & Payments**: Invoices mirror quote schema for snapshot fields. Payments linked via `invoice_id` with `amount_pence` and `status`.
 
 ## 2. Seed Data

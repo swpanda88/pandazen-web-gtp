@@ -725,14 +725,14 @@ Good pattern:
 
 Example:
 
-> Mark setup complete?  
-> This will remove the job from Needs setup and allow scheduled cleans to continue.  
+> Mark setup complete?
+> This will remove the job from Needs setup and allow scheduled cleans to continue.
 > [Cancel] [Mark setup complete]
 
 Example:
 
-> Complete and bill this clean?  
-> This will create a ready-to-bill event for £90.00.  
+> Complete and bill this clean?
+> This will create a ready-to-bill event for £90.00.
 > [Cancel] [Complete all good]
 
 Do not use browser confirm alerts.

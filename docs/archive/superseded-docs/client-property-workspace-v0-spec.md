@@ -100,7 +100,7 @@ Operational objects inherit their spatial context (property) from the preceding 
 *   **Visit**: Generated or scheduled from the Job, carrying the `property_id`.
 *   **Billable Event**: Created upon Visit completion, logging the work against the `property_id`.
 *   **Invoice Builder**: Can filter unbilled Billable Events by Client, and optionally group/filter by Property.
-*   **Billing Visibility**: 
+*   **Billing Visibility**:
     *   Client-level Billing tab shows all invoices for the Client.
     *   Property-level Billing tab shows only billable events and invoices explicitly linked to that `property_id`.
 

@@ -3,9 +3,9 @@
 > [!IMPORTANT]
 > **Active Implementation Note**: This document outlines the initial broad requirements and general business goals for CleanOps. For the active, true state of the application's data semantics and architectural decisions, refer to `docs/cleanops-architecture-and-data.md` as the single source of truth. For approved UI layout, workspace, overlay, and interaction patterns, refer to `docs/cleanops-ui-design-guide.md`.
 
-Version: 1.1  
-Prepared for: UK-based cleaning company operations  
-Product type: Web application with mobile-first field staff experience  
+Version: 1.1
+Prepared for: UK-based cleaning company operations
+Product type: Web application with mobile-first field staff experience
 Working product name: CleanOps
 
 ## 1. Product Vision

@@ -1,6 +1,6 @@
 # PandaZen Delivery & Billing v0 Spec
 
-This document defines the implementation specification needed before any Job, Visit, Billable Event, or Invoice coding starts. 
+This document defines the implementation specification needed before any Job, Visit, Billable Event, or Invoice coding starts.
 
 ## Locked Architecture
 The fundamental data model flows sequentially:
@@ -18,7 +18,7 @@ Key Rules:
 
 ## 1. Readiness Checklist
 
-Before proceeding down the pipeline, the following minimums must be met. 
+Before proceeding down the pipeline, the following minimums must be met.
 
 **Validation Rule:** A thin red border is **only** used for hard-required or strictly invalid fields. Readiness warnings are separate advisory messages and must not trigger red-border validation.
 
@@ -37,10 +37,10 @@ Before proceeding down the pipeline, the following minimums must be met.
 
 - **Purpose:** To convert an accepted quote into an actionable work order (Job shell).
 - **Recommendation:** An accepted Quote creates/enables a Job shell using a manual confirmation step first. The button wording should be: **“Accept quote & create job”**. Full automation can come later.
-- **Source Data & Duplication Rules:** 
+- **Source Data & Duplication Rules:**
   - **Referenced Live:** Client, Property, source Quote reference (do not duplicate ownership logic).
   - **Copied as Snapshot:** Access/parking/pets/product notes are copied from Assessment/Property to allow Job-specific overrides without mutating the original assessment.
-- **Minimum Field Set:** 
+- **Minimum Field Set:**
   - Source Quote Reference
   - Client Reference
   - Property Reference
@@ -81,7 +81,7 @@ Before proceeding down the pipeline, the following minimums must be met.
 
 ## 5. Billable Event v0
 
-- **Source Model & Rules:** 
+- **Source Model & Rules:**
   - A completed Visit normally creates a Billable Event automatically.
   - Exceptions like manual extras, no-access fees, or cancellation fees create **manual** Billable Events. Do not overbuild complex line-item automation for these in v0.
   - **Immutability:** Invoiced Billable Events cannot be edited directly. (Use void/credit-adjustments later, but do not build credit notes in v0).
@@ -102,8 +102,8 @@ Before proceeding down the pipeline, the following minimums must be met.
 
 ## 6. Invoice Builder v0
 
-- **Decisive Recommendation:** 
-  - The Invoice Builder filters unbilled Billable Events by Client. 
+- **Decisive Recommendation:**
+  - The Invoice Builder filters unbilled Billable Events by Client.
   - Admin manually selects one or more Billable Events to invoice.
 - **Quick-Select Helpers:** "This visit", "This job", "This month / date range", "All unbilled for client".
 - **Invoice Lifecycle:** Generated invoice starts as a Draft.
@@ -118,8 +118,8 @@ Before proceeding down the pipeline, the following minimums must be met.
 
 ## 7. Property Table Timing
 
-- **Actionable Recommendation:** First-class Property should be implemented **before** Job/Visit/Scheduler coding. 
-- **Disclaimer:** This PR does not implement it. 
+- **Actionable Recommendation:** First-class Property should be implemented **before** Job/Visit/Scheduler coding.
+- **Disclaimer:** This PR does not implement it.
 - **Next Step:** The first implementation issue following these docs should be the Property storage/model migration and spec, not the Scheduler.
 
 ## 8. Cleaner-Facing Detail Boundary

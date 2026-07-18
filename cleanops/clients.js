@@ -906,6 +906,16 @@
       }
       return true;
     }
+    if (action === "create-request") {
+      const client = selectedClient();
+      const property = selectedProperty(client);
+      if (client?.id && property?.id && window.CleanOpsRequests?.openNewRequest) {
+        window.CleanOpsRequests.openNewRequest(client.id, property.id);
+      } else {
+        toast("Unable to create request: Select a client and property first.");
+      }
+      return true;
+    }
 
     const client = selectedClient();
     const property = selectedProperty(client);

@@ -3,11 +3,14 @@
   const state = {
     selectedRequestId: null,
     newRequestOpen: false,
+    newRequestClientId: "",
+    newRequestPropertyId: "",
     reviewRequestOpen: false,
     moreOpen: false
   };
 
   let dbRequests = null;
+  let dbClients = null;
   let apiFailed = false;
   let loadPromise = null;
 
@@ -20,7 +23,11 @@
     loadPromise = (async () => {
       try {
         const api = await import('./api.js');
-        const raw = await api.fetchRequests();
+        const [raw, rawClients] = await Promise.all([
+          api.fetchRequests(),
+          api.fetchCustomers()
+        ]);
+        dbClients = (rawClients || []).map(mapApiCustomerToFrontend);
         raw.forEach(mergeApiLinkedRecord);
         dbRequests = raw.map(mapApiRequestToFrontend);
         refresh();
@@ -116,6 +123,51 @@
       api_property_city: apiReq.propertyCity,
       api_property_postcode: apiReq.propertyPostcode,
       api_property_area: [apiReq.propertyCity, apiReq.propertyPostcode].filter(Boolean).join(" ")
+    };
+  }
+
+  function mapApiCustomerToFrontend(apiClient) {
+    const displayName = apiClient.companyName || [apiClient.firstName, apiClient.lastName].filter(Boolean).join(" ") || "Unlinked client";
+    return {
+      id: apiClient.id,
+      api_backed: true,
+      display_name: displayName,
+      name: displayName,
+      first_name: apiClient.firstName || "",
+      last_name: apiClient.lastName || "",
+      company_name: apiClient.companyName || "",
+      status: apiClient.status || "lead",
+      email: apiClient.email || "",
+      phone: apiClient.phone || "",
+      billingAddress: apiClient.billingAddress || "",
+      billing_address: apiClient.billingAddress || "",
+      properties: (apiClient.properties || []).map((property) => ({
+        id: property.id,
+        api_backed: true,
+        client_id: apiClient.id,
+        label: property.addressLine1 || property.address || "Property to confirm",
+        name: property.addressLine1 || property.address || "Property to confirm",
+        addressLine1: property.addressLine1 || "",
+        addressLine2: property.addressLine2 || "",
+        address: [property.addressLine1, property.addressLine2, property.city, property.postcode].filter(Boolean).join(", "),
+        city: property.city || "",
+        area: property.city || "",
+        postcode: property.postcode || "",
+        property_type: property.propertyType || null,
+        bedrooms: property.bedrooms || null,
+        bathrooms: property.bathrooms || null,
+        pets_present: property.petsPresent || null,
+        parking: property.parking || null,
+        default_service_type: property.defaultServiceType || null,
+        default_cadence: property.defaultCadence || null,
+        preferred_day: property.preferredDay || null,
+        preferred_time_window: property.preferredTimeWindow || null,
+        cleaning_products: property.cleaningProducts || null,
+        vacuum_hoover: property.vacuumHoover || null,
+        mop: property.mop || null,
+        property_notes: property.propertyNotes || "",
+        cleaning_notes: property.cleaningNotes || ""
+      }))
     };
   }
 
@@ -496,6 +548,7 @@
   }
 
   function clients() {
+    if (dbClients) return dbClients;
     if (!Array.isArray(data.clients)) data.clients = [];
     return data.clients;
   }
@@ -1050,14 +1103,14 @@
       .join("");
   }
 
-  function propertyOptions(clientId = "") {
+  function propertyOptions(clientId = "", selectedPropertyId = "") {
     const options = [];
     if (!clientId) return "";
     const list = clientId ? clients().filter((client) => client.id === clientId) : clients();
     list.forEach((client) => {
       (client.properties || []).forEach((property) => {
         const label = clientId ? propertyLabel(property) : `${displayName(client)} - ${propertyLabel(property)}`;
-        options.push(`<option value="${escapeHtml(property.id)}">${escapeHtml(label)}</option>`);
+        options.push(`<option value="${escapeHtml(property.id)}"${property.id === selectedPropertyId ? " selected" : ""}>${escapeHtml(label)}</option>`);
       });
     });
     return options.join("");
@@ -1166,6 +1219,10 @@
   }
 
   function renderNewRequestModal() {
+    const selectedClientId = state.newRequestClientId || "";
+    const selectedPropertyId = state.newRequestPropertyId || "";
+    const client = findClient(selectedClientId);
+    const property = selectedPropertyId ? findProperty(selectedClientId, selectedPropertyId) : null;
     return `
       <div class="request-modal-backdrop" data-request-backdrop="true">
         <section class="request-modal" role="dialog" aria-modal="true" aria-label="New Request" data-request-modal="true">
@@ -1183,12 +1240,12 @@
               <label class="client-field wide">Existing client
                 <select id="new-request-client">
                   <option value="">Create a new client shell</option>
-                  ${clients().map((client) => `<option value="${escapeHtml(client.id)}">${escapeHtml(displayName(client))}</option>`).join("")}
+                  ${clients().map((item) => `<option value="${escapeHtml(item.id)}"${item.id === selectedClientId ? " selected" : ""}>${escapeHtml(displayName(item))}</option>`).join("")}
                 </select>
               </label>
-              <label class="client-field">New client name <input id="new-request-client-name" type="text" autocomplete="off"></label>
-              <label class="client-field">Phone <input id="new-request-phone" type="tel" autocomplete="off"></label>
-              <label class="client-field">Email <input id="new-request-email" type="email" autocomplete="off"></label>
+              <label class="client-field">New client name <input id="new-request-client-name" type="text" autocomplete="off" value="${escapeHtml(client ? displayName(client) : "")}"></label>
+              <label class="client-field">Phone <input id="new-request-phone" type="tel" autocomplete="off" value="${escapeHtml(client?.phone || "")}"></label>
+              <label class="client-field">Email <input id="new-request-email" type="email" autocomplete="off" value="${escapeHtml(client?.email || "")}"></label>
             </div>
           </div>
 
@@ -1198,16 +1255,16 @@
               <label class="client-field wide">Existing property
                 <select id="new-request-property">
                   <option value="">Create a new property</option>
-                  ${propertyOptions()}
+                  ${propertyOptions(selectedClientId, selectedPropertyId)}
                 </select>
               </label>
-              <label class="client-field">Address line 1 <input id="new-request-property-address-line-1" type="text" autocomplete="off"></label>
-              <label class="client-field">Address line 2 <input id="new-request-property-address-line-2" type="text" autocomplete="off"></label>
-              <label class="client-field">Town / city <input id="new-request-property-city" type="text" autocomplete="off"></label>
-              <label class="client-field">Postcode <input id="new-request-property-postcode" type="text" autocomplete="off"></label>
-              <label class="client-field">Property type <select id="new-request-property-type">${optionList(propertyTypeLabels, "unknown")}</select></label>
-              <label class="client-field">Bedrooms <select id="new-request-bedrooms">${optionList(bedroomsLabels, "unknown")}</select></label>
-              <label class="client-field">Bathrooms <select id="new-request-bathrooms">${optionList(bathroomsLabels, "unknown")}</select></label>
+              <label class="client-field">Address line 1 <input id="new-request-property-address-line-1" type="text" autocomplete="off" value="${escapeHtml(propertyLine1(property))}"></label>
+              <label class="client-field">Address line 2 <input id="new-request-property-address-line-2" type="text" autocomplete="off" value="${escapeHtml(propertyLine2(property))}"></label>
+              <label class="client-field">Town / city <input id="new-request-property-city" type="text" autocomplete="off" value="${escapeHtml(propertyCity(property))}"></label>
+              <label class="client-field">Postcode <input id="new-request-property-postcode" type="text" autocomplete="off" value="${escapeHtml(propertyPostcode(property))}"></label>
+              <label class="client-field">Property type <select id="new-request-property-type">${optionList(propertyTypeLabels, propertyTypeValue(property) || "unknown")}</select></label>
+              <label class="client-field">Bedrooms <select id="new-request-bedrooms">${optionList(bedroomsLabels, property?.bedrooms || "unknown")}</select></label>
+              <label class="client-field">Bathrooms <select id="new-request-bathrooms">${optionList(bathroomsLabels, property?.bathrooms || "unknown")}</select></label>
             </div>
           </div>
 
@@ -1736,6 +1793,8 @@
     const action = actionTarget.dataset.requestAction;
     if (action === "open-new-request") {
       state.newRequestOpen = true;
+      state.newRequestClientId = "";
+      state.newRequestPropertyId = "";
       refresh();
       return true;
     }
@@ -1873,11 +1932,27 @@
     }
   }
 
+  function openNewRequest(clientId = "", propertyId = "") {
+    state.selectedRequestId = null;
+    state.reviewRequestOpen = false;
+    state.moreOpen = false;
+    state.newRequestOpen = true;
+    state.newRequestClientId = clientId || "";
+    state.newRequestPropertyId = propertyId || "";
+    if (window.CleanOpsShell?.navigate) {
+      window.CleanOpsShell.navigate("requests");
+    } else {
+      window.location.hash = "requests";
+      refresh();
+    }
+  }
+
   window.CleanOpsRequests = {
     render,
     handleClick,
     load: loadApiRequests,
     openRequest,
+    openNewRequest,
     labels: {
       requestStatusLabels,
       requestStatusTones,

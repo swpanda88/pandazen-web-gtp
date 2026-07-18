@@ -206,6 +206,14 @@
     normalised.valid_until = normalised.valid_until || normalised.validUntil || "";
     normalised.created_at = normalised.created_at || normalised.createdAt || "";
     normalised.updated_at = normalised.updated_at || normalised.updatedAt || "";
+    normalised.billing_address = normalised.billing_address || (
+      typeof normalised.billingAddressSnapshot === "string" ? normalised.billingAddressSnapshot : ""
+    );
+    normalised.service_address = normalised.service_address || (
+      typeof normalised.serviceAddressSnapshot === "string"
+        ? normalised.serviceAddressSnapshot
+        : [normalised.propertyAddressLine1, normalised.propertyAddressLine2, normalised.propertyCity, normalised.propertyPostcode].filter(Boolean).join(", ")
+    );
     if (Array.isArray(normalised.lines) && !normalised.quote_items) {
       normalised.quote_items = normalised.lines.map((line, index) => ({
         id: line.id,
@@ -237,7 +245,7 @@
         api.fetchCatalogue()
       ]);
       state.requests = fetchedRequests || [];
-      state.clients = fetchedClients || [];
+      state.clients = (fetchedClients || []).map(mapApiCustomerToFrontend);
       state.catalogue = fetchedCatalogue || [];
       state.quotes = (fetchedQuotes || []).map(normaliseQuoteFromApi);
     } catch (e) {
@@ -261,6 +269,39 @@
 
   function toast(message) {
     window.CleanOpsShell?.toast?.(message);
+  }
+
+  function mapApiCustomerToFrontend(apiClient) {
+    const displayName = apiClient.companyName || [apiClient.firstName, apiClient.lastName].filter(Boolean).join(" ") || "Unlinked client";
+    return {
+      id: apiClient.id,
+      display_name: displayName,
+      name: displayName,
+      first_name: apiClient.firstName || "",
+      last_name: apiClient.lastName || "",
+      company_name: apiClient.companyName || "",
+      email: apiClient.email || "",
+      phone: apiClient.phone || "",
+      billingAddress: apiClient.billingAddress || "",
+      billing_address: apiClient.billingAddress || "",
+      properties: (apiClient.properties || []).map((property) => ({
+        id: property.id,
+        client_id: apiClient.id,
+        label: property.addressLine1 || property.address || "Property to confirm",
+        name: property.addressLine1 || property.address || "Property to confirm",
+        addressLine1: property.addressLine1 || "",
+        addressLine2: property.addressLine2 || "",
+        address: [property.addressLine1, property.addressLine2, property.city, property.postcode].filter(Boolean).join(", "),
+        city: property.city || "",
+        area: property.city || "",
+        postcode: property.postcode || "",
+        property_type: property.propertyType || null,
+        bedrooms: property.bedrooms || null,
+        bathrooms: property.bathrooms || null,
+        pets_present: property.petsPresent || null,
+        parking: property.parking || null
+      }))
+    };
   }
 
   function labelFrom(map, value, fallback = "Not set") {
@@ -1182,9 +1223,27 @@
     const manualMode = isManualCustomerQuote(quote);
     const manual = ensureManualCustomer(quote);
     const selectedClientId = manualMode ? "__manual__" : quote.client_id || currentClient?.id || "";
+    const clientOptions = clients().map((client) => ({
+      id: client.id,
+      label: client.display_name
+    }));
+    if (!manualMode && quote.client_id && !clientOptions.some((client) => client.id === quote.client_id)) {
+      clientOptions.push({
+        id: quote.client_id,
+        label: `${quote.client || quote.customerName || "Selected client"} (${quote.client_id})`
+      });
+    }
     const propertyOptions = clients()
       .filter((client) => !selectedClientId || client.id === selectedClientId)
       .flatMap((client) => (client.properties || []).map((property) => ({ ...property, clientName: client.display_name })));
+    if (!manualMode && quote.property_id && !propertyOptions.some((property) => property.id === quote.property_id)) {
+      propertyOptions.push({
+        id: quote.property_id,
+        label: quote.property || quote.propertyLabel || "Selected property",
+        address: quote.service_address || quote.property || quote.propertyLabel || "Selected property",
+        clientName: quote.client || quote.customerName || ""
+      });
+    }
     const billingFallback = !manualMode ? currentClient?.billingAddress || currentClient?.billing_address || currentProperty?.address || currentProperty?.label || "" : "";
     const serviceFallback = !manualMode ? currentProperty?.address || currentProperty?.label || "" : "";
     const billingParts = addressParts(quote, "billing", billingFallback);
@@ -1197,7 +1256,7 @@
             <select class="quote-input" data-quote-field="client_id"${dis}>
               <option value="">Select a client...</option>
               <option value="__manual__"${manualMode ? " selected" : ""}>+ New customer</option>
-              ${clients().map((client) => `<option value="${escapeHtml(client.id)}"${selectedClientId === client.id ? " selected" : ""}>${escapeHtml(client.display_name)}</option>`).join("")}
+              ${clientOptions.map((client) => `<option value="${escapeHtml(client.id)}"${selectedClientId === client.id ? " selected" : ""}>${escapeHtml(client.label)}</option>`).join("")}
             </select>
           </label>
           ${manualMode ? `
@@ -1773,6 +1832,25 @@
     }
   }
 
+  async function loadFullQuoteIntoState(qId) {
+    try {
+      const api = await import('./api.js');
+      const fullQuote = await api.fetchQuoteById(qId);
+      if (!fullQuote) return null;
+      const normalised = normaliseQuoteFromApi(fullQuote);
+      const index = state.quotes.findIndex((quote) => quoteId(quote) === qId);
+      if (index >= 0) {
+        state.quotes[index] = { ...state.quotes[index], ...normalised };
+      } else {
+        state.quotes.unshift(normalised);
+      }
+      return normalised;
+    } catch (e) {
+      console.error(e);
+      return null;
+    }
+  }
+
   function newItem(overrides = {}) {
     return {
       item_id: `quote-item-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
@@ -1888,7 +1966,11 @@
   }
 
   async function createQuoteFromRequest(requestId) {
-    const request = findRequest(requestId);
+    let request = findRequest(requestId);
+    if (!request) {
+      await loadData();
+      request = findRequest(requestId);
+    }
     if (!request) return null;
 
     const existing = await findExistingQuoteForRequest(requestId);
@@ -2108,6 +2190,27 @@
     refresh();
   }
 
+  function syncVisibleQuoteItemFields(quote) {
+    if (!quote) return;
+    document.querySelectorAll("[data-quote-item-id]").forEach((row) => {
+      const item = quote.quote_items?.find((entry) => entry.item_id === row.dataset.quoteItemId);
+      if (!item) return;
+      row.querySelectorAll("[data-quote-item-field]").forEach((fieldTarget) => {
+        const field = fieldTarget.dataset.quoteItemField;
+        if (!field) return;
+        if (field === "included" || field === "optional") {
+          item[field] = fieldTarget.checked;
+        } else if (field === "quantity_or_hours" || field === "rate") {
+          item[field] = Number(fieldTarget.value) || 0;
+        } else {
+          item[field] = fieldTarget.value;
+        }
+      });
+      item.amount = itemAmount(item);
+    });
+    updateQuoteCompatibility(quote);
+  }
+
   async function handleClick(event) {
     const actionTarget = event.target.closest("[data-quote-action]");
     const modalTarget = event.target.closest("[data-quote-modal]");
@@ -2116,6 +2219,7 @@
       event.preventDefault();
       event.stopPropagation();
       state.selectedQuoteId = row.dataset.quoteId;
+      await loadFullQuoteIntoState(row.dataset.quoteId);
       refresh();
       return true;
     }
@@ -2336,6 +2440,7 @@
       // Run async to save draft
       (async () => {
         try {
+          syncVisibleQuoteItemFields(quote);
           const api = await import('./api.js');
           const status = quote.status === "ready_to_send" ? quote.status : "draft";
 
@@ -2418,23 +2523,8 @@
       state.historyModalOpen = false;
       const qId = action.split(":")[1];
       state.selectedQuoteId = qId;
+      await loadFullQuoteIntoState(qId);
       refresh();
-
-      (async () => {
-        try {
-          const api = await import('./api.js');
-          const fullQuote = await api.fetchQuoteById(qId);
-          if (fullQuote) {
-             const index = state.quotes.findIndex(q => q.id === qId);
-              if (index !== -1) {
-                 state.quotes[index] = { ...state.quotes[index], ...normaliseQuoteFromApi(fullQuote) };
-                 refresh();
-              }
-          }
-        } catch(e) {
-          console.error(e);
-        }
-      })();
       return true;
     }
     if (action === "create-revision" && quote) {

@@ -233,6 +233,58 @@
     return normalised;
   }
 
+  function normaliseRequestFromApi(request) {
+    if (!request) return request;
+    return {
+      ...request,
+      client_id: request.client_id || request.customerId || "",
+      property_id: request.property_id || request.propertyId || "",
+      request_type: request.request_type || request.requestType || "regular_domestic_clean",
+      preferred_cadence: request.preferred_cadence || request.cadence || "",
+      how_soon: request.how_soon || request.howSoon || "",
+      preferred_day: request.preferred_day || request.preferredDay || "",
+      preferred_time_window: request.preferred_time_window || request.preferredTimeWindow || "",
+      approx_size: request.approx_size || request.approxSize || "",
+      photos_helpful: request.photos_helpful || request.photosHelpful || "",
+      pricing_basis: request.pricing_basis || request.pricingBasis || "",
+      estimated_regular_duration_minutes: request.estimated_regular_duration_minutes || request.estimatedRegularDurationMinutes || "",
+      estimated_initial_duration_minutes: request.estimated_initial_duration_minutes || request.estimatedInitialDurationMinutes || "",
+      estimated_team_size: request.estimated_team_size || request.estimatedTeamSize || "",
+      scope_confidence: request.scope_confidence || request.scopeConfidence || "",
+      main_priorities: Array.isArray(request.main_priorities) ? request.main_priorities : (Array.isArray(request.mainPriorities) ? request.mainPriorities : []),
+      quote_considerations: Array.isArray(request.quote_considerations) ? request.quote_considerations : (Array.isArray(request.quoteConsiderations) ? request.quoteConsiderations : []),
+      setup_confirmed: request.setup_confirmed || request.setupConfirmed || false,
+      short_scoping_note: request.short_scoping_note || request.shortScopingNote || "",
+      property_notes: request.property_notes || request.propertyNotes || "",
+      cleaning_notes: request.cleaning_notes || request.cleaningNotes || "",
+      intake_property_type: request.intake_property_type || request.propertyType || "",
+      bedrooms: request.bedrooms || "",
+      bathrooms: request.bathrooms || "",
+      pets_present: request.pets_present || request.petsPresent || "",
+      parking: request.parking || "",
+      cleaning_products: request.cleaning_products || request.cleaningProducts || "",
+      vacuum_hoover: request.vacuum_hoover || request.vacuumHoover || "",
+      mop: request.mop || "",
+      assessment_required: request.assessment_required || request.assessmentRequired || "",
+      initial_clean_required: request.initial_clean_required || request.initialCleanRequired || "",
+      quote_readiness: request.quote_readiness || request.quoteReadiness || "missing_scope",
+      internal_notes: request.internal_notes || request.internalNotes || request.notes || "",
+      customer_message: request.customer_message || request.customerMessage || request.notes || "",
+      property: request.property || request.propertyLabel || request.propertyAddressLine1 || ""
+    };
+  }
+
+  function normaliseCatalogueItem(item) {
+    if (!item) return item;
+    return {
+      ...item,
+      item_id: item.item_id || item.id || "",
+      default_description: item.default_description || item.description || "",
+      default_rate: item.default_rate ?? item.defaultRate ?? (Number(item.defaultRatePence || 0) / 100),
+      default_pricing_type: item.default_pricing_type || (item.itemType === "product" ? "one_off" : "per_visit")
+    };
+  }
+
   async function loadData() {
     state.loading = true;
     refresh();
@@ -244,9 +296,9 @@
         api.fetchCustomers(),
         api.fetchCatalogue()
       ]);
-      state.requests = fetchedRequests || [];
+      state.requests = (fetchedRequests || []).map(normaliseRequestFromApi);
       state.clients = (fetchedClients || []).map(mapApiCustomerToFrontend);
-      state.catalogue = fetchedCatalogue || [];
+      state.catalogue = (fetchedCatalogue || []).map(normaliseCatalogueItem);
       state.quotes = (fetchedQuotes || []).map(normaliseQuoteFromApi);
     } catch (e) {
       console.error("Failed to load quote data", e);
@@ -1230,7 +1282,7 @@
     if (!manualMode && quote.client_id && !clientOptions.some((client) => client.id === quote.client_id)) {
       clientOptions.push({
         id: quote.client_id,
-        label: `${quote.client || quote.customerName || "Selected client"} (${quote.client_id})`
+        label: `Missing persisted client (${quote.client_id})`
       });
     }
     const propertyOptions = clients()
@@ -1239,9 +1291,9 @@
     if (!manualMode && quote.property_id && !propertyOptions.some((property) => property.id === quote.property_id)) {
       propertyOptions.push({
         id: quote.property_id,
-        label: quote.property || quote.propertyLabel || "Selected property",
-        address: quote.service_address || quote.property || quote.propertyLabel || "Selected property",
-        clientName: quote.client || quote.customerName || ""
+        label: `Missing persisted property (${quote.property_id})`,
+        address: `Missing persisted property (${quote.property_id})`,
+        clientName: ""
       });
     }
     const billingFallback = !manualMode ? currentClient?.billingAddress || currentClient?.billing_address || currentProperty?.address || currentProperty?.label || "" : "";
@@ -1979,6 +2031,11 @@
     const client = requestClient(request);
     const property = requestProperty(request);
 
+    if (!request.client_id || !request.property_id || !client || !property) {
+      toast("Create Quote needs a persisted client and property relationship.");
+      return null;
+    }
+
     let summaryText = `${requestTypeLabel(request)} for ${property?.address || property?.label || request.property || "the property"}`;
     if (request.preferred_cadence && request.preferred_cadence !== "to_confirm") {
       summaryText += `, ${request.preferred_cadence.replace(/_/g, " ")}`;
@@ -2022,6 +2079,7 @@
         }
         state.selectedQuoteId = quoteId(duplicateQuote);
         state.newQuoteOpen = false;
+        window.CleanOpsClients?.load?.();
         refresh();
         return duplicateQuote;
       }
@@ -2030,6 +2088,7 @@
       state.quotes.unshift(newQuote);
       state.selectedQuoteId = quoteId(newQuote);
       state.newQuoteOpen = false;
+      window.CleanOpsClients?.load?.();
       refresh();
       return newQuote;
     } catch (e) {

@@ -32,9 +32,11 @@
         dbRequests = raw.map(mapApiRequestToFrontend);
         refresh();
       } catch (e) {
-        console.warn("CleanOps API failed to load requests, falling back to mock data.", e);
+        console.warn("CleanOps API failed to load requests.", e);
         apiFailed = true;
-        toast("Using offline demo data. Backend connection failed.");
+        dbRequests = [];
+        dbClients = [];
+        toast("Backend connection failed. Requests could not be loaded.");
         refresh();
       }
     })();
@@ -549,16 +551,14 @@
 
   function clients() {
     if (dbClients) return dbClients;
-    if (!Array.isArray(data.clients)) data.clients = [];
-    return data.clients;
+    loadApiRequests();
+    return [];
   }
 
   function requests() {
     if (dbRequests) return dbRequests;
     loadApiRequests();
-    if (!apiFailed) return [];
-    if (!Array.isArray(data.requests)) data.requests = [];
-    return data.requests;
+    return [];
   }
 
   function requestsLoading() {
@@ -1223,6 +1223,8 @@
     const selectedPropertyId = state.newRequestPropertyId || "";
     const client = findClient(selectedClientId);
     const property = selectedPropertyId ? findProperty(selectedClientId, selectedPropertyId) : null;
+    const existingClientMode = Boolean(client);
+    const clientReadonly = existingClientMode ? " readonly" : "";
     return `
       <div class="request-modal-backdrop" data-request-backdrop="true">
         <section class="request-modal" role="dialog" aria-modal="true" aria-label="New Request" data-request-modal="true">
@@ -1243,9 +1245,9 @@
                   ${clients().map((item) => `<option value="${escapeHtml(item.id)}"${item.id === selectedClientId ? " selected" : ""}>${escapeHtml(displayName(item))}</option>`).join("")}
                 </select>
               </label>
-              <label class="client-field">New client name <input id="new-request-client-name" type="text" autocomplete="off" value="${escapeHtml(client ? displayName(client) : "")}"></label>
-              <label class="client-field">Phone <input id="new-request-phone" type="tel" autocomplete="off" value="${escapeHtml(client?.phone || "")}"></label>
-              <label class="client-field">Email <input id="new-request-email" type="email" autocomplete="off" value="${escapeHtml(client?.email || "")}"></label>
+              <label class="client-field">${existingClientMode ? "Selected client name" : "New client name"} <input id="new-request-client-name" type="text" autocomplete="off" value="${escapeHtml(client ? displayName(client) : "")}"${clientReadonly}></label>
+              <label class="client-field">${existingClientMode ? "Selected client phone" : "Phone"} <input id="new-request-phone" type="tel" autocomplete="off" value="${escapeHtml(client?.phone || "")}"${clientReadonly}></label>
+              <label class="client-field">${existingClientMode ? "Selected client email" : "Email"} <input id="new-request-email" type="email" autocomplete="off" value="${escapeHtml(client?.email || "")}"${clientReadonly}></label>
             </div>
           </div>
 
@@ -1271,12 +1273,12 @@
           <div class="request-form-section">
             <h3>Client enquiry</h3>
             <div class="request-form-grid">
-              <label class="client-field">Service <select id="new-request-type">${optionList(requestTypeLabels, "regular_domestic_clean")}</select></label>
+              <label class="client-field">Service <select id="new-request-type">${optionList(requestTypeLabels, property?.default_service_type || "regular_domestic_clean")}</select></label>
               <label class="client-field">Status <select id="new-request-status">${optionList(requestStatusLabels, "new_enquiry")}</select></label>
-              <label class="client-field">Frequency <select id="new-request-cadence">${optionList(cadenceLabels, "to_confirm")}</select></label>
+              <label class="client-field">Frequency <select id="new-request-cadence">${optionList(cadenceLabels, property?.default_cadence || "to_confirm")}</select></label>
               <label class="client-field">How soon <select id="new-request-how-soon">${optionList(howSoonLabels, "to_confirm")}</select></label>
-              <label class="client-field">Preferred days <select id="new-request-day">${optionList(dayLabels, "to_confirm")}</select></label>
-              <label class="client-field">Preferred times <select id="new-request-time">${optionList(timeWindowLabels, "to_confirm")}</select></label>
+              <label class="client-field">Preferred days <select id="new-request-day">${optionList(dayLabels, property?.preferred_day || "to_confirm")}</select></label>
+              <label class="client-field">Preferred times <select id="new-request-time">${optionList(timeWindowLabels, property?.preferred_time_window || "to_confirm")}</select></label>
               <label class="client-field">Approx size <select id="new-request-approx-size">${optionList(approxSizeLabels, "unknown")}</select></label>
               <label class="client-field">Pets <select id="new-request-pets">${optionList(petsLabels, "unknown")}</select></label>
               <label class="client-field">Parking / access <select id="new-request-parking">${optionList(parkingLabels, "unknown")}</select></label>
@@ -1293,9 +1295,9 @@
           <div class="request-form-section">
             <h3>Practical cleaning setup</h3>
             <div class="request-form-grid">
-              <label class="client-field">Cleaning products supplied by <select id="new-request-products">${optionList(supplyLabels, "to_confirm")}</select></label>
-              <label class="client-field">Vacuum / hoover supplied by <select id="new-request-vacuum">${optionList(equipmentLabels, "to_confirm")}</select></label>
-              <label class="client-field">Mop supplied by <select id="new-request-mop">${optionList(equipmentLabels, "to_confirm")}</select></label>
+              <label class="client-field">Cleaning products supplied by <select id="new-request-products">${optionList(supplyLabels, property?.cleaning_products || "to_confirm")}</select></label>
+              <label class="client-field">Vacuum / hoover supplied by <select id="new-request-vacuum">${optionList(equipmentLabels, property?.vacuum_hoover || "to_confirm")}</select></label>
+              <label class="client-field">Mop supplied by <select id="new-request-mop">${optionList(equipmentLabels, property?.mop || "to_confirm")}</select></label>
             </div>
           </div>
 
@@ -1321,8 +1323,8 @@
           <div class="request-form-section">
             <h3>Notes</h3>
             <div class="request-form-grid">
-              <label class="client-field wide">Property notes <textarea id="new-request-property-notes" rows="2"></textarea></label>
-              <label class="client-field wide">Cleaning notes <textarea id="new-request-cleaning-notes" rows="2"></textarea></label>
+              <label class="client-field wide">Property notes <textarea id="new-request-property-notes" rows="2">${escapeHtml(property?.property_notes || "")}</textarea></label>
+              <label class="client-field wide">Cleaning notes <textarea id="new-request-cleaning-notes" rows="2">${escapeHtml(property?.cleaning_notes || "")}</textarea></label>
               <label class="client-field wide">Internal notes <textarea id="new-request-internal-notes" rows="2"></textarea></label>
             </div>
           </div>
@@ -1359,6 +1361,10 @@
 
   function checked(id) {
     return Boolean(document.getElementById(id)?.checked);
+  }
+
+  function selectedOrPropertyValue(selectId, propertyValue) {
+    return cleanSelectValue(value(selectId)) || cleanSelectValue(propertyValue);
   }
 
   function selectedQuoteConsiderations() {
@@ -1563,23 +1569,23 @@
       propertyAddressLine2: value("new-request-property-address-line-2"),
       propertyCity: value("new-request-property-city"),
       propertyPostcode: value("new-request-property-postcode"),
-      propertyType: cleanSelectValue(value("new-request-property-type")),
-      bedrooms: cleanSelectValue(value("new-request-bedrooms")),
-      bathrooms: cleanSelectValue(value("new-request-bathrooms")),
-      requestType: value("new-request-type"),
+      propertyType: selectedOrPropertyValue("new-request-property-type", selectedProperty?.property_type),
+      bedrooms: selectedOrPropertyValue("new-request-bedrooms", selectedProperty?.bedrooms),
+      bathrooms: selectedOrPropertyValue("new-request-bathrooms", selectedProperty?.bathrooms),
+      requestType: selectedOrPropertyValue("new-request-type", selectedProperty?.default_service_type) || "regular_domestic_clean",
       status: apiStatus(value("new-request-status")),
-      cadence: cleanSelectValue(value("new-request-cadence")),
+      cadence: selectedOrPropertyValue("new-request-cadence", selectedProperty?.default_cadence),
       howSoon: cleanSelectValue(value("new-request-how-soon")),
-      preferredDay: cleanSelectValue(value("new-request-day")),
-      preferredTimeWindow: cleanSelectValue(value("new-request-time")),
+      preferredDay: selectedOrPropertyValue("new-request-day", selectedProperty?.preferred_day),
+      preferredTimeWindow: selectedOrPropertyValue("new-request-time", selectedProperty?.preferred_time_window),
       approxSize: cleanSelectValue(value("new-request-approx-size")),
-      petsPresent: cleanSelectValue(value("new-request-pets")),
-      parking: cleanSelectValue(value("new-request-parking")),
+      petsPresent: selectedOrPropertyValue("new-request-pets", selectedProperty?.pets_present),
+      parking: selectedOrPropertyValue("new-request-parking", selectedProperty?.parking),
       photosHelpful: cleanSelectValue(value("new-request-photos")),
       customerMessage: customerMessage,
-      cleaningProducts: cleanSelectValue(value("new-request-products")),
-      vacuumHoover: cleanSelectValue(value("new-request-vacuum")),
-      mop: cleanSelectValue(value("new-request-mop")),
+      cleaningProducts: selectedOrPropertyValue("new-request-products", selectedProperty?.cleaning_products),
+      vacuumHoover: selectedOrPropertyValue("new-request-vacuum", selectedProperty?.vacuum_hoover),
+      mop: selectedOrPropertyValue("new-request-mop", selectedProperty?.mop),
       quoteReadiness: value("new-request-quote-readiness"),
       assessmentRequired: cleanSelectValue(value("new-request-assessment")),
       initialCleanRequired: cleanSelectValue(value("new-request-initial-clean")),
@@ -1589,8 +1595,8 @@
       estimatedTeamSize: numericValue("new-request-team-size"),
       scopeConfidence: cleanSelectValue(value("new-request-scope-confidence")),
       shortScopingNote: value("new-request-scoping-note"),
-      propertyNotes: value("new-request-property-notes"),
-      cleaningNotes: value("new-request-cleaning-notes"),
+      propertyNotes: value("new-request-property-notes") || selectedProperty?.property_notes || "",
+      cleaningNotes: value("new-request-cleaning-notes") || selectedProperty?.cleaning_notes || "",
       internalNotes: value("new-request-internal-notes"),
       mainPriorities: selectedMainPriorities(),
       quoteConsiderations: selectedQuoteConsiderations()
@@ -1604,6 +1610,8 @@
         state.moreOpen = false;
         toast(`Created ${response.number || 'new request'}.`);
         await loadApiRequests(true);
+        window.CleanOpsClients?.load?.();
+        window.CleanOpsQuotes?.loadData?.();
       } else {
         toast(response?.error || "Failed to create request.");
       }
@@ -1666,6 +1674,8 @@
         state.reviewRequestOpen = false;
         toast("Request saved.");
         await loadApiRequests(true);
+        window.CleanOpsClients?.load?.();
+        window.CleanOpsQuotes?.loadData?.();
       } else {
         toast(response?.error || "Failed to save request.");
       }
@@ -1701,6 +1711,15 @@
     setInputValue("new-request-bathrooms", property.bathrooms || "unknown");
     setInputValue("new-request-pets", propertyPetsValue(property) || "unknown");
     setInputValue("new-request-parking", property.parking || "unknown");
+    setInputValue("new-request-type", property.default_service_type || "regular_domestic_clean");
+    setInputValue("new-request-cadence", property.default_cadence || "to_confirm");
+    setInputValue("new-request-day", property.preferred_day || "to_confirm");
+    setInputValue("new-request-time", property.preferred_time_window || "to_confirm");
+    setInputValue("new-request-products", property.cleaning_products || "to_confirm");
+    setInputValue("new-request-vacuum", property.vacuum_hoover || "to_confirm");
+    setInputValue("new-request-mop", property.mop || "to_confirm");
+    setInputValue("new-request-property-notes", property.property_notes || "");
+    setInputValue("new-request-cleaning-notes", property.cleaning_notes || "");
   }
 
   function refreshPropertySelectForClient(clientId) {
@@ -1939,6 +1958,15 @@
     state.newRequestOpen = true;
     state.newRequestClientId = clientId || "";
     state.newRequestPropertyId = propertyId || "";
+    loadApiRequests(true).then(() => {
+      refresh();
+      window.setTimeout(() => {
+        const client = findClient(state.newRequestClientId);
+        const property = findProperty(state.newRequestClientId, state.newRequestPropertyId);
+        populateClientFields(client);
+        populatePropertyFields(property);
+      }, 0);
+    });
     if (window.CleanOpsShell?.navigate) {
       window.CleanOpsShell.navigate("requests");
     } else {

@@ -2,6 +2,8 @@
   const data = window.CLEANOPS_DATA;
   const state = {
     clients: [],
+    requests: [],
+    quotes: [],
     loading: true,
     selectedClientId: null,
     selectedPropertyByClient: {},
@@ -15,11 +17,20 @@
     refresh();
     try {
       const api = await import('./api.js');
-      state.clients = await api.fetchCustomers();
+      const [clients, requests, quotes] = await Promise.all([
+        api.fetchCustomers(),
+        api.fetchRequests(),
+        api.fetchQuotes()
+      ]);
+      state.clients = clients || [];
+      state.requests = requests || [];
+      state.quotes = quotes || [];
     } catch (e) {
       console.error(e);
       toast("Error loading clients from DB. Please try again.");
       state.clients = [];
+      state.requests = [];
+      state.quotes = [];
     }
     state.loading = false;
     refresh();
@@ -577,22 +588,37 @@
     const tab = state.detailTab;
     if (tab === "active") return (client.activeWork || []).map(renderWorkCard).join("") || emptyWork("No active work", "Requests, quotes, jobs, and invoices will appear here.");
     if (tab === "requests") {
-      const linkedRequests = (data.requests || []).filter((request) => request.client_id === client.id);
+      const linkedRequests = (state.requests || []).filter((request) => request.customerId === client.id);
       if (linkedRequests.length) {
         const statusLabels = window.CleanOpsRequests?.labels?.requestStatusLabels || {};
         const statusTones = window.CleanOpsRequests?.labels?.requestStatusTones || {};
         return linkedRequests.map((request) => renderWorkCard({
           type: "Request",
           id: request.id,
-          title: request.title,
+          title: request.customerMessage || request.notes || request.shortScopingNote || "Cleaning enquiry",
           status: statusLabels[request.status] || request.status,
           tone: statusTones[request.status] || "info",
-          number: request.number
+          number: `RQ-${String(request.id || "").slice(-4).toUpperCase()}`
         })).join("");
       }
       return (client.requests || []).map((item) => renderWorkCard({ ...item, type: "Request" })).join("") || emptyWork("No requests", "Manual requests from this client will attach here.");
     }
-    if (tab === "quotes") return (client.quotes || []).map((item) => renderWorkCard({ ...item, type: "Quote" })).join("") || emptyWork("No quotes", "Quotes can be created from a known client and property.");
+    if (tab === "quotes") {
+      const linkedQuotes = (state.quotes || []).filter((quote) => quote.customerId === client.id);
+      if (linkedQuotes.length) {
+        const quoteLabels = window.CleanOpsQuotes?.labels?.quoteStatusLabels || {};
+        const quoteTones = window.CleanOpsQuotes?.labels?.quoteStatusTones || {};
+        return linkedQuotes.map((quote) => renderWorkCard({
+          type: "Quote",
+          id: quote.id,
+          title: quote.displayRef || quote.quoteNumber || quote.id,
+          status: quoteLabels[quote.quoteStatus] || quote.quoteStatus || "Draft",
+          tone: quoteTones[quote.quoteStatus] || "info",
+          amount: typeof quote.grossTotal === "number" ? `GBP ${quote.grossTotal.toFixed(2)}` : ""
+        })).join("");
+      }
+      return (client.quotes || []).map((item) => renderWorkCard({ ...item, type: "Quote" })).join("") || emptyWork("No quotes", "Quotes can be created from a known client and property.");
+    }
     if (tab === "jobs") return (client.jobs || []).map((item) => renderWorkCard({ ...item, type: "Job" })).join("") || emptyWork("No jobs", "Accepted work will appear here.");
     return (client.invoices || []).map((item) => renderWorkCard({ ...item, type: "Invoice", title: `${item.number} - ${item.title}` })).join("") ||
       emptyWork("No invoices", "Uninvoiced work and billable events will be introduced here later.");
@@ -1097,6 +1123,8 @@
       toast("Property saved.");
       state.loading = false;
       await loadData();
+      window.CleanOpsRequests?.load?.(true);
+      window.CleanOpsQuotes?.loadData?.();
     } catch (e) {
       state.loading = false;
       toast("Failed to save property: " + e.message);

@@ -1,6 +1,6 @@
 import { json, error, requireDb } from "../../_util.js";
 import { getRequestById, updateRequest } from "../../../db/requests.js";
-import { updateCustomer, updateProperty, createProperty } from "../../../db/customers.js";
+import { updateCustomer, createProperty } from "../../../db/customers.js";
 
 function extractSection(text, title) {
   if (!text) return undefined;
@@ -135,19 +135,7 @@ export async function onRequest(context) {
         body.petsPresent !== undefined ||
         body.parking !== undefined
     ) {
-      if (existingRequest.propertyId) {
-        await updateProperty(db, existingRequest.propertyId, {
-          addressLine1: body.propertyAddressLine1,
-          addressLine2: body.propertyAddressLine2,
-          city: body.propertyCity,
-          postcode: body.propertyPostcode,
-          propertyType: body.propertyType,
-          bedrooms: body.bedrooms,
-          bathrooms: body.bathrooms,
-          petsPresent: body.petsPresent,
-          parking: body.parking
-        });
-      } else if (existingRequest.customerId) {
+      if (!existingRequest.propertyId && existingRequest.customerId) {
         const createdProperty = await createProperty(db, {
           id: `prop-${crypto.randomUUID()}`,
           customerId: existingRequest.customerId,

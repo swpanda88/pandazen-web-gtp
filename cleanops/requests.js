@@ -17,9 +17,10 @@
   async function loadApiRequests(force = false) {
     if (force) {
       dbRequests = null;
-      loadPromise = null;
+      apiFailed = false;
     }
-    if (dbRequests || apiFailed || loadPromise) return loadPromise;
+    if (loadPromise) return loadPromise;
+    if (dbRequests || apiFailed) return Promise.resolve();
     loadPromise = (async () => {
       try {
         const api = await import('./api.js');
@@ -30,6 +31,7 @@
         dbClients = (rawClients || []).map(mapApiCustomerToFrontend);
         raw.forEach(mergeApiLinkedRecord);
         dbRequests = raw.map(mapApiRequestToFrontend);
+        apiFailed = false;
         refresh();
       } catch (e) {
         console.warn("CleanOps API failed to load requests.", e);
@@ -38,6 +40,8 @@
         dbClients = [];
         toast("Backend connection failed. Requests could not be loaded.");
         refresh();
+      } finally {
+        loadPromise = null;
       }
     })();
     return loadPromise;
@@ -108,13 +112,14 @@
       bathrooms: apiReq.bathrooms || null,
       pets_present: apiReq.petsPresent || null,
       parking: apiReq.parking || null,
+      access_notes: apiReq.accessNotes || null,
       cleaning_products: apiReq.cleaningProducts || null,
       vacuum_hoover: apiReq.vacuumHoover || null,
       mop: apiReq.mop || null,
       assessment_required: apiReq.assessmentRequired || null,
       initial_clean_required: apiReq.initialCleanRequired || null,
       quote_readiness: apiReq.quoteReadiness || "missing_scope",
-      internal_notes: apiReq.internalNotes || apiReq.notes || "",
+      internal_notes: apiReq.internalNotes || "",
       customer_message: apiReq.customerMessage || apiReq.notes || "",
       api_customer_name: apiReq.customerName,
       api_customer_email: apiReq.email,
@@ -124,6 +129,7 @@
       api_property_line2: apiReq.propertyAddressLine2,
       api_property_city: apiReq.propertyCity,
       api_property_postcode: apiReq.propertyPostcode,
+      api_property_access_notes: apiReq.propertyAccessNotes,
       api_property_area: [apiReq.propertyCity, apiReq.propertyPostcode].filter(Boolean).join(" ")
     };
   }
@@ -160,6 +166,7 @@
         bathrooms: property.bathrooms || null,
         pets_present: property.petsPresent || null,
         parking: property.parking || null,
+        access_notes: property.accessNotes || "",
         default_service_type: property.defaultServiceType || null,
         default_cadence: property.defaultCadence || null,
         preferred_day: property.preferredDay || null,
@@ -217,7 +224,8 @@
       bedrooms: apiReq.bedrooms || null,
       bathrooms: apiReq.bathrooms || null,
       pets_present: apiReq.petsPresent || null,
-      parking: apiReq.parking || null
+      parking: apiReq.parking || null,
+      access_notes: apiReq.propertyAccessNotes || ""
     });
   }
 
@@ -356,12 +364,15 @@
   const supplyLabels = {
     client_provides: "Client provides",
     pandazen_provides: "PandaZen provides",
+    pandazen_brings: "PandaZen brings",
     mixed_specific_products_required: "Mixed / specific products",
+    not_required: "Not required",
     to_confirm: "To confirm"
   };
 
   const equipmentLabels = {
     client_provides: "Client provides",
+    pandazen_provides: "PandaZen provides",
     pandazen_brings: "PandaZen brings",
     not_required: "Not required",
     to_confirm: "To confirm"
@@ -610,6 +621,10 @@
 
   function propertyPetsValue(property) {
     return property?.pets_present || property?.petsPresent || null;
+  }
+
+  function propertyAccessValue(property, requestFallback) {
+    return property?.access_notes || property?.accessNotes || requestFallback?.api_property_access_notes || "";
   }
 
   function findClient(id) {
@@ -984,7 +999,8 @@
                 <div class="field-row"><span>Bedrooms</span><strong>${escapeHtml(labelFrom(bedroomsLabels, request.bedrooms || property?.bedrooms, "To confirm"))}</strong></div>
                 <div class="field-row"><span>Bathrooms</span><strong>${escapeHtml(labelFrom(bathroomsLabels, request.bathrooms || property?.bathrooms, "To confirm"))}</strong></div>
                 <div class="field-row"><span>Pets</span><strong>${escapeHtml(labelFrom(petsLabels, request.pets_present || propertyPetsValue(property), "To confirm"))}</strong></div>
-                <div class="field-row"><span>Parking / access</span><strong>${escapeHtml(labelFrom(parkingLabels, request.parking || property?.parking, "To confirm"))}</strong></div>
+                <div class="field-row"><span>Parking</span><strong>${escapeHtml(labelFrom(parkingLabels, request.parking || property?.parking, "To confirm"))}</strong></div>
+                <div class="field-row"><span>Access</span><strong>${escapeHtml(request.access_notes || propertyAccessValue(property, request) || "To confirm")}</strong></div>
               </div>
               <div class="wide">
                 <h3>Main priorities</h3>
@@ -1165,7 +1181,8 @@
               <label class="client-field">Bedrooms <select id="review-bedrooms">${optionList(bedroomsLabels, request.bedrooms || property.bedrooms || "unknown")}</select></label>
               <label class="client-field">Bathrooms <select id="review-bathrooms">${optionList(bathroomsLabels, request.bathrooms || property.bathrooms || "unknown")}</select></label>
               <label class="client-field">Pets <select id="review-pets">${optionList(petsLabels, request.pets_present || propertyPetsValue(property) || "unknown")}</select></label>
-              <label class="client-field">Parking / access <select id="review-parking">${optionList(parkingLabels, request.parking || property.parking || "unknown")}</select></label>
+              <label class="client-field">Parking <select id="review-parking">${optionList(parkingLabels, request.parking || property.parking || "unknown")}</select></label>
+              <label class="client-field wide">Access details <textarea id="review-access-notes" rows="2">${escapeHtml(request.access_notes || propertyAccessValue(property, request) || "")}</textarea></label>
             </div>
           </div>
 
@@ -1280,8 +1297,9 @@
               <label class="client-field">Preferred days <select id="new-request-day">${optionList(dayLabels, property?.preferred_day || "to_confirm")}</select></label>
               <label class="client-field">Preferred times <select id="new-request-time">${optionList(timeWindowLabels, property?.preferred_time_window || "to_confirm")}</select></label>
               <label class="client-field">Approx size <select id="new-request-approx-size">${optionList(approxSizeLabels, "unknown")}</select></label>
-              <label class="client-field">Pets <select id="new-request-pets">${optionList(petsLabels, "unknown")}</select></label>
-              <label class="client-field">Parking / access <select id="new-request-parking">${optionList(parkingLabels, "unknown")}</select></label>
+              <label class="client-field">Pets <select id="new-request-pets">${optionList(petsLabels, propertyPetsValue(property) || "unknown")}</select></label>
+              <label class="client-field">Parking <select id="new-request-parking">${optionList(parkingLabels, property?.parking || "unknown")}</select></label>
+              <label class="client-field wide">Access details <textarea id="new-request-access-notes" rows="2">${escapeHtml(propertyAccessValue(property))}</textarea></label>
               <label class="client-field">Would photos help? <select id="new-request-photos">${optionList(photoHelpLabels, "to_confirm")}</select></label>
               <label class="client-field">Next action <input id="new-request-next-action" type="text" value="Contact customer"></label>
               <label class="schedule-check wide"><input id="new-request-priority-kitchen" type="checkbox"><span>Kitchen priority</span></label>
@@ -1520,6 +1538,7 @@
       preferred_day: value("new-request-day") || "to_confirm",
       preferred_time_window: value("new-request-time") || "to_confirm",
       access_method: "to_arrange",
+      access_notes: value("new-request-access-notes"),
       parking: value("new-request-parking") || "unknown",
       pets_present: value("new-request-pets") || "unknown",
       cleaning_products: value("new-request-products") || "to_confirm",
@@ -1581,6 +1600,7 @@
       approxSize: cleanSelectValue(value("new-request-approx-size")),
       petsPresent: selectedOrPropertyValue("new-request-pets", selectedProperty?.pets_present),
       parking: selectedOrPropertyValue("new-request-parking", selectedProperty?.parking),
+      accessNotes: value("new-request-access-notes"),
       photosHelpful: cleanSelectValue(value("new-request-photos")),
       customerMessage: customerMessage,
       cleaningProducts: selectedOrPropertyValue("new-request-products", selectedProperty?.cleaning_products),
@@ -1646,6 +1666,7 @@
       bathrooms: cleanSelectValue(value("review-bathrooms")),
       petsPresent: cleanSelectValue(value("review-pets")),
       parking: cleanSelectValue(value("review-parking")),
+      accessNotes: value("review-access-notes"),
 
       cleaningProducts: cleanSelectValue(value("review-products")),
       vacuumHoover: cleanSelectValue(value("review-vacuum")),
@@ -1711,6 +1732,7 @@
     setInputValue("new-request-bathrooms", property.bathrooms || "unknown");
     setInputValue("new-request-pets", propertyPetsValue(property) || "unknown");
     setInputValue("new-request-parking", property.parking || "unknown");
+    setInputValue("new-request-access-notes", propertyAccessValue(property));
     setInputValue("new-request-type", property.default_service_type || "regular_domestic_clean");
     setInputValue("new-request-cadence", property.default_cadence || "to_confirm");
     setInputValue("new-request-day", property.preferred_day || "to_confirm");
@@ -1955,24 +1977,18 @@
     state.selectedRequestId = null;
     state.reviewRequestOpen = false;
     state.moreOpen = false;
-    state.newRequestOpen = true;
+    state.newRequestOpen = false;
     state.newRequestClientId = clientId || "";
     state.newRequestPropertyId = propertyId || "";
-    loadApiRequests(true).then(() => {
-      refresh();
-      window.setTimeout(() => {
-        const client = findClient(state.newRequestClientId);
-        const property = findProperty(state.newRequestClientId, state.newRequestPropertyId);
-        populateClientFields(client);
-        populatePropertyFields(property);
-      }, 0);
+    loadApiRequests(true).finally(() => {
+      state.newRequestOpen = true;
+      if (window.CleanOpsShell?.navigate) {
+        window.CleanOpsShell.navigate("requests");
+      } else {
+        window.location.hash = "requests";
+        refresh();
+      }
     });
-    if (window.CleanOpsShell?.navigate) {
-      window.CleanOpsShell.navigate("requests");
-    } else {
-      window.location.hash = "requests";
-      refresh();
-    }
   }
 
   window.CleanOpsRequests = {

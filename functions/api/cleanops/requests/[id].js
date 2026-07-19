@@ -63,7 +63,7 @@ export async function onRequest(context) {
     }
 
     // Format notes if relevant fields are provided (Legacy notes field maintenance)
-    const noteFields = ['notes', 'propertyNotes', 'cleaningNotes', 'internalNotes', 'cleaningProductsSuppliedBy', 'vacuumSuppliedBy', 'mopSuppliedBy', 'sourceType', 'customerMessage', 'cleaningProducts', 'vacuumHoover', 'mop'];
+    const noteFields = ['notes', 'propertyNotes', 'cleaningNotes', 'internalNotes', 'accessNotes', 'cleaningProductsSuppliedBy', 'vacuumSuppliedBy', 'mopSuppliedBy', 'sourceType', 'customerMessage', 'cleaningProducts', 'vacuumHoover', 'mop'];
     const hasNoteUpdates = noteFields.some(f => body[f] !== undefined);
     
     let newFormattedNotes = undefined;
@@ -86,6 +86,8 @@ export async function onRequest(context) {
 
       const int = body.internalNotes !== undefined ? body.internalNotes : extractSection(oldNotes, 'Internal notes');
       if (int) notesBlocks.push(`Internal notes:\n${int}`);
+      const access = body.accessNotes !== undefined ? body.accessNotes : extractSection(oldNotes, 'Access notes');
+      if (access) notesBlocks.push(`Access notes:\n${access}`);
       
       const prod = body.cleaningProducts !== undefined ? body.cleaningProducts : (body.cleaningProductsSuppliedBy !== undefined ? body.cleaningProductsSuppliedBy : extractSingleLine(oldNotes, '* Cleaning products supplied by: '));
       const vac = body.vacuumHoover !== undefined ? body.vacuumHoover : (body.vacuumSuppliedBy !== undefined ? body.vacuumSuppliedBy : extractSingleLine(oldNotes, '* Vacuum supplied by: '));
@@ -180,6 +182,7 @@ export async function onRequest(context) {
       cleaningProducts: body.cleaningProducts !== undefined ? body.cleaningProducts : body.cleaningProductsSuppliedBy,
       vacuumHoover: body.vacuumHoover !== undefined ? body.vacuumHoover : body.vacuumSuppliedBy,
       mop: body.mop !== undefined ? body.mop : body.mopSuppliedBy,
+      accessNotes: body.accessNotes,
       setupConfirmed: body.setupConfirmed,
       customerMessage: body.customerMessage !== undefined ? body.customerMessage : body.notes,
       shortScopingNote: body.shortScopingNote,

@@ -33,6 +33,7 @@ function mapRequestRow(row) {
     cleaningProducts: row.cleaning_products,
     vacuumHoover: row.vacuum_hoover,
     mop: row.mop,
+    accessNotes: row.access_notes,
     setupConfirmed: row.setup_confirmed === 1,
     customerMessage: row.customer_message !== null ? row.customer_message : (row.notes || ""),
     shortScopingNote: row.short_scoping_note,
@@ -51,6 +52,7 @@ function mapRequestRow(row) {
     propertyAddressLine2: row.address_line2,
     propertyCity: row.city,
     propertyPostcode: row.postcode,
+    propertyAccessNotes: row.property_access_notes,
     propertyType: row.property_type,
     bedrooms: row.bedrooms,
     bathrooms: row.bathrooms,
@@ -65,7 +67,8 @@ export async function listRequests(db, options = {}) {
   let query = `
     SELECT r.*, 
            c.type AS customer_type, c.first_name, c.last_name, c.company_name, c.email, c.phone, 
-           p.address_line1, p.address_line2, p.city, p.postcode, p.property_type, p.bedrooms, p.bathrooms, p.pets_present, p.parking
+           p.address_line1, p.address_line2, p.city, p.postcode, p.access_notes AS property_access_notes,
+           p.property_type, p.bedrooms, p.bathrooms, p.pets_present, p.parking
     FROM requests r
     LEFT JOIN customers c ON c.id = r.customer_id
     LEFT JOIN properties p ON p.id = r.property_id
@@ -121,7 +124,8 @@ export async function getRequestById(db, requestId) {
   const query = `
     SELECT r.*, 
            c.type AS customer_type, c.first_name, c.last_name, c.company_name, c.email, c.phone, 
-           p.address_line1, p.address_line2, p.city, p.postcode, p.property_type, p.bedrooms, p.bathrooms, p.pets_present, p.parking
+           p.address_line1, p.address_line2, p.city, p.postcode, p.access_notes AS property_access_notes,
+           p.property_type, p.bedrooms, p.bathrooms, p.pets_present, p.parking
     FROM requests r
     LEFT JOIN customers c ON c.id = r.customer_id
     LEFT JOIN properties p ON p.id = r.property_id
@@ -141,7 +145,7 @@ export async function createRequest(db, input) {
       initial_clean_required, pricing_basis, estimated_regular_duration_minutes,
       estimated_initial_duration_minutes, estimated_team_size, scope_confidence,
       main_priorities_json, quote_considerations_json, cleaning_products,
-      vacuum_hoover, mop, setup_confirmed, customer_message, short_scoping_note,
+      vacuum_hoover, mop, access_notes, setup_confirmed, customer_message, short_scoping_note,
       property_notes, cleaning_notes, internal_notes
     )
     VALUES (
@@ -151,7 +155,7 @@ export async function createRequest(db, input) {
       ?, ?, ?,
       ?, ?, ?,
       ?, ?, ?,
-      ?, ?, ?, ?, ?,
+      ?, ?, ?, ?, ?, ?,
       ?, ?, ?
     )
     RETURNING *
@@ -183,6 +187,7 @@ export async function createRequest(db, input) {
     input.cleaningProducts || null,
     input.vacuumHoover || null,
     input.mop || null,
+    input.accessNotes || null,
     input.setupConfirmed ? 1 : 0,
     input.customerMessage || null,
     input.shortScopingNote || null,
@@ -243,6 +248,7 @@ export async function updateRequest(db, requestId, updates) {
   if (updates.cleaningProducts !== undefined) { sets.push('cleaning_products = ?'); params.push(updates.cleaningProducts); }
   if (updates.vacuumHoover !== undefined) { sets.push('vacuum_hoover = ?'); params.push(updates.vacuumHoover); }
   if (updates.mop !== undefined) { sets.push('mop = ?'); params.push(updates.mop); }
+  if (updates.accessNotes !== undefined) { sets.push('access_notes = ?'); params.push(updates.accessNotes); }
   if (updates.setupConfirmed !== undefined) { sets.push('setup_confirmed = ?'); params.push(updates.setupConfirmed ? 1 : 0); }
   
   if (updates.customerMessage !== undefined) { sets.push('customer_message = ?'); params.push(updates.customerMessage); }

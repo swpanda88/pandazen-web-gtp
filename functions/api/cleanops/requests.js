@@ -54,6 +54,7 @@ export async function onRequest(context) {
       if (body.propertyNotes) notesBlocks.push(`Property notes:\n${body.propertyNotes}`);
       if (body.cleaningNotes) notesBlocks.push(`Cleaning notes:\n${body.cleaningNotes}`);
       if (body.internalNotes) notesBlocks.push(`Internal notes:\n${body.internalNotes}`);
+      if (body.accessNotes) notesBlocks.push(`Access notes:\n${body.accessNotes}`);
 
       const setupBlocks = [];
       if (body.cleaningProducts) setupBlocks.push(`* Cleaning products supplied by: ${body.cleaningProducts}`);
@@ -150,6 +151,7 @@ export async function onRequest(context) {
         cleaningProducts: body.cleaningProducts || body.cleaningProductsSuppliedBy,
         vacuumHoover: body.vacuumHoover || body.vacuumSuppliedBy,
         mop: body.mop || body.mopSuppliedBy,
+        accessNotes: body.accessNotes,
         setupConfirmed: body.setupConfirmed,
         customerMessage: body.customerMessage !== undefined ? body.customerMessage : body.notes,
         shortScopingNote: body.shortScopingNote,

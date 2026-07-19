@@ -23,8 +23,8 @@
         api.fetchQuotes()
       ]);
       state.clients = clients || [];
-      state.requests = requests || [];
-      state.quotes = quotes || [];
+      state.requests = (requests || []).map(normaliseRelatedRequest);
+      state.quotes = (quotes || []).map(normaliseRelatedQuote);
     } catch (e) {
       console.error(e);
       toast("Error loading clients from DB. Please try again.");
@@ -34,6 +34,35 @@
     }
     state.loading = false;
     refresh();
+  }
+
+  function normaliseRelatedRequest(request) {
+    if (!request) return request;
+    return {
+      id: request.id,
+      client_id: request.client_id || request.customer_id || request.customerId || "",
+      property_id: request.property_id || request.propertyId || "",
+      status: request.status || "",
+      quote_readiness: request.quote_readiness || request.quoteReadiness || "",
+      customer_message: request.customer_message || request.customerMessage || request.notes || "",
+      short_scoping_note: request.short_scoping_note || request.shortScopingNote || "",
+      notes: request.notes || ""
+    };
+  }
+
+  function normaliseRelatedQuote(quote) {
+    if (!quote) return quote;
+    return {
+      id: quote.id,
+      client_id: quote.client_id || quote.customer_id || quote.customerId || "",
+      property_id: quote.property_id || quote.propertyId || "",
+      request_id: quote.request_id || quote.requestId || "",
+      quote_status: quote.quote_status || quote.quoteStatus || "",
+      document_status: quote.document_status || quote.documentStatus || "",
+      display_ref: quote.display_ref || quote.displayRef || "",
+      quote_number: quote.quote_number || quote.quoteNumber || "",
+      gross_total: typeof quote.gross_total === "number" ? quote.gross_total : (typeof quote.grossTotal === "number" ? quote.grossTotal : null)
+    };
   }
 
   function clients() {
@@ -588,14 +617,14 @@
     const tab = state.detailTab;
     if (tab === "active") return (client.activeWork || []).map(renderWorkCard).join("") || emptyWork("No active work", "Requests, quotes, jobs, and invoices will appear here.");
     if (tab === "requests") {
-      const linkedRequests = (state.requests || []).filter((request) => request.customerId === client.id);
+      const linkedRequests = (state.requests || []).filter((request) => request.client_id === client.id);
       if (linkedRequests.length) {
         const statusLabels = window.CleanOpsRequests?.labels?.requestStatusLabels || {};
         const statusTones = window.CleanOpsRequests?.labels?.requestStatusTones || {};
         return linkedRequests.map((request) => renderWorkCard({
           type: "Request",
           id: request.id,
-          title: request.customerMessage || request.notes || request.shortScopingNote || "Cleaning enquiry",
+          title: request.customer_message || request.notes || request.short_scoping_note || "Cleaning enquiry",
           status: statusLabels[request.status] || request.status,
           tone: statusTones[request.status] || "info",
           number: `RQ-${String(request.id || "").slice(-4).toUpperCase()}`
@@ -604,17 +633,17 @@
       return (client.requests || []).map((item) => renderWorkCard({ ...item, type: "Request" })).join("") || emptyWork("No requests", "Manual requests from this client will attach here.");
     }
     if (tab === "quotes") {
-      const linkedQuotes = (state.quotes || []).filter((quote) => quote.customerId === client.id);
+      const linkedQuotes = (state.quotes || []).filter((quote) => quote.client_id === client.id);
       if (linkedQuotes.length) {
         const quoteLabels = window.CleanOpsQuotes?.labels?.quoteStatusLabels || {};
         const quoteTones = window.CleanOpsQuotes?.labels?.quoteStatusTones || {};
         return linkedQuotes.map((quote) => renderWorkCard({
           type: "Quote",
           id: quote.id,
-          title: quote.displayRef || quote.quoteNumber || quote.id,
-          status: quoteLabels[quote.quoteStatus] || quote.quoteStatus || "Draft",
-          tone: quoteTones[quote.quoteStatus] || "info",
-          amount: typeof quote.grossTotal === "number" ? `GBP ${quote.grossTotal.toFixed(2)}` : ""
+          title: quote.display_ref || quote.quote_number || quote.id,
+          status: quoteLabels[quote.quote_status] || quote.quote_status || "Draft",
+          tone: quoteTones[quote.quote_status] || "info",
+          amount: typeof quote.gross_total === "number" ? `GBP ${quote.gross_total.toFixed(2)}` : ""
         })).join("");
       }
       return (client.quotes || []).map((item) => renderWorkCard({ ...item, type: "Quote" })).join("") || emptyWork("No quotes", "Quotes can be created from a known client and property.");

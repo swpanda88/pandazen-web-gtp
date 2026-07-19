@@ -117,12 +117,15 @@
   const supplyLabels = {
     client_provides: "Client provides",
     pandazen_provides: "PandaZen provides",
+    pandazen_brings: "PandaZen brings",
     mixed_specific_products_required: "Mixed / specific products",
+    not_required: "Not required",
     to_confirm: "To confirm"
   };
 
   const equipmentLabels = {
     client_provides: "Client provides",
+    pandazen_provides: "PandaZen provides",
     pandazen_brings: "PandaZen brings",
     not_required: "Not required",
     to_confirm: "To confirm"
@@ -230,12 +233,18 @@
       }));
     }
     updateQuoteCompatibility(normalised);
+    delete normalised.customerId;
+    delete normalised.customer_id;
+    delete normalised.propertyId;
+    delete normalised.requestId;
+    delete normalised.quoteStatus;
+    delete normalised.documentStatus;
     return normalised;
   }
 
   function normaliseRequestFromApi(request) {
     if (!request) return request;
-    return {
+    const normalised = {
       ...request,
       client_id: request.client_id || request.customerId || "",
       property_id: request.property_id || request.propertyId || "",
@@ -270,8 +279,15 @@
       quote_readiness: request.quote_readiness || request.quoteReadiness || "missing_scope",
       internal_notes: request.internal_notes || request.internalNotes || request.notes || "",
       customer_message: request.customer_message || request.customerMessage || request.notes || "",
+      access_notes: request.access_notes || request.accessNotes || "",
       property: request.property || request.propertyLabel || request.propertyAddressLine1 || ""
     };
+    delete normalised.customerId;
+    delete normalised.customer_id;
+    delete normalised.propertyId;
+    delete normalised.requestId;
+    delete normalised.quoteReadiness;
+    return normalised;
   }
 
   function normaliseCatalogueItem(item) {
@@ -1992,7 +2008,7 @@
   }
 
   async function findExistingQuoteForRequest(requestId) {
-    const existing = quotes().find((quote) => (quote.request_id === requestId || quote.requestId === requestId));
+    const existing = quotes().find((quote) => quote.request_id === requestId);
     if (existing) {
       state.selectedQuoteId = quoteId(existing);
       state.newQuoteOpen = false;

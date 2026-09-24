@@ -61,6 +61,39 @@ function setupReveal() {
   items.forEach((item) => observer.observe(item));
 }
 
+function setupCinematicStacks() {
+  document.querySelectorAll("[data-cinematic-stack]").forEach((stack) => {
+    const images = Array.from(stack.querySelectorAll("[data-stack-image]"));
+    const panels = Array.from(stack.querySelectorAll("[data-stack-panel]"));
+    if (!images.length || !panels.length) return;
+
+    function activate(index) {
+      images.forEach((image, imageIndex) => {
+        image.classList.toggle("is-active", imageIndex === index);
+      });
+    }
+
+    if (!("IntersectionObserver" in window)) {
+      activate(0);
+      return;
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        const index = Number(entry.target.dataset.imageIndex || 0);
+        activate(index);
+      });
+    }, {
+      rootMargin: "-38% 0px -38% 0px",
+      threshold: 0.01
+    });
+
+    panels.forEach((panel) => observer.observe(panel));
+    activate(0);
+  });
+}
+
 menuToggle?.addEventListener("click", () => {
   const isOpen = menu.classList.toggle("is-open");
   menuToggle.setAttribute("aria-expanded", String(isOpen));
@@ -73,5 +106,6 @@ menu?.addEventListener("click", (event) => {
 
 setupForms();
 setupReveal();
+setupCinematicStacks();
 updateHeader();
 window.addEventListener("scroll", updateHeader, { passive: true });

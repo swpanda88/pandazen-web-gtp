@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex">
+    <meta name="description" content="PandaZen Cleaning Rev2 prototype page.">
+    <title>PandaZen Cleaning | Rev2 Prototype</title>
+    <link rel="preload" as="image" href="assets/cleaning-bedroom.png">
+    <link rel="stylesheet" href="rev2.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header" data-header>
+      <a class="brand" href="index.html" aria-label="PandaZen Rev2 home"><img src="../assets/logo.png" alt=""><span>PandaZen</span></a>
+      <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-menu" data-menu-toggle><span></span><span></span><span></span><span class="sr-only">Menu</span></button>
+      <nav class="site-menu" id="site-menu" data-menu aria-label="Prototype navigation">
+        <a href="index.html">Home</a><a href="cleaning.html">Cleaning</a><a href="home-works.html">Home Works</a><a href="#enquire">Enquire</a>
+      </nav>
+    </header>
+
+    <main id="main">
+      <section class="service-hero" aria-labelledby="cleaning-title">
+        <div class="hero-image" aria-hidden="true"><img src="assets/cleaning-bedroom.png" alt=""></div>
+        <div class="hero-content reveal">
+          <p class="kicker">PandaZen Cleaning</p>
+          <h1 id="cleaning-title">Boutique home cleaning by a person you can trust.</h1>
+          <p>Professional, discreet and reliable domestic cleaning for homes that value consistency, care and a familiar standard each visit.</p>
+        </div>
+      </section>
+
+      <section class="slide-over service-intro">
+        <div class="section-label reveal">Cleaning / current service</div>
+        <div class="explain-copy reveal">
+          <h2>Quiet professionalism for busy households.</h2>
+          <p>PandaZen Cleaning is not a rotating agency or an app-based service. It is a small, owner-led service built around long-term trust, clear communication, punctual visits, respectful work and high standards every time.</p>
+        </div>
+      </section>
+
+      <section class="detail-grid">
+        <article class="detail-card reveal"><span>01</span><h3>Regular cleaning</h3><p>Weekly, fortnightly or monthly routines for kitchens, bathrooms, bedrooms, living areas and everyday household upkeep.</p></article>
+        <article class="detail-card reveal"><span>02</span><h3>Deep cleaning</h3><p>More detailed work for homes that need a reset, seasonal refresh or careful attention in high-use rooms.</p></article>
+        <article class="detail-card reveal"><span>03</span><h3>One-off cleaning</h3><p>Reliable help before guests arrive, after busy periods or whenever the home needs a professional lift.</p></article>
+        <article class="detail-card reveal"><span>04</span><h3>End of tenancy</h3><p>Focused cleaning for move-out and move-in moments, with practical attention to visible details.</p></article>
+        <article class="detail-card reveal"><span>05</span><h3>Kitchen and bathroom detailing</h3><p>Targeted care for the rooms where finish, hygiene and consistency matter most.</p></article>
+        <article class="detail-card reveal"><span>06</span><h3>Ironing support</h3><p>Optional ironing support can be included with suitable regular bookings.</p></article>
+      </section>
+
+      <section class="split-story">
+        <div class="story-copy reveal">
+          <p class="kicker">Standards</p>
+          <h2>Careful, consistent and discreet.</h2>
+          <p>DBS checked, fully insured, references available on request, professional products supplied or client products used. Minimum two-hour booking, Monday to Friday as standard, with weekend work by arrangement at a premium rate.</p>
+        </div>
+        <img class="reveal" src="assets/studio-living.png" alt="Layered interior showing the kind of carefully kept home PandaZen supports">
+      </section>
+
+      <section class="shared-enquiry" id="enquire">
+        <div class="enquiry-intro reveal"><p class="kicker">Cleaning enquiry</p><h2>Tell us about the home.</h2><p>This is a Rev2 prototype contact pattern. It does not replace the current live Cleaning enquiry form.</p></div>
+        <form class="proto-form reveal" data-proto-form data-default-tab="cleaning">
+          <div class="enquiry-tabs" data-tabs><button type="button" data-tab="cleaning" aria-pressed="true">Cleaning</button><button type="button" data-tab="works" aria-pressed="false">Home Works</button></div>
+          <label>Name <input name="name" autocomplete="name" required></label>
+          <label>Email <input name="email" type="email" autocomplete="email" required></label>
+          <label>Area / postcode <input name="area" autocomplete="postal-code"></label>
+          <label>Message <textarea name="message" rows="4" data-message></textarea></label>
+          <button class="button dark" type="submit">Preview enquiry</button>
+          <p class="form-status" data-form-status aria-live="polite"></p>
+        </form>
+      </section>
+    </main>
+    <footer class="site-footer"><div><img src="../assets/logo.png" alt=""><span>PandaZen Cleaning</span></div><p>Prototype page only. Live Cleaning site remains unchanged.</p></footer>
+    <script src="rev2.js"></script>
+  </body>
+</html>

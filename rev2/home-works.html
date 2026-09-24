@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex">
+    <meta name="description" content="PandaZen Home Works Rev2 prototype page.">
+    <title>PandaZen Home Works | Rev2 Prototype</title>
+    <link rel="preload" as="image" href="assets/home-works-living.png">
+    <link rel="stylesheet" href="rev2.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header" data-header>
+      <a class="brand" href="index.html" aria-label="PandaZen Rev2 home"><img src="../assets/logo.png" alt=""><span>PandaZen</span></a>
+      <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-menu" data-menu-toggle><span></span><span></span><span></span><span class="sr-only">Menu</span></button>
+      <nav class="site-menu" id="site-menu" data-menu aria-label="Prototype navigation">
+        <a href="index.html">Home</a><a href="cleaning.html">Cleaning</a><a href="home-works.html">Home Works</a><a href="#enquire">Enquire</a>
+      </nav>
+    </header>
+
+    <main id="main">
+      <section class="service-hero" aria-labelledby="works-title">
+        <div class="hero-image" aria-hidden="true"><img src="assets/home-works-living.png" alt=""></div>
+        <div class="hero-content reveal">
+          <p class="kicker">PandaZen Home Works</p>
+          <h1 id="works-title">Interior maintenance with a designer’s eye.</h1>
+          <p>High-quality interior maintenance, repairs and home improvements for clients who value careful workmanship, thoughtful solutions and a high standard of finish.</p>
+        </div>
+      </section>
+
+      <section class="slide-over service-intro">
+        <div class="section-label reveal">Home Works / future service</div>
+        <div class="explain-copy reveal">
+          <h2>Practical work should still feel considered.</h2>
+          <p>Home Works is not a generic handyman directory and not an emergency-response service. It is for interior work where judgement, finish, communication and care inside occupied homes matter.</p>
+        </div>
+      </section>
+
+      <section class="image-reveal works-reveal" aria-labelledby="capabilities-title">
+        <div class="sticky-image" aria-hidden="true"><img src="assets/joinery-detail.png" alt=""></div>
+        <div class="reveal-panel reveal">
+          <p class="kicker">Capability</p>
+          <h2 id="capabilities-title">From everyday repairs to designed improvements.</h2>
+          <p>The service can cover maintenance and repairs, bathrooms and plumbing-related works, joinery, bespoke installations, fitting, flooring, decorating, finishing and practical problem-solving where finish matters.</p>
+        </div>
+      </section>
+
+      <section class="detail-grid">
+        <article class="detail-card reveal"><span>01</span><h3>Maintenance and repairs</h3><p>Useful fixes completed with care for surfaces, access, tidiness and the wider room.</p></article>
+        <article class="detail-card reveal"><span>02</span><h3>Bathrooms and minor plumbing-related works</h3><p>Sealants, fittings, repairs, improvements and finish-led details where appropriate.</p></article>
+        <article class="detail-card reveal"><span>03</span><h3>Joinery and bespoke installations</h3><p>Shelving, storage, alcoves and fitted improvements designed to belong in the home.</p></article>
+        <article class="detail-card reveal"><span>04</span><h3>Flooring and practical improvements</h3><p>Work planned around durability, transitions, room use and presentation.</p></article>
+        <article class="detail-card reveal"><span>05</span><h3>Decorating and finishing</h3><p>Careful final details that make work feel resolved rather than merely completed.</p></article>
+        <article class="detail-card reveal"><span>06</span><h3>Assessment and quotation</h3><p>Some enquiries can be scoped remotely; others need discussion, photos or a site visit before quotation.</p></article>
+      </section>
+
+      <section class="case-study">
+        <div class="case-copy reveal"><p class="kicker">Selected project style</p><h2>Show the upper standard, then bring that care to everyday work.</h2><p>Portfolio content should demonstrate design awareness, workmanship, detailing and problem-solving. It should not artificially limit the service by describing everything as small jobs.</p></div>
+        <div class="case-images">
+          <img class="reveal" src="assets/bathroom-finish.png" alt="Warm bathroom with green tile, brass fittings and stone vanity">
+          <img class="reveal" src="assets/joinery-detail.png" alt="Detailed built-in shelves and cabinetry">
+        </div>
+      </section>
+
+      <section class="shared-enquiry" id="enquire">
+        <div class="enquiry-intro reveal"><p class="kicker">Home Works enquiry</p><h2>Tell us what needs attention.</h2><p>This prototype form is preview-only. A real version should collect work type, description, property details, photos where useful, timing and access information.</p></div>
+        <form class="proto-form reveal" data-proto-form data-default-tab="works">
+          <div class="enquiry-tabs" data-tabs><button type="button" data-tab="cleaning" aria-pressed="false">Cleaning</button><button type="button" data-tab="works" aria-pressed="true">Home Works</button></div>
+          <label>Name <input name="name" autocomplete="name" required></label>
+          <label>Email <input name="email" type="email" autocomplete="email" required></label>
+          <label>Area / postcode <input name="area" autocomplete="postal-code"></label>
+          <label>Message <textarea name="message" rows="4" data-message></textarea></label>
+          <button class="button dark" type="submit">Preview enquiry</button>
+          <p class="form-status" data-form-status aria-live="polite"></p>
+        </form>
+      </section>
+    </main>
+    <footer class="site-footer"><div><img src="../assets/logo.png" alt=""><span>PandaZen Home Works</span></div><p>Prototype page only. Live Cleaning site remains unchanged.</p></footer>
+    <script src="rev2.js"></script>
+  </body>
+</html>

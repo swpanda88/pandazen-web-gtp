@@ -1,7 +1,6 @@
 const header = document.querySelector("[data-header]");
 const menu = document.querySelector("[data-menu]");
 const menuToggle = document.querySelector("[data-menu-toggle]");
-const forms = document.querySelectorAll("[data-proto-form]");
 
 function updateHeader() {
   header?.classList.toggle("is-scrolled", window.scrollY > 12);
@@ -13,31 +12,17 @@ function closeMenu() {
   header?.classList.remove("is-open");
 }
 
-function setService(form, service) {
-  form.dataset.activeService = service;
-  form.querySelectorAll("[data-tab]").forEach((button) => {
-    button.setAttribute("aria-pressed", String(button.dataset.tab === service));
-  });
-  const message = form.querySelector("[data-message]");
-  if (message) {
-    message.placeholder = service === "cleaning"
-      ? "Tell us about the rooms, routine, priorities, frequency and anything useful about the home."
-      : "Tell us about the work, property context, timing, access, number of items and whether photos would help.";
-  }
-}
-
 function setupForms() {
-  forms.forEach((form) => {
-    setService(form, form.dataset.defaultTab || "cleaning");
-    form.querySelectorAll("[data-tab]").forEach((button) => {
-      button.addEventListener("click", () => setService(form, button.dataset.tab));
-    });
+  document.querySelectorAll("[data-service-form]").forEach((form) => {
     form.addEventListener("submit", (event) => {
       event.preventDefault();
       const data = new FormData(form);
       const name = data.get("name") || "there";
-      const label = form.dataset.activeService === "works" ? "Home Works" : "Cleaning";
-      form.querySelector("[data-form-status]").textContent = `Thanks ${name}. This is a preview-only ${label} enquiry pattern and has not been sent to the live PandaZen workflow.`;
+      const label = form.dataset.serviceLabel || "PandaZen";
+      const status = form.querySelector("[data-form-status]");
+      if (status) {
+        status.textContent = `Thanks ${name}. Please call or email PandaZen to complete your ${label} enquiry.`;
+      }
     });
   });
 }
@@ -81,8 +66,7 @@ function setupCinematicStacks() {
     const observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
         if (!entry.isIntersecting) return;
-        const index = Number(entry.target.dataset.imageIndex || 0);
-        activate(index);
+        activate(Number(entry.target.dataset.imageIndex || 0));
       });
     }, {
       rootMargin: "-38% 0px -38% 0px",
@@ -92,6 +76,79 @@ function setupCinematicStacks() {
     panels.forEach((panel) => observer.observe(panel));
     activate(0);
   });
+}
+
+function setupProjectShowcase() {
+  const showcase = document.querySelector("[data-project-showcase]");
+  if (!showcase) return;
+
+  const projects = [
+    {
+      image: "assets/bathroom-finish.png",
+      alt: "Warm bathroom with green tile, brass fittings and stone vanity",
+      location: "Durham home",
+      title: "Bathroom finish and fittings",
+      description: "A refined bathroom update with careful fitting, sealing, surface protection and finishing details around existing materials.",
+      tags: "Bathroom works / finishing / fittings",
+      quote: "Careful sequencing and a calm finish for a room that needed to remain practical throughout the work."
+    },
+    {
+      image: "assets/joinery-detail.png",
+      alt: "Detailed built-in shelves and cabinetry",
+      location: "Residential interior",
+      title: "Bespoke joinery detail",
+      description: "Fitted storage and shelving designed to feel integrated with the room, with close attention to proportion, lines and usable space.",
+      tags: "Joinery / bespoke installation / storage",
+      quote: "A practical improvement made to look settled, intentional and part of the home."
+    },
+    {
+      image: "assets/home-works-living.png",
+      alt: "Elegant living space with completed built-in joinery and warm detailing",
+      location: "Family living space",
+      title: "Living room improvement",
+      description: "Interior improvements, repairs and finishing work brought together so the room feels more resolved and easier to live with.",
+      tags: "Interior improvements / repairs / finishing",
+      quote: "The final details matter because they are the part clients live with every day."
+    }
+  ];
+
+  const image = showcase.querySelector("[data-project-image]");
+  const location = showcase.querySelector("[data-project-location]");
+  const title = showcase.querySelector("[data-project-title]");
+  const description = showcase.querySelector("[data-project-description]");
+  const tags = showcase.querySelector("[data-project-tags]");
+  const quote = showcase.querySelector("[data-project-quote]");
+  const thumbs = Array.from(showcase.querySelectorAll("[data-project-thumb]"));
+  const previous = showcase.querySelector("[data-project-prev]");
+  const next = showcase.querySelector("[data-project-next]");
+  let activeIndex = 0;
+
+  function setProject(index) {
+    activeIndex = (index + projects.length) % projects.length;
+    const project = projects[activeIndex];
+    image?.classList.add("is-changing");
+    window.setTimeout(() => {
+      if (image) {
+        image.src = project.image;
+        image.alt = project.alt;
+        image.classList.remove("is-changing");
+      }
+      if (location) location.textContent = project.location;
+      if (title) title.textContent = project.title;
+      if (description) description.textContent = project.description;
+      if (tags) tags.textContent = project.tags;
+      if (quote) quote.textContent = project.quote;
+      thumbs.forEach((thumb, thumbIndex) => {
+        thumb.setAttribute("aria-pressed", String(thumbIndex === activeIndex));
+      });
+    }, 120);
+  }
+
+  thumbs.forEach((thumb) => {
+    thumb.addEventListener("click", () => setProject(Number(thumb.dataset.index || 0)));
+  });
+  previous?.addEventListener("click", () => setProject(activeIndex - 1));
+  next?.addEventListener("click", () => setProject(activeIndex + 1));
 }
 
 menuToggle?.addEventListener("click", () => {
@@ -107,5 +164,6 @@ menu?.addEventListener("click", (event) => {
 setupForms();
 setupReveal();
 setupCinematicStacks();
+setupProjectShowcase();
 updateHeader();
 window.addEventListener("scroll", updateHeader, { passive: true });

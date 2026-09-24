@@ -4,18 +4,22 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex">
-    <meta name="description" content="PandaZen Cleaning Rev2 prototype page.">
-    <title>PandaZen Cleaning | Rev2 Prototype</title>
+    <meta name="description" content="PandaZen Cleaning provides boutique domestic cleaning across Durham and surrounding areas with reliability, discretion and continuity.">
+    <title>PandaZen Cleaning | Boutique domestic cleaning</title>
     <link rel="preload" as="image" href="assets/cleaning-bedroom.png">
     <link rel="stylesheet" href="rev2.css">
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
     <header class="site-header" data-header>
-      <a class="brand" href="index.html" aria-label="PandaZen Rev2 home"><img src="../assets/logo.png" alt=""><span>PandaZen</span></a>
+      <a class="brand" href="index.html" aria-label="PandaZen home"><img src="../assets/logo.png" alt=""><span>PandaZen</span></a>
       <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-menu" data-menu-toggle><span></span><span></span><span></span><span class="sr-only">Menu</span></button>
-      <nav class="site-menu" id="site-menu" data-menu aria-label="Prototype navigation">
-        <a href="index.html">Home</a><a href="cleaning.html">Cleaning</a><a href="home-works.html">Home Works</a><a href="#enquire">Enquire</a>
+      <nav class="site-menu" id="site-menu" data-menu aria-label="Main navigation">
+        <a href="index.html">Home</a>
+        <a href="cleaning.html" aria-current="page">Cleaning</a>
+        <a href="home-works.html">Home Works</a>
+        <a href="#services">Services</a>
+        <a href="#enquire">Enquire</a>
       </nav>
     </header>
 
@@ -23,52 +27,211 @@
       <section class="service-hero" aria-labelledby="cleaning-title">
         <div class="hero-image" aria-hidden="true"><img src="assets/cleaning-bedroom.png" alt=""></div>
         <div class="hero-content reveal">
-          <p class="kicker">PandaZen Cleaning</p>
+          <p class="kicker">PandaZen Cleaning / Durham</p>
           <h1 id="cleaning-title">Boutique home cleaning by a person you can trust.</h1>
-          <p>Professional, discreet and reliable domestic cleaning for homes that value consistency, care and a familiar standard each visit.</p>
+          <p>Professional, discreet and reliable domestic cleaning with the same familiar cleaner each visit.</p>
+          <div class="hero-actions">
+            <a class="button light" href="#enquire">Request a cleaning quote</a>
+            <a class="button outline-light" href="tel:07467205405">Call 07467 205 405</a>
+          </div>
         </div>
+      </section>
+
+      <section class="trust-strip" aria-label="PandaZen Cleaning trust signals">
+        <div><strong>20+ years</strong><span>professional experience</span></div>
+        <div><strong>DBS checked</strong><span>for peace of mind</span></div>
+        <div><strong>Fully insured</strong><span>careful, covered service</span></div>
+        <div><strong>Same cleaner</strong><span>consistent standards</span></div>
       </section>
 
       <section class="slide-over service-intro">
-        <div class="section-label reveal">Cleaning / current service</div>
+        <div class="section-label reveal">Cleaning for well-kept homes</div>
         <div class="explain-copy reveal">
           <h2>Quiet professionalism for busy households.</h2>
-          <p>PandaZen Cleaning is not a rotating agency or an app-based service. It is a small, owner-led service built around long-term trust, clear communication, punctual visits, respectful work and high standards every time.</p>
+          <p>PandaZen Cleaning is a boutique domestic cleaning service for homes that need reliability, care and consistency. The approach is personal and traditional: clear communication, punctual visits, respectful work and high standards every time.</p>
+          <p>It is a small, owner-led service built around long-term trust rather than rotating visits. The aim is a calmer home and a cleaning routine that becomes familiar, discreet and dependable.</p>
         </div>
       </section>
 
-      <section class="detail-grid">
-        <article class="detail-card reveal"><span>01</span><h3>Regular cleaning</h3><p>Weekly, fortnightly or monthly routines for kitchens, bathrooms, bedrooms, living areas and everyday household upkeep.</p></article>
-        <article class="detail-card reveal"><span>02</span><h3>Deep cleaning</h3><p>More detailed work for homes that need a reset, seasonal refresh or careful attention in high-use rooms.</p></article>
-        <article class="detail-card reveal"><span>03</span><h3>One-off cleaning</h3><p>Reliable help before guests arrive, after busy periods or whenever the home needs a professional lift.</p></article>
-        <article class="detail-card reveal"><span>04</span><h3>End of tenancy</h3><p>Focused cleaning for move-out and move-in moments, with practical attention to visible details.</p></article>
-        <article class="detail-card reveal"><span>05</span><h3>Kitchen and bathroom detailing</h3><p>Targeted care for the rooms where finish, hygiene and consistency matter most.</p></article>
-        <article class="detail-card reveal"><span>06</span><h3>Ironing support</h3><p>Optional ironing support can be included with suitable regular bookings.</p></article>
+      <section class="cinematic-stack cleaning-stack" data-cinematic-stack aria-labelledby="cleaning-care-title">
+        <div class="stack-visual" aria-hidden="true">
+          <img class="is-active" src="../assets/bedroom.jpg" alt="" data-stack-image>
+          <img src="../assets/kitchen.jpg" alt="" data-stack-image>
+          <img src="../assets/bathroom.jpg" alt="" data-stack-image>
+        </div>
+        <div class="stack-panel-track">
+          <article class="stack-panel reveal" data-stack-panel data-image-index="0">
+            <div class="stack-panel__body">
+              <p class="kicker">Continuity</p>
+              <h2 id="cleaning-care-title">A familiar standard, visit after visit.</h2>
+              <p>Weekly, fortnightly or monthly routines are planned around the rooms you use most, with details remembered and expectations agreed before work begins.</p>
+            </div>
+          </article>
+          <article class="stack-panel reveal" data-stack-panel data-image-index="1">
+            <div class="stack-panel__body">
+              <p class="kicker">Care</p>
+              <h2>Respect for surfaces, products and the way you live.</h2>
+              <p>Professional products can be supplied, or preferred client products used. Product preferences, delicate areas and surface care are discussed so the clean suits the home.</p>
+            </div>
+          </article>
+          <article class="stack-panel reveal" data-stack-panel data-image-index="2">
+            <div class="stack-panel__body">
+              <p class="kicker">Trust</p>
+              <h2>Reliable, discreet and clear from enquiry onward.</h2>
+              <p>PandaZen is designed for households that value confidence as much as cleanliness: punctual visits, thoughtful communication, references on request and a professional working standard.</p>
+            </div>
+          </article>
+        </div>
       </section>
 
-      <section class="split-story">
+      <section class="editorial-section" id="services" aria-labelledby="services-title">
+        <div class="section-head reveal">
+          <p class="kicker">Cleaning services</p>
+          <h2 id="services-title">Home cleaning tailored to your space.</h2>
+          <p>Choose a regular routine, a one-off reset or a deeper detail clean. Share a few details first, then PandaZen can recommend the right next step.</p>
+        </div>
+        <div class="service-list">
+          <article class="service-row reveal"><span>01</span><div><h3>Regular cleaning</h3><p>Weekly, fortnightly or monthly cleaning for kitchens, bathrooms, bedrooms, living areas and everyday household upkeep.</p></div></article>
+          <article class="service-row reveal"><span>02</span><div><h3>Deep cleaning</h3><p>More detailed cleaning for homes that need a thorough reset, seasonal refresh or careful attention in high-use rooms.</p></div></article>
+          <article class="service-row reveal"><span>03</span><div><h3>One-off cleaning</h3><p>Reliable help before guests arrive, after busy periods or whenever the home needs a professional lift.</p></div></article>
+          <article class="service-row reveal"><span>04</span><div><h3>End of tenancy</h3><p>Focused cleaning for move-out and move-in moments, with practical attention to kitchens, bathrooms and visible details.</p></div></article>
+          <article class="service-row reveal"><span>05</span><div><h3>Kitchen and bathroom detailing</h3><p>Targeted care for the rooms where finish, hygiene and consistency matter most.</p></div></article>
+          <article class="service-row reveal"><span>06</span><div><h3>Ironing services</h3><p>Optional ironing support can be included with suitable regular bookings.</p></div></article>
+        </div>
+      </section>
+
+      <section class="split-story" id="standards">
         <div class="story-copy reveal">
           <p class="kicker">Standards</p>
           <h2>Careful, consistent and discreet.</h2>
-          <p>DBS checked, fully insured, references available on request, professional products supplied or client products used. Minimum two-hour booking, Monday to Friday as standard, with weekend work by arrangement at a premium rate.</p>
+          <p>PandaZen Cleaning is built for households that value trust as much as cleanliness. Visits are planned, punctual and respectful, with a uniformed professional appearance and indoor-only cleaning shoes.</p>
+          <ul class="quiet-list">
+            <li>References available on request</li>
+            <li>Professional products supplied, or preferred client products used</li>
+            <li>Minimum 2 hour booking</li>
+            <li>Monday to Friday, 8:00am to 6:00pm as standard</li>
+            <li>Weekend work may be available by arrangement at a premium rate</li>
+          </ul>
         </div>
         <img class="reveal" src="assets/studio-living.png" alt="Layered interior showing the kind of carefully kept home PandaZen supports">
       </section>
 
+      <section class="process-section" aria-labelledby="cleaning-process-title">
+        <div class="section-head reveal">
+          <p class="kicker">How it works</p>
+          <h2 id="cleaning-process-title">A considered quote, then a routine that makes sense.</h2>
+          <p>Every home is different, so PandaZen keeps pricing clear and personal. Some enquiries can be quoted after reviewing your details and a short call. Larger, regular or more complex work may need a home visit before confirming the quote.</p>
+        </div>
+        <div class="process-steps">
+          <article class="reveal"><span>01</span><h3>Enquiry</h3><p>Tell us about the home, the rooms involved, preferred timing and the type of clean you need.</p></article>
+          <article class="reveal"><span>02</span><h3>Discussion</h3><p>A short call, message exchange or photo review may help clarify priorities, products and access.</p></article>
+          <article class="reveal"><span>03</span><h3>Quote</h3><p>The quote reflects the home, frequency, routine and any extra details that need particular care.</p></article>
+          <article class="reveal"><span>04</span><h3>Routine</h3><p>Once agreed, visits follow a clear routine with continuity, punctuality and respectful working habits.</p></article>
+        </div>
+      </section>
+
+      <section class="gallery-band" aria-label="Cleaning focus areas">
+        <figure class="reveal"><img src="../assets/kitchen.jpg" alt="Premium kitchen with navy cabinets and marble worktops"><figcaption>Kitchen detailing</figcaption></figure>
+        <figure class="reveal"><img src="../assets/bedroom.jpg" alt="Bright bedroom with neutral bedding and warm lighting"><figcaption>Bedroom routines</figcaption></figure>
+        <figure class="reveal"><img src="../assets/bathroom.jpg" alt="Modern bathroom with shower, vanity and plants"><figcaption>Bathroom care</figcaption></figure>
+      </section>
+
+      <section class="coverage-panel" aria-labelledby="coverage-title">
+        <div class="reveal">
+          <p class="kicker">Coverage</p>
+          <h2 id="coverage-title">Serving Durham and nearby communities.</h2>
+        </div>
+        <p class="reveal">PandaZen focuses on detached homes, larger family homes, professional households, villages, commuter areas and well-kept residential neighbourhoods across Durham and the surrounding area.</p>
+      </section>
+
       <section class="shared-enquiry" id="enquire">
-        <div class="enquiry-intro reveal"><p class="kicker">Cleaning enquiry</p><h2>Tell us about the home.</h2><p>This is a Rev2 prototype contact pattern. It does not replace the current live Cleaning enquiry form.</p></div>
-        <form class="proto-form reveal" data-proto-form data-default-tab="cleaning">
-          <div class="enquiry-tabs" data-tabs><button type="button" data-tab="cleaning" aria-pressed="true">Cleaning</button><button type="button" data-tab="works" aria-pressed="false">Home Works</button></div>
-          <label>Name <input name="name" autocomplete="name" required></label>
-          <label>Email <input name="email" type="email" autocomplete="email" required></label>
-          <label>Area / postcode <input name="area" autocomplete="postal-code"></label>
-          <label>Message <textarea name="message" rows="4" data-message></textarea></label>
-          <button class="button dark" type="submit">Preview enquiry</button>
+        <div class="enquiry-intro reveal">
+          <p class="kicker">Cleaning enquiry</p>
+          <h2>Request a cleaning quote.</h2>
+          <p>Tell us a little about your home and what you need. This helps us decide whether to quote after a short call, ask for photos, or arrange a visit for suitable jobs.</p>
+          <div class="contact-lines">
+            <a href="tel:07467205405">07467 205 405</a>
+            <a href="mailto:hello.pandazen@gmail.com">hello.pandazen@gmail.com</a>
+          </div>
+        </div>
+        <form class="service-form reveal" data-service-form data-service-label="Cleaning">
+          <label class="hp-field" aria-hidden="true">Website <input name="website" tabindex="-1" autocomplete="off"></label>
+          <fieldset>
+            <legend>Your details</legend>
+            <div class="form-grid">
+              <label>Name <input name="name" autocomplete="name" required></label>
+              <label>Phone <input name="phone" autocomplete="tel"></label>
+              <label>Email <input name="email" type="email" autocomplete="email"></label>
+              <label>Best way to contact <select name="contactMethod"><option value="">Please select</option><option>Phone</option><option>Text message</option><option>WhatsApp</option><option>Email</option></select></label>
+              <label>Area or postcode <input name="area" autocomplete="postal-code" required></label>
+              <label>Best time to contact <input name="contactTime"></label>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend>Cleaning needed</legend>
+            <div class="form-grid">
+              <label>Service <select name="service" required><option value="">Please select</option><option>Regular cleaning</option><option>Deep cleaning</option><option>One-off cleaning</option><option>End of tenancy cleaning</option><option>Kitchen and bathroom detailing</option><option>Ironing services</option><option>Not sure yet</option></select></label>
+              <label>Frequency <select name="frequency"><option value="">Please select</option><option>Weekly</option><option>Fortnightly</option><option>Monthly</option><option>One-off</option><option>Not sure yet</option></select></label>
+              <label>How soon? <select name="urgency"><option value="">Please select</option><option>Flexible</option><option>This month</option><option>As soon as possible</option><option>Specific date needed</option></select></label>
+              <label>Preferred days/times <input name="preferredTimes"></label>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend>Home basics</legend>
+            <div class="form-grid">
+              <label>Property type <select name="propertyType"><option value="">Please select</option><option>House</option><option>Flat or apartment</option><option>Bungalow</option><option>Townhouse</option><option>Other</option></select></label>
+              <label>Approx size <select name="propertySize"><option value="">Please select</option><option>Small</option><option>Medium</option><option>Large</option><option>Not sure</option></select></label>
+              <label>Bedrooms <select name="bedrooms"><option value="">Please select</option><option>0</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5+</option></select></label>
+              <label>Bathrooms <select name="bathrooms"><option value="">Please select</option><option>1</option><option>2</option><option>3</option><option>4+</option></select></label>
+              <label>Pets <select name="pets"><option value="">Please select</option><option>No pets</option><option>Dog</option><option>Cat</option><option>Multiple pets</option><option>Other</option></select></label>
+              <label>Parking <select name="parking"><option value="">Please select</option><option>Driveway or easy parking</option><option>Street parking</option><option>Permit or paid parking</option><option>Not sure</option></select></label>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend>Main priorities</legend>
+            <div class="checkbox-grid">
+              <label><input type="checkbox" name="priorities" value="Kitchen"> Kitchen</label>
+              <label><input type="checkbox" name="priorities" value="Bathrooms"> Bathrooms</label>
+              <label><input type="checkbox" name="priorities" value="Floors"> Floors</label>
+              <label><input type="checkbox" name="priorities" value="Dusting"> Dusting</label>
+              <label><input type="checkbox" name="priorities" value="Bedrooms"> Bedrooms</label>
+              <label><input type="checkbox" name="priorities" value="Living areas"> Living areas</label>
+              <label><input type="checkbox" name="priorities" value="Inside cupboards"> Inside cupboards</label>
+              <label><input type="checkbox" name="priorities" value="Oven or fridge"> Oven or fridge</label>
+              <label><input type="checkbox" name="priorities" value="Skirting/detailing"> Skirting/detailing</label>
+              <label><input type="checkbox" name="priorities" value="Other"> Other</label>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend>Helpful notes</legend>
+            <div class="form-grid">
+              <label>Products preference <select name="products"><option value="">Please select</option><option>PandaZen products</option><option>Client products</option><option>Eco or fragrance-free preferred</option><option>Not sure</option></select></label>
+              <label>Would photos help explain the job? <select name="photosAvailable"><option value="">Please select</option><option>Not needed</option><option>Yes, I can send photos by WhatsApp if requested</option><option>Yes, I can send photos by email if requested</option><option>Not sure</option></select></label>
+              <label class="full">Anything else useful? <textarea name="message" rows="5"></textarea></label>
+            </div>
+            <p class="form-note">Please do not send photos until we reply. If useful, we may ask for them by WhatsApp or email. Please avoid sending anything private or sensitive.</p>
+          </fieldset>
+          <fieldset class="legal-consent">
+            <legend>Privacy</legend>
+            <label><input type="checkbox" name="privacyAcknowledgement" required> <span>I understand PandaZen will use my details to respond to this enquiry. I have read the <a href="../privacy.html" target="_blank" rel="noopener">Privacy Policy</a>.</span></label>
+            <label><input type="checkbox" name="marketingConsent"> <span>I would like to receive occasional PandaZen updates or offers. This is optional.</span></label>
+            <p class="form-note">Your information is used by PandaZen only. We do not sell your details or share them for third-party marketing.</p>
+          </fieldset>
+          <button class="button dark" type="submit">Send cleaning enquiry</button>
           <p class="form-status" data-form-status aria-live="polite"></p>
         </form>
       </section>
     </main>
-    <footer class="site-footer"><div><img src="../assets/logo.png" alt=""><span>PandaZen Cleaning</span></div><p>Prototype page only. Live Cleaning site remains unchanged.</p></footer>
+    <footer class="site-footer">
+      <div class="footer-brand"><img src="../assets/logo.png" alt=""><span>PandaZen Cleaning</span></div>
+      <nav aria-label="Footer navigation">
+        <a href="index.html">Home</a>
+        <a href="home-works.html">Home Works</a>
+        <a href="../privacy.html">Privacy Policy</a>
+        <a href="../terms.html">Terms</a>
+      </nav>
+      <p>Boutique domestic cleaning. DBS checked. Fully insured. Durham and surrounding areas.</p>
+    </footer>
     <script src="rev2.js"></script>
   </body>
 </html>

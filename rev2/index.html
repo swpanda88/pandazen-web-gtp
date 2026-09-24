@@ -4,26 +4,25 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex">
-    <meta name="description" content="PandaZen Rev2 prototype landing page for a premium home-care brand with Cleaning and Home Works service areas.">
-    <title>PandaZen Rev2 Prototype</title>
+    <meta name="description" content="PandaZen brings together premium domestic cleaning and considered interior home works for well-kept homes.">
+    <title>PandaZen | Thoughtful care for the home</title>
     <link rel="preload" as="image" href="assets/studio-living.png">
     <link rel="stylesheet" href="rev2.css">
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
     <header class="site-header" data-header>
-      <a class="brand" href="index.html" aria-label="PandaZen Rev2 home">
+      <a class="brand" href="index.html" aria-label="PandaZen home">
         <img src="../assets/logo.png" alt="">
         <span>PandaZen</span>
       </a>
       <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-menu" data-menu-toggle>
         <span></span><span></span><span></span><span class="sr-only">Menu</span>
       </button>
-      <nav class="site-menu" id="site-menu" data-menu aria-label="Prototype navigation">
-        <a href="index.html">Home</a>
+      <nav class="site-menu" id="site-menu" data-menu aria-label="Main navigation">
+        <a href="index.html" aria-current="page">Home</a>
         <a href="cleaning.html">Cleaning</a>
         <a href="home-works.html">Home Works</a>
-        <a href="#enquire">Enquire</a>
       </nav>
     </header>
 
@@ -31,21 +30,21 @@
       <section class="landing-hero" aria-labelledby="hero-title">
         <div class="hero-image" aria-hidden="true"><img src="assets/studio-living.png" alt=""></div>
         <div class="hero-content reveal">
-          <p class="kicker">PandaZen / premium home care</p>
-          <h1 id="hero-title">One trusted standard for the home.</h1>
-          <p>PandaZen is a future home-care brand for domestic clients who want their home looked after with calm organisation, careful workmanship and continuity from people they can trust.</p>
+          <p class="kicker">PandaZen home care</p>
+          <h1 id="hero-title">Thoughtful care for the home.</h1>
+          <p>PandaZen brings together premium domestic Cleaning and high-quality interior Home Works for clients who value trust, continuity and a careful standard of finish.</p>
           <div class="hero-actions">
             <a class="button light" href="#choose">Choose a service</a>
-            <a class="button outline-light" href="#brand">What PandaZen does</a>
+            <a class="button outline-light" href="#standard">Our standard</a>
           </div>
         </div>
       </section>
 
-      <section class="slide-over brand-explain" id="brand" aria-labelledby="brand-title">
-        <div class="section-label reveal">01 / What this business is</div>
+      <section class="slide-over brand-explain" id="standard" aria-labelledby="brand-title">
+        <div class="section-label reveal">One careful standard</div>
         <div class="explain-copy reveal">
-          <h2 id="brand-title">Premium cleaning and considered interior home works, under one careful brand.</h2>
-          <p>PandaZen brings together two distinct services for well-kept homes: specialist domestic cleaning and high-quality interior maintenance, repairs and improvements. The two journeys stay separate, but the promise is shared: trust, quality, respect for the property and a high standard of finish.</p>
+          <h2 id="brand-title">Reliable cleaning and considered interior work, held to the same calm measure.</h2>
+          <p>PandaZen is for homes that deserve more than a rushed visit or a casual fix. Cleaning and Home Works remain distinct services, but both are shaped by the same principles: respect for the property, clear communication, practical judgement and work that feels quietly well done.</p>
         </div>
       </section>
 
@@ -64,39 +63,48 @@
         </a>
       </section>
 
-      <section class="image-reveal" aria-labelledby="standard-title">
-        <div class="sticky-image" aria-hidden="true"><img src="assets/joinery-detail.png" alt=""></div>
-        <div class="reveal-panel reveal">
-          <p class="kicker">Mostly still, occasionally cinematic</p>
-          <h2 id="standard-title">The point is not to look like a trade directory.</h2>
-          <p>The Rev2 direction should feel closer to a boutique interiors studio: clear choices, rich photography, editorial calm, and enough space for each service to explain itself properly.</p>
+      <section class="shared-standard" aria-labelledby="shared-title">
+        <div class="section-head reveal">
+          <p class="kicker">Shared approach</p>
+          <h2 id="shared-title">Care that feels settled, capable and respectful.</h2>
+        </div>
+        <div class="standard-columns">
+          <article class="reveal">
+            <h3>Trust</h3>
+            <p>Clients should know who is coming into the home, what has been agreed and how the work will be handled.</p>
+          </article>
+          <article class="reveal">
+            <h3>Continuity</h3>
+            <p>Regular care works best when the standard is familiar, communication is clear and details are remembered.</p>
+          </article>
+          <article class="reveal">
+            <h3>Quality</h3>
+            <p>From everyday cleaning to finishing work, PandaZen is guided by careful preparation and a considered result.</p>
+          </article>
         </div>
       </section>
 
-      <section class="shared-enquiry" id="enquire">
-        <div class="enquiry-intro reveal">
-          <p class="kicker">Prototype enquiry</p>
-          <h2>Start with the right route.</h2>
-          <p>The final site can use tailored intake forms for Cleaning and Home Works. This prototype shows the shared contact moment without connecting to the live Cleaning form.</p>
+      <section class="route-cta" aria-labelledby="route-title">
+        <div class="reveal">
+          <p class="kicker">Start in the right place</p>
+          <h2 id="route-title">Choose the service that fits your home.</h2>
         </div>
-        <form class="proto-form reveal" data-proto-form>
-          <div class="enquiry-tabs" data-tabs>
-            <button type="button" data-tab="cleaning" aria-pressed="true">Cleaning</button>
-            <button type="button" data-tab="works" aria-pressed="false">Home Works</button>
-          </div>
-          <label>Name <input name="name" autocomplete="name" required></label>
-          <label>Email <input name="email" type="email" autocomplete="email" required></label>
-          <label>Area / postcode <input name="area" autocomplete="postal-code"></label>
-          <label>Message <textarea name="message" rows="4" data-message></textarea></label>
-          <button class="button dark" type="submit">Preview enquiry</button>
-          <p class="form-status" data-form-status aria-live="polite"></p>
-        </form>
+        <div class="route-actions reveal">
+          <a class="button dark" href="cleaning.html#enquire">Cleaning enquiry</a>
+          <a class="button ghost" href="home-works.html#enquire">Home Works enquiry</a>
+        </div>
       </section>
     </main>
 
     <footer class="site-footer">
-      <div><img src="../assets/logo.png" alt=""><span>PandaZen Rev2</span></div>
-      <p>Standalone prototype. Current live PandaZen Cleaning site remains unchanged.</p>
+      <div class="footer-brand"><img src="../assets/logo.png" alt=""><span>PandaZen</span></div>
+      <nav aria-label="Footer navigation">
+        <a href="cleaning.html">Cleaning</a>
+        <a href="home-works.html">Home Works</a>
+        <a href="../privacy.html">Privacy Policy</a>
+        <a href="../terms.html">Terms</a>
+      </nav>
+      <p>Premium home care for Durham and surrounding areas.</p>
     </footer>
     <script src="rev2.js"></script>
   </body>

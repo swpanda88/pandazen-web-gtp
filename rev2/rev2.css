@@ -261,6 +261,7 @@ h3 { font-family: Georgia, "Times New Roman", serif; font-size: clamp(1.2rem, 1.
   background: var(--deep);
 }
 .cleaning-stack { margin-top: clamp(72px, 10vw, 118px); }
+.home-works-stack { margin-top: clamp(72px, 10vw, 118px); }
 .stack-visual {
   position: sticky;
   top: 0;
@@ -312,13 +313,21 @@ h3 { font-family: Georgia, "Times New Roman", serif; font-size: clamp(1.2rem, 1.
 }
 .stack-panel__body p:last-child { margin-top: 18px; color: var(--muted); }
 .cleaning-stack { min-height: 500svh; }
-.cleaning-stack .stack-panel-track { padding-bottom: 18svh; }
+.home-works-stack { min-height: 500svh; }
+.cleaning-stack .stack-panel-track,
+.home-works-stack .stack-panel-track { padding-bottom: 18svh; }
 .cleaning-stack .stack-panel {
   min-height: 100svh;
   align-items: center;
   padding-inline: clamp(18px, 3.5vw, 54px);
 }
-.cleaning-stack .stack-panel:nth-child(even) { justify-items: center; }
+.home-works-stack .stack-panel {
+  min-height: 100svh;
+  align-items: center;
+  padding-inline: clamp(18px, 3.5vw, 54px);
+}
+.cleaning-stack .stack-panel:nth-child(even),
+.home-works-stack .stack-panel:nth-child(even) { justify-items: center; }
 .cleaning-stack .stack-panel__body {
   display: grid;
   grid-template-columns: minmax(220px, 0.42fr) minmax(0, 1fr);
@@ -330,25 +339,41 @@ h3 { font-family: Georgia, "Times New Roman", serif; font-size: clamp(1.2rem, 1.
   background: rgba(255, 250, 241, 0.9);
   backdrop-filter: blur(10px);
 }
-.cleaning-stack .stack-panel__intro {
+.home-works-stack .stack-panel__body {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.42fr) minmax(0, 1fr);
+  gap: clamp(28px, 5vw, 72px);
+  width: min(1420px, calc(100vw - clamp(36px, 7vw, 108px)));
+  min-height: min(520px, calc(100svh - 168px));
+  align-content: center;
+  padding: clamp(30px, 5.2vw, 74px);
+  background: rgba(255, 250, 241, 0.9);
+  backdrop-filter: blur(10px);
+}
+.cleaning-stack .stack-panel__intro,
+.home-works-stack .stack-panel__intro {
   display: grid;
   align-content: start;
   gap: 18px;
 }
-.cleaning-stack .stack-panel__intro h2 {
+.cleaning-stack .stack-panel__intro h2,
+.home-works-stack .stack-panel__intro h2 {
   max-width: 520px;
 }
-.cleaning-stack .stack-panel__content {
+.cleaning-stack .stack-panel__content,
+.home-works-stack .stack-panel__content {
   display: grid;
   align-content: center;
   gap: 24px;
 }
-.cleaning-stack .stack-panel__content p {
+.cleaning-stack .stack-panel__content p,
+.home-works-stack .stack-panel__content p {
   max-width: 780px;
   color: rgba(23, 26, 22, 0.76);
   font-size: clamp(1.02rem, 1.32vw, 1.2rem);
 }
 .cleaning-stack .quiet-list,
+.home-works-stack .quiet-list,
 .process-mini-list {
   display: grid;
   gap: 12px;
@@ -356,7 +381,8 @@ h3 { font-family: Georgia, "Times New Roman", serif; font-size: clamp(1.2rem, 1.
   color: var(--muted);
   font-size: clamp(0.98rem, 1.16vw, 1.08rem);
 }
-.cleaning-stack .quiet-list {
+.cleaning-stack .quiet-list,
+.home-works-stack .quiet-list {
   padding-left: 18px;
 }
 .process-mini-list {
@@ -715,19 +741,23 @@ input:focus, textarea:focus, select:focus, button:focus-visible, a:focus-visible
   .stack-visual { position: sticky; height: 86svh; }
   .stack-panel-track { margin-top: -86svh; padding-top: 86svh; }
   .stack-panel { min-height: 86svh; }
-  .cleaning-stack { min-height: auto; }
-  .cleaning-stack .stack-panel {
+  .cleaning-stack,
+  .home-works-stack { min-height: auto; }
+  .cleaning-stack .stack-panel,
+  .home-works-stack .stack-panel {
     min-height: 92svh;
     padding-inline: 18px;
   }
-  .cleaning-stack .stack-panel__body {
+  .cleaning-stack .stack-panel__body,
+  .home-works-stack .stack-panel__body {
     grid-template-columns: 1fr;
     width: min(100%, 820px);
     min-height: auto;
     gap: 22px;
     padding: clamp(28px, 6vw, 46px);
   }
-  .cleaning-stack .stack-panel__content {
+  .cleaning-stack .stack-panel__content,
+  .home-works-stack .stack-panel__content {
     align-content: start;
     gap: 18px;
   }
@@ -758,23 +788,32 @@ input:focus, textarea:focus, select:focus, button:focus-visible, a:focus-visible
   .stack-panel { padding: 18px; }
   .stack-panel__body { padding: 24px 18px; }
   .cleaning-stack .stack-visual,
+  .home-works-stack .stack-visual,
   .cleaning-stack .stack-panel {
     height: auto;
     min-height: 88svh;
   }
-  .cleaning-stack .stack-panel {
+  .home-works-stack .stack-panel {
+    height: auto;
+    min-height: 88svh;
+  }
+  .cleaning-stack .stack-panel,
+  .home-works-stack .stack-panel {
     align-items: end;
     padding: 16px;
   }
-  .cleaning-stack .stack-panel__body {
+  .cleaning-stack .stack-panel__body,
+  .home-works-stack .stack-panel__body {
     width: 100%;
     padding: 24px 18px;
     gap: 18px;
   }
-  .cleaning-stack .stack-panel__intro {
+  .cleaning-stack .stack-panel__intro,
+  .home-works-stack .stack-panel__intro {
     gap: 12px;
   }
-  .cleaning-stack .stack-panel__content {
+  .cleaning-stack .stack-panel__content,
+  .home-works-stack .stack-panel__content {
     gap: 16px;
   }
   .process-mini-list {
